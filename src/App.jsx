@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./components/login";
 import Dashboard from "./components/Dashboard";
 import ItemMaster from "./components/Itemmaster";
-
 // ── Master pages ──
 import BrandMaster from "./Master/BrandMaster";
 import CategoryMaster from "./Master/CategoryMaster";
@@ -13,7 +12,7 @@ import SupplierMaster from "./Master/SupplierMaster";
 import UomMaster from "./Master/UomMaster";
 import LocationMaster from "./Master/LocationMaster";
 import CompanyMaster from "./Master/CompanyMaster";
-import CashierMaster from "./Master/CashierMaster";
+
 import SizeMaster from "./Master/SizeMaster";
 import ColorMaster from "./Master/ColorMaster";
 import ModelMaster from "./Master/ModelMaster";
@@ -25,7 +24,6 @@ import GroupMaster from "./Master/GroupMaster";
 import SalesManMaster from "./Master/SalesManMaster";
 import CRMPointsMaster from "./Master/CRMPointsMaster";
 import AccountsMaster from "./Master/AccountsMaster";
-
 function App() {
   return (
     <BrowserRouter>
@@ -43,7 +41,7 @@ function App() {
         <Route path="/uom-master" element={<UomMaster />} />
         <Route path="/location-master" element={<LocationMaster />} />
         <Route path="/company-master" element={<CompanyMaster />} />
-        <Route path="/cashier-master" element={<CashierMaster />} />
+      
         <Route path="/size-master" element={<SizeMaster />} />
         <Route path="/color-master" element={<ColorMaster />} />
         <Route path="/model-master" element={<ModelMaster />} />

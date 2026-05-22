@@ -143,8 +143,9 @@ const mkEmpty = () => {
 
 const vn = v => parseFloat(v) || 0;
 const ro = v => Math.round(v * 100) / 100;
-const f2 = v => parseFloat(vn(v).toFixed(2));
-// const f2 = v => vn(v).toFixed(2);
+//const f2 = v => parseFloat(vn(v).toFixed(2));
+ const f2 = v => vn(v).toFixed(2);
+
 // const f3 = v => vn(v).toFixed(3);
 const ns = v => (v == null ? "" : String(v));
 const zp = (n, d) => String(n).padStart(d, "0");
@@ -221,13 +222,29 @@ const F2K = ["MRP","PurchaseRate","GST","GSTAmt","TransPer","TransAmt","CESS","C
 const F3K = ["NetWeight"];
 const INK = ["ExpriyDays","ExpiryBeforeDays","NomsQty"];
 
+// function fmtRow(obj) {
+//   const r = { ...obj, _rid: obj._rid || genRowId(), _isNew: false, _dirty: false };
+//   F2K.forEach(k => { if (r[k] !== undefined) r[k] = parseFloat(vn(r[k]).toFixed(2)); });
+//   F3K.forEach(k => { if (r[k] !== undefined) r[k] = parseFloat(vn(r[k]).toFixed(3)); });
+//   INK.forEach(k => { if (r[k] !== undefined) r[k] = parseInt(vn(r[k])) || 0; });
+//   return r;
+// }
+// fmtRow-வை இப்படி மாற்றவும்
 function fmtRow(obj) {
   const r = { ...obj, _rid: obj._rid || genRowId(), _isNew: false, _dirty: false };
-  F2K.forEach(k => { if (r[k] !== undefined) r[k] = parseFloat(vn(r[k]).toFixed(2)); });
-  F3K.forEach(k => { if (r[k] !== undefined) r[k] = parseFloat(vn(r[k]).toFixed(3)); });
+  
+  // F2K கீகளில் உள்ள எண்களை எப்போதும் .00 என்று காட்ட
+  F2K.forEach(k => { 
+    if (r[k] !== undefined) {
+      r[k] = vn(r[k]).toFixed(2); // இது "10.00", "25.50" என சரியாக காட்டும்
+    }
+  });
+  
+  F3K.forEach(k => { if (r[k] !== undefined) r[k] = vn(r[k]).toFixed(3); });
   INK.forEach(k => { if (r[k] !== undefined) r[k] = parseInt(vn(r[k])) || 0; });
   return r;
 }
+
 
 const COMBO_NAV_MAP = {
   Brand: "/brand-master", Category: "/category-master", Department: "/department-master",
@@ -354,27 +371,7 @@ function EntryRowCell({ col, entryRow, setEntryRow, sess, onKeyDown, entryRefs, 
     );
   }
 
-  // if (cd.type === "f2" || cd.type === "f3") {
-  //   return (
-  //     <input
-  //       ref={registerRef}
-  //       type="number"
-  //       step={cd.type === "f3" ? "0.001" : "0.01"}
-  //       value={val === "" || val === undefined ? "" : val}
-  //       className="er-input er-num"
-  //       onChange={e => handleChange(cd.key, e.target.value)}
-  //       onKeyDown={e => onKeyDown(e, cd.key)}
-  //       onBlur={e => {
-  //         // Type பண்ணி முடிச்சதும் (cell-ஐ விட்டு வெளியே வரும்போது) .00 add ஆகும்
-  //         if (e.target.value !== "") {
-  //           const decimals = cd.type === "f3" ? 3 : 2;
-  //           handleChange(cd.key, parseFloat(e.target.value).toFixed(decimals));
-  //         }
-  //       }}
-  //       placeholder="0.00"
-  //     />
-  //   );
-  // }
+
 
   if (cd.type === "int") {
     return (
@@ -1675,26 +1672,7 @@ const resetEntryRowWithAutoGen = useCallback(async () => {
         />
       );
     }
-    // if (cd.type === "f2" || cd.type === "f3") {
-    //   return (
-    //     <input
-    //       ref={el => registerRef(rid, cd.key, el)}
-    //       type="number" step={cd.type === "f3" ? "0.001" : "0.01"}
-    //       value={val === "" || val === undefined ? "" : val}
-    //       className="im-grid-input" style={{ textAlign:"right" }}
-    //       onChange={e => handleCellChange(rid, cd.key, e.target.value)}
-    //       onKeyDown={e => handleCellKeyDown(e, rid, cd.key)}
-    //       onBlur={e => {
-    //         // Edit பண்ணி முடிச்சதும் .00 update ஆகும்
-    //         if (e.target.value !== "") {
-    //           const decimals = cd.type === "f3" ? 3 : 2;
-    //           handleCellChange(rid, cd.key, parseFloat(e.target.value).toFixed(decimals));
-    //         }
-    //       }}
-    //       onFocus={onFocus} placeholder="0.00"
-    //     />
-    //   );
-    // }
+
     if (cd.type === "int") {
       return (
         <input
