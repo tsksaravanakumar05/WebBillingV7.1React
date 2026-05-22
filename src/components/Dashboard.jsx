@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import "../dashboard.css";
-
+// comit test
 
 /* ═══════════════════════════════════════════════
    DATA LAYER  –  In production, replace with API hooks
 ═══════════════════════════════════════════════ */
 const SALE_METRICS = [
-  { id: "today",     label: "Today's Sales",    value: 4820,  prefix: "₹", delta: +12.4, icon: SunIcon },
+  { id: "today",     label: "Today's sssSales",    value: 4820,  prefix: "₹", delta: +12.4, icon: SunIcon },
   { id: "yesterday", label: "Yesterday",        value: 3960,  prefix: "₹", delta: -5.2,  icon: ClockIcon },
   { id: "weekly",    label: "This Week",        value: 28340, prefix: "₹", delta: +8.1,  icon: TrendIcon },
   { id: "monthly",   label: "This Month",       value: 13782, prefix: "₹", delta: +22.7, icon: CalIcon },
