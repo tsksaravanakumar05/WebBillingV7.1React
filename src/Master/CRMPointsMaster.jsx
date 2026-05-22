@@ -1,564 +1,814 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-//import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
 
-// ─── Request Controller (mirrors original class) ────────────────────────────
-class Request_Controller {
-  constructor(key) { this.key = key; this._running = false; }
-  Is_Request_Running() { return this._running; }
-  Start_Request()      { this._running = true; }
-  End_Request()        { this._running = false; }
+// ─── Helpers (identical to BrandMaster) ──────────────────────────────────────
+const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
+
+const authHeaders = () => ({
+  "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
+  "Userid":        localStorage.getItem("userid")     || "0",
+  "Profile":       localStorage.getItem("Profile")    || "Admin",
+  "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
+});
+
+const api = async (path, body = null, extraHeaders = {}, queryParams = null) => {
+  try {
+    let fullUrl = mkUrl(path);
+    if (queryParams && typeof queryParams === "object") {
+      const qs = new URLSearchParams(
+        Object.entries(queryParams)
+          .filter(([, v]) => v !== undefined && v !== null)
+          .map(([k, v]) => [k, String(v)])
+      ).toString();
+      if (qs) fullUrl += "?" + qs;
+    }
+    const res = await fetch(fullUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        ...authHeaders(),
+        ...extraHeaders,
+      },
+      body: body !== null ? JSON.stringify(body) : null,
+    });
+    if (res.status === 406) {
+      alert("Already Login Another User Please Login Again!!!");
+      window.location.href = "/Login";
+      return { ok: false };
+    }
+    if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
+    if (res.status === 500) {
+      const t = await res.text();
+      console.error(`500 on ${fullUrl}:`, t.slice(0, 500));
+      return { ok: false, message: "Server error 500 — see console" };
+    }
+    const text = await res.text();
+    if (!text.trim()) return { ok: false, message: "Empty response" };
+    try {
+      const j = JSON.parse(text);
+      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
+      if (j.Data1     !== undefined && j.data    === undefined) j.data    = j.Data1;
+      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
+      return j;
+    } catch { return { ok: false, message: text }; }
+  } catch (err) {
+    return { ok: false, _netErr: true, message: err.message };
+  }
+};
+
+const insertapi = async (path, body = null, extraHeaders = {}) => {
+  try {
+    const res = await fetch(mkUrl(path), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        ...authHeaders(),
+        ...extraHeaders,
+      },
+      body: body != null ? JSON.stringify(body) : null,
+    });
+    const text = await res.text();
+    return JSON.parse(text);
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+};
+
+const getStr   = (k) => localStorage.getItem(k) || "";
+const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+const uid = () => String(++_uidCounter);
+let _uidCounter = 0;
+
+// ─── Confirmation Modal (identical to BrandMaster) ───────────────────────────
+function ConfirmModal({ message, onYes, onNo }) {
+  const yesBtnRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => yesBtnRef.current?.focus(), 30);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); onNo(); }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onNo]);
+
+  return (
+    <div style={modalStyles.overlay}>
+      <div style={modalStyles.modal} role="dialog" aria-modal="true">
+        <div style={modalStyles.modalIcon}>?</div>
+        <p style={modalStyles.modalMsg}>{message}</p>
+        <div style={modalStyles.modalBtns}>
+          <button
+            ref={yesBtnRef}
+            style={{ ...modalStyles.modalBtn, ...modalStyles.yesBtn }}
+            onClick={onYes}
+          >
+            ✔ Yes
+          </button>
+          <button
+            style={{ ...modalStyles.modalBtn, ...modalStyles.noBtn }}
+            onClick={onNo}
+          >
+            ✘ No
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function MsgBoxYesNo(str) {
-  return new Promise((resolve) => {
-    resolve({ isConfirmed: window.confirm(str) });
-  });
-}
-function MsgBox(str) { window.alert(str); }
+const modalStyles = {
+  overlay: {
+    position: "fixed", inset: 0,
+    background: "rgba(10,20,40,0.55)",
+    backdropFilter: "blur(2px)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: 9999,
+  },
+  modal: {
+    background: "#fff",
+    borderRadius: "10px",
+    padding: "28px 32px 22px",
+    minWidth: "280px",
+    maxWidth: "360px",
+    textAlign: "center",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)",
+    border: "1px solid #e2e8f0",
+  },
+  modalIcon: {
+    width: "40px", height: "40px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+    color: "#fff",
+    fontSize: "20px", fontWeight: "700",
+    lineHeight: "40px",
+    margin: "0 auto 14px",
+  },
+  modalMsg: {
+    fontSize: "14px",
+    color: "#1e293b",
+    fontWeight: "500",
+    margin: "0 0 20px",
+    lineHeight: "1.5",
+  },
+  modalBtns: { display: "flex", gap: "10px", justifyContent: "center" },
+  modalBtn: {
+    padding: "7px 26px",
+    borderRadius: "6px",
+    border: "none",
+    fontSize: "13px",
+    fontWeight: "600",
+    cursor: "pointer",
+    outline: "none",
+  },
+  yesBtn: {
+    background: "linear-gradient(135deg, #22c55e, #16a34a)",
+    color: "#fff",
+    boxShadow: "0 2px 6px rgba(34,197,94,0.35)",
+  },
+  noBtn: {
+    background: "#f1f5f9",
+    color: "#475569",
+    border: "1px solid #cbd5e1",
+  },
+};
 
+// ─── useConfirm hook (identical to BrandMaster) ───────────────────────────────
+function useConfirm() {
+  const [conf, setConf] = useState(null);
+
+  const confirm = useCallback(
+    (message) => new Promise((resolve) => setConf({ message, resolve })),
+    []
+  );
+
+  const handleYes = useCallback(() => { conf?.resolve(true);  setConf(null); }, [conf]);
+  const handleNo  = useCallback(() => { conf?.resolve(false); setConf(null); }, [conf]);
+
+  const ConfirmUI = conf ? (
+    <ConfirmModal message={conf.message} onYes={handleYes} onNo={handleNo} />
+  ) : null;
+
+  return { confirm, ConfirmUI };
+}
+
+// ─── ValNum helper (mirrors jQuery ValNum) ────────────────────────────────────
 function ValNum(v) {
   const n = parseFloat(v);
   return isNaN(n) ? 0 : n;
 }
 
+// ─── NullToString helper ──────────────────────────────────────────────────────
 function NullToString(v) { return v == null ? "" : String(v); }
 
-// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
+// ─── Column order for Enter-key navigation ───────────────────────────────────
+// mirrors: Widthdatacolumns (pinned: false, hidden: false) column sequence
+const COL_ORDER = [
+  "CustomerCardTypeRefid",
+  "BillAmount",
+  "Points",
+  "Value",
+  "Active",
+];
+
+// ─── CRMPointsMaster ─────────────────────────────────────────────────────────
 export default function CRMPointsMaster() {
+  const navigate = useNavigate();
+  const { confirm, ConfirmUI } = useConfirm();
 
-  // ── Permissions ──
-  const [pageadd,    setPageadd]    = useState(0);
-  const [pageedit,   setPageedit]   = useState(0);
-  const [pagedelete, setPagedelete] = useState(0);
-  const [permReady,  setPermReady]  = useState(false);
+  // ── Session — mirrors CommonCompany / Comid resolution ──────────────────
+  const [sess] = useState(() => {
+    try {
+      const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
+      const Comid       = getStr("Comid")    || "1";
+      const MComid      = getStr("MComid")   || Comid;
+      const IdComList   = getStr("IdComList") || Comid;
+      const MirrorTable = getStr("MirrorTableOnline") || "0";
+      return {
+        Comid:        main0.CommonCompany ? MComid : Comid,
+        IdComList,
+        MirrorTable,
+        menudata:     (getLocal("menulist") || []).filter(o => o.PageName === "Customer"),
+      };
+    } catch {
+      return { Comid: "1", IdComList: "1", MirrorTable: "0", menudata: [] };
+    }
+  });
 
-  // ── Session ──
-  const [Comid,     setComid]     = useState(null);
-  const [IdComList, setIdComList] = useState(null);
-  const MirrorTable = useRef(window.MirrorTable ?? 0);
+  // ── Permissions ──────────────────────────────────────────────────────────
+  const perm = sess.menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 };
 
-  // ── Grid rows ──
+  // ── State ────────────────────────────────────────────────────────────────
   const [rows,        setRows]        = useState([]);
-  const [selectedUid, setSelectedUid] = useState(null);
-
-  // ── CustomerCardType combo list — mirrors customercardtypelist ──
   const [cardTypeList, setCardTypeList] = useState([]);
-
-  // ── ComboBox dropdown open state — mirrors CustomerCardTypeEditor.jqxComboBox('open') ──
+  const [selectedUid, setSelectedUid] = useState(null);
   const [openComboUid, setOpenComboUid] = useState(null);
+  const [loading,     setLoading]     = useState(false);
 
-  // ── UI ──
-  const [loading, setLoading] = useState(false);
-  const [msg,     setMsg]     = useState(null); // { type, text }
+  // ── Refs ─────────────────────────────────────────────────────────────────
+  const inputRefs = useRef({});  // `${uid}_${field}` → DOM element
+  const toastId   = useRef(0);
+  const [toasts, setToasts] = useState([]);
 
-  // ── Refs ──
-  const requestFlagRef = useRef(new Request_Controller("CRMPoints"));
-  const uidCounter     = useRef(0);
-  const inputRefs      = useRef({}); // `${uid}_${field}` → element
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Inject inline styles (matches provided CSS file — kept for self-contained demo)
-  // In production this file uses: import "src/master/MasterPage.css";
-  // ─────────────────────────────────────────────────────────────────────────
-  // (CSS is imported via the import statement above — no inline injection needed)
+  // ── Toast (mirrors NotificationSuccess / MsgBox inline) ─────────────────
+  const toast = useCallback((msg, isErr = false) => {
+    const id = ++toastId.current;
+    setToasts(p => [...p, { id, msg, isErr }]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 1. INIT — mirrors $(document).ready + methods.init()
+  // Permission / session guard — mirrors $(document).ready checks
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Session check
-    const menulist = JSON.parse(localStorage.getItem("menulist"));
-    if (!menulist) {
-      MsgBox("Session Close Please Login !!!.");
+    if (!getLocal("menulist")) {
+      alert("Session Close Please Login !!!.");
       window.location.href = "/Login/Index";
       return;
     }
-
-    // Permission check — mirrors filter obj.PageName == "Customer"
-    const menudata = menulist.filter(obj => obj.PageName === "Customer");
-    if (!menudata || menudata.length === 0) {
-      MsgBox("Page Access Permission Denied !!!.");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
+    if (!perm || perm.View === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => navigate("/Home"), 3000);
       return;
     }
-    if (menudata[0].View === 0) {
-      MsgBox("Page Access Permission Denied !!!.");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
-      return;
-    }
-
-    setPageadd(menudata[0].Add);
-    setPageedit(menudata[0].Edit);
-    setPagedelete(menudata[0].Delete);
-
-    // Company resolution — mirrors CommonCompany logic
-    let comid       = localStorage.getItem("Comid");
-    const idComList = localStorage.getItem("IdComList");
-    const MComid    = localStorage.getItem("MComid");
-    const MainSet   = JSON.parse(localStorage.getItem("Mainsetting"));
-    const CommonCompany = MainSet?.[0]?.CommonCompany;
-    if (CommonCompany === true) comid = MComid;
-
-    setComid(comid);
-    setIdComList(idComList);
-
-    // mirrors: sessionStorage.setItem("POPStatus", "OFF");
+    // mirrors: sessionStorage.setItem("POPStatus", "OFF")
     sessionStorage.setItem("POPStatus", "OFF");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    setPermReady(true);
+  // ─────────────────────────────────────────────────────────────────────────
+  // makeNewRow — mirrors addrow callback (Active default true)
+  // ─────────────────────────────────────────────────────────────────────────
+  const makeNewRow = useCallback(() => ({
+    _uid:                  uid(),
+    Id:                    null,
+    CustomerCardTypeRefid: null,
+    TypeName:              "",
+    BillAmount:            "0.00",
+    Points:                "0.00",
+    Value:                 "0.00",
+    Active:                true,
+    EditMode:              0,
+  }), []);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // focusField — mirrors gridCRMpoint.jqxGrid('selectcell') + focus
+  // ─────────────────────────────────────────────────────────────────────────
+  const focusField = useCallback((rowUid, field) => {
+    setTimeout(() => {
+      const el = inputRefs.current[`${rowUid}_${field}`];
+      if (el) { el.focus(); el.select?.(); }
+    }, 50);
   }, []);
 
-  useEffect(() => {
-    if (permReady && Comid !== null) {
-      loadModel(Comid, IdComList);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [permReady, Comid]);
-
   // ─────────────────────────────────────────────────────────────────────────
-  // 2. KEYBOARD SHORTCUTS — F1 Save, ESC Quit, F2 no-op
-  // ─────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const handler = async (e) => {
-      // F1
-      if (e.keyCode === 112) {
-        e.preventDefault();
-        await handleSave();
-      }
-      // F2
-      if (e.keyCode === 113) {
-        e.preventDefault();
-        // original does nothing
-      }
-      // ESC
-      if (e.keyCode === 27) {
-        e.preventDefault();
-        const reply = await MsgBoxYesNo("Do You Want To Quit Page?");
-        if (reply.isConfirmed) {
-          window.location.href = "/Home";
-        }
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, pageadd, pageedit, pagedelete, Comid, IdComList]);
-
-  // Close combobox dropdown on outside click
-  useEffect(() => {
-    const handler = (e) => {
-      if (openComboUid !== null) {
-        setOpenComboUid(null);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [openComboUid]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 3. LOAD CustomerCardType — mirrors loadCustomerCardType(false)
+  // loadCustomerCardType — mirrors loadCustomerCardType(false)
   // ─────────────────────────────────────────────────────────────────────────
   const loadCustomerCardType = useCallback(async () => {
-    try {
-      const res = await axios.post(
-        "/CustomerCardType/SelectCustomerCardType",
-        {},
-        { headers: { "Content-Type": "application/json; charset=utf-8" } }
-      );
-      if (res.data?.ok) {
-        return res.data.data ?? [];
-      }
-    } catch {
-      // non-fatal — return empty list
-    }
+    const res = await api(
+      "/CustomerCardType/SelectCustomerCardType",
+      {},
+      {},
+      { Comid: sess.Comid }
+    );
+    if (res.ok && Array.isArray(res.data)) return res.data;
+    if (res.ok && Array.isArray(res.Data1)) return res.Data1;
     return [];
-  }, []);
+  }, [sess.Comid]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 4. LOAD DATA — mirrors methods.loadModel()
+  // loadData — mirrors methods.loadModel()
   // ─────────────────────────────────────────────────────────────────────────
-  const loadModel = useCallback(async (comid, idComList) => {
+  // const loadData = useCallback(async () => {
+  //   setLoading(true);
+
+  //   // mirrors: customercardtypelist = loadCustomerCardType(false)
+  //   const cardTypes = await loadCustomerCardType();
+  //   setCardTypeList(cardTypes);
+
+  //   const res = await api(
+  //     `/CRMPoints/SelectCRMPoints?Comid=${sess.Comid}`,
+  //     null,
+  //     {}
+  //   );
+
+  //   setLoading(false);
+
+  //   if (res._http404) { toast("❌ 404 — /CRMPoints/SelectCRMPoints not found", true); return; }
+  //   if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); return; }
+
+  //   if (res.ok === true) {
+  //     const rawList = Array.isArray(res.data)  ? res.data
+  //                   : Array.isArray(res.Data1) ? res.Data1
+  //                   : [];
+
+  //     // mirrors forEach parseFloat toFixed(2) for Value, Points, BillAmount
+  //     const loaded = rawList.map(obj => ({
+  //       _uid:                  uid(),
+  //       Id:                    obj.Id,
+  //       CustomerCardTypeRefid: obj.CustomerCardTypeRefid ?? null,
+  //       TypeName:              obj.TypeName ?? "",
+  //       BillAmount:            parseFloat(obj.BillAmount ?? 0).toFixed(2),
+  //       Points:                parseFloat(obj.Points    ?? 0).toFixed(2),
+  //       Value:                 parseFloat(obj.Value     ?? 0).toFixed(2),
+  //       Active:                obj.Active === true || obj.Active === 1,
+  //       EditMode:              0,
+  //     }));
+
+  //     // mirrors: addrow — blank new row appended
+  //     const blankRow = makeNewRow();
+  //     const all = [...loaded, blankRow];
+  //     setRows(all);
+  //     setSelectedUid(blankRow._uid);
+
+  //     // mirrors: gridCRMpoint.jqxGrid('selectcell', rowscount - 1, grdCustomerCardTypeId)
+  //     focusField(blankRow._uid, "CustomerCardTypeRefid");
+
+  //     // mirrors: POPValue prefill
+  //     const popVal = sessionStorage.getItem("POPValue");
+  //     if (popVal && popVal !== "") {
+  //       setRows(prev => {
+  //         const next = [...prev];
+  //         const lastIdx = next.length - 1;
+  //         if (lastIdx >= 0) {
+  //           next[lastIdx] = {
+  //             ...next[lastIdx],
+  //             CustomerCardTypeRefid: Number(popVal),
+  //             EditMode: 1,
+  //           };
+  //         }
+  //         return next;
+  //       });
+  //     }
+  //   } else {
+  //     toast(`❌ ${res.message || "Load failed"}`, true);
+  //   }
+  // }, [sess.Comid, loadCustomerCardType, makeNewRow, focusField, toast]);
+  const loadData = useCallback(async () => {
     setLoading(true);
-    setMsg(null);
+  
     try {
-      // mirrors: customercardtypelist = loadCustomerCardType(false);
+      // Load customer card types
       const cardTypes = await loadCustomerCardType();
       setCardTypeList(cardTypes);
-
-      const res  = await axios.post(
-        "/CRMPoints/SelectCRMPoints",
-        { Comid: comid },
-        { headers: { "Content-Type": "application/json; charset=utf-8" } }
+  
+      // IMPORTANT FIX
+      // Send Comid in query string
+      const res = await api(
+        `/CRMPoints/SelectCRMPoints?Comid=${sess.Comid}`,
+        null,
+        {}
       );
-      const data = res.data;
-
-      if (data.ok === true) {
-        const objlist = data.data;
-
-        // mirrors forEach: parseFloat toFixed(2) for Value, Points, BillAmount
-        const loaded = objlist.map(obj => ({
-          uid:                   ++uidCounter.current,
-          Id:                    obj.Id,
-          CustomerCardTypeRefid: obj.CustomerCardTypeRefid ?? null,
-          TypeName:              obj.TypeName ?? "",
-          BillAmount:            parseFloat(obj.BillAmount ?? 0).toFixed(2),
-          Points:                parseFloat(obj.Points    ?? 0).toFixed(2),
-          Value:                 parseFloat(obj.Value     ?? 0).toFixed(2),
-          Active:                obj.Active,
-          EditMode:              0,
+  
+      setLoading(false);
+  
+      if (res._http404) {
+        toast("❌ /CRMPoints/SelectCRMPoints not found", true);
+        return;
+      }
+  
+      if (res._netErr) {
+        toast(`❌ Network Error: ${res.message}`, true);
+        return;
+      }
+  
+      // Backend returns ResponseViewModel
+      if (res.IsSuccess === true || res.ok === true) {
+  
+        const rawList =
+          Array.isArray(res.Data1) ? res.Data1 :
+          Array.isArray(res.data)  ? res.data  :
+          [];
+  
+        const loaded = rawList.map((obj) => ({
+          _uid: uid(),
+  
+          Id: obj.Id,
+  
+          CustomerCardTypeRefid:
+            obj.CustomerCardTypeRefid ?? null,
+  
+          TypeName:
+            obj.TypeName ?? "",
+  
+          BillAmount:
+            Number(obj.BillAmount ?? 0).toFixed(2),
+  
+          Points:
+            Number(obj.Points ?? 0).toFixed(2),
+  
+          Value:
+            Number(obj.Value ?? 0).toFixed(2),
+  
+          Active:
+            obj.Active === true ||
+            obj.Active === 1,
+  
+          EditMode: 0,
         }));
-
-        // addrow — blank new row at end
-        const newRow = makeNewRow();
-        const all = [...loaded, newRow];
-        setRows(all);
-
-        // POPValue prefill — mirrors setcellvalue for CustomerCardTypeRefid
+  
+        // Add blank row
+        const blankRow = makeNewRow();
+  
+        const allRows = [...loaded, blankRow];
+  
+        setRows(allRows);
+  
+        setSelectedUid(blankRow._uid);
+  
+        // Focus first field
+        focusField(blankRow._uid, "CustomerCardTypeRefid");
+  
+        // POPValue prefill
         const popVal = sessionStorage.getItem("POPValue");
+  
         if (popVal && popVal !== "") {
-          setRows(prev => {
+  
+          setRows((prev) => {
             const next = [...prev];
-            // mirrors: rowscount.length - 1 (original bug preserved: rowscount is a number not array,
-            // so rowscount.length is undefined → index -1 → no-op; we mirror with last row index)
+  
             const lastIdx = next.length - 1;
+  
             if (lastIdx >= 0) {
-              next[lastIdx] = { ...next[lastIdx], CustomerCardTypeRefid: Number(popVal), EditMode: 1 };
+              next[lastIdx] = {
+                ...next[lastIdx],
+                CustomerCardTypeRefid: Number(popVal),
+                EditMode: 1,
+              };
             }
+  
             return next;
           });
         }
-
-        setTimeout(() => focusField(newRow.uid, "CustomerCardTypeRefid"), 80);
+  
       } else {
-        MsgBox(data.message);
+        toast(`❌ ${res.Message || res.message || "Load failed"}`, true);
       }
+  
     } catch (err) {
-      MsgBox("Network error loading CRM points.");
-    } finally {
+  
       setLoading(false);
+  
+      console.error(err);
+  
+      toast("❌ Unexpected error while loading CRM Points", true);
     }
-  }, [loadCustomerCardType]);
+  
+  }, [
+    sess.Comid,
+    loadCustomerCardType,
+    makeNewRow,
+    focusField,
+    toast,
+  ]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 5. HELPERS
+  // updateCell — mirrors updaterow: newdata.EditMode = 1
   // ─────────────────────────────────────────────────────────────────────────
-  function makeNewRow() {
-    return {
-      uid:                   ++uidCounter.current,
-      Id:                    null,
-      CustomerCardTypeRefid: null,
-      TypeName:              "",
-      BillAmount:            "0.00",
-      Points:                "0.00",
-      Value:                 "0.00",
-      Active:                true,
-      EditMode:              0,
-    };
-  }
+  const updateCell = useCallback((rowUid, field, value) => {
+    setRows(prev =>
+      prev.map(r => r._uid === rowUid ? { ...r, [field]: value, EditMode: 1 } : r)
+    );
+  }, []);
 
-  function focusField(uid, field) {
-    const el = inputRefs.current[`${uid}_${field}`];
-    if (el) { el.focus(); el.select?.(); }
-  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // addRow — mirrors Addrowfunc()
+  // ─────────────────────────────────────────────────────────────────────────
+  const addRow = useCallback(() => {
+    const newRow = makeNewRow();
+    setRows(prev => [...prev, newRow]);
+    setSelectedUid(newRow._uid);
+    focusField(newRow._uid, "CustomerCardTypeRefid");
+  }, [makeNewRow, focusField]);
 
-  // mirrors gridemptycheck()
-  function gridemptycheck(currentRows) {
+  // ─────────────────────────────────────────────────────────────────────────
+  // gridemptycheck — mirrors methods.gridemptycheck()
+  // ─────────────────────────────────────────────────────────────────────────
+  const gridemptycheck = useCallback((currentRows) => {
     let cleaned = [...currentRows];
 
-    // Remove last empty row if more than one
+    // Remove last row if empty and more than one row
     if (cleaned.length > 1) {
       const last = cleaned[cleaned.length - 1];
       if (last.CustomerCardTypeRefid == null || last.CustomerCardTypeRefid === "") {
         cleaned = cleaned.slice(0, -1);
-        setRows(cleaned);
       }
     }
 
     for (let i = 0; i < cleaned.length; i++) {
       if (cleaned[i].EditMode === 1) {
         if (cleaned[i].CustomerCardTypeRefid == null || cleaned[i].CustomerCardTypeRefid === "") {
-          MsgBox("Enter All Cardtype in the Grid !!!.");
-          setTimeout(() => focusField(cleaned[i].uid, "CustomerCardTypeRefid"), 30);
-          return { ok: false, rows: cleaned };
+          toast("❌ Enter All Cardtype in the Grid !!!.", true);
+          setSelectedUid(cleaned[i]._uid);
+          focusField(cleaned[i]._uid, "CustomerCardTypeRefid");
+          return { ok: false, cleaned };
         }
       }
     }
-    return { ok: true, rows: cleaned };
-  }
+    return { ok: true, cleaned };
+  }, [toast, focusField]);
 
-  // mirrors Addrowfunc()
-  function addRowFunc(currentRows) {
-    const newRow = makeNewRow();
-    const next = [...currentRows, newRow];
-    setRows(next);
-    setTimeout(() => focusField(newRow.uid, "CustomerCardTypeRefid"), 30);
-    return next;
-  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // moveToNextCell — mirrors GirdNextCell
+  // ─────────────────────────────────────────────────────────────────────────
+  const moveToNextCell = useCallback((rowUid, field, currentRows) => {
+    const colIdx = COL_ORDER.indexOf(field);
+    const rowIdx = currentRows.findIndex(r => r._uid === rowUid);
 
-  // Column order for GirdNextCell navigation — mirrors Widthdatacolumns (pinned: false, hidden: false)
-  const colOrder = [
-    "CustomerCardTypeRefid",
-    "BillAmount",
-    "Points",
-    "Value",
-    "Active",
-  ];
-
-  function moveToNextCell(uid, field, currentRows) {
-    const idx    = colOrder.indexOf(field);
-    const rowIdx = currentRows.findIndex(r => r.uid === uid);
-
-    if (idx !== -1 && idx < colOrder.length - 1) {
-      focusField(uid, colOrder[idx + 1]);
+    if (colIdx !== -1 && colIdx < COL_ORDER.length - 1) {
+      // next column in same row
+      focusField(rowUid, COL_ORDER[colIdx + 1]);
     } else {
-      // last col → next row or add new row
-      if (rowIdx < currentRows.length - 1) {
-        focusField(currentRows[rowIdx + 1].uid, "CustomerCardTypeRefid");
+      // last column — go to next row or add new row
+      if (rowIdx >= 0 && rowIdx < currentRows.length - 1) {
+        focusField(currentRows[rowIdx + 1]._uid, "CustomerCardTypeRefid");
       } else {
-        addRowFunc(currentRows);
+        const newRow = makeNewRow();
+        setRows(prev => [...prev, newRow]);
+        setSelectedUid(newRow._uid);
+        focusField(newRow._uid, "CustomerCardTypeRefid");
       }
     }
-  }
+  }, [focusField, makeNewRow]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 6. SAVE — mirrors F1 / InsertCRMPoints flow
+  // handleSave — mirrors F1 / InsertCRMPoints flow
   // ─────────────────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
-    // mirrors: gridemptycheck()
-    const checkResult = gridemptycheck(rows);
-    if (!checkResult.ok) return;
-    const cleanRows = checkResult.rows;
+    const { ok, cleaned } = gridemptycheck(rows);
+    if (!ok) return;
+    setRows(cleaned);
 
-    // mirrors: filter obj.EditMode == 1  (no pageadd/pageedit split in original CRMPoints)
-    const getdata = cleanRows.filter(obj => obj.EditMode === 1);
+    // mirrors: filter obj.EditMode == 1
+    const getdata = cleaned.filter(obj => obj.EditMode === 1);
     if (getdata.length === 0) {
-      MsgBox("No Data Modified,Cannot Update !!!.");
+      toast("⚠️ No Data Modified, Cannot Update !!!", true);
       return;
     }
 
-    // mirrors: CheckDuplicate commented out in original — not called
-
-    if (requestFlagRef.current.Is_Request_Running()) return;
-    requestFlagRef.current.Start_Request();
-
-    const reply = await MsgBoxYesNo("Do you Want to Save the CRM point Details?");
-    if (reply.isConfirmed) {
-      setLoading(true);
-      try {
-        const res  = await axios.post(
-          "/CRMPoints/InsertCRMPoints",
-          getdata,
-          {
-            headers: {
-              "Content-Type": "application/json; charset=utf-8",
-              "Comid":        Comid,
-              "MirrorTable":  MirrorTable.current,
-              "IdComList":    IdComList,
-            },
-          }
-        );
-        const data = res.data;
-        if (data.ok) {
-          setMsg({ type: "ok", text: data.message });
-          // mirrors: methods.loadModel()
-          await loadModel(Comid, IdComList);
-          // POP block is commented out in original — preserved as no-op
-        } else {
-          MsgBox(data.message);
-        }
-      } catch (err) {
-        MsgBox("Network error saving CRM points.");
-      } finally {
-        setLoading(false);
-        requestFlagRef.current.End_Request();
-      }
-    } else {
-      // Cancel → Addrowfunc
-      addRowFunc(rows);
-      requestFlagRef.current.End_Request();
+    const proceed = await confirm("Do you Want to Save the CRM point Details?");
+    if (!proceed) {
+      addRow();
+      return;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, Comid, IdComList, loadModel]);
+
+    setLoading(true);
+
+    // Build payload — preserve exact API parameter names
+    const payload = getdata.map(r => ({
+      Id:                    r.Id ?? null,
+      CustomerCardTypeRefid: r.CustomerCardTypeRefid,
+      BillAmount:            r.BillAmount,
+      Points:                r.Points,
+      Value:                 r.Value,
+      Active:                r.Active === true ? 1 : 0,
+      EditMode:              r.EditMode,
+    }));
+
+    const res = await insertapi(
+      "/CRMPoints/InsertCRMPoints",
+      payload,
+      {
+        "Comid":       String(sess.Comid),
+        "MirrorTable": String(sess.MirrorTable),
+        "IdComList":   String(sess.IdComList),
+      }
+    );
+
+    setLoading(false);
+
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+
+    if (res.ok || res.IsSuccess) {
+      toast("✅ " + (res.message || res.Message || "Saved successfully!"));
+      await loadData();
+    } else {
+      toast(`❌ ${res.message || res.Message || "Save failed"}`, true);
+    }
+  }, [rows, sess, gridemptycheck, confirm, addRow, loadData, toast]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 7. DELETE ROW — mirrors keydown Delete (keyCode 46)
+  // deleteRow — mirrors keydown Delete (keyCode 46) flow
   // ─────────────────────────────────────────────────────────────────────────
-  const handleDeleteRow = useCallback(async (uid) => {
-    const row = rows.find(r => r.uid === uid);
+  const deleteRow = useCallback(async (rowUid) => {
+    const row = rows.find(r => r._uid === rowUid);
     if (!row) return;
 
     if (row.Id != null && row.Id !== 0) {
-      // Persisted row — mirrors: pagedelete check NOT present in original CRMPoints delete block
+      // Persisted row — confirm + API delete
       const cardLabel = row.TypeName || NullToString(row.CustomerCardTypeRefid);
-      const str   = `Wish to Delete the Record ${cardLabel}?`;
-      const reply = await MsgBoxYesNo(str);
-      if (reply.isConfirmed) {
-        setLoading(true);
-        try {
-          const res  = await axios.post(
-            "/CRMPoints/DeleteCRMPoints",
-            { Id: row.Id, Comid: Comid, MirrorTable: MirrorTable.current },
-            {
-              headers: {
-                "Content-Type": "application/json; charset=utf-8",
-                "IdComList":    IdComList,
-              },
-            }
-          );
-          const data = res.data;
-          if (data.ok) {
-            setMsg({ type: "ok", text: data.message });
-            setRows(prev => {
-              const next = prev.filter(r => r.uid !== uid);
-              setTimeout(() => {
-                if (next.length > 0) focusField(next[next.length - 1].uid, "CustomerCardTypeRefid");
-              }, 50);
-              return next;
-            });
-          } else {
-            MsgBox(data.message);
-          }
-        } catch {
-          MsgBox("Network error deleting CRM point.");
-        } finally {
-          setLoading(false);
-        }
+      const ok = await confirm(`Wish to Delete the Record ${cardLabel}?`);
+      if (!ok) return;
+
+      setLoading(true);
+
+      const res = await api(
+        `/CRMPoints/DeleteCRMPoints?Id=${row.Id}&Comid=${sess.Comid}&MirrorTable=${sess.MirrorTable}`,
+        null,
+        { "IdComList": String(sess.IdComList) }
+      );
+
+      setLoading(false);
+
+      if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+
+      if (res.ok) {
+        toast("✅ " + (res.message || "Deleted"));
+        setRows(prev => {
+          const next = prev.filter(r => r._uid !== rowUid);
+          // mirrors: selectcell rowscount - 1, focus
+          const lastRow = next[next.length - 1];
+          if (lastRow) focusField(lastRow._uid, "CustomerCardTypeRefid");
+          return next;
+        });
+      } else {
+        toast(`❌ ${res.message || "Delete failed"}`, true);
       }
     } else {
-      // Unsaved row — mirrors: DeleteRow(..., 1) — remove from state only
+      // Unsaved row — mirrors DeleteRow(..., 1): remove from state only
       setRows(prev => {
-        const next = prev.filter(r => r.uid !== uid);
-        setTimeout(() => {
-          if (next.length > 0) focusField(next[next.length - 1].uid, "CustomerCardTypeRefid");
-        }, 30);
+        const next = prev.filter(r => r._uid !== rowUid);
+        const lastRow = next[next.length - 1];
+        if (lastRow) focusField(lastRow._uid, "CustomerCardTypeRefid");
         return next;
       });
     }
-  }, [rows, Comid, IdComList]);
+  }, [rows, sess, confirm, focusField, toast]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 8. CELL CHANGE HANDLERS
+  // Numeric input validation — mirrors GridKeyPressValidation float, 2 decimals
   // ─────────────────────────────────────────────────────────────────────────
-  function updateRow(uid, field, value) {
-    setRows(prev =>
-      prev.map(r => r.uid === uid ? { ...r, [field]: value, EditMode: 1 } : r)
-    );
-  }
+  const validateFloat = (value) =>
+    value === "" || (/^-?\d{0,15}(\.\d{0,2})?$/.test(value) && value.length <= 18);
 
-  // mirrors keypress GridKeyPressValidation for float columns
-  function validateFloat(value) {
-    // max 18 chars, float with up to 2 decimal places
-    return /^-?\d{0,15}(\.\d{0,2})?$/.test(value) && value.length <= 18;
-  }
-
-  function handleNumericChange(uid, field, value) {
-    if (value !== "" && !validateFloat(value)) return;
-    updateRow(uid, field, value);
-  }
+  const handleNumericChange = useCallback((rowUid, field, value) => {
+    if (!validateFloat(value)) return;
+    updateCell(rowUid, field, value);
+  }, [updateCell]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 9. COMBOBOX (CustomerCardType) — mirrors createeditor + cellbeginedit
+  // ComboBox open/select — mirrors cellbeginedit setTimeout open + Enter select
   // ─────────────────────────────────────────────────────────────────────────
-  function handleCardTypeSelect(uid, cardType) {
+  const openCombo = useCallback((rowUid) => {
+    // mirrors: setTimeout CustomerCardTypeEditor.jqxComboBox('open'), 250
+    setTimeout(() => setOpenComboUid(rowUid), 250);
+  }, []);
+
+  const handleCardTypeSelect = useCallback((rowUid, cardType) => {
+    // Update the row
     setRows(prev =>
       prev.map(r =>
-        r.uid === uid
+        r._uid === rowUid
           ? { ...r, CustomerCardTypeRefid: cardType.Id, TypeName: cardType.TypeName, EditMode: 1 }
           : r
       )
     );
     setOpenComboUid(null);
-    // mirrors: GirdNextCell after CustomerCardTypeRefid selection
+    // mirrors GirdNextCell after combo selection — use setTimeout for updated rows
     setTimeout(() => {
-      const current = rows.map(r =>
-        r.uid === uid
-          ? { ...r, CustomerCardTypeRefid: cardType.Id, TypeName: cardType.TypeName, EditMode: 1 }
-          : r
-      );
-      moveToNextCell(uid, "CustomerCardTypeRefid", current);
+      setRows(current => {
+        moveToNextCell(rowUid, "CustomerCardTypeRefid", current);
+        return current;
+      });
     }, 30);
-  }
+  }, [moveToNextCell]);
 
-  // mirrors cellbeginedit → setTimeout CustomerCardTypeEditor.jqxComboBox('open'), 250
-  function openCombo(uid) {
-    setTimeout(() => setOpenComboUid(uid), 250);
-  }
+  // Close combo on outside click
+  useEffect(() => {
+    const handler = () => setOpenComboUid(null);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 10. ENTER KEY NAVIGATION — mirrors gridCRMpoint keydown Enter
+  // handleKeyDown — mirrors gridCRMpoint keydown Enter + Delete
   // ─────────────────────────────────────────────────────────────────────────
-  function handleKeyDown(e, uid, field) {
-    // Backspace triggers keypress — onChange naturally handles validation
+  const handleKeyDown = useCallback((e, rowUid, field) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const row   = rows.find(r => r.uid === uid);
+      const row   = rows.find(r => r._uid === rowUid);
       const value = row?.[field];
 
       if (field === "CustomerCardTypeRefid") {
         if (value == null || value === "") {
           // mirrors: setTimeout CustomerCardTypeEditor.jqxComboBox('open'), 250
-          openCombo(uid);
+          openCombo(rowUid);
           return;
         }
-        moveToNextCell(uid, field, rows);
-      } else if (
-        field === "BillAmount" ||
-        field === "Points"     ||
-        field === "Value"
-      ) {
-        // mirrors: setcellvalue with ValNum(...).toFixed(2)
+        moveToNextCell(rowUid, field, rows);
+      } else if (field === "BillAmount" || field === "Points" || field === "Value") {
+        // mirrors: setcellvalue ValNum(...).toFixed(2)
         const fixed = ValNum(value).toFixed(2);
-        updateRow(uid, field, fixed);
-        moveToNextCell(uid, field, rows);
+        updateCell(rowUid, field, fixed);
+        // Use timeout so updated value is in place before move
+        setTimeout(() => moveToNextCell(rowUid, field, rows), 0);
       } else {
-        moveToNextCell(uid, field, rows);
+        moveToNextCell(rowUid, field, rows);
       }
     }
 
-    // Shift+Delete → delete row
-    if (e.key === "Delete" && e.shiftKey) {
-      handleDeleteRow(uid);
+    // Ctrl+Delete or Shift+Delete → delete row
+    if (e.key === "Delete" && (e.ctrlKey || e.shiftKey)) {
+      e.preventDefault();
+      deleteRow(rowUid);
     }
-  }
+  }, [rows, openCombo, moveToNextCell, updateCell, deleteRow]);
 
-  // Combobox editor keydown — mirrors editor.bind('keydown') Enter handler
-  function handleComboKeyDown(e, uid) {
+  // Combo input keydown — mirrors editor.bind('keydown')
+  const handleComboKeyDown = useCallback((e, rowUid) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const row = rows.find(r => r.uid === uid);
-      // If nothing selected and value is non-empty → no-op (mirrors index == -1 && value != "")
-      if (!row?.CustomerCardTypeRefid) {
-        return;
-      }
+      const row = rows.find(r => r._uid === rowUid);
+      if (!row?.CustomerCardTypeRefid) return; // mirrors: index == -1 → no-op
       setOpenComboUid(null);
-      moveToNextCell(uid, "CustomerCardTypeRefid", rows);
+      moveToNextCell(rowUid, "CustomerCardTypeRefid", rows);
     }
     if (e.key === "Escape") {
+      e.preventDefault();
       setOpenComboUid(null);
     }
-  }
+  }, [rows, moveToNextCell]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 11. ADD ROW BUTTON — mirrors Addrowfunc()
+  // ESC — mirrors $(document).on('keydown') Esc handler
   // ─────────────────────────────────────────────────────────────────────────
-  function handleAddRow() {
-    addRowFunc(rows);
-  }
+  const handleEsc = useCallback(async () => {
+    const ok = await confirm("Do You Want To Quit Page?");
+    if (ok) navigate(-1);
+  }, [confirm, navigate]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 12. RENDER
+  // Global keyboard shortcuts — F1 Save, Esc Quit, F2 no-op
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = async (e) => {
+      if (e.keyCode === 112) { e.preventDefault(); await handleSave(); } // F1
+      if (e.keyCode === 113) { e.preventDefault(); }                      // F2 — no-op
+      if (e.keyCode === 27)  { e.preventDefault(); await handleEsc(); }  // Esc
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleSave, handleEsc]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
+      {/* Confirm modal */}
+      {ConfirmUI}
 
-      {/* Loader — mirrors #jqxLoader */}
+      {/* Loader overlay */}
       {loading && (
         <div className="mp-loader-ov">
           <div className="mp-ldr-box">
             <div className="mp-spin" />
-            <div className="mp-ldr-msg">Loading...</div>
+            <div className="mp-ldr-msg">Processing…</div>
           </div>
         </div>
       )}
@@ -569,12 +819,10 @@ export default function CRMPointsMaster() {
           <div className="mp-icon">C</div>
           <div>
             <div className="mp-title">CRM Points Master</div>
-            <div className="mp-sub">Customer</div>
+            <div className="mp-sub">Co: {sess.Comid} — Manage CRM point records</div>
           </div>
         </div>
-        <button className="mp-back" onClick={() => { window.location.href = "/Home"; }}>
-          ← Home
-        </button>
+        <button className="mp-back" onClick={handleEsc}>← Back</button>
       </div>
 
       {/* Body */}
@@ -582,17 +830,15 @@ export default function CRMPointsMaster() {
 
         {/* Toolbar */}
         <div className="mp-toolbar">
-          <button
-            className="mp-btn sv"
-            onClick={handleSave}
-            title="F1 – Save"
-          >
-            💾 Save (F1)
+          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>
+            💾 F1 Save
           </button>
-          <button className="mp-btn nw" onClick={handleAddRow} title="Add new row">
-            ＋ New Row
+          <button className="mp-btn nw" onClick={addRow} disabled={loading}>
+            ➕ Add Row
           </button>
-          {msg && <span className={`mp-msg ${msg.type}`}>{msg.text}</span>}
+          <button className="mp-btn dl" onClick={handleEsc}>
+            ✕ Esc Cancel
+          </button>
         </div>
 
         {/* Grid */}
@@ -602,55 +848,54 @@ export default function CRMPointsMaster() {
               <tr>
                 <th style={{ width: 50 }}>S.No</th>
                 <th style={{ width: 200 }}>CustomerCardType</th>
-                <th style={{ width: 120 }}>Bill Amount</th>
-                <th style={{ width: 120 }}>Points</th>
-                <th style={{ width: 120 }}>Value</th>
-                <th style={{ width: 90 }}>Active</th>
-                <th style={{ width: 50 }}>Del</th>
+                <th style={{ width: 120, textAlign: "right" }}>Bill Amount</th>
+                <th style={{ width: 120, textAlign: "right" }}>Points</th>
+                <th style={{ width: 120, textAlign: "right" }}>Value</th>
+                <th style={{ width: 90,  textAlign: "center" }}>Active</th>
+                <th style={{ width: 50 }}></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row, idx) => (
                 <tr
-                  key={row.uid}
+                  key={row._uid}
                   className={[
-                    selectedUid === row.uid ? "sel" : "",
-                    row.Active === false || row.Active === 0 ? "inact" : "",
-                    row.EditMode === 1 ? "mod" : "",
+                    selectedUid === row._uid ? "sel"  : "",
+                    !row.Active              ? "inact": "",
+                    row.EditMode === 1       ? "mod"  : "",
                   ].filter(Boolean).join(" ")}
-                  onClick={() => setSelectedUid(row.uid)}
+                  onClick={() => { setSelectedUid(row._uid); }}
                 >
                   {/* S.No */}
                   <td className="sno">{idx + 1}</td>
 
                   {/* CustomerCardType — combobox column */}
                   <td style={{ position: "relative", overflow: "visible" }}>
-                    {/* mirrors: columntype: 'combobox' with displayfield TypeName */}
                     <input
-                      ref={el => { if (el) inputRefs.current[`${row.uid}_CustomerCardTypeRefid`] = el; }}
+                      ref={el => { if (el) inputRefs.current[`${row._uid}_CustomerCardTypeRefid`] = el; }}
                       className="mp-cell-input"
                       type="text"
                       readOnly
                       value={row.TypeName ?? ""}
-                      placeholder="Select type..."
+                      placeholder="Select type…"
                       onFocus={() => {
-                        setSelectedUid(row.uid);
-                        // mirrors cellbeginedit → open combo after 250ms
-                        openCombo(row.uid);
+                        setSelectedUid(row._uid);
+                        // mirrors cellbeginedit → open combo after 250 ms
+                        openCombo(row._uid);
                       }}
                       onKeyDown={e => {
-                        handleComboKeyDown(e, row.uid);
-                        handleKeyDown(e, row.uid, "CustomerCardTypeRefid");
+                        handleComboKeyDown(e, row._uid);
+                        handleKeyDown(e, row._uid, "CustomerCardTypeRefid");
                       }}
                       onClick={e => {
                         e.stopPropagation();
-                        setSelectedUid(row.uid);
-                        openCombo(row.uid);
+                        setSelectedUid(row._uid);
+                        openCombo(row._uid);
                       }}
                       style={{ cursor: "pointer" }}
                     />
                     {/* Dropdown — mirrors jqxComboBox source */}
-                    {openComboUid === row.uid && (
+                    {openComboUid === row._uid && (
                       <div
                         onMouseDown={e => e.stopPropagation()}
                         style={{
@@ -667,29 +912,32 @@ export default function CRMPointsMaster() {
                           boxShadow:  "0 4px 12px rgba(0,0,0,.15)",
                         }}
                       >
-                        {cardTypeList.length === 0 && (
+                        {cardTypeList.length === 0 ? (
                           <div style={{ padding: "6px 10px", fontSize: 11, color: "#aaa" }}>
                             No card types found
                           </div>
+                        ) : (
+                          cardTypeList.map(ct => (
+                            <div
+                              key={ct.Id}
+                              style={{
+                                padding:    "5px 10px",
+                                fontSize:   12,
+                                cursor:     "pointer",
+                                background: row.CustomerCardTypeRefid === ct.Id
+                                  ? "#fddfa0"
+                                  : "transparent",
+                                color: "#1a2e4a",
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = "#fef3e0"}
+                              onMouseLeave={e => e.currentTarget.style.background =
+                                row.CustomerCardTypeRefid === ct.Id ? "#fddfa0" : "transparent"}
+                              onMouseDown={() => handleCardTypeSelect(row._uid, ct)}
+                            >
+                              {ct.TypeName}
+                            </div>
+                          ))
                         )}
-                        {cardTypeList.map(ct => (
-                          <div
-                            key={ct.Id}
-                            style={{
-                              padding:    "5px 10px",
-                              fontSize:   12,
-                              cursor:     "pointer",
-                              background: row.CustomerCardTypeRefid === ct.Id ? "#fddfa0" : "transparent",
-                              color:      "#1a2e4a",
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = "#fef3e0"}
-                            onMouseLeave={e => e.currentTarget.style.background =
-                              row.CustomerCardTypeRefid === ct.Id ? "#fddfa0" : "transparent"}
-                            onMouseDown={() => handleCardTypeSelect(row.uid, ct)}
-                          >
-                            {ct.TypeName}
-                          </div>
-                        ))}
                       </div>
                     )}
                   </td>
@@ -697,13 +945,13 @@ export default function CRMPointsMaster() {
                   {/* Bill Amount */}
                   <td>
                     <input
-                      ref={el => { if (el) inputRefs.current[`${row.uid}_BillAmount`] = el; }}
+                      ref={el => { if (el) inputRefs.current[`${row._uid}_BillAmount`] = el; }}
                       className="mp-cell-input"
                       type="text"
                       value={row.BillAmount ?? ""}
-                      onChange={e => handleNumericChange(row.uid, "BillAmount", e.target.value)}
-                      onKeyDown={e => handleKeyDown(e, row.uid, "BillAmount")}
-                      onFocus={() => setSelectedUid(row.uid)}
+                      onChange={e => handleNumericChange(row._uid, "BillAmount", e.target.value)}
+                      onKeyDown={e => handleKeyDown(e, row._uid, "BillAmount")}
+                      onFocus={() => setSelectedUid(row._uid)}
                       style={{ textAlign: "right" }}
                     />
                   </td>
@@ -711,13 +959,13 @@ export default function CRMPointsMaster() {
                   {/* Points */}
                   <td>
                     <input
-                      ref={el => { if (el) inputRefs.current[`${row.uid}_Points`] = el; }}
+                      ref={el => { if (el) inputRefs.current[`${row._uid}_Points`] = el; }}
                       className="mp-cell-input"
                       type="text"
                       value={row.Points ?? ""}
-                      onChange={e => handleNumericChange(row.uid, "Points", e.target.value)}
-                      onKeyDown={e => handleKeyDown(e, row.uid, "Points")}
-                      onFocus={() => setSelectedUid(row.uid)}
+                      onChange={e => handleNumericChange(row._uid, "Points", e.target.value)}
+                      onKeyDown={e => handleKeyDown(e, row._uid, "Points")}
+                      onFocus={() => setSelectedUid(row._uid)}
                       style={{ textAlign: "right" }}
                     />
                   </td>
@@ -725,35 +973,39 @@ export default function CRMPointsMaster() {
                   {/* Value */}
                   <td>
                     <input
-                      ref={el => { if (el) inputRefs.current[`${row.uid}_Value`] = el; }}
+                      ref={el => { if (el) inputRefs.current[`${row._uid}_Value`] = el; }}
                       className="mp-cell-input"
                       type="text"
                       value={row.Value ?? ""}
-                      onChange={e => handleNumericChange(row.uid, "Value", e.target.value)}
-                      onKeyDown={e => handleKeyDown(e, row.uid, "Value")}
-                      onFocus={() => setSelectedUid(row.uid)}
+                      onChange={e => handleNumericChange(row._uid, "Value", e.target.value)}
+                      onKeyDown={e => handleKeyDown(e, row._uid, "Value")}
+                      onFocus={() => setSelectedUid(row._uid)}
                       style={{ textAlign: "right" }}
                     />
                   </td>
 
                   {/* Active — mirrors columntype: 'checkbox' */}
                   <td style={{ textAlign: "center" }}>
-                    <input
-                      ref={el => { if (el) inputRefs.current[`${row.uid}_Active`] = el; }}
-                      type="checkbox"
-                      checked={row.Active === true || row.Active === 1}
-                      onChange={e => updateRow(row.uid, "Active", e.target.checked)}
-                      onFocus={() => setSelectedUid(row.uid)}
-                      style={{ width: 16, height: 16, cursor: "pointer" }}
-                    />
+                    <select
+                      ref={el => { if (el) inputRefs.current[`${row._uid}_Active`] = el; }}
+                      className="mp-active-sel"
+                      value={row.Active ? "1" : "0"}
+                      onChange={e => updateCell(row._uid, "Active", e.target.value === "1")}
+                      onFocus={() => setSelectedUid(row._uid)}
+                      onKeyDown={e => handleKeyDown(e, row._uid, "Active")}
+                      title={row.Active ? "Active" : "Inactive"}
+                    >
+                      <option value="1">✓</option>
+                      <option value="0">✗</option>
+                    </select>
                   </td>
 
                   {/* Delete */}
-                  <td style={{ textAlign: "center" }}>
+                  <td>
                     <button
                       className="mp-del-btn"
+                      onClick={e => { e.stopPropagation(); deleteRow(row._uid); }}
                       title="Delete row"
-                      onClick={e => { e.stopPropagation(); handleDeleteRow(row.uid); }}
                     >
                       🗑
                     </button>
@@ -762,16 +1014,26 @@ export default function CRMPointsMaster() {
               ))}
             </tbody>
           </table>
+
+          {rows.length === 0 && !loading && (
+            <div className="mp-empty">No records. Press ➕ to add a CRM point.</div>
+          )}
         </div>
 
         {/* Hint bar */}
         <div className="mp-hint">
-          <kbd>F1</kbd> Save &nbsp;|&nbsp;
-          <kbd>Enter</kbd> Next Cell &nbsp;|&nbsp;
-          <kbd>Esc</kbd> Quit &nbsp;|&nbsp;
-          Click <strong>CustomerCardType</strong> cell to open combo
+          <kbd>Enter</kbd> next cell &nbsp;|&nbsp;
+          <kbd>Ctrl+Delete</kbd> delete row &nbsp;|&nbsp;
+          <kbd>F1</kbd> save &nbsp;|&nbsp;
+          <kbd>Esc</kbd> back
         </div>
+      </div>
 
+      {/* Toast notifications */}
+      <div className="toasts">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast${t.isErr ? " err" : ""}`}>{t.msg}</div>
+        ))}
       </div>
     </div>
   );

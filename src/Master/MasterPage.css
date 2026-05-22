@@ -370,3 +370,52 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
 .entry-row {
   background: #ffffff;
 }
+
+
+/* ── ADDITIONS FOR CustomerWiseSaleRate ──────────────────────────────────────
+   Append these rules to the bottom of MasterPage.css
+   (or @import this file from MasterPage.css)
+────────────────────────────────────────────────────────────────────────────── */
+
+/* Trip button variant (matches .mp-btn.nw colours but teal accent) */
+.mp-btn.tr {
+  background: #fff;
+  color: #0d7c66;
+  border-color: #0d7c66;
+}
+.mp-btn.tr:hover { background: #0d7c66; color: #fff; }
+
+/* Clear button variant */
+.mp-btn.cl {
+  background: #fff;
+  color: #dc3545;
+  border-color: #dc3545;
+}
+.mp-btn.cl:hover { background: #dc3545; color: #fff; }
+
+/* Info / neutral button (used for "+ New Row") */
+.mp-btn.info {
+  background: #fff;
+  color: #1f65de;
+  border-color: #1f65de;
+}
+.mp-btn.info:hover { background: #1f65de; color: #fff; }
+
+/* Read-only cell style */
+.mp-cell-input.ro {
+  background: #f5f9ff;
+  color: #8b99b5;
+  cursor: default;
+}
+
+/* Right-aligned numeric cell */
+.mp-tbl th.r,
+.mp-tbl td.r { text-align: right; }
+
+/* Empty-grid message */
+.mp-empty {
+  padding: 32px;
+  text-align: center;
+  font-size: 12px;
+  color: #8b99b5;
+}

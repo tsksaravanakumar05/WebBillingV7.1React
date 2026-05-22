@@ -686,15 +686,18 @@ export default function CustomerMaster() {
       if (!ok) return;
 
       setLoading(true);
-      const res = await api("/Supplier/DeleteSupplier", {
-        Id:          parseInt(value),
-        AccountType: "CUSTOMER",
-        Comid:       parseInt(sess.Comid),
-        MirrorTable: parseInt(sess.MirrorTable),
-      }, {
-        IdComList:   String(sess.IdComList),
-        ComCustomer: String(sess.ComCustomer),
-      });
+      const res = await api(
+        "/Supplier/DeleteSupplier",
+        {
+          Id: Number(value),
+          AccountType: "CUSTOMER",
+          Comid: Number(sess.Comid),
+          MirrorTable: Number(sess.MirrorTable),
+        },
+        {
+          IdComList: String(sess.IdComList),
+        }
+      );
       setLoading(false);
 
       if (res.ok) {
@@ -864,6 +867,12 @@ export default function CustomerMaster() {
     setTimeout(() => tamilInputRef.current?.focus(), 100);
   }, []);
 
+  // ── Column Settings State ────────────────────────────────────────────────
+  const [f12Open, setF12Open] = useState(false);
+  
+  // Note: You will need an ALL_COLUMNS array mapping your fields, just like you had in Supplier.
+  const [colSettings, setColSettings] = useState([]);
+
   // ── Area selected ─────────────────────────────────────────────────────────
   const onAreaSelect = useCallback((item) => {
     const idx = areaPopup.rowIdx;
@@ -973,6 +982,81 @@ export default function CustomerMaster() {
     }
   }, [columnNavOrder, addRow, focusCell]);
 
+
+
+
+  // ── Load F12 Settings from Backend (Mirrors jQuery JSON fetch) ───────────
+  useEffect(() => {
+    const loadColSettings = async () => {
+      try {
+        // Fetch the JSON file for this Comid and form ("Customer")
+        const url = `/Content/Appdata/Visible/${sess.Comid}/Customer.json?t=${Date.now()}`;
+        const res = await fetch(url);
+        
+        if (res.ok) {
+          const serverData = await res.json();
+          if (serverData && Array.isArray(serverData)) {
+            // Transform server data into React state format
+            const mappedSettings = serverData.map(d => ({
+              field: d.column,
+              hidden: !d.Visible,
+              width: d.Width
+            }));
+            setColSettings(mappedSettings);
+          }
+        }
+      } catch (err) {
+        console.log("No custom column settings found on server. Using defaults.");
+      }
+    };
+
+    loadColSettings();
+  }, [sess.Comid]);
+
+
+  // ── Save F12 Settings to Backend (Mirrors jQuery #savewidth click) ───────
+  const saveColSettings = useCallback(async (localSettingsToSave) => {
+    setF12Open(false); // Close popup immediately
+    setLoading(true);
+
+    // Format the payload exactly how the C# backend expects it
+    const payload = localSettingsToSave.map(s => ({
+      filename: "Customer", 
+      column: s.field,
+      Visible: !s.hidden,
+      Width: parseInt(s.width) || 100,
+      Comid: Number(sess.Comid)
+    }));
+
+    try {
+      const res = await fetch("/Login/VisibleColumns", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json; charset=utf-8",
+          ...authHeaders() // Include auth headers if your backend requires them
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+
+      if (data.ok) {
+        toast("✅ Column Selection And Width Changed Successfully");
+        
+        // Option 1: Instant React update (Smooth, no reload needed)
+        setColSettings(localSettingsToSave);
+        
+        // Option 2: The exact jQuery way (Force a hard page reload)
+        // setTimeout(() => { window.location.reload(true); }, 1000);
+      } else {
+        toast(`❌ ${data.message || "Failed to save column settings"}`, true);
+      }
+    } catch (err) {
+      toast("❌ Error saving Visible Columns to server", true);
+    } finally {
+      setLoading(false);
+    }
+  }, [sess.Comid, toast]);
   // ─────────────────────────────────────────────────────────────────────────
   // handleCellKeyDown — mirrors gridSupplier.bind('keydown') Enter handler
   // ─────────────────────────────────────────────────────────────────────────
@@ -1053,21 +1137,36 @@ export default function CustomerMaster() {
   }, [selIdx, openTamilPopup]);
 
   // ── Global keydown — mirrors $(document).on('keydown') ───────────────────
+  // useEffect(() => {
+  //   const onKey = (e) => {
+  //     const anyPopupOpen = areaPopup.open || salesmanPopup.open || cardPopup.open || branchPopup.open;
+  //     if (anyPopupOpen) return; // popups handle their own keys
+
+  //     if (e.keyCode === 112) { e.preventDefault(); handleSave(); }   // F1
+  //     if (e.keyCode === 113) { e.preventDefault(); handleF2(); }     // F2
+  //     if (e.keyCode === 116) { e.preventDefault(); handleF5(); }     // F5
+  //     if (e.keyCode === 117) { e.preventDefault(); handleF6(); }     // F6
+  //     if (e.keyCode === 27)  { e.preventDefault(); handleEsc(); }    // Esc
+  //   };
+  //   window.addEventListener("keydown", onKey);
+  //   return () => window.removeEventListener("keydown", onKey);
+  // }, [handleSave, handleF2, handleF5, handleF6, handleEsc, areaPopup.open, salesmanPopup.open, cardPopup.open, branchPopup.open]);
+// ── Global keydown — mirrors $(document).on('keydown') ───────────────────
   useEffect(() => {
     const onKey = (e) => {
-      const anyPopupOpen = areaPopup.open || salesmanPopup.open || cardPopup.open || branchPopup.open;
-      if (anyPopupOpen) return; // popups handle their own keys
+      const anyPopupOpen = areaPopup.open || salesmanPopup.open || cardPopup.open || branchPopup.open || f12Open;
+      if (anyPopupOpen) return;
 
       if (e.keyCode === 112) { e.preventDefault(); handleSave(); }   // F1
       if (e.keyCode === 113) { e.preventDefault(); handleF2(); }     // F2
       if (e.keyCode === 116) { e.preventDefault(); handleF5(); }     // F5
       if (e.keyCode === 117) { e.preventDefault(); handleF6(); }     // F6
+      if (e.keyCode === 123) { e.preventDefault(); setF12Open(true); } // F12 (NEW)
       if (e.keyCode === 27)  { e.preventDefault(); handleEsc(); }    // Esc
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleSave, handleF2, handleF5, handleF6, handleEsc, areaPopup.open, salesmanPopup.open, cardPopup.open, branchPopup.open]);
-
+  }, [handleSave, handleF2, handleF5, handleF6, handleEsc, areaPopup.open, salesmanPopup.open, cardPopup.open, branchPopup.open, f12Open]);
   // ─────────────────────────────────────────────────────────────────────────
   // Filtered grid for display — mirrors jQuery filterable grid
   // ─────────────────────────────────────────────────────────────────────────
@@ -1086,6 +1185,55 @@ export default function CustomerMaster() {
     const startIndex = (page - 1) * sess.pagecount;
     loadCounter(startIndex, sess.pagecount, "", "", 0);
   }, [sess.pagecount, loadCounter]);
+
+  // ── Load F12 Settings from Backend ───────────
+  useEffect(() => {
+    // Define your default columns here so the F12 menu is never empty
+    const DEFAULT_COLUMNS = [
+      { field: grdSupplierName, hidden: false, width: 180 },
+      { field: grdCustomerNameTamil, hidden: !sess.CustomerNameTamil, width: 150 },
+      { field: grdCode, hidden: false, width: 90 },
+      { field: grdArea, hidden: false, width: 130 },
+      { field: grdSalesMan, hidden: false, width: 130 },
+      { field: grdAddress1, hidden: false, width: 150 },
+      { field: grdAddress2, hidden: false, width: 120 },
+      { field: grdCity, hidden: false, width: 100 },
+      { field: grdMobileNo, hidden: false, width: 90 },
+      { field: grdGSTINNo, hidden: false, width: 140 },
+      { field: grdCreditBillDays, hidden: false, width: 80 },
+      { field: grdCreditBillLimit, hidden: false, width: 95 },
+      { field: grdOpeningBalance, hidden: false, width: 95 },
+      { field: grdcustomercardtype, hidden: false, width: 130 },
+      { field: grdIGSTBill, hidden: false, width: 90 },
+      { field: grdActive, hidden: false, width: 60 }
+    ];
+
+    const loadColSettings = async () => {
+      try {
+        const url = `/Content/Appdata/Visible/${sess.Comid}/Customer.json?t=${Date.now()}`;
+        const res = await fetch(url);
+        
+        if (res.ok) {
+          const serverData = await res.json();
+          if (serverData && Array.isArray(serverData) && serverData.length > 0) {
+            setColSettings(serverData.map(d => ({
+              field: d.column,
+              hidden: !d.Visible,
+              width: d.Width
+            })));
+            return; // Exit early if server data exists
+          }
+        }
+      } catch (err) {
+        console.log("No custom column settings found. Using defaults.");
+      }
+      
+      // If we got here, the fetch failed or was empty. Use defaults.
+      setColSettings(DEFAULT_COLUMNS);
+    };
+
+    loadColSettings();
+  }, [sess.Comid, sess.CustomerNameTamil]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -1181,6 +1329,73 @@ export default function CustomerMaster() {
               autoFocus
             />
             <button style={{ padding:"4px 12px", background:"#1e40af", color:"#fff", border:"none", borderRadius:4, cursor:"pointer" }} onClick={onTamilConfirm}>✓</button>
+          </div>
+        </PopupWindow>
+      )}
+
+      {/* ── F12 Column Settings Popup ── */}
+      {f12Open && (
+        <PopupWindow title="Column Settings (F12)" width={400} onClose={() => setF12Open(false)}>
+          <div style={{ display: "flex", flexDirection: "column", padding: 12, maxHeight: 400 }}>
+            <div style={{ flex: 1, overflowY: "auto", border: "1px solid #cbd5e1", borderRadius: 4 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", textAlign: "left" }}>
+                    <th style={{ padding: "6px 8px", borderBottom: "1px solid #cbd5e1", textAlign: "center" }}>Visible</th>
+                    <th style={{ padding: "6px 8px", borderBottom: "1px solid #cbd5e1" }}>Column</th>
+                    <th style={{ padding: "6px 8px", borderBottom: "1px solid #cbd5e1" }}>Width</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {colSettings.length > 0 ? (
+                    colSettings.map((col, idx) => (
+                      <tr key={idx}>
+                        <td style={{ padding: "4px 8px", borderBottom: "1px solid #f1f5f9", textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={!col.hidden}
+                            onChange={e => {
+                              const next = [...colSettings];
+                              next[idx].hidden = !e.target.checked;
+                              setColSettings(next);
+                            }}
+                          />
+                        </td>
+                        <td style={{ padding: "4px 8px", borderBottom: "1px solid #f1f5f9", fontWeight: 500 }}>
+                          {col.field}
+                        </td>
+                        <td style={{ padding: "4px 8px", borderBottom: "1px solid #f1f5f9" }}>
+                          <input
+                            type="number"
+                            style={{ width: 60, padding: "4px", border: "1px solid #cbd5e1", borderRadius: 3 }}
+                            value={col.width}
+                            onChange={e => {
+                              const next = [...colSettings];
+                              next[idx].width = parseInt(e.target.value) || 50;
+                              setColSettings(next);
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: "center", padding: 20, color: "#94a3b8" }}>
+                        No columns loaded. (Ensure default columns are initialized)
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop: 12, textAlign: "right" }}>
+              <button 
+                style={{ background: "#1e40af", color: "#fff", padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
+                onClick={() => saveColSettings(colSettings)}
+              >
+                💾 Save F12 Settings
+              </button>
+            </div>
           </div>
         </PopupWindow>
       )}

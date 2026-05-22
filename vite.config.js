@@ -113,19 +113,21 @@ export default defineConfig({
        '/Content':        { target: TARGET, changeOrigin: true, secure: false },
 
 //       // ── Other masters ─────────────────────────────────────────────────────
+      '/AccountGroup': mkProxy('AccountGroup', 'AccountGroupApp'),
       '/Master':         mkProxy('Master',         'MasterApp'),
       '/Cashier':        mkProxy('Cashier',        'CashierApp'),
       '/SizeMaster':     mkProxy('SizeMaster',     'SizeMasterApp'),
       '/ColorMaster':    mkProxy('ColorMaster',    'ColorMasterApp'),
       '/ModelMaster':    mkProxy('ModelMaster',    'ModelMasterApp'),
       '/Group':          mkProxy('Group',          'GroupApp'),
-      '/SalesManMaster': mkProxy('SalesManMaster', 'SalesManMasterApp'),
+      
+      // '/SalesManMaster': mkProxy('SalesManMaster', 'SalesManMasterApp'),
       '/Customer':       mkProxy('Customer',       'CustomerApp'),
       '/AccountsMaster': mkProxy('AccountsMaster', 'AccountsMasterApp'),
       '/Bank':           mkProxy('Bank',           'BankApp'),
       '/CardMaster':     mkProxy('CardMaster',     'CardMasterApp'),
       '/Area':           mkProxy('Area',           'AreaApp'),
-      '/SalesMan': mkProxy('SalesMan', 'SalesManMasterApp'),
+      '/SalesMan': mkProxy('SalesMan', 'SalesManApp'),
       '/CustomerCardType': mkProxy('CustomerCardType', 'CustomerCardTypeApp'),
       '/StockTransfer':  mkProxy('StockTransfer',  'StockTransferApp'),
       // '/Home':           mkProxy('Home',           'HomeApp'),
@@ -140,6 +142,7 @@ export default defineConfig({
       '/DiscountMaster': mkProxy('DiscountMaster', 'DiscountMasterApp'),
       '/PriceMaster':    mkProxy('PriceMaster',    'PriceMasterApp'),
       '/OpeningStock':   mkProxy('OpeningStock',   'OpeningStockApp'),
+      '/CRMPoints': mkProxy('CRMPoints', 'CRMPointsApp'),
     }
   }
 })
