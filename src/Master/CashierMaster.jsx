@@ -1,791 +1,692 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  CategoryMaster.jsx
+//  Uses shared helpers from CashierCommon.jsx via wildcard import (CC.*)
+//  Any new export added to CashierCommon is auto-available here as CC.xxx
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import "./MasterPage.css";
+import "./CategoryMaster.css";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// uid counter outside component — collision-proof, never resets
-// ─────────────────────────────────────────────────────────────────────────────
-let _uidCounter = 0;
-const nextUid = () => ++_uidCounter;
+// ✅ Single wildcard import — all current & future CashierCommon exports
+import * as CC from "./Common";
 
-const BASE_URL = "";
+// ─── CategoryMaster ───────────────────────────────────────────────────────────
+export default function CategoryMaster() {
+  const navigate  = useNavigate();
+  const inputRefs = useRef([]);
 
-const mkUrl = (path, params) => {
-  const base = BASE_URL + (path.startsWith("/") ? path : "/" + path);
-  if (!params || Object.keys(params).length === 0) return base;
-  const qs = Object.entries(params)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join("&");
-  return `${base}?${qs}`;
-};
+  // ── Shared hooks from CashierCommon ─────────────────────────────────────────
+  const { confirm, ConfirmUI } = CC.useConfirm();
+  const { toast,   toasts    } = CC.useToast();
 
-const getStr   = (k) => localStorage.getItem(k) || "";
-const getLocal = (k) => {
-  try { return JSON.parse(localStorage.getItem(k)); }
-  catch { return null; }
-};
+  // ── Session / company variables ─────────────────────────────────────────────
+  // CC.buildSession reads: Comid, MComid, IdComList, MirrorTable, menudata
+  const [sess] = useState(() => CC.buildSession("Category"));
 
-const api = async (path, { queryParams = {}, body = null, extraHeaders = {} } = {}) => {
-  try {
-    const url = mkUrl(path, queryParams);
-    const headers = {
-      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-      Userid:        localStorage.getItem("Userid")     || "0",
-      Profile:       localStorage.getItem("Profile")    || "",
-      LoginCheck:    localStorage.getItem("LoginCheck") || "0",
-      ...extraHeaders,
-    };
-    if (body !== null) headers["Content-Type"] = "application/json; charset=utf-8";
+  // Permission guard — defaults to full access if no menu entry found
+  const perm = sess.menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 };
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: body !== null ? JSON.stringify(body) : undefined,
-    });
-
-    if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false, message: "Session expired" };
-    }
-
-    const text = await res.text();
-    console.log(`[${path}] Status:`, res.status, "| Body:", text.substring(0, 300));
-    if (!text.trim()) return { ok: false, message: "Empty response" };
-
-    let json;
-    try { json = JSON.parse(text); }
-    catch { return { ok: false, message: text }; }
-
-    const isSuccess  = json.IsSuccess  ?? json.isSuccess  ?? json.ok        ?? false;
-    const data       = json.Data1      ?? json.data1      ?? json.data      ?? null;
-    const message    = json.Message    ?? json.message    ?? "";
-    const data2      = json.Data2      ?? json.data2      ?? null;
-    const redis      = json.Redis      ?? json.redis      ?? true;
-    const statusCode = json.StatusCode ?? json.statusCode ?? res.status;
-
-    return { ok: isSuccess, data, message, data2, redis, statusCode, _raw: json };
-  } catch (err) {
-    return { ok: false, _netErr: true, message: err.message };
-  }
-};
-
-// Column field-name constants
-const grdcode         = "Code";
-const grdCashierName  = "CashierName";
-const grdPassword     = "Password";
-const grdLogonStatus  = "LogonStatus";
-const grdDiscount     = "DiscountPer";
-const grdDeleteRow    = "DeleteRow";
-const grdDeleteReason = "DeleteReason";
-const grdActive       = "Active";
-const grdId           = "Id";
-const grdEditMode     = "EditMode";
-
-const makeEmptyRow = () => ({
-  [grdcode]:         "",
-  [grdCashierName]:  "",
-  [grdPassword]:     "",
-  [grdLogonStatus]:  false,
-  [grdDeleteRow]:    false,
-  [grdDeleteReason]: false,
-  [grdActive]:       true,
-  [grdId]:           null,
-  [grdEditMode]:     1,
-  _uid: nextUid(),
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-export default function CashierMaster() {
-  const navigate = useNavigate();
-
-  // ── Permission state ──────────────────────────────────────────────────────
-  const [permDenied,  setPermDenied]  = useState(false);
-
-  // ── Refs ──────────────────────────────────────────────────────────────────
-  const pageaddRef      = useRef(0);
-  const pageeditRef     = useRef(0);
-  const pagedeleteRef   = useRef(0);
-  const gridRef         = useRef([]);
-  const pwdValueRef     = useRef("");
-  const PasswordTypeRef = useRef(1);
-  const selIdxRef       = useRef(null);
-
-  // ── Password modal state ──────────────────────────────────────────────────
-  const [pwdModalOpen,  setPwdModalOpen]  = useState(false);
-  const [pwdModalTitle, setPwdModalTitle] = useState("");
-  const [pwdValue,      setPwdValue]      = useState("");
-  const [pwdLoading,    setPwdLoading]    = useState(false);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // ✅ THE KEY FIX:
-  // isUnlocked = false  → ONLY password modal renders (grid is NOT in DOM)
-  // isUnlocked = true   → password modal gone, full grid renders
-  //
-  // This mirrors jQuery exactly:
-  //   jQuery: page HTML exists but grid is empty until loadcashier() runs
-  //   React:  nothing renders at all until isUnlocked = true
-  // ─────────────────────────────────────────────────────────────────────────
-  const [isUnlocked, setIsUnlocked] = useState(false);
-
-  // ── Grid / UI state ───────────────────────────────────────────────────────
+  // ── Component state ─────────────────────────────────────────────────────────
   const [grid,    setGrid]    = useState([]);
   const [loading, setLoading] = useState(false);
-  const [msg,     setMsg]     = useState(null);
   const [selIdx,  setSelIdx]  = useState(null);
 
-  // ── Stable localStorage values ────────────────────────────────────────────
-  const Comid       = getStr("Comid")       || "1";
-  const MComid      = getStr("MComid")      || "1";
-  const MirrorTable = getStr("MirrorTable") || "0";
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // loadcashier — called ONLY after password success (mirrors jQuery exactly)
-  // ─────────────────────────────────────────────────────────────────────────
-  const loadcashier = useCallback(async () => {
-    setLoading(true);
-    const res = await api("/Cashier/SelectCashier", {
-      queryParams: { Comid: parseInt(Comid) },
+  // ── focusRow ────────────────────────────────────────────────────────────────
+  const focusRow = useCallback((idx) => {
+  setTimeout(() => inputRefs.current[idx]?.[0]?.focus(), 50);
+}, []);
+// ─── Column config (mirrors Cashier.js gridcolumns) ──────────────────────────
+const ALL_COLUMNS = [
+  { field: "Code",        label: "Code",         width: 100, hidden: false },
+  { field: "CashierName", label: "Cashier Name",  width: 150, hidden: false },
+  { field: "Password",    label: "Password",      width: 90,  hidden: false },
+  { field: "LogonStatus", label: "Logon Status",  width: 100, hidden: false },
+  { field: "Active",      label: "Active",        width: 100, hidden: false },
+];
+const COLS = ALL_COLUMNS.map(c => c.field);
+// ─── Column settings state (F12) ─────────────────────────────────────────────
+const [colSettings, setColSettings] = useState(() =>
+  ALL_COLUMNS.map(c => ({ field: c.field, label: c.label, hidden: c.hidden, width: c.width }))
+);
+const [f12Open, setF12Open] = useState(false);
+// ─── Save column settings to server (mirrors jQuery savewidth click) ──────────
+const saveColSettings = useCallback(async (localSettings) => {
+  setF12Open(false);
+  setLoading(true);
+  const payload = localSettings.map(s => ({
+    filename: "Cashier",
+    column:   s.field,
+    Visible:  !s.hidden,
+    Width:    s.width,
+    Comid:    Number(sess.MComid),
+  }));
+  try {
+    const res = await fetch("/Login/VisibleColumns", {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify(payload),
     });
-    setLoading(false);
-
-    if (res.ok) {
-      let objlist = Array.isArray(res.data) ? res.data : [];
-      objlist = objlist.map(obj => ({
-        ...obj,
-        [grdDiscount]: parseFloat(obj[grdDiscount] || 0).toFixed(2),
-        [grdEditMode]: 0,
-        _uid: nextUid(),
-      }));
-
-      const newRow   = makeEmptyRow();
-      const fullGrid = [...objlist, newRow];
-
-      gridRef.current   = fullGrid;
-      selIdxRef.current = fullGrid.length - 1;
-      setGrid(fullGrid);
-      setSelIdx(fullGrid.length - 1);
+    const data = await res.json();
+    if (data.ok) {
+      toast("✅ Column settings saved. Reload to see changes.");
+      setColSettings(localSettings);
     } else {
-      const emptyGrid = [makeEmptyRow()];
-      gridRef.current   = emptyGrid;
-      selIdxRef.current = 0;
-      setGrid(emptyGrid);
-      setSelIdx(0);
-
-      if (res.statusCode !== 404 && res.message) {
-        alert(res.message || "Failed to load cashier data.");
-      }
+      toast(`❌ ${data.message || "Failed to save"}`, true);
     }
-  }, [Comid]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // INIT — permission check → open password modal ONLY
-  // Grid does NOT load here. Matches jQuery's methods.init() exactly.
-  // ─────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const menulist = getLocal("menulist");
-    if (menulist == null) {
-      alert("Session Close Please Login !!!.");
-      window.location.href = "/Login/Index";
-      return;
-    }
-
-    const menudata = menulist.filter(obj => obj.PageName === "Cashier");
-    if (menudata == null || menudata.length === 0) {
-      alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
-      setPermDenied(true);
-      return;
-    }
-
-    if (menudata[0].View === 0) {
-      alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
-      setPermDenied(true);
-      return;
-    }
-
-    // Set permission refs
-    pageaddRef.current    = menudata[0].Add;
-    pageeditRef.current   = menudata[0].Edit;
-    pagedeleteRef.current = menudata[0].Delete;
-
-    // ✅ Open ONLY the password modal — nothing else renders yet
-    openEditPasswordWindow(1);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Focus password input after modal opens ────────────────────────────────
-  useEffect(() => {
-    if (!pwdModalOpen) return;
-    const raf = requestAnimationFrame(() => {
-      const el = document.getElementById("txtEditpassword");
-      if (el) el.focus();
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [pwdModalOpen]);
-
-  // ── openEditPasswordWindow ────────────────────────────────────────────────
-  function openEditPasswordWindow(type) {
-    const titles = { 1: "Edit Pwd", 0: "Form Pwd", 2: "Admin Pwd" };
-    PasswordTypeRef.current = type;
-    setPwdModalTitle(titles[type] ?? "Edit Pwd");
-    pwdValueRef.current = "";
-    setPwdValue("");
-    setPwdModalOpen(true);
+  } catch {
+    toast("❌ Error saving column settings", true);
+  } finally {
+    setLoading(false);
   }
+}, [sess.MComid, toast]);
+// ── Load column settings from server on startup (mirrors SupplierMaster) ──
+useEffect(() => {
+  const loadColSettings = async () => {
+    try {
+      const url = `/Content/Appdata/Visible/${sess.MComid}/Cashier.json?t=${Date.now()}`;
+      const res = await fetch(url);
+      if (!res.ok) return; // No file yet — use defaults
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // handlePwdSubmit — password Enter/OK
-  //
-  // ✅ EXACT jQuery flow:
-  //   jQuery: ajax success → jqxWindow('Close') → 'close' event → loadcashier()
-  //   React:  api success  → setIsUnlocked(true) → setPwdModalOpen(false) → loadcashier()
-  //
-  // setIsUnlocked(true) is the gate — it triggers the full UI to render.
-  // loadcashier() then fills the grid with data.
-  // ─────────────────────────────────────────────────────────────────────────
-  const handlePwdSubmit = async () => {
-    const currentPwd = pwdValueRef.current;
-    if (!currentPwd) return;
+      const serverData = await res.json();
+      if (!Array.isArray(serverData) || serverData.length === 0) return;
 
-    const typeMap = { 1: "EditPassword", 0: "FormConfig", 2: "AdminPower" };
-    const type    = typeMap[PasswordTypeRef.current] ?? "EditPassword";
-
-    setPwdLoading(true);
-    const res = await api("/Login/EditPassword", {
-      queryParams: { password: currentPwd, type, Comid },
-    });
-    setPwdLoading(false);
-
-    if (res.ok) {
-      // ✅ Step 1: unlock the page (renders the full grid UI)
-      setIsUnlocked(true);
-      // ✅ Step 2: close modal
-      setPwdModalOpen(false);
-      // ✅ Step 3: load data — exactly like jQuery's 'close' event handler
-      loadcashier();
-    } else {
-      alert("Invaild Password !!!.");
-      // Clear and refocus for retry
-      pwdValueRef.current = "";
-      setPwdValue("");
-      requestAnimationFrame(() => {
-        const el = document.getElementById("txtEditpassword");
-        if (el) { el.value = ""; el.focus(); }
+      const merged = ALL_COLUMNS.map(c => {
+        const s = serverData.find(d => d.column === c.field);
+        return {
+          field:  c.field,
+          label:  c.label,
+          hidden: s ? !s.Visible : c.hidden,
+          width:  s ? s.Width    : c.width,
+        };
       });
+      setColSettings(merged);
+    } catch {
+      // File doesn't exist yet — silently use defaults
     }
   };
 
-  const handlePwdKeyDown = (event) => {
-    const key = event.charCode || event.keyCode || 0;
-    if (key === 13) handlePwdSubmit();
-  };
+  loadColSettings();
+}, [sess.MComid]);
+const visibleColumns = ALL_COLUMNS.filter(c => {
+  const cs = colSettings.find(s => s.field === c.field);
+  return cs ? !cs.hidden : !c.hidden;
+}).map(c => {
+  const cs = colSettings.find(s => s.field === c.field);
+  return { ...c, width: cs?.width ?? c.width };
+});
+function F12Popup() {
+  const [local, setLocal] = useState(colSettings.map(s => ({ ...s })));
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // gridemptycheck
-  // ─────────────────────────────────────────────────────────────────────────
-  const gridemptycheck = useCallback((currentGrid) => {
-    let griddata   = [...currentGrid];
-    const rowcount = griddata.length;
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(10,20,40,.5)",
+                  zIndex:9000, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ background:"#fff", borderRadius:8, width:450,
+                    maxHeight:"80vh", display:"flex", flexDirection:"column",
+                    boxShadow:"0 16px 48px rgba(0,0,0,.3)", overflow:"hidden" }}>
+        <div style={{ background:"#1a2e4a", color:"#fff", padding:"10px 16px",
+                      fontSize:13, fontWeight:700, display:"flex",
+                      alignItems:"center", justifyContent:"space-between" }}>
+          <span>⚙ Column Settings (F12)</span>
+          <button style={{ background:"none", border:"none", color:"#fff",
+                           fontSize:17, cursor:"pointer" }}
+                  onClick={() => setF12Open(false)}>✕</button>
+        </div>
+        <div style={{ flex:1, overflowY:"auto", padding:12 }}>
+          <table style={{ borderCollapse:"collapse", width:"100%" }}>
+            <thead>
+              <tr>
+                {["Column","Visible","Width (px)"].map(h => (
+                  <th key={h} style={{ background:"#1a2e4a", color:"#fff",
+                                       padding:"6px 10px", fontSize:11,
+                                       fontWeight:600, textAlign:"left" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {local.map(s => (
+                <tr key={s.field}>
+                  <td style={{ padding:"5px 10px", fontSize:12, borderBottom:"1px solid #eaecf4" }}>
+                    {s.label}
+                  </td>
+                  <td style={{ padding:"5px 10px", textAlign:"center", borderBottom:"1px solid #eaecf4" }}>
+                    <input type="checkbox" checked={!s.hidden}
+                      onChange={() => setLocal(p => p.map(x =>
+                        x.field === s.field ? { ...x, hidden: !x.hidden } : x))}
+                    />
+                  </td>
+                  <td style={{ padding:"5px 10px", borderBottom:"1px solid #eaecf4" }}>
+                    <input type="number" min="40" max="500" value={s.width}
+                      style={{ width:70, border:"1px solid #d4dbe8", borderRadius:3,
+                               padding:"2px 6px", fontSize:12, textAlign:"right" }}
+                      onChange={e => setLocal(p => p.map(x =>
+                        x.field === s.field ? { ...x, width: parseInt(e.target.value)||x.width } : x))}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ padding:"10px 14px", display:"flex", gap:8,
+                      justifyContent:"flex-end", borderTop:"1px solid #e5e7eb" }}>
+          <button onClick={() => saveColSettings(local)}
+                  style={{ background:"#1a2e4a", color:"#fff", border:"none",
+                            borderRadius:4, padding:"6px 18px", fontSize:12,
+                            fontWeight:700, cursor:"pointer" }}>💾 Save</button>
+          <button onClick={() => setF12Open(false)}
+                  style={{ background:"#fff", color:"#6b7280",
+                            border:"1px solid #d1d5db", borderRadius:4,
+                            padding:"6px 14px", fontSize:12, cursor:"pointer" }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-    if (
-      rowcount > 0 &&
-      (griddata[rowcount - 1][grdcode] === "" || griddata[rowcount - 1][grdcode] == null)
-    ) {
-      if (rowcount > 1) griddata = griddata.slice(0, rowcount - 1);
-    }
 
-    for (let i = 0; i < griddata.length; i++) {
-      if (griddata[i][grdEditMode] === 1) {
-        if (!griddata[i][grdcode]) {
-          alert("Enter All Cashier Code in the Grid !!!.");
-          selIdxRef.current = i; setSelIdx(i);
-          return { result: false, grid: griddata };
-        }
-        if (!griddata[i][grdCashierName]) {
-          alert("Enter All Cashier Name in the Grid !!!.");
-          selIdxRef.current = i; setSelIdx(i);
-          return { result: false, grid: griddata };
-        }
-        if (!griddata[i][grdPassword]) {
-          alert("Enter All Password in the Grid !!!.");
-          selIdxRef.current = i; setSelIdx(i);
-          return { result: false, grid: griddata };
-        }
-      }
-    }
-    return { result: true, grid: griddata };
-  }, []);
+  // ── makeNewRow ──────────────────────────────────────────────────────────────
+  // CC.uid() generates a unique key for each row
+  // const makeNewRow = (prefill = "") => ({
+  //   Id:       null,
+  //   Cat_Name: prefill,
+  //   Cat_GST:  "0.00",
+  //   Active:   true,
+  //   EditMode: 1,
+  //   _uid:     CC.uid(),
+  // });
+   const makeNewRow = (prefillName = "") => ({
+  Id:             null,
+  Code:           "",
+  CashierName:    prefillName, // The prefill text goes here
+  Password:       "",
+  LogonStatus:    false,       // Assuming it's a checkbox/toggle
+  DiscountPer:    "0.00",
+  Discount:       false,       // Assuming it's a checkbox/toggle
+  BillNoStart:    "1",
+  BillNoPerfix:   "",
+  BillDigit:      "0",
+  DeleteRow:      false,
+  DeleteReason:   false,
+  Active:         true,        // Active by default
+  EditMode:       1,           // 1 means "New/Edit mode"
+  _uid:           CC.uid(),    // Unique ID for React lists
+});
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // CheckDuplicate
-  // ─────────────────────────────────────────────────────────────────────────
-  const CheckDuplicate = useCallback((griddata, field, fieldlabel) => {
-    const seen = {};
-    for (let i = 0; i < griddata.length; i++) {
-      const val = griddata[i][field];
-      if (val == null || val === "") continue;
-      if (seen[val]) {
-        alert(`Duplicate ${fieldlabel} Found !!!.`);
-        selIdxRef.current = i; setSelIdx(i);
-        return false;
-      }
-      seen[val] = true;
-    }
-    return true;
-  }, []);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Addrowfunc
-  // ─────────────────────────────────────────────────────────────────────────
-  const Addrowfunc = useCallback(() => {
-    const newRow = makeEmptyRow();
-    setGrid(prev => {
-      const updated     = [...prev, newRow];
-      gridRef.current   = updated;
-      selIdxRef.current = updated.length - 1;
-      setSelIdx(updated.length - 1);
-      return updated;
-    });
-  }, []);
-
-  // ── updateCell ────────────────────────────────────────────────────────────
-  const updateCell = useCallback((idx, field, value) => {
-    setGrid(prev => {
-      const updated   = prev.map((r, i) =>
-        i === idx ? { ...r, [field]: value, [grdEditMode]: 1 } : r
-      );
-      gridRef.current = updated;
-      return updated;
-    });
-  }, []);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // deleteRow
-  // ─────────────────────────────────────────────────────────────────────────
-  const deleteRow = useCallback(async (idx) => {
-    const row = gridRef.current[idx];
-    if (!row) return;
-    const value = row[grdId];
-
-    if (value != null && value !== 0) {
-      if (pagedeleteRef.current === 1) {
-        if (!window.confirm(`Wish to Delete the Record ${row[grdCashierName]}?`)) return;
-
-        setLoading(true);
-        const res = await api("/Cashier/DeleteCashier", {
-          queryParams: {
-            Id:          parseInt(value),
-            Comid:       parseInt(Comid),
-            MirrorTable: parseInt(MirrorTable),
-          },
-        });
-        setLoading(false);
-
-        if (res.ok) {
-          setMsg({ text: res.message || "Deleted", err: false });
-          setGrid(prev => {
-            const updated     = prev.filter((_, i) => i !== idx);
-            gridRef.current   = updated;
-            const newSel      = Math.max(0, updated.length - 1);
-            selIdxRef.current = newSel;
-            setSelIdx(newSel);
-            return updated;
-          });
-        } else {
-          if (res.redis === false) {
-            alert("Already Login Another User Please Login Again!!!");
-            window.location.href = "/Login";
-          } else {
-            alert(res.message);
-          }
-        }
-      } else {
-        alert("Page Delete Permission Denied !!!.");
-      }
-    } else {
-      setGrid(prev => {
-        const updated     = prev.filter((_, i) => i !== idx);
-        gridRef.current   = updated;
-        const newSel      = Math.max(0, updated.length - 1);
-        selIdxRef.current = newSel;
-        setSelIdx(newSel);
-        return updated;
-      });
-    }
-  }, [Comid, MirrorTable]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // handleSave
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleSave = useCallback(async () => {
-    let flag              = 1;
-    const currentGrid     = gridRef.current;
-    const currentPageadd  = pageaddRef.current;
-    const currentPageedit = pageeditRef.current;
-
-    if (currentPageadd === 0 && currentPageedit === 0) {
-      alert("Page Add & Update Permission Denied !!!.");
-      Addrowfunc();
-      return;
-    }
-
-    const emptyCheck = gridemptycheck(currentGrid);
-    if (!emptyCheck.result) return;
-
-    let griddata = emptyCheck.grid;
-    let getdata;
-
-    if (currentPageadd === 1 && currentPageedit === 1) {
-      getdata = griddata.filter(obj => obj[grdEditMode] === 1);
-      if (getdata.length === 0) {
-        alert("No Data Modified,Cannot Update !!!.");
-        flag = 0;
-      }
-    } else if (currentPageadd === 1 && currentPageedit === 0) {
-      getdata = griddata.filter(obj => obj[grdEditMode] === 1 && obj[grdId] == null);
-      if (getdata.length === 0) {
-        const tmp = griddata.filter(obj => obj[grdEditMode] === 1);
-        alert(tmp.length === 0 ? "No Data Modified,Cannot Update !!!." : "Page Edit Permission Denied !!!.");
-        flag = 0;
-      }
-    } else if (currentPageedit === 1 && currentPageadd === 0) {
-      getdata = griddata.filter(obj => obj[grdEditMode] === 1 && obj[grdId] != null);
-      if (getdata.length === 0) {
-        const tmp = griddata.filter(obj => obj[grdEditMode] === 1);
-        alert(tmp.length === 0 ? "No Data Modified,Cannot Update !!!." : "Page Add Permission Denied !!!.");
-        flag = 0;
-      }
-    }
-
-    if (flag === 0) { Addrowfunc(); return; }
-
-    const emptyCheck2 = gridemptycheck(griddata);
-    if (!emptyCheck2.result) return;
-
-    if (!CheckDuplicate(griddata, grdcode,        "Cashier Code")) return;
-    if (!CheckDuplicate(griddata, grdCashierName, "Cashier Name")) return;
-
-    if (!window.confirm("Do you Want to Save the Cashier Details?")) {
-      Addrowfunc();
-      return;
-    }
-
-    const cleanData = getdata.map(({ _uid, ...rest }) => ({
-      ...rest,
-      [grdId]: rest[grdId] || null,
-    }));
-
+  // ── loadData ─────────────────────────────────────────────────────────────────
+  // CC.api() → general POST with query params + HTTP error normalisation
+  const loadData = useCallback(async () => {
+    const prefill = sessionStorage.getItem("masterPrefill") || "";
     setLoading(true);
-    const res = await api("/Cashier/InsertCashier", {
-      body: cleanData,
-      extraHeaders: {
-        Comid:       String(Comid),
-        MirrorTable: String(MirrorTable),
-      },
-    });
+    const res = await CC.api(
+      CC.CashierSelect,
+      null,
+      {},
+      { Comid: sess.Comid }
+    );
     setLoading(false);
 
-    if (res.ok) {
-      setMsg({ text: res.message || "Saved successfully!", err: false });
-      await loadcashier();
-    } else {
-      if (res.redis === false) {
-        alert("Already Login Another User Please Login Again!!!");
-        window.location.href = "/Login";
+    if (res._http404) { toast(`❌ 404 — ${CC.CashierSelect} not found`, true); }
+    if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
+
+    const rawList = Array.isArray(res.data)  ? res.data
+                  : Array.isArray(res.Data1) ? res.Data1
+                  : [];
+
+   const existing = rawList.map(r => ({
+    ...r,
+    // Cashier.js: obj.DiscountPer = parseFloat(obj.DiscountPer).toFixed(2)
+    DiscountPer:  parseFloat(r.DiscountPer  ?? 0).toFixed(2),
+
+    // bool fields — Cashier.js datafields: type:'bool'
+    LogonStatus:  r.LogonStatus  === true || r.LogonStatus  === 1,
+    DeleteRow:    r.DeleteRow    === true || r.DeleteRow    === 1,
+    DeleteReason: r.DeleteReason === true || r.DeleteReason === 1,
+    Active:       r.Active       === true || r.Active       === 1,
+
+    // number field
+    Id:           Number(r.Id ?? 0),
+
+    EditMode: 0,
+    _uid:     CC.uid(),
+  }));
+
+  const blank = makeNewRow(prefill);
+  setGrid([...existing, blank]);
+  setSelIdx(existing.length);
+  focusRow(existing.length);
+  sessionStorage.removeItem("masterPrefill")
+   }, [sess.Comid, toast, focusRow]);// eslint-disable-line
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // ── addRow ──────────────────────────────────────────────────────────────────
+  const addRow = useCallback(() => {
+    setGrid(prev => {
+      const next = [...prev, makeNewRow()];
+      const idx  = next.length - 1;
+      setSelIdx(idx);
+      focusRow(idx);
+      return next;
+    });
+  }, [focusRow]); // eslint-disable-line
+
+  // ── updateCell ──────────────────────────────────────────────────────────────
+  const updateCell = useCallback((idx, field, value) => {
+    setGrid(prev =>
+      prev.map((r, i) => i === idx ? { ...r, [field]: value, EditMode: 1 } : r)
+    );
+  }, []);
+
+  // ── deleteRow ───────────────────────────────────────────────────────────────
+  // CC.api() used for DELETE call with IdComList header
+  const deleteRow = useCallback(async (idx) => {
+    if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; }
+
+    const row     = grid[idx];
+    const isSaved = row.Id != null && row.Id !== 0;
+
+    if (isSaved) {
+      const ok = await confirm(`Do you want to delete "${row.CashierName}"?`);
+      if (!ok) return;
+
+      setLoading(true);
+      const url =
+      CC.CashierDelete;
+
+      const res = await CC.api(url, null, {},{ Id: Number(row.Id),Comid:Number(sess.Comid),MirrorTable:Number(sess.MirrorTable) });
+      setLoading(false);
+
+      if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+
+      if (res.ok) {
+        toast("✅ " + (res.message || "Deleted"));
+        setGrid(prev => {
+          const next = prev.filter((_, i) => i !== idx);
+          const sel  = Math.max(0, next.length - 1);
+          setSelIdx(sel);
+          focusRow(sel);
+          return next;
+        });
       } else {
-        alert(res.message || "Save failed.");
+        toast(`❌ ${res.message || "Delete failed"}`, true);
+      }
+    } else {
+      // Unsaved row — just remove from grid
+      setGrid(prev => {
+        const next = prev.filter((_, i) => i !== idx);
+        const sel  = Math.max(0, next.length - 1);
+        setSelIdx(sel);
+        focusRow(sel);
+        return next;
+      });
+    }
+  }, [grid, sess, perm, focusRow, toast, confirm]);
+
+  // ── gridemptycheck ──────────────────────────────────────────────────────────
+  // Strips trailing blank row; validates all edited rows have a name
+  const gridemptycheck = useCallback((g) => {
+    let cleaned = [...g];
+
+    // Remove trailing empty blank row
+    if (cleaned.length > 1 && !String(cleaned[cleaned.length - 1].CashierName || "").trim())
+      cleaned = cleaned.slice(0, -1);
+
+    for (let i = 0; i < cleaned.length; i++) {
+      if (cleaned[i].EditMode === 1 && !String(cleaned[i].CashierName || "").trim()) {
+        toast("❌ Enter All Cashier in the Grid !!!", true);
+        setSelIdx(i);
+        focusRow(i);
+        return { ok: false, cleaned };
       }
     }
-  }, [Addrowfunc, gridemptycheck, CheckDuplicate, loadcashier, Comid, MirrorTable]);
+    return { ok: true, cleaned };
+  }, [focusRow, toast]);
+const rowValidator = useCallback((row) => {
+  return String(row.CashierName || "").trim().length > 0; // ✅ must have a name
+}, []);
+  // ── hasDuplicate ────────────────────────────────────────────────────────────
+  const hasDuplicate = useCallback((g) => {
+    const names = g
+      .filter(r => String(r.CashierName || "").trim())
+      .map(r => String(r.CashierName).trim().toLowerCase());
+    return new Set(names).size !== names.length;
+  }, []);
 
-  // ── handleEsc ─────────────────────────────────────────────────────────────
+  // ── handleSave ──────────────────────────────────────────────────────────────
+  // CC.insertapi() → Insert/Update POST (raw JSON response)
+  const handleSave = useCallback(async () => {
+    const { ok, cleaned } = gridemptycheck(grid);
+    if (!ok) return;
+    setGrid(cleaned);
+
+    let dirty = [];
+    let flag  = 1;
+
+    // ── Permission checks ──────────────────────────────────────────────────
+    if (perm.Add === 0 && perm.Edit === 0) {
+      toast("❌ Page Add & Update Permission Denied !!!", true);
+      flag = 0;
+
+    } else if (perm.Add === 1 && perm.Edit === 1) {
+      dirty = cleaned.filter(r => r.EditMode === 1);
+      if (!dirty.length) { toast("⚠️ No Data Modified, Cannot Update !!!", true); flag = 0; }
+
+    } else if (perm.Add === 1 && perm.Edit === 0) {
+      dirty = cleaned.filter(r => r.EditMode === 1 && r.Id == null);
+      if (!dirty.length) {
+        const any = cleaned.filter(r => r.EditMode === 1);
+        toast(any.length ? "❌ Page Edit Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
+        flag = 0;
+      }
+
+    } else if (perm.Edit === 1 && perm.Add === 0) {
+      dirty = cleaned.filter(r => r.EditMode === 1 && r.Id != null);
+      if (!dirty.length) {
+        const any = cleaned.filter(r => r.EditMode === 1);
+        toast(any.length ? "❌ Page Add Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
+        flag = 0;
+      }
+    }
+
+    if (flag === 0) { addRow(); return; }
+    if (hasDuplicate(cleaned)) { toast("❌ Duplicate Category Name found !!!", true); return; }
+
+    // ── Confirm message (smart: save / update / save & update) ────────────
+    const hasNew      = dirty.some(r => r.Id == null || r.Id === 0);
+    const hasExisting = dirty.some(r => r.Id != null && r.Id !== 0);
+    let confirmMsg    = "Do you want to save the Cashier details?";
+    if (hasExisting && !hasNew) confirmMsg = "Do you want to update the Cashier details?";
+    if (hasExisting &&  hasNew) confirmMsg = "Do you want to save & update the Cashier details?";
+
+    const proceed = await confirm(confirmMsg);
+    if (!proceed) { addRow(); return; }
+
+    setLoading(true);
+
+    // ── Build API payload ─────────────────────────────────────────────────
+    // const payload = cleaned
+    //   .filter(r => r.EditMode === 1)
+    //   .map(r => ({
+    //     Id:           Number(r.Id           || 0),
+    //     Cat_Name:     r.Cat_Name            || "",
+    //     Cat_GST:      parseFloat(r.Cat_GST      || 0),
+    //     HSNCode:      r.HSNCode             || "",
+    //     Cat_Discount: parseFloat(r.Cat_Discount || 0),
+    //     CRMPoint:     parseFloat(r.CRMPoint     || 0),
+    //     TouchShow:    Number(r.TouchShow    || 0),
+    //     OnlineShow:   Number(r.OnlineShow   || 0),
+    //     NStock:       Number(r.NStock       || 0),
+    //     Active:       Number(r.Active       || 1),
+    //     Bannerimg1:   r.Bannerimg1          || "",
+    //     Bannerimg2:   r.Bannerimg2          || "",
+    //     Bannerimg3:   r.Bannerimg3          || "",
+    //     Bannerimg4:   r.Bannerimg4          || "",
+    //   }));
+const payload = cleaned
+  .filter(r => r.EditMode === 1)
+  .map(r => {
+    
+    // C# Logic: If BillDigit is 1, 2, or 3, change it to 4.
+    let currentBillDigit = Number(r.BillDigit || 0);
+    if (currentBillDigit === 1 || currentBillDigit === 2 || currentBillDigit === 3) {
+        currentBillDigit = 4;
+    }
+
+    return {
+      Id:           Number(r.Id || 0),
+      Code:         r.Code || "",
+      CashierName:  r.CashierName || "",
+      Password:     r.Password || "",
+      
+      // C#: Equals("1") ? true : false
+      // In JS, we check if the value is "1" or already a boolean true
+      LogonStatus:  String(r.LogonStatus) === "1" || r.LogonStatus === true,
+      
+      BillDigit:    currentBillDigit,
+      
+      // C#: Cash.Active = 1
+      Active:       Number(r.Active || 1),
+      
+      // C#: Equals("") ? 1 : int.Parse(...)
+      BillNoStart:  Number(r.BillNoStart || 1),
+      
+      // C#: Equals("1") ? true : false
+      DeleteRow:    String(r.DeleteRow) === "1" || r.DeleteRow === true,
+      DeleteReason: String(r.DeleteReason) === "1" || r.DeleteReason === true,
+    };
+  });
+    // CC.insertapi() — Insert/Update POST with company + mirror headers
+    const res = await CC.insertapi(
+      CC.CashierInsert,
+      payload,
+      {
+        Comid:       String(parseInt(sess.Comid)),
+        MirrorTable: String(sess.MirrorTable),
+        IdComList:   String(sess.IdComList),
+        ApiType:     0,
+      }
+    );
+
+    setLoading(false);
+
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+
+    if (res.IsSuccess) {
+      toast("✅ " + (res.message || "Saved successfully!"));
+
+      // If opened from another page expecting a return value
+      const retField = sessionStorage.getItem("masterReturnField");
+      if (retField) {
+        sessionStorage.setItem("masterReturnValue", String(res.Data2 ?? res.Id ?? ""));
+        sessionStorage.setItem("masterReturnName",  dirty[0]?.CashierName || "");
+        sessionStorage.removeItem("masterReturnField");
+        setTimeout(() => navigate(-1), 800);
+      } else {
+        await loadData();
+      }
+    } else {
+      toast(`❌ ${res.message || "Save failed"}`, true);
+    }
+  }, [grid, sess, perm, navigate, loadData, gridemptycheck, hasDuplicate, addRow, toast, confirm]);
+
+  // ── handleEsc ────────────────────────────────────────────────────────────────
   const handleEsc = useCallback(() => {
-    // ✅ Only allow Esc to quit if password modal is NOT open
-    // Mirrors jQuery: if ($("#LockEditWindow").jqxWindow('isOpen') == false)
-    if (!pwdModalOpen) {
-      if (window.confirm("Do You Want To Quit Page?")) {
-        window.location.href = "/Home";
-      }
-    }
-  }, [pwdModalOpen]);
+    sessionStorage.removeItem("masterReturnField");
+    sessionStorage.removeItem("masterPrefill");
+    navigate(-1);
+  }, [navigate]);
 
-  // ── Global keydown — only active after unlock ─────────────────────────────
+  // ── Global keyboard shortcuts: F1 = Save  |  Esc = Back ──────────────────
   useEffect(() => {
-    if (!isUnlocked) return; // ✅ Don't register F1/Esc until page is unlocked
-    const onKey = (e) => {
+    const onKey = e => {
       if (e.keyCode === 112) { e.preventDefault(); handleSave(); }
-      if (e.keyCode === 113) { e.preventDefault(); }
-      if (e.keyCode === 123) { e.preventDefault(); }
-      if (e.keyCode === 27)  { e.preventDefault(); handleEsc(); }
+      if (e.keyCode === 27)  { e.preventDefault(); handleEsc();  }
+      if (e.keyCode === 123) { e.preventDefault(); setF12Open(true); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isUnlocked, handleSave, handleEsc]);
+  }, [handleSave, handleEsc]);
 
-  // ── Cell navigation ───────────────────────────────────────────────────────
-  const visibleColumnOrder = [grdcode, grdCashierName, grdPassword, grdLogonStatus, grdActive];
-
-  const moveToNextCell = useCallback((idx, columnname) => {
-    const colIdx = visibleColumnOrder.indexOf(columnname);
-    if (colIdx < visibleColumnOrder.length - 1) {
-      selIdxRef.current = idx; setSelIdx(idx);
-    } else {
-      if (idx === gridRef.current.length - 1) {
-        Addrowfunc();
-      } else {
-        selIdxRef.current = idx + 1; setSelIdx(idx + 1);
-      }
+  // ── Row-level keyboard navigation ──────────────────────────────────────────
+  // Enter → next row | Ctrl+Delete → delete | Delete on empty → delete
+  const onCellKeyDown = useCallback((e, idx) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (!String(grid[idx]?.CashierName || "").trim()) { toast("❌ Enter CashierName !!!", true); return; }
+      if (hasDuplicate(grid))                         { toast("❌ Duplicate Cashier Name !!!", true); return; }
+      if (idx === grid.length - 1) addRow();
+      else { setSelIdx(idx + 1); focusRow(idx + 1); }
     }
-  }, [Addrowfunc]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleCellKeyDown = useCallback((e, idx, columnname) => {
-    const key = e.charCode || e.keyCode || 0;
-    const row = gridRef.current[idx];
-    if (!row) return;
-
-    if (e.keyCode === 46 && e.ctrlKey) { deleteRow(idx); return; }
-
-    if (e.key === "Enter" || key === 13) {
-      const value = row[columnname];
-
-      if (columnname === grdcode) {
-        if (!value) { alert("Enter Cashier Code !!!."); return; }
-        if (CheckDuplicate(gridRef.current, grdcode, "Cashier Code")) moveToNextCell(idx, columnname);
-      } else if (columnname === grdCashierName) {
-        if (!value) { alert("Enter Cashier Name !!!."); return; }
-        if (CheckDuplicate(gridRef.current, grdCashierName, "Cashier Name")) moveToNextCell(idx, columnname);
-      } else if (columnname === grdPassword) {
-        if (!value) { alert("Enter Password !!!."); return; }
-        moveToNextCell(idx, columnname);
-      } else if (columnname === grdActive) {
-        if (value == null || value === "") updateCell(idx, grdActive, true);
-        moveToNextCell(idx, columnname);
-      } else {
-        moveToNextCell(idx, columnname);
-      }
+    if (e.key === "Delete" && e.ctrlKey) {
+      e.preventDefault();
+      deleteRow(idx);
     }
-  }, [CheckDuplicate, moveToNextCell, deleteRow, updateCell]);
+    if (e.key === "Delete" && !e.ctrlKey && !String(grid[idx]?.CashierName || "").trim()) {
+      e.preventDefault();
+      deleteRow(idx);
+    }
+  }, [grid, hasDuplicate, addRow, focusRow, deleteRow, toast]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER LOGIC — mirrors jQuery's gate exactly
-  //
-  // State         | What renders
-  // ──────────────|─────────────────────────────────────────────────────────
-  // permDenied    | nothing (redirecting)
-  // !isUnlocked   | ONLY the password modal (full screen, no grid behind it)
-  // isUnlocked    | full grid UI (password modal is gone)
-  // ─────────────────────────────────────────────────────────────────────────
-  if (permDenied) return null;
-
-  // ✅ PASSWORD GATE — only this renders until password is correct
-  // The grid JSX below does NOT exist in the DOM at all during this phase
-  if (!isUnlocked) {
-    return (
-      <div className="mp-loader-ov" style={{ zIndex: 9100 }}>
-        <div className="mp-ldr-box" style={{ minWidth: 260, gap: 16 }}>
-
-          {/* Lock icon + title */}
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 40, marginBottom: 4 }}>🔒</div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: "#1a2e4a" }}>
-              {pwdModalTitle || "Edit Pwd"}
-            </div>
-            <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-              Enter password to access Cashier Master
-            </div>
-          </div>
-
-          {/* Password input */}
-          <input
-            id="txtEditpassword"
-            type="password"
-            className="mp-cell-input"
-            placeholder="Enter password..."
-            style={{ width: 180, textAlign: "center" }}
-            value={pwdValue}
-            onChange={e => {
-              pwdValueRef.current = e.target.value;
-              setPwdValue(e.target.value);
-            }}
-            onKeyDown={handlePwdKeyDown}
-            disabled={pwdLoading}
-          />
-
-          {/* Buttons */}
-          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-            <button
-              className="mp-btn sv"
-              onClick={handlePwdSubmit}
-              disabled={pwdLoading}
-              style={{ minWidth: 80 }}
-            >
-              {pwdLoading ? "Checking..." : "✓ OK"}
-            </button>
-            <button
-              className="mp-btn dl"
-              onClick={() => { window.location.href = "/Home"; }}
-              disabled={pwdLoading}
-              style={{ minWidth: 80 }}
-            >
-              ✕ Cancel
-            </button>
-          </div>
-
-        </div>
-      </div>
-    );
-  }
-
-  // ✅ FULL UI — only renders after password success
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
 
-      {/* ── HEADER ── */}
+      {/* Confirm Dialog — rendered by CC.useConfirm() */}
+      {ConfirmUI}
+{f12Open && <F12Popup />}
+      {/* ── Header ── */}
       <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
           <div>
             <div className="mp-title">Cashier Master</div>
-            <div className="mp-sub">Manage cashier records</div>
+            <div className="mp-sub">Co: {sess.Comid} — Manage category records</div>
           </div>
         </div>
-        <button className="mp-back" onClick={handleEsc}>← Back to Home</button>
+        <button className="mp-back" onClick={handleEsc}>← Back</button>
       </div>
 
-      {/* ── BODY ── */}
       <div className="mp-body">
 
-        {/* ── TOOLBAR ── */}
+        {/* ── Toolbar ── */}
         <div className="mp-toolbar">
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={Addrowfunc}>➕ Add Row</button>
+          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
+          <button className="mp-btn" onClick={() => setF12Open(true)} title="Column Settings">⚙ F12 Columns</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-          {msg && (
-            <span className={`mp-msg${msg.err ? " err" : " ok"}`}>{msg.text}</span>
-          )}
         </div>
+{/* ── Grid ── */}
+<div className="mp-grid-wrap">
+  <table className="mp-tbl">
+    <thead>
+      <tr>
+        <th style={{ width: 50 }}>S.No</th>
+        {visibleColumns.map(c => (
+          <th key={c.field} style={{ width: c.width, minWidth: c.width, textAlign: c.field === "Active" || c.field === "LogonStatus" ? "center" : undefined }}>
+            {c.label}
+          </th>
+        ))}
+        <th style={{ width: 44 }}></th>
+      </tr>
+    </thead>
+    <tbody>
+      {grid.map((row, idx) => (
+        <tr
+          key={row._uid}
+          className={[
+            selIdx === idx     ? "sel"   : "",
+            !row.Active        ? "inact" : "",
+            row.EditMode === 1 ? "mod"   : "",
+          ].filter(Boolean).join(" ")}
+          onClick={() => { setSelIdx(idx); focusRow(idx); }}
+        >
+          <td className="sno">{idx + 1}</td>
 
-        {/* ── GRID ── */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 50  }}>S.No</th>
-                <th style={{ width: 100 }}>Code</th>
-                <th style={{ width: 160 }}>Cashier Name</th>
-                <th style={{ width: 100 }}>Password</th>
-                <th style={{ width: 110 }}>Logon Status</th>
-                <th style={{ width: 100 }}>Active</th>
-                <th style={{ width: 60  }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && grid.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: 20, color: "#888" }}>
-                    Loading...
-                  </td>
-                </tr>
-              ) : (
-                grid.map((row, idx) => {
-                  if (!row) return null;
-                  return (
-                    <tr
-                      key={row._uid}
-                      className={[
-                        selIdx === idx                                    ? "sel"   : "",
-                        row[grdActive] === 0 || row[grdActive] === false  ? "inact" : "",
-                        row[grdEditMode] === 1                            ? "mod"   : "",
-                      ].filter(Boolean).join(" ")}
-                      onClick={() => { selIdxRef.current = idx; setSelIdx(idx); }}
-                    >
-                      <td className="sno">{idx + 1}</td>
-
-                      <td>
-                        <input
-                          className="mp-cell-input"
-                          value={row[grdcode] || ""}
-                          maxLength={50}
-                          autoFocus={idx === selIdx}
-                          onChange={e => updateCell(idx, grdcode, e.target.value)}
-                          onKeyDown={e => handleCellKeyDown(e, idx, grdcode)}
-                        />
-                      </td>
-
-                      <td>
-                        <input
-                          className="mp-cell-input"
-                          value={row[grdCashierName] || ""}
-                          maxLength={50}
-                          onChange={e => updateCell(idx, grdCashierName, e.target.value)}
-                          onKeyDown={e => handleCellKeyDown(e, idx, grdCashierName)}
-                        />
-                      </td>
-
-                      <td>
-                        <input
-                          className="mp-cell-input"
-                          type="password"
-                          value={row[grdPassword] || ""}
-                          maxLength={50}
-                          onChange={e => updateCell(idx, grdPassword, e.target.value)}
-                          onKeyDown={e => handleCellKeyDown(e, idx, grdPassword)}
-                        />
-                      </td>
-
-                      <td style={{ textAlign: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={row[grdLogonStatus] === true || row[grdLogonStatus] === 1}
-                          onChange={e => updateCell(idx, grdLogonStatus, e.target.checked)}
-                        />
-                      </td>
-
-                      <td>
-                        <select
-                          className="mp-cell-select"
-                          value={row[grdActive] === true || row[grdActive] === 1 ? "Yes" : "No"}
-                          onChange={e => updateCell(idx, grdActive, e.target.value === "Yes")}
-                          onKeyDown={e => handleCellKeyDown(e, idx, grdActive)}
-                        >
-                          <option>Yes</option>
-                          <option>No</option>
-                        </select>
-                      </td>
-
-                      <td>
-                        <button
-                          className="mp-del-btn"
-                          onClick={() => deleteRow(idx)}
-                          title="Delete row (Ctrl+Delete)"
-                        >🗑</button>
-                      </td>
-                    </tr>
-                  );
-                })
+          {visibleColumns.map((col, colIdx) => (
+            <td key={col.field} style={{ textAlign: col.field === "Active" || col.field === "LogonStatus" ? "center" : undefined }}>
+              {/* Active select */}
+              {col.field === "Active" && (
+                <select
+                  ref={el => {
+                    if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                    inputRefs.current[idx][colIdx] = el;
+                  }}
+                  className="cm-active-sel"
+                  value={row.Active ? "1" : "0"}
+                  onChange={e => updateCell(idx, "Active", e.target.value === "1")}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator);
+                    }
+                  }}
+                  onFocus={() => setSelIdx(idx)}
+                  title={row.Active ? "Active" : "Inactive"}
+                >
+                  <option value="1">✓</option>
+                  <option value="0">✗</option>
+                </select>
               )}
-            </tbody>
-          </table>
-        </div>
 
+              {/* LogonStatus select */}
+              {col.field === "LogonStatus" && (
+                <select
+                  ref={el => {
+                    if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                    inputRefs.current[idx][colIdx] = el;
+                  }}
+                  className="cm-active-sel"
+                  value={row.LogonStatus ? "1" : "0"}
+                  onChange={e => updateCell(idx, "LogonStatus", e.target.value === "1")}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator);
+                    }
+                  }}
+                  onFocus={() => setSelIdx(idx)}
+                >
+                  <option value="1">✓</option>
+                  <option value="0">✗</option>
+                </select>
+              )}
+
+              {/* All other text inputs */}
+              {col.field !== "Active" && col.field !== "LogonStatus" && (
+                <input
+                  ref={el => {
+                    if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                    inputRefs.current[idx][colIdx] = el;
+                  }}
+                  className="mp-cell-input"
+                  value={row[col.field] || ""}
+                  maxLength={col.maxLen || 50}
+                  onChange={e => CC.applyUppercase(e, val => updateCell(idx, col.field, val))}
+                  onKeyDown={e => CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator)}
+                  onFocus={() => setSelIdx(idx)}
+                />
+              )}
+            </td>
+          ))}
+
+          <td>
+            <button
+              className="mp-del-btn"
+              onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+            >🗑</button>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  {grid.length === 0 && !loading && (
+    <div className="mp-empty">No records. Press ➕ to add a cashier.</div>
+  )}
+</div>
+
+        {/* ── Keyboard hint bar ── */}
         <div className="mp-hint">
-          Press <kbd>Enter</kbd> to move to next cell &nbsp;|&nbsp;
-          <kbd>Ctrl+Delete</kbd> to delete row &nbsp;|&nbsp;
-          <kbd>F1</kbd> to save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> to go back
+          <kbd>Enter</kbd> next row &nbsp;|&nbsp;
+          <kbd>Ctrl+Delete</kbd> delete row &nbsp;|&nbsp;
+          <kbd>F1</kbd> save &nbsp;|&nbsp;
+          <kbd>Esc</kbd> back
         </div>
       </div>
 
-      {/* Loading overlay — shown during API calls after unlock */}
+      {/* ── Loading overlay ── */}
       {loading && (
         <div className="mp-loader-ov">
           <div className="mp-ldr-box">
             <div className="mp-spin" />
-            <div className="mp-ldr-msg">Processing...</div>
+            <div className="mp-ldr-msg">Processing…</div>
           </div>
         </div>
       )}
+
+      {/* ── Toast notifications — CC.useToast + CC.ToastList ── */}
+      <CC.ToastList toasts={toasts} />
 
     </div>
   );

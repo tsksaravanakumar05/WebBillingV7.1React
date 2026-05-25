@@ -6,8 +6,8 @@ import Dashboard from "./components/Dashboard";
 import ItemMaster from "./components/Itemmaster";
 
 // ── Master pages ──
-import BrandMaster from "./Master/BrandMaster";
-import CategoryMaster from "./Master/CategoryMaster";
+import BrandMaster from "./Master/Brandmaster";
+import CategoryMaster from "./Master/Categorymaster";
 import DepartmentMaster from "./Master/DepartmentMaster";
 import SupplierMaster from "./Master/SupplierMaster";
 import UomMaster from "./Master/UomMaster";
