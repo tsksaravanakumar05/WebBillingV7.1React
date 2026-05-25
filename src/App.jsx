@@ -24,6 +24,7 @@ import GroupMaster from "./Master/GroupMaster";
 import SalesManMaster from "./Master/SalesManMaster";
 import CRMPointsMaster from "./Master/CRMPointsMaster";
 import AccountsMaster from "./Master/AccountsMaster";
+import CashierMaster from "./Master/CashierMaster";
 function App() {
   return (
     <BrowserRouter>
@@ -41,6 +42,7 @@ function App() {
         <Route path="/uom-master" element={<UomMaster />} />
         <Route path="/location-master" element={<LocationMaster />} />
         <Route path="/company-master" element={<CompanyMaster />} />
+         <Route path="/cashier-master" element={<CashierMaster />} />
       
         <Route path="/size-master" element={<SizeMaster />} />
         <Route path="/color-master" element={<ColorMaster />} />
