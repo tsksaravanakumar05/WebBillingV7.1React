@@ -47,6 +47,7 @@ const api = async (path, body = null, extraHeaders = {}, queryParams = null) => 
     if (!text.trim()) return { ok: false, message: "Empty response" };
     try {
       const j = JSON.parse(text);
+      if (Array.isArray(j)) return { ok: true, data: j };
       if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
       if (j.Data1     !== undefined && j.data    === undefined) j.data    = j.Data1;
       if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
@@ -69,9 +70,11 @@ const insertapi = async (path, body = null, extraHeaders = {}) => {
       body: body != null ? JSON.stringify(body) : null,
     });
     const text = await res.text();
-    return JSON.parse(text);
+    console.log("RAW RESPONSE:", text);
+    try { return JSON.parse(text); }
+    catch { return { ok: false, message: text || `HTTP ${res.status}` }; }
   } catch (err) {
-    return { ok: false, message: err.message };
+    return { ok: false, _netErr: true, message: err.message };
   }
 };
 
@@ -348,47 +351,58 @@ export default function SalesManMaster() {
     }, 50);
   }, []);
 
- 
-// ── loadData ──────────────────────────────────────────────────────────────
+  // ── loadData ──────────────────────────────────────────────────────────────
+  const loadData = useCallback(async () => {
+    const prefill = sessionStorage.getItem("masterPrefill") || "";
+    setLoading(true);
 
-const loadData = useCallback(async () => {
-  const prefill = sessionStorage.getItem("masterPrefill") || "";
-  setLoading(true);
+    const res = await api(
+      "/SalesMan/SelectSalesMan",
+      null,
+      {},
+      { Comid: Number(sess.Comid) }
+    );
+    setLoading(false);
 
-  const res = await api(
-    "SalesMan/SelectSalesMan",
-    null,
-    {},
-    { Comid: sess.Comid }
-  );
+    if (res._http404) { toast("❌ 404 — /SalesMan/SelectSalesMan not found", true); }
+    if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
+    if (!res.ok)      { toast(`❌ ${res.message || "Load failed"}`, true); return; }
 
-  setLoading(false);
+    const rawList = Array.isArray(res.data)  ? res.data
+                  : Array.isArray(res.Data1) ? res.Data1
+                  : [];
 
-  if (res._http404) { toast("❌ 404 — /SalesMan/SelectSalesMan not found", true); return; }
-  if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); return; }
+    const existing = rawList.map(obj => ({
+      _uid:                       uid(),
+      Id:                         obj.Id   ?? null,
+      Code:                       obj.Code ?? "",
+      SalesManName:               obj.SalesManName ?? "",
+      Commission:                 parseFloat(obj.Commission ?? 0).toFixed(2),
+      Password:                   ValNum(obj.Password).toFixed(0),
+      Active:                     obj.Active === true || obj.Active === 1,
+      CommisionGroupName:         obj.CommisionGroupName         ?? "",
+      CommissionGroupMasterRefid: obj.CommissionGroupMasterRefid ?? null,
+      EditMode:                   0,
+    }));
 
-  // Parse data safely whether it comes as an array directly, or inside .data / .Data1
-  const rawList = Array.isArray(res)       ? res 
-                : Array.isArray(res.data)  ? res.data
-                : Array.isArray(res.Data1) ? res.Data1
-                : [];
+    const blank = makeNewRow(prefill);
+    const all   = [...existing, blank];
+    setGrid(all);
+    setSelUid(blank._uid);
 
-  const existing = rawList.map(r => ({
-    ...r,
-    Active:   r.Active === true || r.Active === 1,
-    EditMode: 0,
-    _uid:     uid(),
-  }));
+    const popVal = sessionStorage.getItem("POPValue");
+    if (popVal && popVal !== "") {
+      setGrid(prev => {
+        const next = [...prev];
+        const last = next[next.length - 1];
+        next[next.length - 1] = { ...last, SalesManName: popVal.toUpperCase(), Code: "", EditMode: 1 };
+        return next;
+      });
+    }
 
-  const blank = makeNewRow(prefill);
-  setGrid([...existing, blank]);
-  
-  // ⬇️ THIS IS THE FIX: We use setSelUid and focusField, NOT focusRow
-  setSelUid(blank._uid);
-  focusField(blank._uid, "Code");
-  
-  sessionStorage.removeItem("masterPrefill");
-}, [sess.Comid, focusField, makeNewRow, toast]);
+    focusField(blank._uid, "Code");
+    sessionStorage.removeItem("masterPrefill");
+  }, [sess.Comid, makeNewRow, focusField, toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

@@ -1,583 +1,540 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import "./MasterPage.css";
 
-// ─── Helpers (identical pattern to BrandMaster) ───────────────────────────────
-const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
-
-const authHeaders = () => ({
-  "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
-  "Userid":        localStorage.getItem("userid")     || "0",
-  "Profile":       localStorage.getItem("Profile")    || "Admin",
-  "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
-});
-
-const api = async (path, body = null, extraHeaders = {}, queryParams = null) => {
-  try {
-    let fullUrl = mkUrl(path);
-    if (queryParams && typeof queryParams === "object") {
-      const qs = new URLSearchParams(
-        Object.entries(queryParams)
-          .filter(([, v]) => v !== undefined && v !== null)
-          .map(([k, v]) => [k, String(v)])
-      ).toString();
-      if (qs) fullUrl += "?" + qs;
-    }
-    const res = await fetch(fullUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...authHeaders(),
-        ...extraHeaders,
-      },
-      body: body !== null ? JSON.stringify(body) : null,
-    });
-    if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
-    }
-    if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
-    if (res.status === 500) {
-      const t = await res.text();
-      console.error(`500 on ${fullUrl}:`, t.slice(0, 500));
-      return { ok: false, message: "Server error 500 — see console" };
-    }
-    const text = await res.text();
-    if (!text.trim()) return { ok: false, message: "Empty response" };
-    try {
-      const j = JSON.parse(text);
-      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
-      if (j.Data1     !== undefined && j.data    === undefined) j.data    = j.Data1;
-      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
-      return j;
-    } catch { return { ok: false, message: text }; }
-  } catch (err) {
-    return { ok: false, _netErr: true, message: err.message };
+// ─── Request Controller (mirrors original class) ───────────────────────────
+class Request_Controller {
+  constructor(key) {
+    this.key = key;
+    this._running = false;
   }
-};
+  Is_Request_Running() { return this._running; }
+  Start_Request()      { this._running = true; }
+  End_Request()        { this._running = false; }
+}
 
-const insertapi = async (path, body = null, extraHeaders = {}) => {
-  try {
-    const res = await fetch(mkUrl(path), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...authHeaders(),
-        ...extraHeaders,
-      },
-      body: body != null ? JSON.stringify(body) : null,
-    });
-    const text = await res.text();
-    return JSON.parse(text);
-  } catch (err) {
-    return { ok: false, message: err.message };
+// ─── Helpers ────────────────────────────────────────────────────────────────
+function CheckDuplicateRows(rows, field, label, setMsg) {
+  const vals = rows
+    .filter(r => r[field] !== "" && r[field] != null)
+    .map(r => String(r[field]).trim().toLowerCase());
+  const dupes = vals.filter((v, i) => vals.indexOf(v) !== i);
+  if (dupes.length > 0) {
+    setMsg({ type: "err", text: `Duplicate ${label} found!` });
+    return false;
   }
-};
+  return true;
+}
 
-const getStr   = (k) => localStorage.getItem(k) || "";
-const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-const uid = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
-
-// ─── Uppercase helper ─────────────────────────────────────────────────────────
-function applyUppercase(e, onChange) {
-  const el    = e.target;
-  const start = el.selectionStart;
-  const end   = el.selectionEnd;
-  const upper = el.value.toUpperCase();
-  onChange(upper);
-  requestAnimationFrame(() => {
-    if (el && document.activeElement === el) {
-      el.setSelectionRange(start, end);
-    }
+// ─── Confirm / Alert helpers (using browser dialogs to replicate MsgBoxYesNo / MsgBox) ──
+async function MsgBoxYesNo(str) {
+  return new Promise((resolve) => {
+    const confirmed = window.confirm(str);
+    resolve({ isConfirmed: confirmed });
   });
 }
-
-// ─── Confirmation Modal ───────────────────────────────────────────────────────
-function ConfirmModal({ message, onYes, onNo }) {
-  const yesBtnRef = useRef(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => yesBtnRef.current?.focus(), 30);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === "Escape") { e.preventDefault(); onNo(); }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onNo]);
-
-  return (
-    <div style={styles.overlay}>
-      <div style={styles.modal} role="dialog" aria-modal="true">
-        <div style={styles.modalIcon}>?</div>
-        <p style={styles.modalMsg}>{message}</p>
-        <div style={styles.modalBtns}>
-          <button
-            ref={yesBtnRef}
-            style={{ ...styles.modalBtn, ...styles.yesBtn }}
-            onClick={onYes}
-          >
-            ✔ Yes
-          </button>
-          <button
-            style={{ ...styles.modalBtn, ...styles.noBtn }}
-            onClick={onNo}
-          >
-            ✘ No
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function MsgBox(str) {
+  window.alert(str);
 }
 
-const styles = {
-  overlay: {
-    position: "fixed", inset: 0,
-    background: "rgba(10,20,40,0.55)",
-    backdropFilter: "blur(2px)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    zIndex: 9999,
-  },
-  modal: {
-    background: "#fff",
-    borderRadius: "10px",
-    padding: "28px 32px 22px",
-    minWidth: "280px",
-    maxWidth: "360px",
-    textAlign: "center",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)",
-    border: "1px solid #e2e8f0",
-    animation: "popIn 0.15s ease",
-  },
-  modalIcon: {
-    width: "40px", height: "40px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
-    color: "#fff",
-    fontSize: "20px", fontWeight: "700",
-    lineHeight: "40px",
-    margin: "0 auto 14px",
-  },
-  modalMsg: {
-    fontSize: "14px",
-    color: "#1e293b",
-    fontWeight: "500",
-    margin: "0 0 20px",
-    lineHeight: "1.5",
-  },
-  modalBtns: {
-    display: "flex", gap: "10px", justifyContent: "center",
-  },
-  modalBtn: {
-    padding: "7px 26px",
-    borderRadius: "6px",
-    border: "none",
-    fontSize: "13px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "opacity 0.15s",
-    outline: "none",
-  },
-  yesBtn: {
-    background: "linear-gradient(135deg, #22c55e, #16a34a)",
-    color: "#fff",
-    boxShadow: "0 2px 6px rgba(34,197,94,0.35)",
-  },
-  noBtn: {
-    background: "#f1f5f9",
-    color: "#475569",
-    border: "1px solid #cbd5e1",
-  },
-};
+// ─── Inline CSS (from provided stylesheet) ──────────────────────────────────
+const STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+.mp-wrap { min-height: 100vh; display: flex; flex-direction: column; background: #eef1f7; font-size: 12.5px; }
+.mp-hdr { background: #1a2e4a; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; height: 50px; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,.28); }
+.mp-hdr-left { display: flex; align-items: center; gap: 10px; }
+.mp-icon { width: 32px; height: 32px; border-radius: 6px; background: #e8a020; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; color: #fff; flex-shrink: 0; }
+.mp-title { font-size: 14px; font-weight: 700; color: #fff; }
+.mp-sub { font-size: 10px; color: rgba(255,255,255,.5); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
+.mp-back { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); color: #fff; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all .15s; }
+.mp-back:hover { background: #e8a020; border-color: #e8a020; }
+.mp-body { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; max-width: 1100px; width: 100%; margin: 0 auto; }
+.mp-toolbar { background: #fff; border: 1px solid #d4dbe8; border-left: 4px solid #e8a020; border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mp-btn { display: flex; align-items: center; gap: 4px; border: 1px solid transparent; border-radius: 4px; padding: 5px 12px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all .12s; height: 30px; }
+.mp-btn.sv { background: #1a2e4a; color: #fff; border-color: #1a2e4a; }
+.mp-btn.sv:hover { background: #e8a020; border-color: #e8a020; }
+.mp-btn.sv:disabled { opacity: .45; cursor: not-allowed; }
+.mp-btn.nw { background: #fff; color: #6f42c1; border-color: #6f42c1; }
+.mp-btn.nw:hover { background: #6f42c1; color: #fff; }
+.mp-btn.dl { background: #fff; color: #dc3545; border-color: #dc3545; }
+.mp-btn.dl:hover { background: #dc3545; color: #fff; }
+.mp-msg { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px; margin-left: 6px; }
+.mp-msg.ok { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+.mp-msg.err { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.mp-grid-wrap { background: #fff; border: 1px solid #d4dbe8; border-radius: 6px; overflow: auto; flex: 1; }
+.mp-tbl { border-collapse: collapse; width: 100%; min-width: 400px; table-layout: fixed; }
+.mp-tbl thead tr { position: sticky; top: 0; z-index: 2; }
+.mp-tbl th { background: #1a2e4a; color: #fff; border: 1px solid #253d5e; padding: 7px 10px; font-size: 11px; font-weight: 600; text-align: left; white-space: nowrap; }
+.mp-tbl td { border: 1px solid #eaecf4; padding: 3px 5px; font-size: 12px; color: #1a2e4a; }
+.mp-tbl tbody tr { cursor: pointer; transition: background .07s; }
+.mp-tbl tbody tr:nth-child(even) { background: #f5f7fc; }
+.mp-tbl tbody tr:hover { background: #fef3e0; }
+.mp-tbl tbody tr.sel { background: #fddfa0 !important; }
+.mp-tbl tbody tr.inact td { color: #bbb; }
+.mp-tbl tbody tr.mod td:first-child { border-left: 3px solid #e8a020; }
+.mp-tbl td.sno { text-align: center; color: #8b99b5; font-size: 11px; }
+.mp-cell-input { border: 1px solid #d4dbe8; border-radius: 3px; padding: 3px 7px; font-size: 12px; width: 100%; height: 26px; outline: none; background: #fff; color: #1a2e4a; transition: border-color .12s; }
+.mp-cell-input:focus { border-color: #e8a020; box-shadow: 0 0 0 2px rgba(232,160,32,.15); }
+.mp-cell-select { border: 1px solid #d4dbe8; border-radius: 3px; padding: 2px 5px; font-size: 12px; width: 100%; height: 26px; outline: none; background: #fff; color: #1a2e4a; cursor: pointer; }
+.mp-cell-select:focus { border-color: #e8a020; }
+.mp-del-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 3px; transition: background .1s; line-height: 1; }
+.mp-del-btn:hover { background: #fee2e2; }
+.mp-hint { background: #f5f7fc; border: 1px solid #e0e5f0; border-radius: 4px; padding: 6px 12px; font-size: 10.5px; color: #8b99b5; flex-shrink: 0; }
+.mp-hint kbd { background: #1a2e4a; color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-family: 'Inter', monospace; }
+.mp-loader-ov { position: fixed; inset: 0; background: rgba(10,20,40,.48); display: flex; align-items: center; justify-content: center; z-index: 9000; }
+.mp-ldr-box { background: #fff; border-radius: 8px; padding: 22px 32px; display: flex; flex-direction: column; align-items: center; gap: 10px; box-shadow: 0 16px 48px rgba(0,0,0,.25); min-width: 150px; }
+.mp-spin { width: 32px; height: 32px; border: 4px solid #eee; border-top-color: #e8a020; border-radius: 50%; animation: mp-spin .55s linear infinite; }
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+.mp-ldr-msg { font-size: 12px; color: #4a5568; font-weight: 600; }
+`;
 
-// Inject keyframe once
-if (typeof document !== "undefined" && !document.getElementById("popInStyle")) {
-  const s = document.createElement("style");
-  s.id = "popInStyle";
-  s.textContent = `
-    @keyframes popIn {
-      from { transform: scale(0.88); opacity: 0; }
-      to   { transform: scale(1);    opacity: 1; }
-    }
-    .mp-active-sel {
-      text-align: center;
-      font-size: 16px;
-      padding: 2px 4px;
-      border: 1px solid #cbd5e1;
-      border-radius: 5px;
-      background: #f8fafc;
-      cursor: pointer;
-      width: 62px;
-    }
-    .mp-active-sel:focus { outline: 2px solid #3b82f6; }
-  `;
-  document.head.appendChild(s);
-}
-
-// ─── useConfirm hook ──────────────────────────────────────────────────────────
-function useConfirm() {
-  const [conf, setConf] = useState(null);
-
-  const confirm = useCallback((message) =>
-    new Promise((resolve) => setConf({ message, resolve })),
-  []);
-
-  const handleYes = useCallback(() => {
-    conf?.resolve(true);
-    setConf(null);
-  }, [conf]);
-
-  const handleNo = useCallback(() => {
-    conf?.resolve(false);
-    setConf(null);
-  }, [conf]);
-
-  const ConfirmUI = conf ? (
-    <ConfirmModal message={conf.message} onYes={handleYes} onNo={handleNo} />
-  ) : null;
-
-  return { confirm, ConfirmUI };
-}
-
-// ─── GroupMaster ──────────────────────────────────────────────────────────────
+// ─── MAIN COMPONENT ─────────────────────────────────────────────────────────
 export default function GroupMaster() {
-  const navigate  = useNavigate();
-  const inputRefs = useRef([]);
-  const toastId   = useRef(0);
+  // ── Permission flags ──
+  const [pageview,   setPageview]   = useState(0);
+  const [pageadd,    setPageadd]    = useState(0);
+  const [pageedit,   setPageedit]   = useState(0);
+  const [pagedelete, setPagedelete] = useState(0);
+  const [permReady,  setPermReady]  = useState(false);
 
-  const { confirm, ConfirmUI } = useConfirm();
+  // ── Session / company ──
+  const [Comid,     setComid]     = useState(null);
+  const [IdComList, setIdComList] = useState(null);
+  const [MirrorTable] = useState(() => window.MirrorTable ?? 0); // global if set
 
-  // ── Session / permissions (mirrors jQuery's localStorage reads) ─────────────
-  const [sess] = useState(() => {
-    try {
-      const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
-      const Comid       = getStr("Comid")    || "1";
-      const MComid      = getStr("MComid")   || Comid;
-      const IdComList   = getStr("IdComList") || Comid;
-      const MirrorTable = getStr("MirrorTableOnline") || "0";
-      return {
-        Comid:        main0.CommonCompany ? MComid : Comid,
-        IdComList,
-        MirrorTable,
-        menudata:     (getLocal("menulist") || []).filter(o => o.PageName === "Item Master"),
-      };
-    } catch {
-      return { Comid: "1", IdComList: "1", MirrorTable: "0", menudata: [] };
+  // ── Grid rows ──
+  const [rows, setRows]           = useState([]);      // { uid, Id, GroupName, Active, EditMode }
+  const [selectedUid, setSelectedUid] = useState(null);
+
+  // ── UI state ──
+  const [loading, setLoading]     = useState(false);
+  const [msg, setMsg]             = useState(null);    // { type:'ok'|'err', text }
+
+  // ── Refs ──
+  const requestFlagRef = useRef(new Request_Controller("Group"));
+  const uidCounter     = useRef(0);
+  const inputRefs      = useRef({});  // uid → input element
+
+  // ── Inject styles once ──
+  useEffect(() => {
+    const el = document.createElement("style");
+    el.textContent = STYLES;
+    document.head.appendChild(el);
+    return () => document.head.removeChild(el);
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 1. INIT — mirrors $(document).ready and methods.init()
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    // Session check
+    const menulist = JSON.parse(localStorage.getItem("menulist"));
+    if (!menulist) {
+      MsgBox("Session Close Please Login !!!.");
+      window.location.href = "/Login/Index";
+      return;
     }
-  });
 
-  // jQuery used "Item Master" as the PageName filter for the Group page
-  const perm = sess.menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 };
+    const menudata = menulist.filter(obj => obj.PageName === "Item Master");
+    if (!menudata || menudata.length === 0) {
+      MsgBox("Page Access Permission Denied !!!.");
+      setTimeout(() => { window.location.href = "/Home"; }, 3000);
+      return;
+    }
 
-  const [grid,    setGrid]    = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [toasts,  setToasts]  = useState([]);
-  const [selIdx,  setSelIdx]  = useState(null);
+    if (menudata[0].View === 0) {
+      MsgBox("Page Access Permission Denied !!!.");
+      setTimeout(() => { window.location.href = "/Home"; }, 3000);
+      return;
+    }
 
-  // ── Toast ──────────────────────────────────────────────────────────────────
-  const toast = useCallback((msg, isErr = false) => {
-    const id = ++toastId.current;
-    setToasts(p => [...p, { id, msg, isErr }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
+    setPageview(menudata[0].View);
+    setPageadd(menudata[0].Add);
+    setPageedit(menudata[0].Edit);
+    setPagedelete(menudata[0].Delete);
+
+    // Company resolution
+    let comid = localStorage.getItem("Comid");
+    const idComList = localStorage.getItem("IdComList");
+    const MComid    = localStorage.getItem("MComid");
+    const MainSet   = JSON.parse(localStorage.getItem("Mainsetting"));
+    const CommonCompany = MainSet?.[0]?.CommonCompany;
+    if (CommonCompany === true) comid = MComid;
+
+    setComid(comid);
+    setIdComList(idComList);
+    setPermReady(true);
   }, []);
 
-  // ── Focus helper ───────────────────────────────────────────────────────────
-  const focusRow = useCallback((idx) => {
-    setTimeout(() => inputRefs.current[idx]?.focus(), 50);
-  }, []);
+  // Load data once permissions are ready
+  useEffect(() => {
+    if (permReady && Comid !== null) {
+      loadCounter(Comid, IdComList);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permReady, Comid]);
 
-  // ── Row factory ────────────────────────────────────────────────────────────
-  const makeNewRow = (prefill = "") => ({
-    Id: null, GroupName: prefill, Active: true, EditMode: 1, _uid: uid(),
-  });
-
-  // ── loadData — mirrors jQuery's loadCounter() ──────────────────────────────
-  const loadData = useCallback(async () => {
-    const prefill = sessionStorage.getItem("masterPrefill") || "";
-    setLoading(true);
-
-    // const res = await api(
-    //   "/Group/SelectGroup",
-    //   { Comid: Number(sess.Comid) },
-    //   {},
-    //   null
-    // );
-
-    const res = await api(
-      "/Group/SelectGroup",
-      { Comid: Number(sess.Comid) },
-      {},
-      { Comid: Number(sess.Comid) }
-    );
-   
-
-    setLoading(false);
-
-    if (res._http404) { toast("❌ 404 — /Group/SelectGroup not found", true); }
-    if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
-
-    const rawList = Array.isArray(res.data)  ? res.data
-                  : Array.isArray(res.Data1) ? res.Data1
-                  : [];
-
-    const existing = rawList.map(r => ({
-      ...r,
-      Active:   r.Active === true || r.Active === 1,
-      EditMode: 0,
-      _uid:     uid(),
-    }));
-
-    const blank = makeNewRow(prefill);
-    setGrid([...existing, blank]);
-    setSelIdx(existing.length);
-    focusRow(existing.length);
-    sessionStorage.removeItem("masterPrefill");
-  }, [sess.Comid, focusRow, toast]); // eslint-disable-line
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  // ── addRow ─────────────────────────────────────────────────────────────────
-  const addRow = useCallback(() => {
-    setGrid(prev => {
-      const next = [...prev, makeNewRow()];
-      const idx  = next.length - 1;
-      setSelIdx(idx);
-      focusRow(idx);
-      return next;
-    });
-  }, [focusRow]); // eslint-disable-line
-
-  // ── updateCell ─────────────────────────────────────────────────────────────
-  const updateCell = useCallback((idx, field, value) => {
-    setGrid(prev => prev.map((r, i) =>
-      i === idx ? { ...r, [field]: value, EditMode: 1 } : r
-    ));
-  }, []);
-
-  // ── deleteRow — mirrors jQuery's Delete key handler ────────────────────────
-  const deleteRow = useCallback(async (idx) => {
-    if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; }
-    const row     = grid[idx];
-    const isSaved = row.Id != null && row.Id !== 0;
-
-    if (isSaved) {
-      const str = `Wish to Delete the Record ${row.GroupName}?`;
-      const ok  = await confirm(str);
-      if (!ok) return;
-
-      setLoading(true);
-
-      const res = await api(
-        "/Group/DeleteGroup",
-      
-        // BODY
-        {
-          Id: Number(row.Id),
-          Comid: Number(sess.Comid),
-          MirrorTable: Number(sess.MirrorTable)
-        },
-      
-        // HEADERS
-        {
-          IdComList: String(sess.IdComList)
-        },
-      
-        // QUERY PARAMS (IMPORTANT)
-        {
-          Id: Number(row.Id),
-          Comid: Number(sess.Comid),
-          MirrorTable: Number(sess.MirrorTable)
+  // ─────────────────────────────────────────────────────────────────────────
+  // 2. KEYBOARD SHORTCUTS — F1 Save, ESC Quit
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = async (e) => {
+      // F1 → Save
+      if (e.keyCode === 112) {
+        e.preventDefault();
+        await handleSave();
+      }
+      // F2 → (original does nothing)
+      if (e.keyCode === 113) {
+        e.preventDefault();
+      }
+      // ESC → Quit
+      if (e.keyCode === 27) {
+        e.preventDefault();
+        const reply = await MsgBoxYesNo("Do You Want To Quit Page?");
+        if (reply.isConfirmed) {
+          if (sessionStorage.getItem("POPStatus") === "ON") {
+            sessionStorage.setItem("POPValue", -1);
+            sessionStorage.setItem("POPStatus", "OFF");
+            window.parent?.document?.querySelector(".ui-dialog-content")?.closest("[role=dialog]")?.__jqxDialog?.close();
+          } else {
+            window.location.href = "/Home";
+          }
         }
-      );
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, pageadd, pageedit, pagedelete, Comid, IdComList]);
 
-      setLoading(false);
-      if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+  // ─────────────────────────────────────────────────────────────────────────
+  // 3. LOAD DATA — mirrors methods.loadCounter()
+  // ─────────────────────────────────────────────────────────────────────────
+  const loadCounter = useCallback(async (comid, idComList) => {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/Group/SelectGroup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ Comid: comid }),
+      });
+      const data = await res.json();
+      if (data.ok === true) {
+        const loaded = data.data.map(item => ({
+          uid:       ++uidCounter.current,
+          Id:        item.Id,
+          GroupName: item.GroupName,
+          Active:    item.Active,
+          EditMode:  0,
+        }));
+        // Add blank new row at end (mirrors addrow())
+        loaded.push(makeNewRow());
+        setRows(loaded);
 
-      if (res.ok) {
-        toast("✅ " + (res.message || "Deleted"));
-        setGrid(prev => {
-          const next = prev.filter((_, i) => i !== idx);
-          const sel  = Math.max(0, next.length - 1);
-          setSelIdx(sel); focusRow(sel);
-          return next;
-        });
+        // Focus last row GroupName
+        setTimeout(() => focusRow(loaded[loaded.length - 1].uid), 80);
+
+        // POPValue pre-fill
+        const popVal = sessionStorage.getItem("POPValue");
+        if (popVal && popVal !== "") {
+          setRows(prev => {
+            const next = [...prev];
+            next[next.length - 1] = { ...next[next.length - 1], GroupName: popVal, EditMode: 1 };
+            return next;
+          });
+        }
       } else {
-        toast(`❌ ${res.message || "Delete failed"}`, true);
+        MsgBox(data.message);
+      }
+    } catch (xhr) {
+      MsgBox("Network error loading groups.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 4. HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
+  function makeNewRow() {
+    return { uid: ++uidCounter.current, Id: null, GroupName: "", Active: true, EditMode: 0 };
+  }
+
+  function addRow(currentRows) {
+    const next = [...currentRows, makeNewRow()];
+    setRows(next);
+    return next;
+  }
+
+  function focusRow(uid) {
+    const el = inputRefs.current[uid];
+    if (el) el.focus();
+  }
+
+  // mirrors gridemptycheck()
+  function gridemptycheck(currentRows, setM) {
+    let cleaned = [...currentRows];
+    // Remove last row if empty and there's more than one row
+    if (cleaned.length > 1) {
+      const last = cleaned[cleaned.length - 1];
+      if (!last.GroupName || last.GroupName.trim() === "") {
+        cleaned = cleaned.slice(0, -1);
+        setRows(cleaned);
+      }
+    }
+
+    for (let i = 0; i < cleaned.length; i++) {
+      if (cleaned[i].EditMode === 1) {
+        if (!cleaned[i].GroupName || cleaned[i].GroupName.trim() === "") {
+          MsgBox("Enter All Group Name in the Grid !!!.");
+          setTimeout(() => focusRow(cleaned[i].uid), 30);
+          return { ok: false, rows: cleaned };
+        }
+      }
+    }
+    return { ok: true, rows: cleaned };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 5. SAVE — mirrors F1 handler
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    let flag = 1;
+    const currentRows = rows;
+
+    if (pageadd === 0 && pageedit === 0) {
+      MsgBox("Page Add & Update Permission Denied !!!.");
+      flag = 0;
+    }
+
+    const checkResult = gridemptycheck(currentRows, setMsg);
+    if (!checkResult.ok) return;
+    const cleanRows = checkResult.rows;
+
+    let getdata = [];
+    if (flag === 1) {
+      if (pageadd === 1 && pageedit === 1) {
+        getdata = cleanRows.filter(obj => obj.EditMode === 1);
+        if (getdata.length === 0) {
+          MsgBox("No Data Modified,Cannot Update !!!.");
+          flag = 0;
+        }
+      } else if (pageadd === 1 && pageedit === 0) {
+        getdata = cleanRows.filter(obj => obj.EditMode === 1 && obj.Id == null);
+        if (getdata.length === 0) {
+          const tempdata = cleanRows.filter(obj => obj.EditMode === 1);
+          MsgBox(tempdata.length === 0
+            ? "No Data Modified,Cannot Update !!!."
+            : "Page Edit Permission Denied !!!.");
+          flag = 0;
+        }
+      } else if (pageedit === 1 && pageadd === 0) {
+        getdata = cleanRows.filter(obj => obj.EditMode === 1 && obj.Id != null);
+        if (getdata.length === 0) {
+          const tempdata = cleanRows.filter(obj => obj.EditMode === 1);
+          MsgBox(tempdata.length === 0
+            ? "No Data Modified,Cannot Update !!!."
+            : "Page Add Permission Denied !!!.");
+          flag = 0;
+        }
+      }
+    }
+
+    if (flag === 0) {
+      // Addrowfunc equivalent
+      setRows(prev => {
+        const next = addRow(prev);
+        setTimeout(() => focusRow(next[next.length - 1].uid), 30);
+        return next;
+      });
+      return;
+    }
+
+    if (!CheckDuplicateRows(cleanRows, "GroupName", "Group Name", setMsg)) return;
+
+    if (requestFlagRef.current.Is_Request_Running()) return;
+    requestFlagRef.current.Start_Request();
+
+    const reply = await MsgBoxYesNo("Do you Want to Save the Group Details?");
+    if (reply.isConfirmed) {
+      setLoading(true);
+      try {
+        const res = await fetch("/Group/InsertGroup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Comid": Comid,
+            "MirrorTable": MirrorTable,
+            "IdComList": IdComList,
+          },
+          body: JSON.stringify(getdata),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setMsg({ type: "ok", text: data.message });
+          await loadCounter(Comid, IdComList);
+          if (sessionStorage.getItem("POPStatus") === "ON") {
+            sessionStorage.setItem("POPValue", data.Id);
+            sessionStorage.setItem("POPName", data.Name);
+            sessionStorage.setItem("POPStatus", "OFF");
+            window.parent?.document?.querySelector(".ui-dialog-content")?.closest("[role=dialog]")?.__jqxDialog?.close();
+          }
+        } else {
+          MsgBox(data.message);
+        }
+      } catch (err) {
+        MsgBox("Network error saving groups.");
+      } finally {
+        setLoading(false);
+        requestFlagRef.current.End_Request();
       }
     } else {
-      // Unsaved row — just remove from grid
-      setGrid(prev => {
-        const next = prev.filter((_, i) => i !== idx);
-        const sel  = Math.max(0, next.length - 1);
-        setSelIdx(sel); focusRow(sel);
+      // Addrowfunc on cancel
+      setRows(prev => {
+        const next = [...prev, makeNewRow()];
+        setTimeout(() => focusRow(next[next.length - 1].uid), 30);
+        return next;
+      });
+      requestFlagRef.current.End_Request();
+    }
+  }, [rows, pageadd, pageedit, Comid, IdComList, MirrorTable, loadCounter]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 6. DELETE ROW — mirrors keydown Delete (keyCode 46)
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleDeleteRow = useCallback(async (uid) => {
+    const row = rows.find(r => r.uid === uid);
+    if (!row) return;
+
+    if (row.Id != null && row.Id !== 0) {
+      // Persisted row → confirm + AJAX delete
+      if (pagedelete !== 1) {
+        MsgBox("Page Delete Permission Denied !!!.");
+        return;
+      }
+      const str = `Wish to Delete the Record ${row.GroupName}?`;
+      const reply = await MsgBoxYesNo(str);
+      if (reply.isConfirmed) {
+        setLoading(true);
+        try {
+          const res = await fetch("/Group/DeleteGroup", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json; charset=utf-8",
+              "IdComList": IdComList,
+            },
+            body: JSON.stringify({ Id: row.Id, Comid: Comid, MirrorTable: MirrorTable }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            setMsg({ type: "ok", text: data.message });
+            setRows(prev => {
+              const next = prev.filter(r => r.uid !== uid);
+              // Focus last row after delete
+              setTimeout(() => {
+                if (next.length > 0) focusRow(next[next.length - 1].uid);
+              }, 50);
+              return next;
+            });
+          } else {
+            MsgBox(data.message);
+          }
+        } catch {
+          MsgBox("Network error deleting group.");
+        } finally {
+          setLoading(false);
+        }
+      }
+    } else {
+      // Unsaved row → just remove from state (mirrors DeleteRow with id=0)
+      setRows(prev => {
+        const next = prev.filter(r => r.uid !== uid);
+        setTimeout(() => {
+          if (next.length > 0) focusRow(next[next.length - 1].uid);
+        }, 30);
         return next;
       });
     }
-  }, [grid, sess, perm, focusRow, toast, confirm]);
+  }, [rows, pagedelete, Comid, IdComList, MirrorTable]);
 
-  // ── gridemptycheck — mirrors jQuery's gridemptycheck() ────────────────────
-  const gridemptycheck = useCallback((g) => {
-    let cleaned = [...g];
-    // Remove trailing blank unsaved row (like jQuery does before save)
-    if (cleaned.length > 1 && !String(cleaned[cleaned.length - 1].GroupName || "").trim())
-      cleaned = cleaned.slice(0, -1);
-
-    for (let i = 0; i < cleaned.length; i++) {
-      if (cleaned[i].EditMode === 1 && !String(cleaned[i].GroupName || "").trim()) {
-        toast("❌ Enter All Group Name in the Grid !!!", true);
-        setSelIdx(i); focusRow(i);
-        return { ok: false, cleaned };
-      }
-    }
-    return { ok: true, cleaned };
-  }, [focusRow, toast]);
-
-  // ── hasDuplicate — mirrors jQuery's CheckDuplicate() ──────────────────────
-  const hasDuplicate = useCallback((g) => {
-    const names = g.filter(r => String(r.GroupName || "").trim())
-                   .map(r => String(r.GroupName).trim().toLowerCase());
-    return new Set(names).size !== names.length;
-  }, []);
-
-  // ── handleSave — mirrors jQuery's F1 handler ───────────────────────────────
-  const handleSave = useCallback(async () => {
-    const { ok, cleaned } = gridemptycheck(grid);
-    if (!ok) return;
-    setGrid(cleaned);
-
-    let dirty = [];
-    let flag  = 1;
-
-    if (perm.Add === 0 && perm.Edit === 0) {
-      toast("❌ Page Add & Update Permission Denied !!!", true); flag = 0;
-    } else if (perm.Add === 1 && perm.Edit === 1) {
-      dirty = cleaned.filter(r => r.EditMode === 1);
-      if (!dirty.length) { toast("⚠️ No Data Modified, Cannot Update !!!", true); flag = 0; }
-    } else if (perm.Add === 1 && perm.Edit === 0) {
-      dirty = cleaned.filter(r => r.EditMode === 1 && r.Id == null);
-      if (!dirty.length) {
-        const any = cleaned.filter(r => r.EditMode === 1);
-        toast(any.length ? "❌ Page Edit Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
-        flag = 0;
-      }
-    } else if (perm.Edit === 1 && perm.Add === 0) {
-      dirty = cleaned.filter(r => r.EditMode === 1 && r.Id != null);
-      if (!dirty.length) {
-        const any = cleaned.filter(r => r.EditMode === 1);
-        toast(any.length ? "❌ Page Add Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
-        flag = 0;
-      }
-    }
-
-    if (flag === 0) { addRow(); return; }
-    if (hasDuplicate(cleaned)) { toast("❌ Duplicate Group Name found !!!", true); return; }
-
-    const proceed = await confirm("Do you Want to Save the Group Details?");
-    if (!proceed) { addRow(); return; }
-
-    setLoading(true);
-
-    // Payload matches what jQuery POSTed to /Group/InsertGroup
-    const payload = dirty.map(r => ({
-      Id:        (r.Id && r.Id !== 0) ? r.Id : null,
-      GroupName: String(r.GroupName || "").trim(),
-      Active:    r.Active === true ? 1 : 0,
-    }));
-
-    const res = await insertapi(
-      "/Group/InsertGroup",
-      payload,
-      {
-        Comid: String(sess.Comid),
-        MirrorTable: String(sess.MirrorTable),
-        IdComList: String(sess.IdComList),
-      }
+  // ─────────────────────────────────────────────────────────────────────────
+  // 7. CELL CHANGE HANDLERS
+  // ─────────────────────────────────────────────────────────────────────────
+  function handleGroupNameChange(uid, value) {
+    // Mirrors keypress validation: max 200 chars, string type
+    if (value.length > 200) return;
+    setRows(prev =>
+      prev.map(r => r.uid === uid ? { ...r, GroupName: value, EditMode: 1 } : r)
     );
+  }
 
-    setLoading(false);
-    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+  function handleActiveChange(uid, checked) {
+    setRows(prev =>
+      prev.map(r => r.uid === uid ? { ...r, Active: checked, EditMode: 1 } : r)
+    );
+  }
 
-    if (res.ok || res.IsSuccess) {
-      toast("✅ " + (res.message || "Saved successfully!"));
-      // POP / dialog-close behaviour (mirrors jQuery's sessionStorage POPStatus check)
-      const popStatus = sessionStorage.getItem("POPStatus");
-      if (popStatus === "ON") {
-        sessionStorage.setItem("POPValue", String(res.Id ?? res.Data2 ?? ""));
-        sessionStorage.setItem("POPName",  dirty[0]?.GroupName || "");
-        sessionStorage.setItem("POPStatus", "OFF");
-        setTimeout(() => navigate(-1), 800);
-      } else {
-        // masterReturnField pattern (same as BrandMaster)
-        const retField = sessionStorage.getItem("masterReturnField");
-        if (retField) {
-          sessionStorage.setItem("masterReturnValue", String(res.Data2 ?? res.Id ?? ""));
-          sessionStorage.setItem("masterReturnName",  dirty[0]?.GroupName || "");
-          sessionStorage.removeItem("masterReturnField");
-          setTimeout(() => navigate(-1), 800);
-        } else {
-          await loadData();
-        }
-      }
-    } else {
-      toast(`❌ ${res.message || "Save failed"}`, true);
-    }
-  }, [grid, sess, perm, navigate, loadData, gridemptycheck, hasDuplicate, addRow, toast, confirm]);
-
-  // ── handleEsc — mirrors jQuery's Esc handler ───────────────────────────────
-  const handleEsc = useCallback(async () => {
-    const popStatus = sessionStorage.getItem("POPStatus");
-    if (popStatus === "ON") {
-      sessionStorage.setItem("POPValue", "-1");
-      sessionStorage.setItem("POPStatus", "OFF");
-      navigate(-1);
-    } else {
-      const ok = await confirm("Do You Want To Quit Page?");
-      if (ok) {
-        sessionStorage.removeItem("masterReturnField");
-        sessionStorage.removeItem("masterPrefill");
-        navigate(-1);
-      }
-    }
-  }, [navigate, confirm]);
-
-  // ── Global keyboard handler (F1 = save, Esc = quit) ───────────────────────
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.keyCode === 112) { e.preventDefault(); handleSave(); }
-      if (e.keyCode === 27)  { e.preventDefault(); handleEsc();  }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [handleSave, handleEsc]);
-
-  // ── Per-cell keyboard (Enter navigation, Delete row) ──────────────────────
-  const onCellKeyDown = useCallback((e, idx) => {
+  // ── Enter key navigation (mirrors keydown Enter in grid) ──
+  function handleGroupNameKeyDown(e, uid, rowIndex) {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (!String(grid[idx]?.GroupName || "").trim()) {
-        toast("❌ Enter Group Name !!!", true);
+      const row = rows.find(r => r.uid === uid);
+      const value = row?.GroupName;
+
+      if (!value || value.trim() === "") {
+        MsgBox("Enter Group Name!!!.");
         return;
       }
-      if (hasDuplicate(grid)) { toast("❌ Duplicate Group Name !!!", true); return; }
-      if (idx === grid.length - 1) addRow();
-      else { setSelIdx(idx + 1); focusRow(idx + 1); }
-    }
-    // Ctrl+Delete always deletes; plain Delete deletes only empty unsaved rows
-    if (e.key === "Delete" && e.ctrlKey) { e.preventDefault(); deleteRow(idx); }
-    if (e.key === "Delete" && !e.ctrlKey && !String(grid[idx]?.GroupName || "").trim()) {
-      e.preventDefault(); deleteRow(idx);
-    }
-  }, [grid, hasDuplicate, addRow, focusRow, deleteRow, toast]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+      if (!CheckDuplicateRows(rows, "GroupName", "Group Name", setMsg)) return;
+
+      // Move to next row or add new row (GirdNextCell equivalent)
+      if (rowIndex === rows.length - 1) {
+        // last row → add new
+        setRows(prev => {
+          const next = [...prev, makeNewRow()];
+          setTimeout(() => focusRow(next[next.length - 1].uid), 30);
+          return next;
+        });
+      } else {
+        const nextRow = rows[rowIndex + 1];
+        focusRow(nextRow.uid);
+      }
+    }
+
+    // Delete key (keyCode 46) on a cell — handled by row delete button
+    if (e.key === "Delete" && e.shiftKey) {
+      handleDeleteRow(uid);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 8. ADD ROW BUTTON — mirrors methods.Addrowfunc()
+  // ─────────────────────────────────────────────────────────────────────────
+  function handleAddRow() {
+    setRows(prev => {
+      const next = [...prev, makeNewRow()];
+      setTimeout(() => focusRow(next[next.length - 1].uid), 30);
+      return next;
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 9. RENDER
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
-      {ConfirmUI}
+      {/* Loader overlay */}
+      {loading && (
+        <div className="mp-loader-ov">
+          <div className="mp-ldr-box">
+            <div className="mp-spin" />
+            <div className="mp-ldr-msg">Loading...</div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="mp-hdr">
@@ -585,75 +542,90 @@ export default function GroupMaster() {
           <div className="mp-icon">G</div>
           <div>
             <div className="mp-title">Group Master</div>
-            <div className="mp-sub">Co: {sess.Comid} — Manage group records</div>
+            <div className="mp-sub">Item Master</div>
           </div>
         </div>
-        <button className="mp-back" onClick={handleEsc}>← Back</button>
+        <button className="mp-back" onClick={() => { window.location.href = "/Home"; }}>
+          ← Home
+        </button>
       </div>
 
       {/* Body */}
       <div className="mp-body">
+
+        {/* Toolbar */}
         <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+          <button
+            className="mp-btn sv"
+            onClick={handleSave}
+            disabled={pageadd === 0 && pageedit === 0}
+            title="F1 – Save"
+          >
+            💾 Save (F1)
+          </button>
+          <button className="mp-btn nw" onClick={handleAddRow} title="Add new row">
+            ＋ New Row
+          </button>
+          {msg && (
+            <span className={`mp-msg ${msg.type}`}>{msg.text}</span>
+          )}
         </div>
 
+        {/* Grid */}
         <div className="mp-grid-wrap">
           <table className="mp-tbl">
             <thead>
               <tr>
-                <th style={{ width: 50  }}>S.No</th>
+                <th style={{ width: 50 }}>S.No</th>
                 <th style={{ width: 300 }}>Group Name</th>
-                <th style={{ width: 72, textAlign: "center" }}>Active</th>
-                <th style={{ width: 50  }}></th>
+                <th style={{ width: 80 }}>Active</th>
+                <th style={{ width: 50 }}>Del</th>
               </tr>
             </thead>
             <tbody>
-              {grid.map((row, idx) => (
+              {rows.map((row, idx) => (
                 <tr
-                  key={row._uid}
+                  key={row.uid}
                   className={[
-                    selIdx === idx  ? "sel"  : "",
-                    !row.Active     ? "inact" : "",
+                    selectedUid === row.uid ? "sel" : "",
+                    row.Active === false || row.Active === 0 ? "inact" : "",
                     row.EditMode === 1 ? "mod" : "",
                   ].filter(Boolean).join(" ")}
-                  onClick={() => { setSelIdx(idx); focusRow(idx); }}
+                  onClick={() => setSelectedUid(row.uid)}
                 >
+                  {/* S.No */}
                   <td className="sno">{idx + 1}</td>
 
-                  {/* GroupName cell — inline editable, uppercase, max 200 chars */}
+                  {/* Group Name */}
                   <td>
                     <input
-                      ref={el => (inputRefs.current[idx] = el)}
+                      ref={el => { if (el) inputRefs.current[row.uid] = el; }}
                       className="mp-cell-input"
-                      value={row.GroupName || ""}
+                      type="text"
                       maxLength={200}
-                      onChange={e => applyUppercase(e, (val) => updateCell(idx, "GroupName", val))}
-                      onKeyDown={e => onCellKeyDown(e, idx)}
-                      onFocus={() => setSelIdx(idx)}
+                      value={row.GroupName ?? ""}
+                      onChange={e => handleGroupNameChange(row.uid, e.target.value)}
+                      onKeyDown={e => handleGroupNameKeyDown(e, row.uid, idx)}
+                      onFocus={() => setSelectedUid(row.uid)}
                     />
                   </td>
 
-                  {/* Active toggle (checkbox-like select — mirrors jQuery columntype:'checkbox') */}
+                  {/* Active checkbox */}
                   <td style={{ textAlign: "center" }}>
-                    <select
-                      className="mp-active-sel"
-                      value={row.Active ? "1" : "0"}
-                      onChange={e => updateCell(idx, "Active", e.target.value === "1")}
-                      onFocus={() => setSelIdx(idx)}
-                      title={row.Active ? "Active" : "Inactive"}
-                    >
-                      <option value="1">✓</option>
-                      <option value="0">✗</option>
-                    </select>
+                    <input
+                      type="checkbox"
+                      checked={row.Active === true || row.Active === 1}
+                      onChange={e => handleActiveChange(row.uid, e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: "pointer" }}
+                    />
                   </td>
 
-                  {/* Delete button */}
-                  <td>
+                  {/* Delete */}
+                  <td style={{ textAlign: "center" }}>
                     <button
                       className="mp-del-btn"
-                      onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+                      title="Delete row"
+                      onClick={e => { e.stopPropagation(); handleDeleteRow(row.uid); }}
                     >
                       🗑
                     </button>
@@ -662,35 +634,15 @@ export default function GroupMaster() {
               ))}
             </tbody>
           </table>
-
-          {grid.length === 0 && !loading && (
-            <div className="mp-empty">No records. Press ➕ to add a group.</div>
-          )}
         </div>
 
+        {/* Hint bar */}
         <div className="mp-hint">
-          <kbd>Enter</kbd> next row &nbsp;|&nbsp;
-          <kbd>Ctrl+Delete</kbd> delete row &nbsp;|&nbsp;
-          <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> back
+          <kbd>F1</kbd> Save &nbsp;|&nbsp;
+          <kbd>Enter</kbd> Next Cell &nbsp;|&nbsp;
+          <kbd>Del</kbd> Delete Row (use 🗑 button) &nbsp;|&nbsp;
+          <kbd>Esc</kbd> Quit
         </div>
-      </div>
-
-      {/* Loading overlay */}
-      {loading && (
-        <div className="mp-loader-ov">
-          <div className="mp-ldr-box">
-            <div className="mp-spin" />
-            <div className="mp-ldr-msg">Processing…</div>
-          </div>
-        </div>
-      )}
-
-      {/* Toast notifications */}
-      <div className="toasts">
-        {toasts.map(t => (
-          <div key={t.id} className={`toast${t.isErr ? " err" : ""}`}>{t.msg}</div>
-        ))}
       </div>
     </div>
   );

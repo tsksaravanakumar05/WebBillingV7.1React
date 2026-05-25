@@ -1,60 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+//import axios from "axios";
 import "./MasterPage.css";
 
-// ─── Centralized API helper (mirrors BranchMaster pattern) ───────────────────
-const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
-
-const authHeaders = () => ({
-  "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
-  "Userid":        localStorage.getItem("userid")     || "0",
-  "Profile":       localStorage.getItem("Profile")    || "Admin",
-  "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
-});
-
-const api = async (path, body = null, extraHeaders = {}) => {
-  try {
-    const res = await fetch(mkUrl(path), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...authHeaders(),
-        ...extraHeaders,
-      },
-      body: body !== null ? JSON.stringify(body) : null,
-    });
-    if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
-    }
-    if (res.status === 404) return { ok: false, _http404: true, message: `404: ${path}` };
-    if (res.status === 500) {
-      const t = await res.text();
-      console.error(`500 on ${path}:`, t.slice(0, 500));
-      return { ok: false, message: "Server error 500 — see console" };
-    }
-    const text = await res.text();
-    if (!text.trim()) return { ok: false, message: "Empty response" };
-    try {
-      const j = JSON.parse(text);
-      // Normalise varied response shapes
-      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
-      if (j.Data1     !== undefined && j.data    === undefined) j.data    = j.Data1;
-      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
-      return j;
-    } catch { return { ok: false, message: text }; }
-  } catch (err) {
-    return { ok: false, _netErr: true, message: err.message };
-  }
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const getStr   = (k) => localStorage.getItem(k) || "";
-const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-function ValNum(v)       { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
-function NullToString(v) { return v == null ? "" : String(v); }
-
-// ─── Request-duplicate guard ──────────────────────────────────────────────────
+// ─── Request Controller ───────────────────────────────────────────────────────
 class Request_Controller {
   constructor(key) { this.key = key; this._running = false; }
   Is_Request_Running() { return this._running; }
@@ -62,11 +10,22 @@ class Request_Controller {
   End_Request()        { this._running = false; }
 }
 
-// ─── Build tree hierarchy from flat list ──────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function MsgBoxYesNo(str) {
+  return new Promise(resolve => resolve({ isConfirmed: window.confirm(str) }));
+}
+function MsgBox(str) { window.alert(str); }
+function ValNum(v)   { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function NullToString(v) { return v == null ? "" : String(v); }
+
+// ─── Build tree hierarchy from flat list ─────────────────────────────────────
+// mirrors: dataAdapter.getRecordsHierarchy('Id','ParentId','items',[...])
 function buildTree(flatList) {
-  const map   = {};
+  const map = {};
   const roots = [];
-  flatList.forEach(item => { map[item.Id] = { ...item, items: [] }; });
+  flatList.forEach(item => {
+    map[item.Id] = { ...item, items: [] };
+  });
   flatList.forEach(item => {
     if (item.ParentId === 0 || item.ParentId === null) {
       roots.push(map[item.Id]);
@@ -77,7 +36,7 @@ function buildTree(flatList) {
   return roots;
 }
 
-// ─── Tree Node ────────────────────────────────────────────────────────────────
+// ─── Tree Node Component ──────────────────────────────────────────────────────
 function TreeNode({ node, selectedId, onSelect, expandedIds, onToggle }) {
   const hasChildren = node.items && node.items.length > 0;
   const isExpanded  = expandedIds.has(node.Id);
@@ -87,9 +46,11 @@ function TreeNode({ node, selectedId, onSelect, expandedIds, onToggle }) {
     <div style={{ userSelect: "none" }}>
       <div
         style={{
-          display: "flex", alignItems: "center",
-          padding: "3px 6px", cursor: "pointer",
-          background:   isSelected ? "#a8c8f5" : "transparent",
+          display:      "flex",
+          alignItems:   "center",
+          padding:      "3px 6px",
+          cursor:       "pointer",
+          background:   isSelected ? "#fddfa0" : "transparent",
           borderRadius: 3,
           fontSize:     12,
           color:        "#1a2e4a",
@@ -97,6 +58,7 @@ function TreeNode({ node, selectedId, onSelect, expandedIds, onToggle }) {
         }}
         onClick={() => onSelect(node)}
       >
+        {/* Expand/collapse toggle */}
         <span
           style={{ width: 16, display: "inline-block", flexShrink: 0 }}
           onClick={e => { e.stopPropagation(); if (hasChildren) onToggle(node.Id); }}
@@ -123,169 +85,110 @@ function TreeNode({ node, selectedId, onSelect, expandedIds, onToggle }) {
   );
 }
 
-// ─── Confirm Modal (mirrors BranchMaster useConfirm pattern) ─────────────────
-function ConfirmModal({ message, onYes, onNo }) {
-  const yesBtnRef = useRef(null);
-  useEffect(() => {
-    const t = setTimeout(() => yesBtnRef.current?.focus(), 30);
-    return () => clearTimeout(t);
-  }, []);
-  useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") { e.preventDefault(); onNo(); } };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onNo]);
-  return (
-    <div style={{
-      position: "fixed", inset: 0,
-      background: "rgba(10,20,40,.55)", backdropFilter: "blur(2px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: 9999,
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 10, padding: "28px 32px 22px",
-        minWidth: 280, maxWidth: 360, textAlign: "center",
-        boxShadow: "0 8px 32px rgba(0,0,0,.22)", border: "1px solid #e2e8f0",
-      }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: "50%",
-          background: "linear-gradient(135deg,#3b82f6,#1d4ed8)",
-          color: "#fff", fontSize: 20, fontWeight: 700, lineHeight: "40px",
-          margin: "0 auto 14px",
-        }}>?</div>
-        <p style={{ fontSize: 14, color: "#1e293b", fontWeight: 500, margin: "0 0 20px", lineHeight: 1.5 }}>
-          {message}
-        </p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <button ref={yesBtnRef}
-            style={{ padding: "7px 26px", borderRadius: 6, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff" }}
-            onClick={onYes}
-          >✔ Yes</button>
-          <button
-            style={{ padding: "7px 26px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 600, cursor: "pointer", background: "#f1f5f9", color: "#475569" }}
-            onClick={onNo}
-          >✘ No</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function useConfirm() {
-  const [conf, setConf] = useState(null);
-  const confirm = useCallback((message) =>
-    new Promise((resolve) => setConf({ message, resolve })), []);
-  const handleYes = useCallback(() => { conf?.resolve(true);  setConf(null); }, [conf]);
-  const handleNo  = useCallback(() => { conf?.resolve(false); setConf(null); }, [conf]);
-  const ConfirmUI = conf
-    ? <ConfirmModal message={conf.message} onYes={handleYes} onNo={handleNo} />
-    : null;
-  return { confirm, ConfirmUI };
-}
-
 // ─── Password Modal ───────────────────────────────────────────────────────────
-function PasswordModal({ title, onClose, onSuccess, Comid, MirrorTable, passwordType }) {
+function PasswordModal({ title, onClose, onSuccess, Comid, passwordType }) {
   const [pwd, setPwd] = useState("");
   const inputRef = useRef(null);
 
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 250);
-    return () => clearTimeout(t);
+    // mirrors: setTimeout 250ms then focus
+    setTimeout(() => inputRef.current?.focus(), 250);
   }, []);
 
-  async function submit() {
-    if (!pwd) return;
-  
-    let type = "";
-  
-    if (passwordType === 1)
-      type = "EditPassword";
-    else if (passwordType === 0)
-      type = "FormConfig";
-    else if (passwordType === 2)
-      type = "AdminPower";
-  
-    const res = await api(
-      `/Login/EditPassword?password=${encodeURIComponent(pwd)}&type=${encodeURIComponent(type)}&Comid=${Comid}&web=1`,
-      null,
-      {}
-    );
-  
-    if (res?.IsSuccess === true) {
-      onSuccess();
-    } else {
-      alert("Invalid Password !!!");
+  async function handleKeyDown(e) {
+    if (e.key === "Enter") {
+      if (!pwd) return;
+      let type = "";
+      if (passwordType === 1)      type = "EditPassword";
+      else if (passwordType === 0) type = "FormConfig";
+      else if (passwordType === 2) type = "AdminPower";
+
+      try {
+        const res = await axios.post(
+          "/Login/EditPassword",
+          { password: pwd, type, Comid },
+          { headers: { "Content-Type": "application/json; charset=utf-8" } }
+        );
+        if (res.data?.ok === true) {
+          onSuccess(); // mirrors: '#LockEditWindow' close → triggers delete flow
+        } else {
+          alert("Invaild Password !!!.");
+        }
+      } catch {
+        MsgBox("Technical Fault Contact Software Vendor  !!!.");
+      }
     }
   }
 
-  function handleKeyDown(e) {
-    if (e.key === "Enter") submit();
-  }
-
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(10,20,40,.55)",
-      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9500,
-    }}>
-      <div style={{ background: "#fff", borderRadius: 8, padding: "18px 22px", minWidth: 170, boxShadow: "0 8px 32px rgba(0,0,0,.25)" }}>
-        <div style={{ fontWeight: 700, fontSize: 12, color: "#1f65de", marginBottom: 10 }}>{title}</div>
+    <div
+      style={{
+        position:        "fixed", inset: 0,
+        background:      "rgba(10,20,40,.55)",
+        display:         "flex", alignItems: "center", justifyContent: "center",
+        zIndex:          9500,
+      }}
+    >
+      <div style={{
+        background: "#fff", borderRadius: 8, padding: "18px 22px",
+        minWidth: 160, boxShadow: "0 8px 32px rgba(0,0,0,.25)",
+      }}>
+        <div style={{ fontWeight: 700, fontSize: 12, color: "#1a2e4a", marginBottom: 10 }}>
+          {title}
+        </div>
         <input
           ref={inputRef}
           type="password"
           value={pwd}
           onChange={e => setPwd(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="mp-pwd-input"
+          style={{
+            border: "1px solid #d4dbe8", borderRadius: 3, padding: "3px 7px",
+            fontSize: 12, width: "100%", height: 26, outline: "none",
+          }}
           placeholder="Password"
         />
         <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
-          <button className="mp-btn sv" style={{ flex: 1 }} onClick={submit}>OK</button>
-          <button className="mp-btn dl" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
+          <button
+            className="mp-btn sv"
+            style={{ flex: 1 }}
+            onClick={() => {
+              if (pwd) inputRef.current?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+            }}
+          >
+            OK
+          </button>
+          <button className="mp-btn dl" style={{ flex: 1 }} onClick={onClose}>
+            Cancel
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 export default function AccountsMaster() {
 
-  // ── Session (one-time read, mirrors jQuery's localStorage reads at top) ──
-  const [sess] = useState(() => {
-    try {
-      const Comid       = getStr("Comid") || "1";
-      const MirrorTable = getStr("MirrorTableOnline") || "0";
-      const menudata    = (getLocal("menulist") || []).filter(o => o.PageName === "Accounts Master");
-      return { Comid, MirrorTable, menudata };
-    } catch {
-      return { Comid: "1", MirrorTable: "0", menudata: [] };
-    }
-  });
-
   // ── Permissions ──
-  const perm = sess.menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 };
+  const [pageadd,    setPageadd]    = useState(0);
+  const [pageedit,   setPageedit]   = useState(0);
+  const [pagedelete, setPagedelete] = useState(0);
+  const [permReady,  setPermReady]  = useState(false);
 
-  // ── Confirm modal (BranchMaster pattern — no stale closures) ──
-  const { confirm, ConfirmUI } = useConfirm();
+  // ── Session ──
+  const [Comid,      setComid]      = useState(null);
+  const MirrorTable  = useRef(null);
 
-  // ── Toast notifications ──
-  const toastId = useRef(0);
-  const [toasts, setToasts] = useState([]);
-  const toast = useCallback((msg, isErr = false) => {
-    const id = ++toastId.current;
-    setToasts(p => [...p, { id, msg, isErr }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
-  }, []);
-
-  // ── Account list (flat) ──
-  const accountlistRef = useRef([]);
+  // ── Account list (flat) — mirrors: var accountlist = [] ──
+  const accountlist = useRef([]);
 
   // ── Tree state ──
-  const [treeData,     setTreeData]     = useState([]);
-  const [selectedNode, setSelectedNode] = useState(null);
-  const [expandedIds,  setExpandedIds]  = useState(new Set());
+  const [treeData,    setTreeData]    = useState([]);
+  const [selectedNode, setSelectedNode] = useState(null); // mirrors: TreeAccounthead.jqxTree('getSelectedItem')
+  const [expandedIds, setExpandedIds]  = useState(new Set());
 
-  // ── Form fields ──
+  // ── Form fields — mirrors all jQuery val() fields ──
   const [txtParentAccountName, setTxtParentAccountName] = useState("");
   const [txtAccountName,       setTxtAccountName]       = useState("");
   const [txtDebit,             setTxtDebit]             = useState("0.00");
@@ -299,152 +202,208 @@ export default function AccountsMaster() {
   const [txtPincode,           setTxtPincode]           = useState("");
   const [chkHead,              setChkHead]              = useState(true);
   const [chkHeadDisabled,      setChkHeadDisabled]      = useState(false);
-  const [showGstDetails,       setShowGstDetails]       = useState(false);
 
-  // ── Refs for stale-closure-free access in keyboard handler ──
-  const selectedNodeRef     = useRef(null);
-  const txtAccountNameRef   = useRef("");
-  const txtParentNameRef    = useRef("");
-  const chkHeadRef          = useRef(true);
+  // ── gstdetails visibility — mirrors: gstdetails.show() / .hide() ──
+  const [showGstDetails, setShowGstDetails] = useState(false);
 
-  // Keep refs in sync with state
-  useEffect(() => { selectedNodeRef.current   = selectedNode; },        [selectedNode]);
-  useEffect(() => { txtAccountNameRef.current  = txtAccountName; },     [txtAccountName]);
-  useEffect(() => { txtParentNameRef.current   = txtParentAccountName; },[txtParentAccountName]);
-  useEffect(() => { chkHeadRef.current         = chkHead; },            [chkHead]);
+  // ── update flag — mirrors: var update = 0 ──
+  const updateFlag = useRef(0);
+
+  // ── selecteddetails — mirrors: var selecteddetails = [] ──
+  const selecteddetails = useRef({});
 
   // ── Password modal ──
   const [pwdModalOpen,  setPwdModalOpen]  = useState(false);
   const [pwdModalTitle, setPwdModalTitle] = useState("");
-  const passwordType = useRef(0);
+  const passwordType = useRef(0); // mirrors: var PasswordType = 0
 
-  // ── Loading ──
+  // ── UI ──
   const [loading, setLoading] = useState(false);
+  const [msg,     setMsg]     = useState(null);
 
-  // ── Request flag ──
-  const requestFlagRef = useRef(new Request_Controller("AccountHead"));
-
-  // ── Focus refs ──
-  const refParentAccountName = useRef(null);
-  const refAccountName       = useRef(null);
-  const refSave              = useRef(null);
-  const refDebit             = useRef(null);
-  const refCredit            = useRef(null);
-  const refGstNo             = useRef(null);
-  const refGstOptions        = useRef(null);
-  const refAddress1          = useRef(null);
-  const refAddress2          = useRef(null);
-  const refCity              = useRef(null);
-  const refMobileNo          = useRef(null);
-  const refPincode           = useRef(null);
+  // ── Refs for focus ──
+  const requestFlagRef         = useRef(new Request_Controller("AccountHead"));
+  const refParentAccountName   = useRef(null);
+  const refAccountName         = useRef(null);
+  const refSave                = useRef(null);
+  const refDebit               = useRef(null);
+  const refCredit              = useRef(null);
+  const refGstNo               = useRef(null);
+  const refGstOptions          = useRef(null);
+  const refAddress1            = useRef(null);
+  const refAddress2            = useRef(null);
+  const refCity                = useRef(null);
+  const refMobileNo            = useRef(null);
+  const refPincode             = useRef(null);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // INIT — mirrors methods.init()
+  // 1. INIT
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!sess.menudata || sess.menudata.length === 0) {
-      alert("Page Access Permission Denied !!!.");
+    const menulist = JSON.parse(localStorage.getItem("menulist"));
+    if (!menulist) {
+      MsgBox("Session Close Please Login !!!.");
+      window.location.href = "/Index";
+      return;
+    }
+    const menudata = menulist.filter(obj => obj.PageName === "Accounts Master");
+    if (!menudata || menudata.length === 0) {
+      MsgBox("Page Access Permission Denied !!!.");
       setTimeout(() => { window.location.href = "/Home"; }, 3000);
       return;
     }
-    if (perm.View === 0) {
-      alert("Page Access Permission Denied !!!.");
+    if (menudata[0].View === 0) {
+      MsgBox("Page Access Permission Denied !!!.");
       setTimeout(() => { window.location.href = "/Home"; }, 3000);
       return;
     }
-    loadtree();
-    Clear();
 
-    // POPValue pre-fill
-    const popE = NullToString(sessionStorage.getItem("POPValueE"));
-    const popB = NullToString(sessionStorage.getItem("POPValueB"));
-    if (popE !== "") { setTxtParentAccountName("Expense"); setTxtAccountName(popE); }
-    if (popB !== "") { setTxtParentAccountName("BANK");    setTxtAccountName(popB); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setPageadd(menudata[0].Add);
+    setPageedit(menudata[0].Edit);
+    setPagedelete(menudata[0].Delete);
+
+    const comid = localStorage.getItem("Comid");
+    MirrorTable.current = localStorage.getItem("MirrorTableOnline");
+    setComid(comid);
+    setPermReady(true);
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // LOAD TREE — mirrors methods.loadtree()
-  // ─────────────────────────────────────────────────────────────────────────
-  const loadtree = useCallback(async () => {
-    try {
-      setLoading(true);
-  
-      const res = await api(
-        "/AccountGroup/SelectAccountGroup?Comid=" + sess.Comid,
-        {},
-        {
-          method: "POST",
-        }
-      );
-  
-      console.log("SelectAccountGroup Response =", res);
-  
-      if (res?._netErr || res?._http404) {
-        toast(res?.message || "API Error", true);
-        return;
+  useEffect(() => {
+    if (permReady && Comid !== null) {
+      // mirrors: methods.init() → methods.loadtree(); methods.Clear();
+      loadtree(Comid);
+      Clear();
+
+      // mirrors: POPValueE / POPValueB prefill
+      const popE = NullToString(sessionStorage.getItem("POPValueE"));
+      const popB = NullToString(sessionStorage.getItem("POPValueB"));
+      if (popE !== "") {
+        setTxtParentAccountName("Expense");
+        setTxtAccountName(popE);
       }
-  
-      const response = res?.data || res;
-  
-      const flat = Array.isArray(response)
-        ? response
-        : Array.isArray(response?.Data1)
-        ? response.Data1
-        : [];
-  
-      accountlistRef.current = flat;
-  
-      setTreeData(buildTree(flat));
+      if (popB !== "") {
+        setTxtParentAccountName("BANK");
+        setTxtAccountName(popB);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permReady, Comid]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 2. KEYBOARD SHORTCUTS — F1 Save, F9 Delete, ESC Quit
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = async (e) => {
+      // F1
+      if (e.keyCode === 112) {
+        e.preventDefault();
+        MasterSaveFunction();
+      }
+      // F9 — mirrors delete with password
+      if (e.keyCode === 120) {
+        e.preventDefault();
+        if (selectedNode != null) {
+          const value = selectedNode.Id;
+          const objlist = accountlist.current.filter(obj => obj.Id === value);
+          if (objlist != null && objlist.length !== 0) {
+            if (objlist[0].NoChild === 2) {
+              MsgBox("AccountName Cannot Be Delete !!!.");
+              return;
+            }
+          }
+          if (value != null && value !== 0) {
+            if (pagedelete === 1) {
+              passwordType.current = 1;
+              EditPasswordWindow(1);
+            } else {
+              MsgBox("Page Delete Permission Denied !!!.");
+              return;
+            }
+          } else {
+            MsgBox("Select From List to Delete!!!");
+          }
+        } else {
+          MsgBox("Select From List to Delete!!!");
+        }
+      }
+      // ESC
+      if (e.keyCode === 27) {
+        e.preventDefault();
+        const reply = await MsgBoxYesNo("Do You Want To Quit Page?");
+        if (reply.isConfirmed) {
+          window.location.href = "/Home";
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNode, pagedelete, txtAccountName, txtParentAccountName,
+      txtDebit, txtCredit, txtGstNo, cmbGstOptions, txtAddress1,
+      txtAddress2, txtCity, txtMobileNo, txtPincode, chkHead, Comid]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 3. LOAD TREE — mirrors methods.loadtree()
+  // ─────────────────────────────────────────────────────────────────────────
+  const loadtree = useCallback(async (comid) => {
+    setLoading(true);
+    try {
+      const res  = await axios.post(
+        "/AccountGroup/SelectAccountGroup",
+        { Comid: comid },
+        { headers: { "Content-Type": "application/json; charset=utf-8" } }
+      );
+      const data = res.data;
+      accountlist.current = data.data ?? [];
+      const tree = buildTree(accountlist.current);
+      setTreeData(tree);
     } catch (err) {
-      console.error("SelectAccountGroup Error:", err);
-  
-      toast(err?.message || "Something went wrong", true);
+      MsgBox("Network error loading account tree.");
     } finally {
       setLoading(false);
     }
-  }, [sess.Comid, toast]);
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // TREE SELECT — mirrors TreeAccounthead.on('select', ...)
+  // 4. TREE SELECT — mirrors TreeAccounthead.on('select', ...)
   // ─────────────────────────────────────────────────────────────────────────
   function handleTreeSelect(node) {
     setSelectedNode(node);
     const parentName = node.AccountName;
     setTxtParentAccountName(parentName);
-    setTxtAccountName(""); // clear child name field on new parent selection
 
     const id      = node.Id;
-    const objlist = accountlistRef.current.filter(obj => obj.Id === id);
+    const objlist = accountlist.current.filter(obj => obj.Id === id);
     if (!objlist || objlist.length === 0) return;
 
     const Parentid = objlist[0].ParentId;
 
-    // mirrors: chkhead enable/disable logic
+    // mirrors chkhead enable/disable logic
     if (Parentid === 0 || Parentid === null) {
       setChkHeadDisabled(false);
       setChkHead(true);
     } else {
-      const objlist1 = accountlistRef.current.filter(obj => obj.Id === Parentid);
-      if (objlist[0].NoChild !== 0) {
-        setChkHeadDisabled(false);
-        setChkHead(true);
-      } else {
-        if (objlist1.length > 0 && (objlist1[0].NoChild === 1 || objlist1[0].NoChild === 0)) {
-          setChkHeadDisabled(true);
+      const objlist1 = accountlist.current.filter(obj => obj.Id === Parentid);
+      if (objlist != null) {
+        if (objlist[0].NoChild !== 0) {
+          setChkHeadDisabled(false);
+          setChkHead(true);
+        } else {
+          if (objlist1.length > 0 && (objlist1[0].NoChild === 1 || objlist1[0].NoChild === 0)) {
+            setChkHeadDisabled(true);
+          }
+          setChkHead(false);
         }
-        setChkHead(false);
       }
     }
 
     const Acparentname = objlist[0].ParentName;
 
-    // mirrors: show/hide gstdetails
-    const isSundry =
-      parentName    === "SUNDRY CREDITORS" || parentName    === "SUNDRY DEBTORS" ||
-      Acparentname  === "SUNDRY CREDITORS" || Acparentname  === "SUNDRY DEBTORS";
-
-    if (isSundry) {
+    // mirrors: show/hide gstdetails based on SUNDRY CREDITORS / SUNDRY DEBTORS
+    if (
+      parentName === "SUNDRY CREDITORS" || parentName === "SUNDRY DEBTORS" ||
+      Acparentname === "SUNDRY CREDITORS" || Acparentname === "SUNDRY DEBTORS"
+    ) {
       setShowGstDetails(true);
       setTxtAddress1(NullToString(objlist[0].Address1));
       setTxtAddress2(NullToString(objlist[0].Address2));
@@ -452,17 +411,21 @@ export default function AccountsMaster() {
       setTxtMobileNo(NullToString(objlist[0].MobileNo));
       setTxtPincode(NullToString(objlist[0].Pincode));
       setTxtGstNo(NullToString(objlist[0].GSTNo));
-      setCmbGstOptions(NullToString(objlist[0].GSTType) || "NoGST");
+      setCmbGstOptions(NullToString(objlist[0].GSTType) === "" ? "NoGST" : NullToString(objlist[0].GSTType));
+      setTxtCredit(ValNum(objlist[0].Credit).toFixed(2));
+      setTxtDebit(ValNum(objlist[0].Debit).toFixed(2));
+      // mirrors: frmtxtAccountname.jqxInput('focus')
+      setTimeout(() => refAccountName.current?.focus(), 50);
     } else {
       setShowGstDetails(false);
+      setTxtCredit(ValNum(objlist[0].Credit).toFixed(2));
+      setTxtDebit(ValNum(objlist[0].Debit).toFixed(2));
+      setTimeout(() => refAccountName.current?.focus(), 50);
     }
-    setTxtCredit(ValNum(objlist[0].Credit).toFixed(2));
-    setTxtDebit(ValNum(objlist[0].Debit).toFixed(2));
-    setTimeout(() => refAccountName.current?.focus(), 50);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // CLEAR — mirrors methods.Clear()
+  // 5. CLEAR — mirrors methods.Clear()
   // ─────────────────────────────────────────────────────────────────────────
   function Clear() {
     setTxtParentAccountName("");
@@ -477,314 +440,339 @@ export default function AccountsMaster() {
     setShowGstDetails(false);
     setTxtCredit("0.00");
     setTxtDebit("0.00");
-    setChkHead(true);
-    setChkHeadDisabled(false);
     setSelectedNode(null);
+    // mirrors: jqxTree uncheckAll + collapseAll
     setExpandedIds(new Set());
     setTimeout(() => refParentAccountName.current?.focus(), 50);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // MASTER CHECK — mirrors methods.MasterCheck()
-  // Returns: true (insert) | "Update" | false (error)
+  // 6. MASTER CHECK — mirrors methods.MasterCheck()
   // ─────────────────────────────────────────────────────────────────────────
-  function MasterCheck(currentNode, currentAccountName, currentParentName) {
-    const select  = currentNode;
-    const acname  = currentAccountName;
-    const parname = currentParentName;
+  function MasterCheck() {
+    const acname  = txtAccountName;
+    const parname = txtParentAccountName;
+    const select  = selectedNode;
 
     if (select == null) {
       const popE = NullToString(sessionStorage.getItem("POPValueE"));
       const popB = NullToString(sessionStorage.getItem("POPValueB"));
       if (popE === "" && popB === "") {
-        alert("Select Tree Parent Name");
-        if (sessionStorage.getItem("POPValue") != null) {
+        MsgBox("Select Tree Parent Name");
+        const popV = sessionStorage.getItem("POPValue");
+        if (popV !== "") {
           setTxtParentAccountName("");
         } else {
           Clear();
         }
         return false;
+      } else {
+        return true;
       }
-      return true;
-    }
-    if (!parname) {
-      alert("Enter Parent Account Name");
+    } else if (parname === "" || parname == null) {
+      MsgBox("Enter Parent Account Name");
       Clear();
       return false;
-    }
-    // If account name is empty → update the parent node itself
-    if (!acname) {
+    } else if (acname === "" || acname == null) {
       return "Update";
+    } else {
+      return true;
     }
-    return true;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FETCH DATA (INSERT) — mirrors methods.fetchdata()
+  // 7. FETCH DATA — mirrors methods.fetchdata()
   // ─────────────────────────────────────────────────────────────────────────
-  function fetchdata(currentNode, currentAccountName) {
-    const popE = NullToString(sessionStorage.getItem("POPValueE"));
-    const popB = NullToString(sessionStorage.getItem("POPValueB"));
-
+  function fetchdata() {
+    let Child     = 0;
     let elementid = 0;
     let acname    = "";
 
+    const popE = NullToString(sessionStorage.getItem("POPValueE"));
+    const popB = NullToString(sessionStorage.getItem("POPValueB"));
+
     if (popE === "" && popB === "") {
-      const items   = currentNode;
-      acname        = NullToString(currentAccountName).toUpperCase();
-      elementid     = items.Id;
+      const items      = selectedNode;
+      const TopParentId = items.ParentId; // mirrors items.value
+      acname    = NullToString(txtAccountName).toUpperCase();
+      elementid = items.Id;
 
-      const objlist = accountlistRef.current.filter(obj => obj.Id === elementid);
-      if (objlist.length === 0) { alert("Cannot Insert!!!"); return null; }
-
+      const objlist = accountlist.current.filter(obj => obj.Id === elementid);
       if (objlist[0].EditMode === false && objlist[0].NoChild === 0) {
-        alert("Child Account Add Not Allowed !!!.");
+        MsgBox("Child Account Add Not Allowed !!!.");
         return null;
       }
-      const duplicate = accountlistRef.current.filter(obj => obj.AccountName === acname);
-      if (duplicate.length !== 0) {
-        alert("AccountName Already Exits !!!.");
+      const objlist1 = accountlist.current.filter(obj => obj.AccountName === acname);
+      if (objlist1.length !== 0) {
+        MsgBox("AccountName Already Exits !!!.");
         return null;
+      }
+      if (chkHead === true) {
+        Child = 1;
+      } else {
+        Child = 0;
       }
     } else {
       if (popE !== "") {
-        acname = NullToString(currentAccountName).toUpperCase();
-        const match = accountlistRef.current.filter(obj => obj.AccountName === "EXPENSES");
-        if (match.length !== 0) elementid = match[0].Id;
+        acname = NullToString(txtAccountName).toUpperCase();
+        const objlist1 = accountlist.current.filter(obj => obj.AccountName === "EXPENSES");
+        if (objlist1.length !== 0) elementid = objlist1[0].Id;
       }
       if (popB !== "") {
-        acname = NullToString(currentAccountName).toUpperCase();
-        const match = accountlistRef.current.filter(obj => obj.AccountName === "BANK");
-        if (match.length !== 0) elementid = match[0].Id;
+        acname = NullToString(txtAccountName).toUpperCase();
+        const objlist1 = accountlist.current.filter(obj => obj.AccountName === "BANK");
+        if (objlist1.length !== 0) elementid = objlist1[0].Id;
       }
     }
 
-    return {
-      Comid:       sess.Comid,
+    let Id = 0;
+    if (updateFlag.current !== 0) {
+      Id = elementid;
+    }
+
+    const details = {
+      Comid:       Comid,
       AccountName: acname,
       ParentId:    elementid,
-      Id:          0,           // 0 = new insert (mirrors jQuery fetchdata: Id=0 always for insert)
+      Id:          Id,
       Active:      1,
     };
+
+    return details != null ? details : null;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FETCH DATA UPDATE — mirrors methods.fetchdataupdate()
-  // Updates the selected node's AccountName to txtParentAccountName value
-  // (jQuery: acname = frmtxtParentaccountname.val(), elementid = selected node)
+  // 8. FETCH DATA UPDATE — mirrors methods.fetchdataupdate()
   // ─────────────────────────────────────────────────────────────────────────
-  function fetchdataupdate(currentNode, currentParentName, currentDebit, currentCredit) {
-    const items     = currentNode;
-    const elementid = items.Id;
-    const acname    = currentParentName; // renames the currently selected node
+  function fetchdataupdate() {
+    const items       = selectedNode;
+    const TopParentId = items.ParentId; // mirrors items.value
+    const acname      = txtParentAccountName;
+    const elementid   = items.Id;
 
-    // Check if it's a protected root
-    const children = accountlistRef.current.filter(obj => obj.ParentId === elementid);
-    if (children.length !== 0 && children[0].NoChild === 2) {
-      alert("Account Name Update Not Allowed !!!.");
+    const objlist = accountlist.current.filter(obj => obj.ParentId === elementid);
+    if (objlist != null && objlist.length !== 0) {
+      if (objlist[0].NoChild === 2) {
+        MsgBox("Account Name Update Not Allowed !!!.");
+        return null;
+      }
+    }
+    const objlist1 = accountlist.current.filter(obj => obj.AccountName === acname && obj.Id !== elementid);
+    if (objlist1.length !== 0) {
+      MsgBox("AccountName Already Exits !!!.");
       return null;
     }
 
-    // Duplicate check (exclude self)
-    const dup = accountlistRef.current.filter(obj => obj.AccountName === acname && obj.Id !== elementid);
-    if (dup.length !== 0) {
-      alert("AccountName Already Exits !!!.");
-      return null;
-    }
+    let topParent = TopParentId;
+    if (topParent === -1) topParent = null;
 
-    // Opening balance validation
-    let debit  = currentDebit;
-    let credit = currentCredit;
-    if (ValNum(debit)  === 0) debit  = "0.00";
-    if (ValNum(credit) === 0) credit = "0.00";
+    // mirrors ValNum checks
+    let debit  = txtDebit;
+    let credit = txtCredit;
+    if (ValNum(debit)  === 0) { debit  = "0.00"; setTxtDebit("0.00"); }
+    if (ValNum(credit) === 0) { credit = "0.00"; setTxtCredit("0.00"); }
     if (ValNum(credit) !== 0 && ValNum(debit) !== 0) {
-      alert("Opening Balance Not Allowed !!!.");
+      MsgBox("Opening Balance Not Allowed !!!.");
       return null;
     }
 
-    return {
-      Comid:       sess.Comid,
+    const details = {
+      Comid:       Comid,
       AccountName: acname,
-      ParentId:    items.ParentId ?? null,
+      ParentId:    topParent,
       Id:          elementid,
       Active:      1,
     };
+
+    return details != null ? details : null;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // SAVE ACCOUNT HEAD — mirrors methods.SaveAccounthead()
+  // 9. SAVE ACCOUNT HEAD — mirrors methods.SaveAccounthead()
   // ─────────────────────────────────────────────────────────────────────────
-  const SaveAccounthead = useCallback(async (payload) => {
-    if (!payload) return;
+  async function SaveAccounthead(objlist) {
+    if (objlist == null) return;
+
     if (requestFlagRef.current.Is_Request_Running()) return;
     requestFlagRef.current.Start_Request();
 
-    const proceed = await confirm("Do you Want to Save the Account Head Details?");
-    if (!proceed) {
-      requestFlagRef.current.End_Request();
-      return;
-    }
-
-    setLoading(true);
-    const res = await api(
-      "/AccountGroup/InsertAccountGroup",
-      payload,
-      { "MirrorTable": String(sess.MirrorTable) },
-    );
-    setLoading(false);
-    requestFlagRef.current.End_Request();
-
-    if (res._netErr) {
-      toast(`❌ Network error saving account head: ${res.message}`, true);
-      return;
-    }
-
-    if (res.ok) {
-      toast("✅ " + (res.message || "Saved successfully!"));
-      await loadtree();
-
-      if (sessionStorage.getItem("POPStatus") === "ON") {
-        sessionStorage.setItem("POPValue",  String(res.Id || ""));
-        sessionStorage.setItem("POPName",   String(res.AccountName || ""));
-        sessionStorage.setItem("POPStatus", "OFF");
-        // Close parent dialog if embedded
-        try {
-          window.parent?.document?.querySelector(".ui-dialog-content:visible")
-            ?.closest("[role=dialog]")?.dispatchEvent(new Event("close"));
-        } catch { /* ignore */ }
-      } else {
-        Clear();
+    const reply = await MsgBoxYesNo("Do you Want to Save the Account Head Details?");
+    if (reply.isConfirmed) {
+      setLoading(true);
+      try {
+        const res  = await axios.post(
+          "/AccountGroup/InsertAccountGroup",
+          objlist,
+          {
+            headers: {
+              "Content-Type": "application/json; charset=utf-8",
+              "MirrorTable":  MirrorTable.current,
+            },
+          }
+        );
+        const data = res.data;
+        if (data.ok) {
+          requestFlagRef.current.End_Request();
+          setMsg({ type: "ok", text: data.message });
+          await loadtree(Comid);
+          if (sessionStorage.getItem("POPStatus") === "ON") {
+            sessionStorage.setItem("POPValue",   data.Id);
+            sessionStorage.setItem("POPName",    data.AccountName);
+            sessionStorage.setItem("POPStatus",  "OFF");
+            window.parent?.document?.querySelector(".ui-dialog-content")?.closest("[role=dialog]")?.__jqxDialog?.close();
+          } else {
+            Clear();
+          }
+        } else {
+          if (data.redis === false) {
+            alert("Already Login Another User Please Login Again!!!");
+            window.location.href = "/Login";
+          } else {
+            MsgBox(data.message);
+          }
+        }
+      } catch {
+        MsgBox("Network error saving account head.");
+      } finally {
+        setLoading(false);
+        requestFlagRef.current.End_Request();
       }
     } else {
-      if (res.redis === false) {
-        alert("Already Login Another User Please Login Again!!!");
-        window.location.href = "/Login";
-      } else {
-        alert(res.message || "Save failed");
-      }
+      requestFlagRef.current.End_Request();
     }
-  }, [confirm, loadtree, toast, sess.MirrorTable]); // eslint-disable-line
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // MASTER SAVE — mirrors methods.MasterSaveFunction()
-  // Uses refs so it's always fresh (no stale closure in keyboard handler)
+  // 10. MASTER SAVE FUNCTION — mirrors methods.MasterSaveFunction()
   // ─────────────────────────────────────────────────────────────────────────
-  const MasterSaveFunction = useCallback(() => {
-    const curNode       = selectedNodeRef.current;
-    const curAccName    = txtAccountNameRef.current;
-    const curParName    = txtParentNameRef.current;
-
-    // These state values are only needed in fetchdataupdate; read from DOM refs
-    const curDebit  = refDebit.current?.value  || "0.00";
-    const curCredit = refCredit.current?.value  || "0.00";
-
-    const result = MasterCheck(curNode, curAccName, curParName);
-
+  function MasterSaveFunction() {
+    const result = MasterCheck();
     if (result === "Update") {
-      const payload = fetchdataupdate(curNode, curParName, curDebit, curCredit);
-      if (payload) {
-        SaveAccounthead(payload);
+      const objlist = fetchdataupdate();
+      if (objlist !== null && objlist !== false) {
+        SaveAccounthead(objlist);
       } else {
-        // fetchdataupdate already alerted
+        MsgBox("Cannot Update!!!");
+        return;
       }
     } else if (result === true) {
-      const payload = fetchdata(curNode, curAccName);
-      if (payload) {
-        SaveAccounthead(payload);
+      const objlist = fetchdata();
+      if (objlist !== null && objlist !== false) {
+        SaveAccounthead(objlist);
       } else {
-        // fetchdata already alerted
+        MsgBox("Cannot Insert!!!");
+        return;
       }
+    } else {
+      return;
     }
-    // result === false → MasterCheck already showed alert
-  }, [SaveAccounthead]); // eslint-disable-line
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // PASSWORD WINDOW — mirrors EditPasswordWindow()
+  // 11. PASSWORD WINDOW — mirrors EditPasswordWindow()
   // ─────────────────────────────────────────────────────────────────────────
   function EditPasswordWindow(type) {
-    const titles = { 0: "Form Pwd", 1: "Edit Pwd", 2: "Admin Pwd" };
-    passwordType.current = type;
-    setPwdModalTitle(titles[type] || "Password");
+    let titlenew = "";
+    if (type === 1)      titlenew = "Edit Pwd";
+    else if (type === 0) titlenew = "Form Pwd";
+    else if (type === 2) titlenew = "Admin Pwd";
+    setPwdModalTitle(titlenew);
     setPwdModalOpen(true);
   }
 
-  // mirrors: '#LockEditWindow'.on('close') — delete flow after password verified
-  const handlePasswordSuccess = useCallback(async () => {
+  // mirrors: '#LockEditWindow'.on('close', ...) — triggers delete after password verified
+  async function handlePasswordSuccess() {
     setPwdModalOpen(false);
+    // mirrors: setTimeout 250ms then delete flow
     setTimeout(async () => {
-      const node = selectedNodeRef.current;
-      if (!node) return;
-      const proceed = await confirm(`Wish to Delete the Record ${node.AccountName}?`);
-      if (!proceed) return;
-
-      setLoading(true);
-      const res = await api(
-        `/AccountGroup/DeleteAccountGroup?Id=${node.Id}&Comid=${sess.Comid}&MirrorTable=${sess.MirrorTable}`,
-        null,
-        {}
-      );
-      setLoading(false);
-
-      if (res.ok) {
-        toast("✅ " + (res.message || "Deleted successfully"));
-        await loadtree();
-        Clear();
-      } else {
-        if (res.redis === false) {
-          alert("Already Login Another User Please Login Again!!!");
-          window.location.href = "/Login";
-        } else {
-          alert(res.message || "Delete failed");
+      if (selectedNode == null) return;
+      const value = selectedNode.Id;
+      const label = selectedNode.AccountName;
+      const str   = `Wish to Delete the Record ${label}?`;
+      const reply = await MsgBoxYesNo(str);
+      if (reply.isConfirmed) {
+        setLoading(true);
+        try {
+          const res  = await axios.post(
+            "/AccountGroup/DeleteAccountGroup",
+            { Id: value, Comid: Comid, MirrorTable: MirrorTable.current },
+            { headers: { "Content-Type": "application/json; charset=utf-8" } }
+          );
+          const data = res.data;
+          if (data.ok) {
+            setMsg({ type: "ok", text: data.message });
+            await loadtree(Comid);
+            Clear();
+          } else {
+            if (data.redis === false) {
+              alert("Already Login Another User Please Login Again!!!");
+              window.location.href = "/Login";
+            } else {
+              MsgBox(data.message);
+            }
+          }
+        } catch {
+          MsgBox("Network error deleting account.");
+        } finally {
+          setLoading(false);
         }
       }
     }, 250);
-  }, [confirm, loadtree, toast, sess]); // eslint-disable-line
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // KEYBOARD SHORTCUTS — F1, F9, ESC (stale-closure-free via refs)
+  // 12. ACCOUNT NAME keypress logic — mirrors frmtxtAccountname.keypress
+  //     chkhead enable/disable + Enter navigation
   // ─────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const handler = async (e) => {
-      // F1 — Save
-      if (e.keyCode === 112) {
-        e.preventDefault();
-        MasterSaveFunction();
-      }
-      // F9 — Delete (with password)
-      if (e.keyCode === 120) {
-        e.preventDefault();
-        const node = selectedNodeRef.current;
-        if (!node) { alert("Select From List to Delete!!!"); return; }
-
-        const objlist = accountlistRef.current.filter(obj => obj.Id === node.Id);
-        if (objlist.length !== 0 && objlist[0].NoChild === 2) {
-          alert("AccountName Cannot Be Delete !!!.");
-          return;
-        }
-        if (node.Id != null && node.Id !== 0) {
-          if (perm.Delete === 1) {
-            EditPasswordWindow(1);
-          } else {
-            alert("Page Delete Permission Denied !!!.");
-          }
+  function handleAccountNameChange(value) {
+    setTxtAccountName(value);
+    // mirrors: chkhead logic inside frmtxtAccountname keypress (fires on every char)
+    if (chkHead === true && selectedNode != null) {
+      const id      = selectedNode.Id;
+      const objlist = accountlist.current.filter(obj => obj.Id === id);
+      if (objlist && objlist.length > 0) {
+        const Parentid = objlist[0].ParentId;
+        if (Parentid === 0 || Parentid === null) {
+          setChkHeadDisabled(false);
         } else {
-          alert("Select From List to Delete!!!");
+          const objlist1 = accountlist.current.filter(obj => obj.Id === id);
+          if (objlist1 != null && objlist1.length > 0) {
+            if (objlist1[0].NoChild !== 0) {
+              if (objlist1[0].NoChild === 2) {
+                setChkHeadDisabled(false);
+                setChkHead(false);
+              } else {
+                setChkHeadDisabled(true);
+                setChkHead(false);
+              }
+            }
+          }
         }
       }
-      // ESC — Quit
-      if (e.keyCode === 27) {
-        e.preventDefault();
-        const go = await confirm("Do You Want To Quit Page?");
-        if (go) window.location.href = "/Home";
+    }
+  }
+
+  function handleAccountNameKeyDown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const prodname = txtAccountName;
+      const select   = selectedNode;
+      if ((prodname !== "" && prodname != null) && select != null) {
+        if (txtParentAccountName === "SUNDRY CREDITORS" || txtParentAccountName === "SUNDRY DEBTORS") {
+          refGstNo.current?.select();
+          refGstNo.current?.focus();
+        } else {
+          refDebit.current?.select();
+          refDebit.current?.focus();
+        }
+      } else {
+        MsgBox("Enter Account Name!!!");
       }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [MasterSaveFunction, perm.Delete, confirm]);
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // TREE TOGGLE
-  // ─────────────────────────────────────────────────────────────────────────
+  // 13. TREE TOGGLE ─────────────────────────────────────────────────────────
   function toggleNode(id) {
     setExpandedIds(prev => {
       const next = new Set(prev);
@@ -794,53 +782,10 @@ export default function AccountsMaster() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ACCOUNT NAME change — mirrors chkhead logic in frmtxtAccountname keypress
-  // ─────────────────────────────────────────────────────────────────────────
-  function handleAccountNameChange(value) {
-    setTxtAccountName(value);
-    // Re-evaluate chkHead state on input (mirrors jQuery keypress on AccountName)
-    if (chkHeadRef.current === true && selectedNodeRef.current != null) {
-      const id      = selectedNodeRef.current.Id;
-      const objlist = accountlistRef.current.filter(obj => obj.Id === id);
-      if (objlist.length > 0) {
-        const Parentid = objlist[0].ParentId;
-        if (Parentid === 0 || Parentid === null) {
-          setChkHeadDisabled(false);
-        } else {
-          if (objlist[0].NoChild !== 0) {
-            if (objlist[0].NoChild === 2) {
-              setChkHeadDisabled(false);
-              setChkHead(false);
-            } else {
-              setChkHeadDisabled(true);
-              setChkHead(false);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
+  // 14. RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
-
-      {/* Confirm Modal */}
-      {ConfirmUI}
-
-      {/* Password Modal */}
-      {pwdModalOpen && (
-        <PasswordModal
-          title={pwdModalTitle}
-          passwordType={passwordType.current}
-          Comid={sess.Comid}
-          MirrorTable={sess.MirrorTable}
-          onClose={() => setPwdModalOpen(false)}
-          onSuccess={handlePasswordSuccess}
-        />
-      )}
 
       {/* Loader */}
       {loading && (
@@ -850,6 +795,17 @@ export default function AccountsMaster() {
             <div className="mp-ldr-msg">Loading...</div>
           </div>
         </div>
+      )}
+
+      {/* Password Modal — mirrors #LockEditWindow */}
+      {pwdModalOpen && (
+        <PasswordModal
+          title={pwdModalTitle}
+          passwordType={passwordType.current}
+          Comid={Comid}
+          onClose={() => setPwdModalOpen(false)}
+          onSuccess={handlePasswordSuccess}
+        />
       )}
 
       {/* Header */}
@@ -872,7 +828,7 @@ export default function AccountsMaster() {
         {/* LEFT — Tree Panel */}
         <div style={{
           width: 280, flexShrink: 0, background: "#fff",
-          border: "1px solid #c5d8f8", borderRadius: 6,
+          border: "1px solid #d4dbe8", borderRadius: 6,
           overflow: "auto", minHeight: 500, maxHeight: "calc(100vh - 120px)",
           padding: 6,
         }}>
@@ -894,9 +850,6 @@ export default function AccountsMaster() {
                 onToggle={toggleNode}
               />
             ))}
-            {treeData.length === 0 && !loading && (
-              <div className="mp-empty">No accounts loaded.</div>
-            )}
           </div>
         </div>
 
@@ -906,32 +859,29 @@ export default function AccountsMaster() {
           {/* Toolbar */}
           <div className="mp-toolbar">
             <button
-              ref={refSave}
               className="mp-btn sv"
-              onClick={() => MasterSaveFunction()}
-              title="F1 – Save / Update"
-              disabled={loading}
+              ref={refSave}
+              onClick={() => { updateFlag.current = 0; MasterSaveFunction(); }}
+              title="F1 – Save"
             >
               💾 Save (F1)
             </button>
             <button
               className="mp-btn nw"
-              onClick={() => {
-                // Force update mode: blank out AccountName so MasterCheck returns "Update"
-                setTxtAccountName("");
-              }}
-              title="Clear Account Name to trigger update mode"
+              onClick={() => { updateFlag.current = 1; MasterSaveFunction(); }}
+              title="Update selected"
             >
-              ✏ Update Mode
+              ✏ Update
             </button>
             <button className="mp-btn dl" onClick={Clear} title="Clear form">
               ✕ Clear
             </button>
+            {msg && <span className={`mp-msg ${msg.type}`}>{msg.text}</span>}
           </div>
 
           {/* Form */}
           <div style={{
-            background: "#fff", border: "1px solid #c5d8f8",
+            background: "#fff", border: "1px solid #d4dbe8",
             borderRadius: 6, padding: "14px 16px",
           }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
@@ -950,19 +900,16 @@ export default function AccountsMaster() {
                       onKeyDown={e => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          const node = selectedNodeRef.current;
-                          if (txtParentNameRef.current && node) {
-                            if (
-                              txtParentNameRef.current === "SUNDRY CREDITORS" ||
-                              txtParentNameRef.current === "SUNDRY DEBTORS"
-                            ) {
+                          const select = selectedNode;
+                          if ((txtParentAccountName !== "" && txtParentAccountName != null) && select != null) {
+                            if (txtParentAccountName === "SUNDRY CREDITORS" || txtParentAccountName === "SUNDRY DEBTORS") {
                               refAddress1.current?.select();
                               refAddress1.current?.focus();
                             } else {
                               refSave.current?.focus();
                             }
                           } else {
-                            alert("Select Parent Account Name !!!");
+                            MsgBox("Select Parent Account Name !!!");
                           }
                         }
                       }}
@@ -980,32 +927,12 @@ export default function AccountsMaster() {
                       type="text"
                       value={txtAccountName}
                       onChange={e => handleAccountNameChange(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          const prodname = txtAccountNameRef.current;
-                          const node     = selectedNodeRef.current;
-                          if (prodname && node) {
-                            if (
-                              txtParentNameRef.current === "SUNDRY CREDITORS" ||
-                              txtParentNameRef.current === "SUNDRY DEBTORS"
-                            ) {
-                              refGstNo.current?.select();
-                              refGstNo.current?.focus();
-                            } else {
-                              refDebit.current?.select();
-                              refDebit.current?.focus();
-                            }
-                          } else {
-                            alert("Enter Account Name!!!");
-                          }
-                        }
-                      }}
+                      onKeyDown={handleAccountNameKeyDown}
                     />
                   </td>
                 </tr>
 
-                {/* Is Head */}
+                {/* Is Head checkbox */}
                 <tr>
                   <td style={tdLbl}>Is Head</td>
                   <td style={tdVal}>
@@ -1019,7 +946,7 @@ export default function AccountsMaster() {
                   </td>
                 </tr>
 
-                {/* Opening Debit */}
+                {/* Debit */}
                 <tr>
                   <td style={tdLbl}>Opening Debit</td>
                   <td style={tdVal}>
@@ -1041,7 +968,7 @@ export default function AccountsMaster() {
                   </td>
                 </tr>
 
-                {/* Opening Credit */}
+                {/* Credit */}
                 <tr>
                   <td style={tdLbl}>Opening Credit</td>
                   <td style={tdVal}>
@@ -1062,13 +989,13 @@ export default function AccountsMaster() {
                   </td>
                 </tr>
 
-                {/* GST Details — conditional */}
+                {/* GST Details — mirrors: gstdetails.show() / .hide() */}
                 {showGstDetails && (
                   <>
                     <tr>
                       <td colSpan={2} style={{
                         background: "#1a2e4a", color: "#fff", fontWeight: 700,
-                        fontSize: 11, padding: "5px 8px", borderRadius: 3,
+                        fontSize: 11, padding: "5px 8px", borderRadius: 3, marginTop: 4,
                       }}>
                         GST Details
                       </td>
@@ -1218,19 +1145,12 @@ export default function AccountsMaster() {
 
           {/* Hint bar */}
           <div className="mp-hint">
-            <kbd>F1</kbd> Save / Update &nbsp;|&nbsp;
+            <kbd>F1</kbd> Save &nbsp;|&nbsp;
             <kbd>F9</kbd> Delete (requires password) &nbsp;|&nbsp;
             <kbd>Esc</kbd> Quit &nbsp;|&nbsp;
             <kbd>Enter</kbd> Next Field
           </div>
         </div>
-      </div>
-
-      {/* Toast Notifications */}
-      <div className="toasts">
-        {toasts.map(t => (
-          <div key={t.id} className={`toast${t.isErr ? " err" : ""}`}>{t.msg}</div>
-        ))}
       </div>
     </div>
   );
@@ -1238,9 +1158,9 @@ export default function AccountsMaster() {
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
 const tdLbl = {
-  width: 150, padding: "5px 8px 5px 0",
-  fontWeight: 600, color: "#4a5568", fontSize: 11,
-  whiteSpace: "nowrap", verticalAlign: "middle",
+  width:       140, padding: "5px 8px 5px 0",
+  fontWeight:  600, color: "#4a5568", fontSize: 11,
+  whiteSpace:  "nowrap", verticalAlign: "middle",
 };
 const tdVal = {
   padding: "4px 0", verticalAlign: "middle",

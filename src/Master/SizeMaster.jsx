@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css"; // same CSS as BrandMaster
-
+/// te
 // ─── Helpers (identical to BrandMaster) ──────────────────────────────────────
 const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
 
@@ -11,6 +11,7 @@ const authHeaders = () => ({
   "Profile":       localStorage.getItem("Profile")    || "Admin",
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
+
 
 const api = async (path, body = null, extraHeaders = {}, queryParams = null) => {
   try {

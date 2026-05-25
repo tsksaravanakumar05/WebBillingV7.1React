@@ -14,7 +14,7 @@ export const SupplierInfo = forwardRef(
 const isTypingRef = useRef(false);
   const listRef = useRef(null);
 
-  // Supplier select but input-ல name show பண்ணு
+  // Supplier select ஆனா input-ல name show பண்ணு
   useEffect(() => {
     if (isTypingRef.current) return;
     if (header.supplierId) {

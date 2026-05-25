@@ -1,0 +1,579 @@
+/* ═══════════════════════════════════════════════════════════
+   MenuSettings.css  —  Left Sidebar Navigation
+   KASSA BM Admin Dashboard  |  scoped via .ms- prefix
+   Place this file in: src/components/MenuSettings.css
+   (same folder as MenuSettings.jsx)
+════════════════════════════════════════════════════════════ */
+
+/* ── CSS VARIABLES ── */
+:root {
+  --ms-w:              268px;        /* sidebar width */
+  --ms-bg:             #101827;      /* sidebar dark navy */
+  --ms-surface:        #192336;      /* slightly lighter surface */
+  --ms-border:         rgba(255,255,255,0.07);
+  --ms-accent:         #3d6ff8;      /* brand blue */
+  --ms-accent-dim:     rgba(61,111,248,0.15);
+  --ms-accent-glow:    rgba(61,111,248,0.30);
+  --ms-green:          #22c55e;
+  --ms-txt-hi:         #eef1fb;      /* high emphasis text */
+  --ms-txt-mid:        #8492ad;      /* medium */
+  --ms-txt-lo:         #49566e;      /* low / muted */
+  --ms-sub-item-h:     38px;         /* used for accordion max-height calc */
+  --ms-ease:           cubic-bezier(0.4, 0, 0.2, 1);
+  --ms-speed:          0.30s;
+  --ms-r:              10px;         /* border-radius */
+}
+
+/* ── BODY SCROLL LOCK (mobile) ── */
+.ms-scroll-lock { overflow: hidden; }
+
+/* ══════════════════════════════════════════════
+   HAMBURGER TOGGLE BUTTON
+   Fixed — always visible, sits inside topbar area
+══════════════════════════════════════════════ */
+.ms-toggle {
+  position: fixed;
+  top: 13px;
+  left: 16px;
+  z-index: 1200;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+
+  background: transparent;
+  color: #0f1729;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+.ms-toggle svg { width: 22px; height: 22px; display: block; }
+
+.ms-toggle:hover {
+  background: rgba(61,111,248,0.12);
+  color: var(--ms-accent);
+  transform: scale(1.07);
+}
+.ms-toggle:active { transform: scale(0.94); }
+
+/* Push topbar logo so it doesn't hide behind toggle */
+.kd-topbar { padding-left: 66px !important; }
+
+/* ══════════════════════════════════════════════
+   BACKDROP
+══════════════════════════════════════════════ */
+.ms-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(8, 12, 26, 0.60);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: ms-fade-in 0.22s ease forwards;
+}
+@keyframes ms-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ══════════════════════════════════════════════
+   SIDEBAR PANEL
+══════════════════════════════════════════════ */
+.ms-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1100;
+  width: var(--ms-w);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  background: var(--ms-bg);
+  border-right: 1px solid var(--ms-border);
+  box-shadow: 4px 0 48px rgba(0, 0, 0, 0.40);
+
+  /* Start off-screen */
+  transform: translateX(calc(-1 * var(--ms-w) - 10px));
+  transition: transform var(--ms-speed) var(--ms-ease);
+  will-change: transform;
+}
+
+.ms-sidebar--open {
+  transform: translateX(0);
+}
+
+/* On desktop: content shift is handled by .kd-content-wrap--shifted in dashboard.css */
+
+/* ══════════════════════════════════════════════
+   HEADER
+══════════════════════════════════════════════ */
+.ms-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 14px;
+  flex-shrink: 0;
+}
+
+.ms-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ms-brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--ms-accent);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  font-family: 'Syne', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px var(--ms-accent-glow);
+  letter-spacing: -0.5px;
+}
+
+.ms-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.ms-brand-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ms-txt-hi);
+  letter-spacing: 0.3px;
+}
+.ms-brand-name strong { color: var(--ms-accent); }
+
+.ms-brand-sub {
+  font-size: 10.5px;
+  color: var(--ms-txt-lo);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Close button inside sidebar header */
+.ms-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  background: rgba(255,255,255,0.06);
+  color: var(--ms-txt-mid);
+  flex-shrink: 0;
+  transition: background 0.16s, color 0.16s;
+}
+.ms-close svg { width: 15px; height: 15px; }
+.ms-close:hover { background: rgba(255,255,255,0.14); color: var(--ms-txt-hi); }
+
+/* ── DIVIDER ── */
+.ms-divider {
+  height: 1px;
+  background: var(--ms-border);
+  margin: 0 14px;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════
+   USER STRIP
+══════════════════════════════════════════════ */
+.ms-user-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.ms-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--ms-accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 10px var(--ms-accent-glow);
+}
+
+.ms-user-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  min-width: 0;
+  flex: 1;
+}
+
+.ms-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ms-txt-hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ms-user-role {
+  font-size: 10.5px;
+  color: var(--ms-txt-lo);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ms-online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ms-green);
+  flex-shrink: 0;
+  box-shadow: 0 0 6px var(--ms-green);
+}
+
+/* ══════════════════════════════════════════════
+   SECTION LABEL
+══════════════════════════════════════════════ */
+.ms-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  color: var(--ms-txt-lo);
+  padding: 10px 20px 6px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* ══════════════════════════════════════════════
+   NAV SCROLL AREA
+══════════════════════════════════════════════ */
+.ms-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 8px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.ms-nav::-webkit-scrollbar       { width: 4px; }
+.ms-nav::-webkit-scrollbar-track { background: transparent; }
+.ms-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 4px; }
+
+/* ── LIST ── */
+.ms-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ══════════════════════════════════════════════
+   MENU ITEM WRAPPER
+══════════════════════════════════════════════ */
+.ms-item {
+  list-style: none;
+}
+
+/* ══════════════════════════════════════════════
+   PARENT BUTTON  (shared between <button> and NavLink)
+══════════════════════════════════════════════ */
+.ms-parent-btn {
+  /* layout */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: var(--ms-r);
+
+  /* reset */
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: left;
+
+  /* typography */
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ms-txt-mid);
+  letter-spacing: 0.1px;
+  line-height: 1.4;
+
+  /* motion */
+  transition: background 0.17s ease, color 0.17s ease, padding-left 0.17s ease;
+  position: relative;
+}
+
+.ms-parent-btn:hover {
+  background: rgba(255,255,255,0.055);
+  color: var(--ms-txt-hi);
+  padding-left: 15px;
+}
+
+/* Expanded (open parent) */
+.ms-parent-btn--expanded {
+  background: rgba(255,255,255,0.04);
+  color: var(--ms-txt-hi);
+}
+
+/* Active leaf NavLink */
+.ms-parent-btn--active {
+  background: var(--ms-accent-dim) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+/* left accent bar for active */
+.ms-parent-btn--active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18%;
+  height: 64%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ms-accent);
+}
+
+/* ── ICON SLOT ── */
+.ms-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  opacity: 0.65;
+  transition: opacity 0.17s;
+}
+.ms-item-icon svg { width: 17px; height: 17px; }
+
+.ms-parent-btn:hover   .ms-item-icon,
+.ms-parent-btn--expanded .ms-item-icon,
+.ms-parent-btn--active .ms-item-icon { opacity: 1; }
+
+/* ── LABEL ── */
+.ms-item-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── ITEM COUNT BADGE ── */
+.ms-item-count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.07);
+  color: var(--ms-txt-lo);
+  flex-shrink: 0;
+  transition: background 0.17s, color 0.17s;
+}
+.ms-parent-btn--expanded .ms-item-count,
+.ms-parent-btn:hover .ms-item-count {
+  background: var(--ms-accent-dim);
+  color: var(--ms-accent);
+}
+
+/* ── CHEVRON ── */
+.ms-chevron {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  opacity: 0.45;
+  transition: transform 0.28s var(--ms-ease), opacity 0.17s;
+}
+.ms-chevron--open {
+  transform: rotate(180deg);
+  opacity: 0.9;
+}
+
+/* ══════════════════════════════════════════════
+   SUBMENU  —  accordion via max-height
+══════════════════════════════════════════════ */
+.ms-sub-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--ms-speed) var(--ms-ease);
+}
+
+/* Open state: height = items × row-height + padding */
+.ms-item--open .ms-sub-wrap {
+  max-height: calc(var(--item-count, 10) * var(--ms-sub-item-h) + 16px);
+}
+
+.ms-sub-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0 8px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  position: relative;
+}
+
+/* Vertical connecting line */
+.ms-sub-list::before {
+  content: "";
+  position: absolute;
+  left: 19px;
+  top: 10px;
+  bottom: 12px;
+  width: 1px;
+  background: var(--ms-border);
+  border-radius: 1px;
+}
+
+/* ── SUBMENU ITEM ── */
+.ms-sub-item {
+  list-style: none;
+}
+
+/* Stagger-in when parent opens */
+.ms-item--open .ms-sub-item {
+  animation: ms-sub-in 0.22s var(--ms-ease) both;
+  animation-delay: calc(var(--i, 0) * 0.03s);
+}
+@keyframes ms-sub-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── SUBMENU LINK ── */
+.ms-sub-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 2px;
+  height: var(--ms-sub-item-h);
+  border-radius: 7px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ms-txt-mid);
+  transition: background 0.15s ease, color 0.15s ease, padding-left 0.15s ease;
+}
+
+.ms-sub-link:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--ms-txt-hi);
+  padding-left: 6px;
+}
+
+.ms-sub-link--active {
+  background: var(--ms-accent-dim) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+/* ── SUBMENU BULLET DOT ── */
+.ms-sub-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ms-txt-lo);
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.ms-sub-link:hover .ms-sub-dot {
+  background: var(--ms-txt-mid);
+  transform: scale(1.3);
+}
+
+.ms-sub-link--active .ms-sub-dot {
+  background: var(--ms-accent) !important;
+  transform: scale(1.5);
+  box-shadow: 0 0 6px var(--ms-accent-glow);
+}
+
+.ms-sub-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ══════════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════════ */
+.ms-footer {
+  padding: 10px 18px 14px;
+  border-top: 1px solid var(--ms-border);
+  flex-shrink: 0;
+}
+.ms-footer-text {
+  font-size: 10.5px;
+  color: var(--ms-txt-lo);
+  letter-spacing: 0.4px;
+}
+
+/* ══════════════════════════════════════════════
+   ENTRANCE ANIMATION — items slide in when sidebar opens
+══════════════════════════════════════════════ */
+@keyframes ms-item-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.ms-sidebar--open .ms-item {
+  animation: ms-item-in 0.26s var(--ms-ease) both;
+}
+.ms-sidebar--open .ms-item:nth-child(1) { animation-delay: 0.04s; }
+.ms-sidebar--open .ms-item:nth-child(2) { animation-delay: 0.09s; }
+.ms-sidebar--open .ms-item:nth-child(3) { animation-delay: 0.14s; }
+.ms-sidebar--open .ms-item:nth-child(4) { animation-delay: 0.18s; }
+.ms-sidebar--open .ms-item:nth-child(5) { animation-delay: 0.22s; }
+.ms-sidebar--open .ms-item:nth-child(6) { animation-delay: 0.25s; }
+
+/* ══════════════════════════════════════════════
+   MOBILE  (≤ 768px) — sidebar overlays, no push
+══════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .ms-sidebar {
+    width: min(88vw, 300px);
+  }
+  /* On mobile the content-wrap never shifts — sidebar overlays with backdrop */
+  .kd-content-wrap--shifted {
+    margin-left: 0 !important;
+  }
+  body:has(.ms-sidebar--open) .kd-topbar {
+    padding-left: 66px !important;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FOCUS / ACCESSIBILITY
+══════════════════════════════════════════════ */
+.ms-toggle:focus-visible,
+.ms-close:focus-visible,
+.ms-parent-btn:focus-visible,
+.ms-sub-link:focus-visible {
+  outline: 2px solid var(--ms-accent);
+  outline-offset: 2px;
+}
