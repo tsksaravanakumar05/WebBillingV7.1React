@@ -98,8 +98,22 @@
 .kd-user-name { font-size: 12px; font-weight: 600; line-height: 1.2; }
 .kd-user-role { font-size: 10.5px; color: var(--kd-muted); }
 
+/* ── CONTENT WRAPPER (shifts when sidebar opens) ── */
+.kd-content-wrap {
+  margin-left: 0;
+  transition: margin-left 0.30s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 0;
+  width: 100%;
+}
+
+@media (min-width: 769px) {
+  .kd-content-wrap--shifted {
+    margin-left: 268px; /* matches --ms-w */
+  }
+}
+
 /* ── MAIN ── */
-.kd-main { padding: 28px; display: flex; flex-direction: column; gap: 20px; max-width: 1440px; margin: 0 auto; }
+.kd-main { padding: 28px; display: flex; flex-direction: column; gap: 20px; width: 100%; }
 
 /* ── PAGE HEAD ── */
 .kd-page-head {

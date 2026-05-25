@@ -7,6 +7,9 @@ const mkUrl    = (path) => (path.startsWith("/") ? path : "/" + path);
 const getStr   = (k)    => localStorage.getItem(k) || "";
 const getLocal = (k)    => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
+
+
+
 const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
   "Userid":        localStorage.getItem("userid")     || "0",
@@ -228,7 +231,7 @@ function useConfirm() {
 //   - Escape closes without change
 function SalesmanPicker({ salesmanList, initialSearch = "", onSelect, onClose }) {
   const [search,       setSearch]       = useState(initialSearch);
-  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [focusedIndex, setFocusedIndex] = useState();
   const searchRef = useRef(null);
   const listRef   = useRef(null);
 
@@ -423,7 +426,7 @@ export default function SupplierMaster() {
     return { Comid, MComid, IdComList, MirrorTable, SupplierMulitipleAllow, perm };
   });
   const { Comid, MComid, IdComList, MirrorTable, SupplierMulitipleAllow, perm } = sess;
-
+  
   // ── State ──────────────────────────────────────────────────────────────────
   const [grid,    setGrid]    = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1115,6 +1118,7 @@ salesmanObj?.SalesmanName ||
     );
   }
 
+
   // ── F12 popup ──────────────────────────────────────────────────────────────
   function F12Popup() {
     const [localSettings, setLocalSettings] = useState(colSettings.map(s => ({ ...s })));
@@ -1126,8 +1130,9 @@ salesmanObj?.SalesmanName ||
       const w = parseInt(val) || 0;
       setLocalSettings(prev => prev.map(s => s.field === field ? { ...s, width: w } : s));
     }
-
     return (
+
+      
       <div style={f12Styles.overlay}>
         <div style={f12Styles.popup}>
           <div style={f12Styles.popupHdr}>
@@ -1167,9 +1172,10 @@ salesmanObj?.SalesmanName ||
     );
   }
 
+
   // ── Main render ────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="mp-wrap">        
       {ConfirmUI}
 
       {loading && (
@@ -1274,6 +1280,8 @@ salesmanObj?.SalesmanName ||
   );
 }
 
+
+
 // ── F12 popup styles ──────────────────────────────────────────────────────────
 const f12Styles = {
   overlay:      { position:"fixed", inset:0, background:"rgba(10,20,40,.50)", zIndex:9000, display:"flex", alignItems:"center", justifyContent:"center" },
@@ -1290,6 +1298,11 @@ const f12Styles = {
   cancelColBtn: { background:"#fff", color:"#6b7280", border:"1px solid #d1d5db", borderRadius:4, padding:"6px 14px", fontSize:12, fontWeight:600, cursor:"pointer" },
 };
 
+
+
 const btnF12Style = {
   background: "#fff", color: "#374151", border: "1px solid #9ca3af", marginLeft: "auto",
 };
+
+
+

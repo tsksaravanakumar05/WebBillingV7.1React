@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import "../dashboard.css";
+import MenuSetting from "./Menusetting";
+// comit test
 // comit test
 
 /* ═══════════════════════════════════════════════
@@ -408,46 +410,52 @@ const Topbar = memo(() => {
 /* ═══════════════════════════════════════════════
    ROOT DASHBOARD
 ═══════════════════════════════════════════════ */
-const Dashboard = () => (
+const Dashboard = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  return (
     <div className="kd-root">
       <Topbar />
+      <MenuSetting sidebarOpen={sidebarOpen} onSidebarChange={setSidebarOpen} />
 
-      <main className="kd-main">
+      {/* kd-content-wrap shifts right when sidebar is open */}
+      <div className={`kd-content-wrap${sidebarOpen ? " kd-content-wrap--shifted" : ""}`}>
+        <main className="kd-main">
 
-        {/* Page heading */}
-        <div className="kd-page-head">
-          <div>
-            <h1 className="kd-page-title">Dashboard</h1>
-            <p className="kd-page-sub">Welcome back — here's what's happening today.</p>
+          {/* Page heading */}
+          <div className="kd-page-head">
+            <div>
+              <h1 className="kd-page-title">Dashboard</h1>
+              <p className="kd-page-sub">Welcome back — here's what's happening today.</p>
+            </div>
+            <div className="kd-page-date">{new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}</div>
           </div>
-          <div className="kd-page-date">{new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}</div>
-        </div>
 
-        {/* Row 1 — sale metrics */}
-        <section className="kd-metric-row">
-          {SALE_METRICS.map(m => <MetricCard key={m.id} {...m} />)}
-        </section>
+          {/* Row 1 — sale metrics */}
+          <section className="kd-metric-row">
+            {SALE_METRICS.map(m => <MetricCard key={m.id} {...m} />)}
+          </section>
 
-        {/* Row 2 — stat pills */}
-        <section className="kd-stat-row">
-          {STAT_METRICS.map(s => <StatCard key={s.id} {...s} />)}
-        </section>
+          {/* Row 2 — stat pills */}
+          <section className="kd-stat-row">
+            {STAT_METRICS.map(s => <StatCard key={s.id} {...s} />)}
+          </section>
 
-        {/* Row 3 — chart + activity */}
-        <section className="kd-mid-row">
-          <WeeklyChart />
-          <ActivityFeed />
-        </section>
+          {/* Row 3 — chart + activity */}
+          <section className="kd-mid-row">
+            <WeeklyChart />
+            <ActivityFeed />
+          </section>
 
-        {/* Row 4 — full-width products table */}
-        <section className="kd-table-row">
-          <ProductsTable />
-        </section>
+          {/* Row 4 — full-width products table */}
+          <section className="kd-table-row">
+            <ProductsTable />
+          </section>
 
-      </main>
+        </main>
+      </div>
     </div>
-);
+  );
+};
 
 export default Dashboard;
-
-
