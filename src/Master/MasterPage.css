@@ -119,6 +119,7 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
 }
 .mp-tbl thead tr { position: sticky; top: 0; z-index: 2; }
 .mp-tbl th {
+  /* background: #1f65de; */
   background: #1f65de;
   color: #fff;
   border: 1px solid #1750b0;
@@ -149,6 +150,7 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
   padding: 3px 7px;
   font-size: 12px;
   width: 100%;
+   font-weight: 700;
   height: 26px;
   outline: none;
   background: #fff;
