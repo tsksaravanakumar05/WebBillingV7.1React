@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import "../dashboard.css";
-import MenuSetting from "./Menusetting";
-// comit test
 // comit test
 
 /* ═══════════════════════════════════════════════

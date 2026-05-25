@@ -457,7 +457,9 @@ export default function SupplierMaster() {
     const cs = colSettings.find(s => s.field === c.field);
     return { ...c, width: cs?.width ?? c.width };
   });
+
   const editableFields = visibleColumns.map(c => c.field);
+
   // ── Toast ──────────────────────────────────────────────────────────────────
   const toast = useCallback((msg, isErr = false) => {
     const id = ++toastId.current;
@@ -504,79 +506,34 @@ export default function SupplierMaster() {
   // Mirrors jQuery SalesManList() → POST /SalesMan/SelectSalesMan { Comid: MComid }
   // Called once on mount, before grid load, so the list is ready when the grid
   // renders and the user presses Enter on the SalesName cell.
-// ── NEW: Load salesman list ────────────────────────────────────────────────
-// const loadSalesmanList = useCallback(async () => {
-//   setSalesmanLoading(true);
-
-//   const res = await api(
-//     "/SalesMan/SelectSalesMan",
-//     {
-//       Comid: Number(Comid)
-//     },
-//     {},
-//     null,
+  const loadSalesmanList = useCallback(async () => {
+    setSalesmanLoading(true);
+    // const res = await api("/SalesMan/SelectSalesMan", { Comid: Number(MComid) });
+    const res = await fetch(
+      `/SalesMan/SelectSalesMan?Comid=${Number(MComid)}`,
+      {
+        method: "GET",
+        headers: {
+          ...authHeaders(),
+        },
+      }
+    ).then(r => r.json());
+      
+   
     
-    
-//   );
+    setSalesmanLoading(false);
+    if (res.ok === false && res._http404) {
+      // Silently ignore if endpoint not found in this environment
+      return;
+    }
+    // API returns array directly (HTTP 200 with array body from service layer)
+    // or wrapped in res.data / res.Data1
+    const raw = Array.isArray(res)       ? res      :
+                Array.isArray(res.data)  ? res.data :
+                Array.isArray(res.Data1) ? res.Data1 : [];
+    setSalesmanList(raw);
+  }, [MComid]);
 
-//   setSalesmanLoading(false);
-
-//   if (res._http404) {
-//     toast("❌ 404 — /SalesMan/SelectSalesMan not found", true);
-//     return;
-//   }
-
-//   if (res._netErr) {
-//     toast(`❌ Network: ${res.message}`, true);
-//     return;
-//   }
-
-//   const raw =
-//     Array.isArray(res)
-//       ? res
-//       : Array.isArray(res.data)
-//       ? res.data
-//       : Array.isArray(res.Data1)
-//       ? res.Data1
-//       : [];
-
-//   setSalesmanList(raw);
-
-// }, [Comid, toast]);
-const loadSalesmanList = useCallback(async () => {
-  setSalesmanLoading(true);
-  const res = await api(
-    "/SalesMan/SelectSalesMan",
-    { Comid: Number(Comid) }, // 2nd Arg: JSON Body (kept just in case)
-    {},                       // 3rd Arg: Extra Headers
-    { Comid: Number(Comid) }  // 4th Arg: Query Parameters (This is what C# Web API needs!)
-  );
-  setSalesmanLoading(false);
-  if (res._http404) {
-    toast("❌ 404 — /SalesMan/SelectSalesMan not found", true);
-    return;
-  }
-  if (res._netErr) {
-    toast(`❌ Network: ${res.message}`, true);
-    return;
-  }
-  // The C# backend returns ro.Data1 directly as the HTTP response, 
-  // so 'res' itself will be the array.
-  const raw =
-    Array.isArray(res)
-      ? res
-      : Array.isArray(res.data)
-      ? res.data
-      : Array.isArray(res.Data1)
-      ? res.Data1
-      : [];
-  // Log this to your browser console so you can verify the data is coming!
-  console.log("✅ Salesman List from Backend:", raw);
-  setSalesmanList(raw);
-  console.log("✅ Salesman List from Backend:", salesmanList);
-
-}, []); 
-// NOTE: If your old jQuery used MComid for Salesman, change 'Comid' to 'MComid' here and in the dependency array.
   // ── Load data ──────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     const prefill = sessionStorage.getItem("masterPrefill") || "";
@@ -602,14 +559,9 @@ const loadSalesmanList = useCallback(async () => {
         r.SalesManRefid ??
         null;
     
-        const salesmanObj = salesmanList.find(
-          s =>
-            Number(
-              s.Id ??
-              s.id ??
-              s.SalesManRefid
-            ) === Number(salesmanId)
-        );
+      const salesmanObj = salesmanList.find(
+        s => Number(s.Id ?? s.id) === Number(salesmanId)
+      );
     
       return {
         ...r,
@@ -622,9 +574,8 @@ const loadSalesmanList = useCallback(async () => {
           r.SaleName ||
           r.salesmanname ||
           salesmanObj?.SalesManName ||
-salesmanObj?.salesmanname ||
-salesmanObj?.SalesmanName ||
-"",
+          salesmanObj?.salesmanname ||
+          "",
     
         // Salesman Id
         SalemanRefid: salesmanId,
@@ -660,7 +611,7 @@ salesmanObj?.SalesmanName ||
     };
   
     init();
-  }, []);
+  }, [loadSalesmanList, loadData]);
 
   // ── Add row ────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
@@ -944,86 +895,11 @@ salesmanObj?.SalesmanName ||
   }, [handleSave, handleEsc, f12Open, pickerTarget]);
 
   // ── F12 column settings ────────────────────────────────────────────────────
-  // const saveColSettings = useCallback(() => {
-  //   try { localStorage.setItem("supplier_colSettings", JSON.stringify(colSettings)); } catch {}
-  //   setF12Open(false);
-  //   toast("✅ Column settings saved");
-  // }, [colSettings, toast]);
-
-  // ── Load F12 column settings from Server (Mirrors jQuery) ──
-  useEffect(() => {
-    const loadColSettings = async () => {
-      try {
-        // Fetch the JSON file just like jQuery did:
-        const url = `/Content/Appdata/Visible/${Comid}/Supplier.json?t=${Date.now()}`;
-        const res = await fetch(url);
-        
-        if (res.ok) {
-          const serverData = await res.json();
-          
-          if (serverData && Array.isArray(serverData) && serverData.length > 0) {
-            // Map the server's { column, Visible, Width } to React's { field, hidden, width }
-            const mergedSettings = ALL_COLUMNS.map(c => {
-              const serverCol = serverData.find(d => d.column === c.field);
-              return {
-                field: c.field,
-                label: c.label,
-                hidden: serverCol ? !serverCol.Visible : c.hidden,
-                width: serverCol ? serverCol.Width : c.width
-              };
-            });
-            setColSettings(mergedSettings);
-          }
-        }
-      } catch (err) {
-        console.log("No custom column settings found or error loading them.");
-      }
-    };
-
-    loadColSettings();
-  }, [Comid]);
-
-  // ── Save F12 column settings to Server (Mirrors jQuery) ──
-  // Note: We accept 'localSettings' as a parameter so we grab the exact state from the popup
-  const saveColSettings = useCallback(async (localSettingsToSave) => {
-    setF12Open(false); // Close the popup immediately
-    setLoading(true);
-
-    // Format the payload exactly how the C# backend expects it:
-    const payload = localSettingsToSave.map(s => ({
-      filename: "Supplier",
-      column: s.field,
-      Visible: !s.hidden,
-      Width: s.width,
-      Comid: Number(Comid)
-    }));
-
-    try {
-      const res = await fetch("/Login/VisibleColumns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify(payload)
-      });
-      
-      const data = await res.json();
-
-      if (data.ok) {
-        toast("✅ Column Selection And Width Changed Successfully");
-        
-        // Option 1: The Modern React Way (Instant UI update without reloading)
-        setColSettings(localSettingsToSave);
-        
-        // Option 2: The Exact jQuery Way (Force a page reload)
-        // setTimeout(() => { window.location.reload(true); }, 1000);
-      } else {
-        toast(`❌ ${data.message || "Failed to save column settings"}`, true);
-      }
-    } catch (err) {
-      toast("❌ Error saving Visible Columns", true);
-    } finally {
-      setLoading(false);
-    }
-  }, [Comid, toast]);
+  const saveColSettings = useCallback(() => {
+    try { localStorage.setItem("supplier_colSettings", JSON.stringify(colSettings)); } catch {}
+    setF12Open(false);
+    toast("✅ Column settings saved");
+  }, [colSettings, toast]);
 
   useEffect(() => {
     try {
@@ -1164,7 +1040,7 @@ salesmanObj?.SalesmanName ||
             </table>
           </div>
           <div style={f12Styles.popupFtr}>
-          <button style={f12Styles.saveColBtn} onClick={() => saveColSettings(localSettings)}>💾 Save</button>
+            <button style={f12Styles.saveColBtn} onClick={() => { setColSettings(localSettings); setTimeout(saveColSettings, 50); }}>💾 Save</button>
             <button style={f12Styles.cancelColBtn} onClick={() => setF12Open(false)}>Cancel</button>
           </div>
         </div>
