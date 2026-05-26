@@ -16,6 +16,54 @@ export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
 export const CashierDelete = "/api/CashierApp/DeleteCashier";
 export const SelectCounter = "/api/CashierApp/SelectCounter_local";
+
+// Item Master API Links
+export const ItemSelect = "/api/ItemMasterApp/SelectItemMaster";
+export const ItemInsert = "/api/ItemMasterApp/InsertItemMaster";
+export const ItemDelete = "/api/ItemMasterApp/DeleteItemMaster";
+export const ItemMaxCode = "/api/ItemMasterApp/MaxProductCode";
+export const ItemBranchRate = "/api/ItemMasterApp/SelectBranchSaleRate";
+export const ItemBranchRateUpdate = "/api/ItemMasterApp/UpdateBranchSaleRate";
+export const ItemGroupCommission = "/api/ItemMasterApp/SelectGroupCommission";
+export const ItemGroupCommissionInsert = "/api/ItemMasterApp/InsertGroupCommission";
+export const VisibleColumnsUrl = "/Login/VisibleColumns";
+export const LoginPasswordUrl = "/api/LoginApp/EditPassword";
+
+  //Brand
+        export const BrandSelect = "/api/BrandApp/SelectBrand";
+        export const BrandInsert = "/api/BrandApp/InsertBrand";
+        export const BrandDelete = "/api/BrandApp/DeleteBrand";
+
+                //Category
+        export const CategorySelect = "/api/CategoryApp/SelectCategory";
+        export const CategoryInsert = "/api/CategoryApp/InsertCategory";
+         export const CategoryDelete = "/api/CategoryApp/DeleteCategory";
+
+               //Department
+        export const DepartmentSelect = "/api/DepartmentApp/SelectDepartment";
+         export const DepartmentInsert = "/api/DepartmentApp/InsertDepartment";
+         export const DepartmentDelete = "/api/DepartmentApp/DeleteDepartment";
+ 
+        //Supplier
+        export const SupplierSelect = "/api/SupplierApp/SelectSupplier";
+        export const SupplierInsert = "/api/SupplierApp/InsertSupplier";
+        export const SupplierDelete = "/api/SupplierApp/DeleteSupplier";
+        export const SelectSupplierAll = "/api/SupplierApp/SelectSupplierAll";
+        export const SelectSupplierAllSpName = "/api/SupplierApp/SelectSupplierAllSpName";
+        export const SelectSupplierAll_NameOnly = "/api/SupplierApp/SelectSupplierAll_NameOnly";
+        export const CurrentBalance = "/api/SupplierApp/CurrentBalance";
+        export const GetSupplier = "/api/SupplierApp/GetSupplier";
+        export const CurrentBalanceherbal = "/api/SupplierApp/CurrentBalanceherbal";
+
+               //UOM
+        export const UOMSelect = "/api/UOMApp/SelectUOM";
+        export const UOMInsert = "/api/UOMApp/InsertUOM";
+        export const UOMDelete = "/api/UOMApp/DeleteUOM";
+
+        export const LocationSelect = "/api/LocationApp/SelectLocation";
+        export const LocationInsert = "/api/LocationApp/InsertLocation";
+        export const LocationDelete = "/api/LocationApp/DeleteLocation";
+
 // ─── 2. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
@@ -39,6 +87,7 @@ const mkUrl = (path) => {
 export const buildSession = (pageName) => {
   try {
     const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
+     const com0       = (getLocal("Companysetting") || [{}])[0] || {};
     const Comid       = getStr("Comid")    || "1";
     const MComid      = getStr("MComid")   || Comid;
     const IdComList   = getStr("IdComList") || Comid;
@@ -168,10 +217,16 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
   let nextRow = curRow;
   let nextCol = curCol + 1;
 
+  // ── SAFETY GUARD — curRow out of bounds ──────────────────────────────────
+  const currentRow = grid?.[curRow];
+  if (!currentRow) {
+    // curRow doesn't exist in grid — just call onLastCell and return
+    onLastCell?.();
+    return;
+  }
+
   // Last column reached
   if (nextCol >= totalCols) {
-
-    const currentRow = grid[curRow];
     const isFilled = rowValidator(currentRow);
 
     if (!isFilled) {
@@ -193,10 +248,10 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
 
   // Next row doesn't exist yet — create it then focus
   if (nextRow >= totalRows) {
-    onLastCell?.();                          // addRow()
+    onLastCell?.();
     setTimeout(() => {
-      inputRefs.current[nextRow]?.[0]?.focus(); // ✅ longer delay — wait for render
-    }, 100);                                 // 100ms so new row renders first
+      inputRefs.current[nextRow]?.[0]?.focus();
+    }, 100);
     return;
   }
 
