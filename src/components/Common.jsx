@@ -31,7 +31,21 @@ export const TxnSelectPassword = "/api/LoginApp/SelectTransactionPassword";
 export const TxnUpdatePassword = "/api/LoginApp/UpdateTransactionPassword";
 export const TxnEditPassword   = "/api/LoginApp/EditPassword";
 
-// ─── 5. AUTH HEADERS (token + user identity) ──────────────────────────────────
+// ─── 5. REPACKING MASTER API ENDPOINT CONSTANTS ───────────────────────────────
+//  Centralised here so RepackingMaster.jsx imports CC.Repacking* names only
+//  and never constructs URL strings itself.
+export const RepackingMaxNo      = "/api/RepackingMasterApp/MaxRepackingNo";
+export const RepackingInsert     = "/api/RepackingMasterApp/InsertRepackingMaster";
+export const RepackingDelete     = "/api/RepackingMasterApp/DeleteRepackingMaster";
+export const RepackingEdit       = "/api/RepackingMasterApp/EditRepackingMaster";
+export const RepackingSelect     = "/api/RepackingMasterApp/SelectRepackingMaster";
+//RepackingItemMaster
+// export const RepackingCombo      = "/api/RepackingMasterApp/SelectRepackingMasterItem";
+export const RepackingCombo      = "/api/RepackingMasterApp/RepackingItemMaster";
+export const ItemByCode          = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+  export const RepackingEditPwd    = "/api/LoginApp/EditPassword";
+
+// ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 //  Single source of truth — every fetch in the app must go through
 //  api() / insertapi() / editPassword() which all call authHeaders().
 //  No component should call localStorage.getItem("token") directly.
@@ -160,6 +174,31 @@ export const insertapi = async (path, body = null, extraHeaders = {}) => {
 };
 
 /**
+ * deleteapi()
+ * Delete POST — identical contract to insertapi() but semantically labelled.
+ * Returns raw parsed JSON; all auth headers and BASE_URL handled here.
+ *
+ * Usage: await CC.deleteapi(path, bodyObject, extraHeaders?)
+ */
+export const deleteapi = async (path, body = null, extraHeaders = {}) => {
+  try {
+    const res = await fetch(mkUrl(path), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        ...authHeaders(),
+        ...extraHeaders,
+      },
+      body: body != null ? JSON.stringify(body) : null,
+    });
+    const text = await res.text();
+    return JSON.parse(text);
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+};
+
+/**
  * editPassword()
  * Dedicated helper for the Transaction Password verification modal.
  * Centralises the /api/LoginApp/EditPassword call so TransactionPassword.jsx
@@ -238,6 +277,25 @@ export const editPassword = async ({ password, type, Comid }) => {
   }
 };
 
+/**
+ * repackingEditPassword()
+ * Centralised password-verification helper for RepackingMaster.
+ * Uses the MVC-style /Login/EditPassword route (no /api/ prefix).
+ * Wraps the call so RepackingMaster.jsx has ZERO fetch/auth/BASE_URL logic.
+ *
+ * @param {object} opts - { password, type, Comid }
+ *   type: "EditPassword" | "FormConfig" | "AdminPower"
+ * @returns {{ ok: boolean, message?: string }}
+ *
+ * Usage (RepackingMaster.jsx):
+ *   const res = await CC.repackingEditPassword({ password: pwdValue, type: "EditPassword", Comid: sess.Comid });
+ *   if (res.ok) { ... } else { alert("Invalid Password !!!."); }
+ */
+// export const repackingEditPassword = async ({ password, type, Comid }) => {
+//   return api(TxnEditPassword, null, {}, { password, type, Comid });
+// };
+export const repackingEditPassword = ({ password, type, Comid }) =>
+  api(TxnEditPassword, null, {}, { password, type, Comid });
 // ─── 9. MISC HELPERS ──────────────────────────────────────────────────────────
 /** Generates a unique row key */
 export const uid = () =>

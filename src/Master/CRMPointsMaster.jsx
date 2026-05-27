@@ -564,7 +564,7 @@ export default function CRMPointsMaster() {
       )}
 
       {/* Header */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
           <div>
@@ -575,7 +575,7 @@ export default function CRMPointsMaster() {
         <button className="mp-back" onClick={() => { window.location.href = "/Home"; }}>
           ← Home
         </button>
-      </div>
+      </div> */}
 
       {/* Body */}
       <div className="mp-body">
@@ -593,6 +593,9 @@ export default function CRMPointsMaster() {
             ＋ New Row
           </button>
           {msg && <span className={`mp-msg ${msg.type}`}>{msg.text}</span>}
+
+
+          <div className="mp-title">CRM Points Master</div>
         </div>
 
         {/* Grid */}

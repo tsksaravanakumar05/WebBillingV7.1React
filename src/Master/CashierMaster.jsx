@@ -536,7 +536,7 @@ const payload = cleaned
       {ConfirmUI}
 {f12Open && <F12Popup />}
       {/* ── Header ── */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
           <div>
@@ -545,7 +545,7 @@ const payload = cleaned
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      </div> */}
 
       <div className="mp-body">
 
@@ -555,6 +555,9 @@ const payload = cleaned
           <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
           <button className="mp-btn" onClick={() => setF12Open(true)} title="Column Settings">⚙ F12 Columns</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+
+
+          <div className="mp-title">Cashier Master</div>
         </div>
 {/* ── Grid ── */}
 <div className="mp-grid-wrap">
