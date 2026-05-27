@@ -60,6 +60,8 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
   margin: 0 auto;
 }
 
+
+
 /* ── TOOLBAR ── */
 .mp-toolbar {
   background: #fff;
@@ -120,9 +122,11 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
 .mp-tbl thead tr { position: sticky; top: 0; z-index: 2; }
 .mp-tbl th {
   /* background: #1f65de; */
-  background: #1f65de;
+background: linear-gradient(135deg, #1f65de 0%, #4facfe 100%);
   color: #fff;
-  border: 1px solid #1750b0;
+  /* border: 1px solid #1750b0; */
+  border: 1px solid;
+border-image: linear-gradient(135deg, #1f65de 0%, #0d2b63 100%) 1;
   padding: 7px 10px;
   font-size: 11px;
   font-weight: 600;
@@ -136,7 +140,7 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
   color: #1a2e4a;
 }
 .mp-tbl tbody tr { cursor: pointer; transition: background .07s; }
-.mp-tbl tbody tr:nth-child(even) { background: #f5f9ff; }
+/* .mp-tbl tbody tr:nth-child(even) { background: #f5f9ff; } */
 .mp-tbl tbody tr:hover { background: #deeafb; }
 .mp-tbl tbody tr.sel { background: #a8c8f5 !important; }
 .mp-tbl tbody tr.inact td { color: #bbb; }
@@ -150,7 +154,7 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
   padding: 3px 7px;
   font-size: 12px;
   width: 100%;
-   font-weight: 700;
+   font-weight: 600;
   height: 26px;
   outline: none;
   background: #fff;
@@ -178,7 +182,9 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 18px;
+  color: #dc2626;
+   font-weight: 600;
   padding: 2px 5px;
   border-radius: 3px;
   transition: background .1s;

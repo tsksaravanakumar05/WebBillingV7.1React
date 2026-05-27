@@ -22,10 +22,16 @@ export default function CategoryMaster() {
 
   // ── Session / company variables ─────────────────────────────────────────────
   // CC.buildSession reads: Comid, MComid, IdComList, MirrorTable, menudata
-  const [sess] = useState(() => CC.buildSession("Category"));
+
+
+  // Store permissions in state so the rest of your component can use them
+  const [perm, setPerm] = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+ 
 
   // Permission guard — defaults to full access if no menu entry found
-  const perm = sess.menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 };
+
 
   // ── Component state ─────────────────────────────────────────────────────────
   const [grid,    setGrid]    = useState([]);
@@ -33,9 +39,40 @@ export default function CategoryMaster() {
   const [selIdx,  setSelIdx]  = useState(null);
 
   // ── focusRow ────────────────────────────────────────────────────────────────
-  const focusRow = useCallback((idx) => {
-  setTimeout(() => inputRefs.current[idx]?.[0]?.focus(), 50);
+ const focusRow = useCallback((idx, colIdx = 0) => {
+  setTimeout(() => inputRefs.current[idx]?.[colIdx]?.focus(), 50);
 }, []);
+
+  const [sess] = useState(() => {
+    try {
+      const main0 = (CC.getLocal("Mainsetting")    || [{}])[0] || {};
+      const com0  = (CC.getLocal("Companysetting") || [{}])[0] || {};
+      const Comid = CC.getStr("Comid") || "1";
+      const MComid= CC.getStr("MComid") || Comid;
+      const IdComList = CC.getStr("IdComList") || Comid;
+      const isCC  = !!main0.CommonCompany;
+      const isAG  = com0.PCode_Auto===true||com0.PCode_Auto===1||com0.PCode_Auto==="1"||String(com0.PCode_Auto).toLowerCase()==="true";
+      return {
+        Comid: isCC ? MComid : Comid, MComid, IdComList,
+        Tamil:!!main0.ProductNameTamil, CommonCompany:isCC,
+        CommonCompanyDiffStock:!!main0.CommonCompanyDiffStock,
+        SupplierMulitipleAllow:!!main0.SupplierMulitipleAllow,
+        BranchSaleRate:!!main0.BranchWiseSaleRate,
+        MulipleMRP:!!com0.MultiMRP, MirrorTable:0,
+        LandingCostCompare:!!main0.LandingCostCompare,
+        PurchaseProfitSaleRateChange:!!main0.PurchaseProfitSaleRateChange,
+        univercell:!!main0.univercell, MultipleUOMBilling:!!main0.MultipleUOMBilling,
+        GroupCommission:!!main0.GroupCommission,
+        Ecotech:!!main0.Ecotech,
+        Productcodeautogen:isAG,
+        Productcodedigit:com0.PCode_Digits||0,
+        Productcodeprefix:com0.PCode_Prefix||"",
+        menudata:(CC.getLocal("menulist")||[]).filter(o=>o.PageName==="Item Master"),
+      };
+    } catch {
+      return { Comid:"1",MComid:"1",IdComList:"1",MirrorTable:0,menudata:[],Productcodeautogen:false,Productcodedigit:0,Productcodeprefix:"" };
+    }
+  });
 // ─── Column config (mirrors Cashier.js gridcolumns) ──────────────────────────
 const ALL_COLUMNS = [
   { field: "Code",        label: "Code",         width: 100, hidden: false },
@@ -45,6 +82,47 @@ const ALL_COLUMNS = [
   { field: "Active",      label: "Active",        width: 100, hidden: false },
 ];
 const COLS = ALL_COLUMNS.map(c => c.field);
+ useEffect(() => {
+    const menuStr = localStorage.getItem("menulist");
+
+    // 1. Check if session/menu exists
+    if (!menuStr) {
+      alert("Session Close Please Login !!!."); // Replace with your MsgBox / Toast
+      navigate("/Login/Index");
+      return;
+    }
+
+    const menulist = JSON.parse(menuStr);
+    const menudata = menulist.filter(obj => obj.PageName === "Cashier");
+
+    // 2. Check if page exists in user's menu
+    if (!menudata || menudata.length === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
+      return;
+    }
+
+    // 3. Check if View permission is 0
+    if (menudata[0].View === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
+      return;
+    }
+
+    // 4. User is valid, set permissions and allow rendering
+    setPerm({
+      View: menudata[0].View,
+      Add: menudata[0].Add,
+      Edit: menudata[0].Edit,
+      Delete: menudata[0].Delete
+    });
+    
+    setIsAuthorized(true);
+
+  }, [navigate]);
+
+  // Prevent the page UI from flashing before the redirect happens
+
 // ─── Column settings state (F12) ─────────────────────────────────────────────
 const [colSettings, setColSettings] = useState(() =>
   ALL_COLUMNS.map(c => ({ field: c.field, label: c.label, hidden: c.hidden, width: c.width }))
@@ -527,7 +605,9 @@ const payload = cleaned
       deleteRow(idx);
     }
   }, [grid, hasDuplicate, addRow, focusRow, deleteRow, toast]);
-
+  if (!isAuthorized) {
+    return null; // Or return a <Loader /> component
+  }
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
@@ -582,7 +662,7 @@ const payload = cleaned
             !row.Active        ? "inact" : "",
             row.EditMode === 1 ? "mod"   : "",
           ].filter(Boolean).join(" ")}
-          onClick={() => { setSelIdx(idx); focusRow(idx); }}
+          onClick={() => { setSelIdx(idx);  }}
         >
           <td className="sno">{idx + 1}</td>
 
@@ -658,6 +738,8 @@ const payload = cleaned
               className="mp-del-btn"
               onClick={e => { e.stopPropagation(); deleteRow(idx); }}
             >🗑</button>
+            
+         
           </td>
         </tr>
       ))}

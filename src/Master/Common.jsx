@@ -23,18 +23,7 @@ export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
 export const CashierDelete = "/api/CashierApp/DeleteCashier";
 export const SelectCounter = "/api/CashierApp/SelectCounter_local";
-
-// ─── 4. TRANSACTION PASSWORD API ENDPOINT CONSTANTS ──────────────────────────
-//  Centralised here so TransactionPassword.jsx only imports CC.Txn* names
-//  and never constructs URL strings itself.
-export const TxnSelectPassword = "/api/LoginApp/SelectTransactionPassword";
-export const TxnUpdatePassword = "/api/LoginApp/UpdateTransactionPassword";
-export const TxnEditPassword   = "/api/LoginApp/EditPassword";
-
-// ─── 5. AUTH HEADERS (token + user identity) ──────────────────────────────────
-//  Single source of truth — every fetch in the app must go through
-//  api() / insertapi() / editPassword() which all call authHeaders().
-//  No component should call localStorage.getItem("token") directly.
+// ─── 2. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
   "Userid":        localStorage.getItem("userid")     || "0",
@@ -56,6 +45,7 @@ const mkUrl = (path) => BASE_URL + path;
 export const buildSession = (pageName) => {
   try {
     const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
+     const com0       = (getLocal("Companysetting") || [{}])[0] || {};
     const Comid       = getStr("Comid")    || "1";
     const MComid      = getStr("MComid")   || Comid;
     const IdComList   = getStr("IdComList") || Comid;
@@ -272,10 +262,19 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
   let nextRow = curRow;
   let nextCol = curCol + 1;
 
+  // ── SAFETY GUARD — curRow out of bounds ──────────────────────────────────
+  const currentRow = grid?.[curRow];
+  if (!currentRow) {
+    // curRow doesn't exist in grid — just call onLastCell and return
+    onLastCell?.();
+    return;
+  }
+
   // Last column reached
   if (nextCol >= totalCols) {
+
     const currentRow = grid[curRow];
-    const isFilled   = rowValidator(currentRow);
+    const isFilled = rowValidator(currentRow);
 
     if (!isFilled) {
       // Row not filled — jump to first empty col in same row
@@ -296,8 +295,10 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
 
   // Next row doesn't exist yet — create it then focus
   if (nextRow >= totalRows) {
-    onLastCell?.();
-    setTimeout(() => { inputRefs.current[nextRow]?.[0]?.focus(); }, 100);
+    onLastCell?.();                          // addRow()
+    setTimeout(() => {
+      inputRefs.current[nextRow]?.[0]?.focus(); // ✅ longer delay — wait for render
+    }, 100);                                 // 100ms so new row renders first
     return;
   }
 
