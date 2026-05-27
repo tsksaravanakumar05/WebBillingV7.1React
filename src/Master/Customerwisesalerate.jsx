@@ -799,7 +799,7 @@ export default function CustomerWiseSaleRate() {
       {showTrip && <TripModal onClose={() => setShowTrip(false)} />}
 
       {/* HEADER */}
-      <header className="mp-hdr">
+      {/* <header className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">📋</div>
           <div>
@@ -808,7 +808,7 @@ export default function CustomerWiseSaleRate() {
           </div>
         </div>
         <button className="mp-back" onClick={() => (window.location.href = "/Home")}>← Back</button>
-      </header>
+      </header> */}
 
       {/* BODY */}
       <main className="mp-body">
@@ -826,6 +826,9 @@ export default function CustomerWiseSaleRate() {
           <button className="mp-btn nw" onClick={addNewRow}>＋ New Row</button>
           {toast && <span className="mp-msg ok">{toast}</span>}
           {toastErr && <span className="mp-msg err">{toastErr}</span>}
+
+
+          <div className="mp-title">Customer Wise Sale Rate</div>
         </div>
 
         {/* CUSTOMER FILTER BAR */}

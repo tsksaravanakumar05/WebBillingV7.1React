@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import "../dashboard.css";
+import MenuSetting from "./Menusetting";
+import Topbar from "./Topbar";
 // comit test
 
 /* ═══════════════════════════════════════════════
@@ -350,60 +352,60 @@ const ActivityFeed = memo(() => (
   </div>
 ));
 
-/* ═══════════════════════════════════════════════
-   TOPBAR
-═══════════════════════════════════════════════ */
-const Topbar = memo(() => {
-  const navigate = useNavigate();
-  const username = localStorage.getItem("username") || "User";
-  // Show first letter of username as avatar
-  const avatarLetter = username.charAt(0).toUpperCase();
+// /* ═══════════════════════════════════════════════
+//    TOPBAR
+// ═══════════════════════════════════════════════ */
+// const Topbar = memo(() => {
+//   const navigate = useNavigate();
+//   const username = localStorage.getItem("username") || "User";
+//   // Show first letter of username as avatar
+//   const avatarLetter = username.charAt(0).toUpperCase();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
-    navigate("/", { replace: true });
-  };
+//   const handleLogout = () => {
+//     localStorage.removeItem("token");
+//     localStorage.removeItem("username");
+//     navigate("/", { replace: true });
+//   };
 
-  return (
-    <header className="kd-topbar">
-      <div className="kd-topbar-left">
-        <span className="kd-logo-mark">K</span>
-        <span className="kd-logo-text">KASSA <strong>BM</strong></span>
-      </div>
-      <div className="kd-topbar-right">
-        <button type="button" className="kd-icon-btn" title="Notifications">
-          <BellIcon />
-          <span className="kd-notif-dot" />
-        </button>
-        <button type="button" className="kd-icon-btn" title="Apps">
-          <GridIcon />
-        </button>
-        <div className="kd-user-pill">
-          <div className="kd-avatar">{avatarLetter}</div>
-          <div className="kd-user-info">
-            <span className="kd-user-name">{username}</span>
-            <span className="kd-user-role">Admin</span>
-          </div>
-        </div>
-        {/* Logout button */}
-        <button
-          type="button"
-          className="kd-logout-btn"
-          title="Logout"
-          onClick={handleLogout}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-            <polyline points="16 17 21 12 16 7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-          <span>Logout</span>
-        </button>
-      </div>
-    </header>
-  );
-});
+//   return (
+//     <header className="kd-topbar">
+//       <div className="kd-topbar-left">
+//         <span className="kd-logo-mark">K</span>
+//         <span className="kd-logo-text">KASSA <strong>BM</strong></span>
+//       </div>
+//       <div className="kd-topbar-right">
+//         <button type="button" className="kd-icon-btn" title="Notifications">
+//           <BellIcon />
+//           <span className="kd-notif-dot" />
+//         </button>
+//         <button type="button" className="kd-icon-btn" title="Apps">
+//           <GridIcon />
+//         </button>
+//         <div className="kd-user-pill">
+//           <div className="kd-avatar">{avatarLetter}</div>
+//           <div className="kd-user-info">
+//             <span className="kd-user-name">{username}</span>
+//             <span className="kd-user-role">Admin</span>
+//           </div>
+//         </div>
+//         {/* Logout button */}
+//         <button
+//           type="button"
+//           className="kd-logout-btn"
+//           title="Logout"
+//           onClick={handleLogout}
+//         >
+//           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+//             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+//             <polyline points="16 17 21 12 16 7"/>
+//             <line x1="21" y1="12" x2="9" y2="12"/>
+//           </svg>
+//           <span>Logout</span>
+//         </button>
+//       </div>
+//     </header>
+//   );
+// });
 
 /* ═══════════════════════════════════════════════
    ROOT DASHBOARD
@@ -415,6 +417,7 @@ const Dashboard = () => {
     <div className="kd-root">
       <Topbar />
       <MenuSetting sidebarOpen={sidebarOpen} onSidebarChange={setSidebarOpen} />
+
 
       {/* kd-content-wrap shifts right when sidebar is open */}
       <div className={`kd-content-wrap${sidebarOpen ? " kd-content-wrap--shifted" : ""}`}>

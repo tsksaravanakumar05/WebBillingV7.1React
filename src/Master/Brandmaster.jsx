@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
+import MenuSetting from "../components/Menusetting";
+import Topbar from "../components/Topbar";
 
 // ─── Helpers (identical pattern to ItemMaster) ────────────────────────────────
 const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
@@ -520,8 +522,11 @@ export default function BrandMaster() {
   return (
     <div className="mp-wrap">
       {ConfirmUI}
+      <Topbar />
+      {/* <MenuSetting sidebarOpen={sidebarOpen} onSidebarChange={setSidebarOpen} /> */}
 
-      <div className="mp-hdr">
+
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">B</div>
           <div>
@@ -530,13 +535,16 @@ export default function BrandMaster() {
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      </div> */}
 
       <div className="mp-body">
         <div className="mp-toolbar">
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+
+
+          <div className="mp-title">Brand Master</div>
         </div>
 
         <div className="mp-grid-wrap">

@@ -1186,7 +1186,7 @@ export default function CustomerMaster() {
       )}
 
       {/* ── Header ── */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
           <div>
@@ -1195,7 +1195,7 @@ export default function CustomerMaster() {
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      </div> */}
 
       <div className="mp-body">
         {/* ── Toolbar ── */}
@@ -1207,6 +1207,8 @@ export default function CustomerMaster() {
           <button className="mp-btn"    onClick={handleF6}   disabled={loading} style={{ background:"#be185d", color:"#fff" }}>🔤 F6 Tamil</button>
           <button className="mp-btn"    onClick={() => loadCounter(-1, sess.pagecount, "", "", 1)} disabled={loading} style={{ background:"#059669", color:"#fff" }}>🔄 Refresh</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+
+          <div className="mp-title">Customer Master</div>
 
           {/* Filter row — mirrors jQuery showfilterrow */}
           <div style={{ display:"flex", gap:4, alignItems:"center", marginLeft:"auto" }}>

@@ -448,7 +448,7 @@ export default function CategoryMaster() {
     <div className="mp-wrap">
       {ConfirmUI}
 
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
           <div>
@@ -457,13 +457,15 @@ export default function CategoryMaster() {
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      </div> */}
 
       <div className="mp-body">
         <div className="mp-toolbar">
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+
+          <div className="mp-title">Category Master</div>
         </div>
 
         <div className="mp-grid-wrap">

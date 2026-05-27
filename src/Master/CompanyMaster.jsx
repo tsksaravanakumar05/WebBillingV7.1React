@@ -459,7 +459,7 @@ export default function CompanySettings() {
   return (
     <div className="mp-wrap">
       {/* Header */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
           <div>
@@ -470,7 +470,7 @@ export default function CompanySettings() {
         <button className="mp-back" onClick={() => {
           if (window.confirm("Do You Want To Quit Page?")) navigate("/Home");
         }}>← Back</button>
-      </div>
+      </div> */}
 
       <div className="mp-body">
         {/* Toolbar */}
@@ -478,6 +478,8 @@ export default function CompanySettings() {
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={handleScriptUpdate} disabled={loading}>🔄 F2 Script Update</button>
           <button className="mp-btn dl" onClick={() => { if (window.confirm("Do You Want To Quit Page?")) navigate("/Home"); }}>✕ Esc Back</button>
+        
+          <div className="mp-title">Company Settings</div>
         </div>
 
         {/* Tab Bar */}

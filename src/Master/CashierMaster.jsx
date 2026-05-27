@@ -665,7 +665,7 @@ const payload = cleaned
       {ConfirmUI}
 {f12Open && <F12Popup />}
       {/* ── Header ── */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
           <div>
@@ -674,7 +674,7 @@ const payload = cleaned
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      </div> */}
 
       <div className="mp-body">
 

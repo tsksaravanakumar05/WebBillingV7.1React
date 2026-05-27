@@ -23,7 +23,32 @@ export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
 export const CashierDelete = "/api/CashierApp/DeleteCashier";
 export const SelectCounter = "/api/CashierApp/SelectCounter_local";
-// ─── 2. AUTH HEADERS (token + user identity) ──────────────────────────────────
+
+// ─── 4. TRANSACTION PASSWORD API ENDPOINT CONSTANTS ──────────────────────────
+//  Centralised here so TransactionPassword.jsx only imports CC.Txn* names
+//  and never constructs URL strings itself.
+export const TxnSelectPassword = "/api/LoginApp/SelectTransactionPassword";
+export const TxnUpdatePassword = "/api/LoginApp/UpdateTransactionPassword";
+export const TxnEditPassword   = "/api/LoginApp/EditPassword";
+
+// ─── 5. REPACKING MASTER API ENDPOINT CONSTANTS ───────────────────────────────
+//  Centralised here so RepackingMaster.jsx imports CC.Repacking* names only
+//  and never constructs URL strings itself.
+export const RepackingMaxNo      = "/api/RepackingMasterApp/MaxRepackingNo";
+export const RepackingInsert     = "/api/RepackingMasterApp/InsertRepackingMaster";
+export const RepackingDelete     = "/api/RepackingMasterApp/DeleteRepackingMaster";
+export const RepackingEdit       = "/api/RepackingMasterApp/EditRepackingMaster";
+export const RepackingSelect     = "/api/RepackingMasterApp/SelectRepackingMaster";
+//RepackingItemMaster
+// export const RepackingCombo      = "/api/RepackingMasterApp/SelectRepackingMasterItem";
+export const RepackingCombo      = "/api/RepackingMasterApp/RepackingItemMaster";
+export const ItemByCode          = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+  export const RepackingEditPwd    = "/api/LoginApp/EditPassword";
+
+// ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
+//  Single source of truth — every fetch in the app must go through
+//  api() / insertapi() / editPassword() which all call authHeaders().
+//  No component should call localStorage.getItem("token") directly.
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
   "Userid":        localStorage.getItem("userid")     || "0",
@@ -45,7 +70,6 @@ const mkUrl = (path) => BASE_URL + path;
 export const buildSession = (pageName) => {
   try {
     const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
-     const com0       = (getLocal("Companysetting") || [{}])[0] || {};
     const Comid       = getStr("Comid")    || "1";
     const MComid      = getStr("MComid")   || Comid;
     const IdComList   = getStr("IdComList") || Comid;
@@ -150,6 +174,31 @@ export const insertapi = async (path, body = null, extraHeaders = {}) => {
 };
 
 /**
+ * deleteapi()
+ * Delete POST — identical contract to insertapi() but semantically labelled.
+ * Returns raw parsed JSON; all auth headers and BASE_URL handled here.
+ *
+ * Usage: await CC.deleteapi(path, bodyObject, extraHeaders?)
+ */
+export const deleteapi = async (path, body = null, extraHeaders = {}) => {
+  try {
+    const res = await fetch(mkUrl(path), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        ...authHeaders(),
+        ...extraHeaders,
+      },
+      body: body != null ? JSON.stringify(body) : null,
+    });
+    const text = await res.text();
+    return JSON.parse(text);
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+};
+
+/**
  * editPassword()
  * Dedicated helper for the Transaction Password verification modal.
  * Centralises the /api/LoginApp/EditPassword call so TransactionPassword.jsx
@@ -228,6 +277,25 @@ export const editPassword = async ({ password, type, Comid }) => {
   }
 };
 
+/**
+ * repackingEditPassword()
+ * Centralised password-verification helper for RepackingMaster.
+ * Uses the MVC-style /Login/EditPassword route (no /api/ prefix).
+ * Wraps the call so RepackingMaster.jsx has ZERO fetch/auth/BASE_URL logic.
+ *
+ * @param {object} opts - { password, type, Comid }
+ *   type: "EditPassword" | "FormConfig" | "AdminPower"
+ * @returns {{ ok: boolean, message?: string }}
+ *
+ * Usage (RepackingMaster.jsx):
+ *   const res = await CC.repackingEditPassword({ password: pwdValue, type: "EditPassword", Comid: sess.Comid });
+ *   if (res.ok) { ... } else { alert("Invalid Password !!!."); }
+ */
+// export const repackingEditPassword = async ({ password, type, Comid }) => {
+//   return api(TxnEditPassword, null, {}, { password, type, Comid });
+// };
+export const repackingEditPassword = ({ password, type, Comid }) =>
+  api(TxnEditPassword, null, {}, { password, type, Comid });
 // ─── 9. MISC HELPERS ──────────────────────────────────────────────────────────
 /** Generates a unique row key */
 export const uid = () =>
@@ -262,19 +330,10 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
   let nextRow = curRow;
   let nextCol = curCol + 1;
 
-  // ── SAFETY GUARD — curRow out of bounds ──────────────────────────────────
-  const currentRow = grid?.[curRow];
-  if (!currentRow) {
-    // curRow doesn't exist in grid — just call onLastCell and return
-    onLastCell?.();
-    return;
-  }
-
   // Last column reached
   if (nextCol >= totalCols) {
-
     const currentRow = grid[curRow];
-    const isFilled = rowValidator(currentRow);
+    const isFilled   = rowValidator(currentRow);
 
     if (!isFilled) {
       // Row not filled — jump to first empty col in same row
@@ -295,10 +354,8 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
 
   // Next row doesn't exist yet — create it then focus
   if (nextRow >= totalRows) {
-    onLastCell?.();                          // addRow()
-    setTimeout(() => {
-      inputRefs.current[nextRow]?.[0]?.focus(); // ✅ longer delay — wait for render
-    }, 100);                                 // 100ms so new row renders first
+    onLastCell?.();
+    setTimeout(() => { inputRefs.current[nextRow]?.[0]?.focus(); }, 100);
     return;
   }
 
