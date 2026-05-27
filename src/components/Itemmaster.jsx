@@ -1,12 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  ItemMaster.jsx  —  design matches CashierMaster (mp-* classes throughout)
-//  All shared utilities via CC.*  |  Enter nav via CC.handleEnterNext
+//  ItemMaster.jsx  —  CashierMaster style: edit-mode per row, toggle, border-none view
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
- import "../Master/MasterPage.css"   ;
-import "../Itemmaster.css";       // ← single shared CSS
+import "../Master/MasterPage.css";
+import "../Itemmaster.css";
 import * as CC from "../Master/Common";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
@@ -71,6 +70,7 @@ const COLUMNS = [
 
 const ROWS_PER_PAGE   = 20;
 const SNO_W           = 44;
+const EDIT_W          = 44;   // ← NEW: edit icon column width
 const DEL_W           = 44;
 const DEFAULT_COLS    = COLUMNS.map(c => ({ key:c.key, label:c.label, width:c.width, visible:!c.hidden }));
 const ITEM_DRAFT_KEY  = "itemmaster_draft";
@@ -91,7 +91,7 @@ const F3K = ["NetWeight"];
 const INK = ["ExpriyDays","ExpiryBeforeDays","NomsQty"];
 
 const mkEmpty = () => {
-  const r = { _rid:genRid(), _isNew:true, _dirty:false };
+  const r = { _rid:genRid(), _isNew:true, _dirty:false, _editMode:1 };
   COLUMNS.forEach(c => { r[c.key] = c.bool ? false : ""; });
   ["BrandId","CategoryId","DepartmentId","SupplierId","UOMId","LocationMasterId","ProductImage","Id"].forEach(k => { r[k]=""; });
   r.Active=true; r.StockNeed=true; r.SalesRateType=true;
@@ -99,7 +99,7 @@ const mkEmpty = () => {
 };
 
 const fmtRow = obj => {
-  const r = { ...obj, _rid:obj._rid||genRid(), _isNew:false, _dirty:false };
+  const r = { ...obj, _rid:obj._rid||genRid(), _isNew:false, _dirty:false, _editMode:0 };
   F2K.forEach(k => { if (r[k]!==undefined) r[k]=parseFloat(vn(r[k]).toFixed(2)); });
   F3K.forEach(k => { if (r[k]!==undefined) r[k]=parseFloat(vn(r[k]).toFixed(3)); });
   INK.forEach(k => { if (r[k]!==undefined) r[k]=parseInt(vn(r[k]))||0; });
@@ -114,6 +114,37 @@ function calcRow(row, sess, changedKey) {
   const LC=ro(PR+GSTAmt+CessAmt+TrAmt), PA=ro(LC*PP/100);
   const SR=PA!==0?f2(LC+PA):(!row.Id?f2(MRP):(vn(row.SalesRate)||f2(MRP)));
   return { GST:f2(GST),GSTAmt:f2(GSTAmt),CESS:f2(CESS),CESSAmt:f2(CessAmt),TransPer:f2(TP),TransAmt:f2(TrAmt),LandingCost:f2(LC),DMAmt:f2(ro(MRP-LC)),DMPer:MRP>0?f2(ro((MRP-LC)/MRP*100)):0,ProfitAmt:f2(PA),SalesRate:SR,...(sess?.univercell?{MRP:f2(ro(SR))}:{}) };
+}
+
+// ── Toggle component (same as CashierMaster) ─────────────────────────────────
+// CHANGE 1: Added Toggle component — same design as CashierMaster
+// மாற்றம் 1: CashierMaster-போல் Toggle component சேர்க்கப்பட்டது
+function Toggle({ value, onChange, onKeyDown, inputRef, editMode }) {
+  return (
+    <button
+      ref={inputRef}
+      onClick={() => editMode === 1 && onChange(!value)}
+      onKeyDown={onKeyDown}
+      title={value ? "Active" : "Inactive"}
+      style={{
+        width:32, height:18, borderRadius:9, border:"none",
+        cursor: editMode === 0 ? "default" : "pointer",
+        background: value ? "#16a34a" : "#cbd5e1",
+        position:"relative", transition:"background 0.18s ease", outline:"none",
+        display:"inline-flex", alignItems:"center", flexShrink:0, padding:0,
+        boxShadow: value ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+        opacity: editMode === 0 ? 0.5 : 1,
+        pointerEvents: editMode === 0 ? "none" : "auto",
+      }}
+    >
+      <span style={{
+        position:"absolute", top:3, left: value ? 15 : 3,
+        width:12, height:12, borderRadius:"50%", background:"#fff",
+        transition:"left 0.18s ease",
+        boxShadow:"0 1px 2px rgba(0,0,0,0.18)", display:"block",
+      }} />
+    </button>
+  );
 }
 
 // ── F12 Column Settings Popup ─────────────────────────────────────────────────
@@ -243,11 +274,14 @@ function PwModal({ title, comid, onOk, onClose }) {
 export default function ItemMaster() {
   const navigate = useNavigate();
 
-  // ── CC hooks ──────────────────────────────────────────────────────────────
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
 
-  // ── Session ───────────────────────────────────────────────────────────────
+  // ── dirtyIds ref — tracks rows actually typed in (same as CashierMaster) ──
+  // CHANGE 2: dirtyIds added to track truly modified rows so selectRow won't revert them
+  // மாற்றம் 2: உண்மையிலேயே திருத்திய rows-ஐ track பண்ண dirtyIds சேர்க்கப்பட்டது
+  const dirtyIds = useRef(new Set());
+
   const [sess] = useState(() => {
     try {
       const main0 = (CC.getLocal("Mainsetting")    || [{}])[0] || {};
@@ -280,7 +314,6 @@ export default function ItemMaster() {
   });
   const perm = sess.menudata[0] || { View:1,Add:1,Edit:1,Delete:1 };
 
-  // ── State ─────────────────────────────────────────────────────────────────
   const [cols,       setCols]      = useState(DEFAULT_COLS);
   const [f12Open,    setF12Open]   = useState(false);
   const [rows,       setRows]      = useState([]);
@@ -293,14 +326,10 @@ export default function ItemMaster() {
   const [loading,    setLoading]   = useState(false);
   const [ldMsg,      setLdMsg]     = useState("Loading...");
 
-  // dropdowns
   const [brandL,setBrandL]=useState([]);const[catL,setCatL]=useState([]);const[deptL,setDeptL]=useState([]);
   const[deptAll,setDeptAll]=useState([]);const[supL,setSupL]=useState([]);const[uomL,setUomL]=useState([]);const[locL,setLocL]=useState([]);
 
-  // combo popup
   const [ddPop,setDdPop]=useState(null);const[ddQ,setDdQ]=useState("");const[ddCtx,setDdCtx]=useState(null);const[ddHilite,setDdHilite]=useState(0);
-
-  // modals
   const [pw,setPw]=useState(null);
   const [bsrOpen,setBsrOpen]=useState(false);const[bsrRows,setBsrRows]=useState([]);
   const [gcOpen,setGcOpen]=useState(false);const[gcRows,setGcRows]=useState([]);
@@ -310,37 +339,32 @@ export default function ItemMaster() {
   const gRef      = useRef(null);
   const drag      = useRef({ on:false,x:0,y:0,sl:0,st:0 });
   const rowsRef      = useRef(rows);
-const entryRowRef  = useRef(entryRow);
+  const entryRowRef  = useRef(entryRow);
   const entryRefs = useRef({});
   const cellRefs  = useRef({});
-  const rowRefs   = useRef([]);      // ← for CC.handleEnterNext (2-D array like CashierMaster)
+  const rowRefs   = useRef([]);
   const draftOk   = useRef(false);
 
-  // ── Admin dropdown close on outside click ────────────────────────────────
   useEffect(() => {
     if (!adminOpen) return;
     const h = e => { if (adminRef.current && !adminRef.current.contains(e.target)) setAdminOpen(false); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [adminOpen]);
-useEffect(() => { rowsRef.current = rows; },      [rows]);
-useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
-  // ── Derived visible columns ───────────────────────────────────────────────
+  useEffect(() => { rowsRef.current = rows; },      [rows]);
+  useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
+
   const visCols = cols.filter(c => c.visible);
 
-  // All editable keys in visible order (no calc columns)
   const editableKeys = visCols
     .map(vc => COLUMNS.find(c => c.key===vc.key))
     .filter(cd => cd && !cd.calc)
     .map(cd => cd.key);
 
-  // ── rowValidator for CC.handleEnterNext ───────────────────────────────────
-  // ItemMaster: a row is "valid enough to advance" when ProductCode is filled
   const rowValidator = useCallback(row =>
     String(row.ProductCode||"").trim().length > 0
   , []);
 
-  // ── Focus helpers ─────────────────────────────────────────────────────────
   const focusEntry = useCallback(colKey => {
     setTimeout(() => { const el=entryRefs.current[colKey]; if(el){el.focus();el.select?.();} }, 0);
   }, []);
@@ -354,7 +378,28 @@ useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
     if (el) cellRefs.current[rid][colKey] = el; else delete cellRefs.current[rid]?.[colKey];
   }, []);
 
-  // ── Auto-gen product code ─────────────────────────────────────────────────
+  // CHANGE 3: enableEdit — single setRows call, no double-state conflict (same fix as CashierMaster)
+  // மாற்றம் 3: enableEdit — ஒரே setRows call, double-state conflict இல்ல
+  const enableEdit = useCallback((rid) => {
+    setRows(prev => prev.map(r => {
+      if (r._rid === rid) return { ...r, _editMode:1 };
+      if (r._editMode === 1 && r.Id && !dirtyIds.current.has(r.Id)) return { ...r, _editMode:0 };
+      return r;
+    }));
+    setSelRid(rid);
+  }, []);
+
+  // CHANGE 4: selectRow — only reverts OTHER rows, never the clicked row; no onFocus on tr
+  // மாற்றம் 4: selectRow — வேற rows மட்டும் revert ஆகும், clicked row ஆகாது
+  const selectRow = useCallback((rid) => {
+    setRows(prev => prev.map(r => {
+      if (r._rid !== rid && r._editMode === 1 && r.Id && !dirtyIds.current.has(r.Id))
+        return { ...r, _editMode:0 };
+      return r;
+    }));
+    setSelRid(rid);
+  }, []);
+
   const autoGenCode = useCallback(async r => {
     if (!sess.Productcodeautogen) return r;
     try {
@@ -375,16 +420,14 @@ useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
     setTimeout(() => focusEntry(editableKeys[0]), 50);
   }, [autoGenCode, focusEntry, editableKeys]);
 
-  // ── Draft ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!draftOk.current) return;
     try { if(entryRow._dirty) sessionStorage.setItem(ITEM_DRAFT_KEY, JSON.stringify({entryRow,rows})); } catch {}
   }, [entryRow, rows]);
 
-  // ── Column config ─────────────────────────────────────────────────────────
   const loadColCfg = useCallback(async () => {
     try {
-     const res = await fetch(`/Content/Appdata/Visible/${sess.Comid}/Itemmaster.json?v=${Date.now()}`, { headers:CC.authHeaders() });
+      const res = await fetch(`/Content/Appdata/Visible/${sess.Comid}/Itemmaster.json?v=${Date.now()}`, { headers:CC.authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data)) return;
@@ -407,15 +450,14 @@ useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
     finally { setLoading(false); }
   }, [sess.Comid, toast, loadColCfg]);
 
-  // ── Dropdowns ─────────────────────────────────────────────────────────────
   const loadDropdowns = useCallback(async () => {
     const [br,ca,de,su,uo,lo] = await Promise.all([
-      CC.api(CC.BrandSelect,           null,{},{Comid:sess.Comid}),
-      CC.api(CC.CategorySelect,     null,{},{Comid:sess.Comid}),
-      CC.api(CC.DepartmentSelect, null,{},{Comid:sess.Comid}),
-      CC.api(CC.GetSupplier,        null,{},{Comid:sess.Comid,AccountType:"SUPPLIER"}),
-      CC.api(CC.UOMSelect,               null,{},{Comid:sess.Comid}),
-      CC.api(CC.LocationSelect,     null,{},{Comid:sess.Comid}),
+      CC.api(CC.BrandSelect,       null,{},{Comid:sess.Comid}),
+      CC.api(CC.CategorySelect,    null,{},{Comid:sess.Comid}),
+      CC.api(CC.DepartmentSelect,  null,{},{Comid:sess.Comid}),
+      CC.api(CC.GetSupplier,       null,{},{Comid:sess.Comid,AccountType:"SUPPLIER"}),
+      CC.api(CC.UOMSelect,         null,{},{Comid:sess.Comid}),
+      CC.api(CC.LocationSelect,    null,{},{Comid:sess.Comid}),
     ]);
     const pick = r => r.data||r.Data1||[];
     const nBL=!br._netErr?pick(br):brandL, nCL=!ca._netErr?pick(ca):catL, nDL=!de._netErr?pick(de):deptL;
@@ -434,7 +476,6 @@ useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
   // eslint-disable-next-line
   },[sess.Comid]);
 
-  // ── Load items ────────────────────────────────────────────────────────────
   const loadItems = useCallback(async (kw="",col="",isInit=false) => {
     setLoading(true); setLdMsg("Loading Item Master...");
     const res = await CC.api(CC.ItemSelect, null, {"Download":"0"}, { Comid:sess.Comid,Startindex:0,PageCount:99999,Keyword:kw,Column:col,webtype:1 });
@@ -448,7 +489,6 @@ useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
     setPage(Math.max(1,Math.ceil(fmt.length/ROWS_PER_PAGE)));
   }, [sess.Comid, toast]);
 
-  // ── Combo helpers ─────────────────────────────────────────────────────────
   const comboCfg = {
     Brand:{list:brandL,title:"Brand",idKey:"Id",nameKey:"BrandName",fId:"BrandId",fName:"Brand"},
     Category:{list:catL,title:"Category",idKey:"Id",nameKey:"Cat_Name",fId:"CategoryId",fName:"Category"},
@@ -503,7 +543,6 @@ useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
 
   const closeDd = () => { setDdPop(null);setDdQ("");setDdCtx(null);setDdHilite(0); };
 
-  // ── Cell change (shared logic) ────────────────────────────────────────────
   const applyChange = (prev, colKey, value) => {
     let fv = UPPER_KEYS.has(colKey)&&typeof value==="string" ? value.toUpperCase() : value;
     let u = { ...prev, [colKey]:fv, _dirty:true };
@@ -521,18 +560,21 @@ useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
   // eslint-disable-next-line
   }, [sess]);
 
+  // CHANGE 5: handleCellChange marks dirtyIds so selectRow won't revert it
+  // மாற்றம் 5: handleCellChange-ல் dirtyIds mark ஆகுது — selectRow revert பண்ணாது
   const handleCellChange = useCallback((rid, colKey, value) => {
-    setRows(prev => prev.map(r => r._rid!==rid ? r : applyChange(r, colKey, value)));
+    setRows(prev => prev.map(r => {
+      if (r._rid !== rid) return r;
+      if (r.Id) dirtyIds.current.add(r.Id);
+      return applyChange(r, colKey, value);
+    }));
     setVErr("");
   // eslint-disable-next-line
   }, [sess]);
 
-  // ── Validation ────────────────────────────────────────────────────────────
   const validateRow = useCallback(row => {
     if(!String(row.ProductCode||"").trim()){setVErr("❌ Product Code required.");return false;}
     if(!String(row.ProductName||"").trim()){setVErr("❌ Description required.");return false;}
-      console.log("[validateRow] ProductName:", JSON.stringify(row.ProductName), 
-              "| All keys:", Object.keys(row).filter(k => row[k] !== "" && row[k] !== false && row[k] !== 0));
     if(sess.LandingCostCompare){
       if(vn(row.SalesRate)&&vn(row.LandingCost)>vn(row.SalesRate)){setVErr("❌ Sale Rate < Landing Cost.");return false;}
       if(vn(row.MRP)&&vn(row.SalesRate)&&vn(row.MRP)<vn(row.SalesRate)){setVErr("❌ Sale Rate > MRP.");return false;}
@@ -541,47 +583,11 @@ useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
     setVErr(""); return true;
   }, [sess]);
 
-  // ── Save ──────────────────────────────────────────────────────────────────
-  const saveHdrs = {
-    "Comid":String(sess.Comid),"Commoncompany":String(sess.CommonCompany),
-    "CommoncompanyDiffStock":String(sess.CommonCompanyDiffStock),
-    "SupplierMulitipleAllow":String(sess.SupplierMulitipleAllow),
-    "MulipleMRP":String(sess.MulipleMRP),"MirrorTable":String(sess.MirrorTable),
-    "Tamil":String(sess.Tamil),"IdComList":String(sess.IdComList),"ApiType":"0",
-  };
-
   const buildPayload = useCallback(row => {
     const n=v=>parseFloat(v)||0,ni=v=>parseInt(v)||0,bi=v=>(v===true||v==="true"||v===1||v==="1")?1:0,b=v=>v===true||v==="true"||v===1||v==="1",s=v=>String(v==null?"":v);
     return { Id:ni(row.Id),ProductCode:s(row.ProductCode).trim(),SecondCode:s(row.SecondCode),ProductName:s(row.ProductName).trim(),PrinterName:s(row.PrinterName),HSNCode:s(row.HSNCode),Brand:s(row.Brand),BrandId:ni(row.BrandId),Category:s(row.Category),CategoryId:ni(row.CategoryId),Department:s(row.Department),DepartmentId:ni(row.DepartmentId),Supplier:s(row.Supplier),SupplierId:ni(row.SupplierId),UOM:s(row.UOM),UOMId:ni(row.UOMId),LocationMaster:s(row.LocationMaster),LocationMasterId:ni(row.LocationMasterId),NomsQty:ni(row.NomsQty),MRP:n(row.MRP),DMPer:n(row.DMPer),DMAmt:n(row.DMAmt),PurchaseRate:n(row.PurchaseRate),GST:n(row.GST),GSTAmt:n(row.GSTAmt),TransPer:n(row.TransPer),TransAmt:n(row.TransAmt),CESS:n(row.CESS),CESSAmt:n(row.CESSAmt),SPLCESS:n(row.SPLCESS),LandingCost:n(row.LandingCost),ProfitPer:n(row.ProfitPer),ProfitAmt:n(row.ProfitAmt),SalesRate:n(row.SalesRate),CardRate:n(row.CardRate),WholeSaleRate:n(row.WholeSaleRate),NomsPCRate:n(row.NomsPCRate),SalesRateType:b(row.SalesRateType),SaleDiscountPer:n(row.SaleDiscountPer),SaleDiscountAmt:n(row.SaleDiscountAmt),ReorderLevelMin:n(row.ReorderLevelMin),ReorderLevelMax:n(row.ReorderLevelMax),MaxSaleQty:n(row.MaxSaleQty),LessAmt:n(row.LessAmt),StockNeed:bi(row.StockNeed),ExpriyDate:bi(row.ExpriyDate),OnlineShow:bi(row.OnlineShow),BrandType:bi(row.BrandType),ModelType:bi(row.ModelType),ColorType:bi(row.ColorType),SizeType:bi(row.SizeType),SerialNoType:bi(row.SerialNoType),BatchwiseStock:bi(row.BatchwiseStock),Active:bi(row.Active),NegativetStock:b(row.NegativetStock),Repacking:b(row.Repacking),ExpriyDays:ni(row.ExpriyDays),ExpiryBeforeDays:ni(row.ExpiryBeforeDays),NetWeight:n(row.NetWeight),CRMPoints:n(row.CRMPoints),Remarks:s(row.Remarks),ProductImage:s(row.ProductImage) };
   }, []);
 
-  // const doSave = useCallback(async () => {
-  //   if(!perm.Add&&!perm.Edit){toast("❌ Page Add & Update Permission Denied !!!", true);return;}
-  //   const eHas=String(entryRow.ProductCode||"").trim()||String(entryRow.ProductName||"").trim();
-  //   const toSave=[];
-  //   if(entryRow._dirty&&eHas) toSave.push(entryRow);
-  //   toSave.push(...rows.filter(r=>r._dirty&&(String(r.ProductCode||"").trim()||String(r.ProductName||"").trim())));
-  //   if(!toSave.length){toast("⚠️ No modified data to save.",true);return;}
-  //   for(const row of toSave){if(!validateRow(row))return;}
-  //   const ok=await confirm("Do you want to Save Item Master Details?");
-  //   if(!ok)return;
-  //   setLoading(true);setLdMsg("Saving...");
-  //   const payload=toSave.map(buildPayload);
-  //   const res=await CC.insertapi(CC.ItemInsert,payload,saveHdrs);
-  //   setLoading(false);
-  //   if(res._netErr){toast(`❌ ${res.message}`,true);return;}
-  //   if(res.ok??res.IsSuccess){
-  //     toast("✅ "+(res.message||"Saved successfully"));
-  //     try{sessionStorage.removeItem(ITEM_DRAFT_KEY);}catch{}
-  //     if(eHas&&entryRow._dirty){
-  //       const saved={...entryRow,_dirty:false,_isNew:false,Id:res.Id||entryRow.Id||entryRow._rid};
-  //       setRows(prev=>[...prev.map(r=>r._dirty?{...r,_dirty:false}:r),saved]);
-  //       resetEntry();
-  //     } else { setRows(prev=>prev.map(r=>r._dirty?{...r,_dirty:false}:r)); }
-  //   } else { toast(`❌ ${res.message||"Save failed"}`,true); }
-  // }, [entryRow,rows,perm,confirm,validateRow,buildPayload,toast,saveHdrs,resetEntry]);
-
-  // ── Delete ────────────────────────────────────────────────────────────────
   const doDeleteRow = useCallback(async rid => {
     const row=rows.find(r=>r._rid===rid); if(!row)return;
     if(!perm.Delete){toast("❌ Delete Permission Denied",true);return;}
@@ -593,124 +599,210 @@ useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
     if(res.ok){toast("✅ "+(res.message||"Deleted"));setRows(prev=>prev.filter(r=>r._rid!==rid));if(selRid===rid)setSelRid(null);}
     else toast(`❌ ${res.message||"Delete failed"}`,true);
   }, [rows,perm,confirm,toast,sess,selRid]);
-const doSave = useCallback(async () => {
-  if (!perm.Add && !perm.Edit) {
-    toast("❌ Page Add & Update Permission Denied !!!", true);
-    return;
-  }
 
-  const latestRows  = rowsRef.current;
-  const latestEntry = entryRowRef.current;
+  const doSave = useCallback(async () => {
+    if (!perm.Add && !perm.Edit) { toast("❌ Page Add & Update Permission Denied !!!", true); return; }
+    const latestRows  = rowsRef.current;
+    const latestEntry = entryRowRef.current;
+    const eHas = String(latestEntry?.ProductCode || "").trim() || String(latestEntry?.ProductName  || "").trim();
+    const dirtyRows = latestRows.filter(r => r._dirty && (String(r.ProductCode || "").trim() || String(r.ProductName || "").trim()));
+    const entryComplete = String(latestEntry?.ProductCode || "").trim() && String(latestEntry?.ProductName || "").trim();
+    const toSave = [];
+    if (latestEntry?._dirty && entryComplete) toSave.push(latestEntry);
+    toSave.push(...dirtyRows);
+    if (!toSave.length) { toast("⚠️ No modified data to save.", true); return; }
+    for (const row of toSave) { if (!validateRow(row)) return; }
+    const ok = await confirm("Do you want to Save Item Master Details?");
+    if (!ok) return;
+    setLoading(true); setLdMsg("Saving...");
+    const hdrs = { "Comid":String(sess.Comid),"Commoncompany":String(sess.CommonCompany),"CommoncompanyDiffStock":String(sess.CommonCompanyDiffStock),"SupplierMulitipleAllow":String(sess.SupplierMulitipleAllow),"MulipleMRP":String(sess.MulipleMRP),"MirrorTable":String(sess.MirrorTable),"Tamil":String(sess.Tamil),"IdComList":String(sess.IdComList),"ApiType":"0" };
+    const payload = toSave.map(buildPayload);
+    const res = await CC.insertapi(CC.ItemInsert, payload, hdrs);
+    setLoading(false);
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+    if (res.ok ?? res.IsSuccess) {
+      dirtyIds.current.clear();
+      toast("✅ " + (res.message || "Saved successfully"));
+      try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
+      if (entryComplete && latestEntry?._dirty) {
+        const saved = { ...latestEntry, _dirty:false, _isNew:false, _editMode:0, Id:res.Id||latestEntry.Id||latestEntry._rid };
+        setRows(prev => [...prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r), saved]);
+        resetEntry();
+      } else {
+        setRows(prev => prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r));
+      }
+    } else { toast(`❌ ${res.message || "Save failed"}`, true); }
+  }, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry]);
 
-  const eHas = String(latestEntry?.ProductCode || "").trim() ||
-               String(latestEntry?.ProductName  || "").trim();
+  const entryRowIndex = rows.length;
+  const doExcelUpload = useCallback(() => {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".csv,.xlsx";
+  inp.onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    const text = await file.text();
 
-  const dirtyRows = latestRows.filter(r =>
-    r._dirty &&
-    (String(r.ProductCode || "").trim() || String(r.ProductName || "").trim())
-  );
-
-const entryComplete =
-  String(latestEntry?.ProductCode || "").trim() &&
-  String(latestEntry?.ProductName || "").trim();
-
-const toSave = [];
-if (latestEntry?._dirty && entryComplete) toSave.push(latestEntry);
-toSave.push(...dirtyRows);
-
-  // ── DEBUG: remove after confirming fix ──
-  console.log("[doSave] latestRows:", latestRows.length,
-    "| dirty:", dirtyRows.length,
-    "| entryDirty:", latestEntry?._dirty,
-    "| eHas:", eHas,
-    "| toSave:", toSave.length);
-
-  if (!toSave.length) {
-    toast("⚠️ No modified data to save.", true);
-    return;
-  }
-
-  for (const row of toSave) {
-    if (!validateRow(row)) {
-      console.log("[doSave] validation failed for:", row.ProductCode, row.ProductName);
-      return;
-    }
-  }
-
-  const ok = await confirm("Do you want to Save Item Master Details?");
-  if (!ok) return;
-
-  setLoading(true);
-  setLdMsg("Saving...");
-
-  const hdrs = {
-    "Comid":                  String(sess.Comid),
-    "Commoncompany":          String(sess.CommonCompany),
-    "CommoncompanyDiffStock": String(sess.CommonCompanyDiffStock),
-    "SupplierMulitipleAllow": String(sess.SupplierMulitipleAllow),
-    "MulipleMRP":             String(sess.MulipleMRP),
-    "MirrorTable":            String(sess.MirrorTable),
-    "Tamil":                  String(sess.Tamil),
-    "IdComList":              String(sess.IdComList),
-    "ApiType":                "0",
-  };
-
-  const payload = toSave.map(buildPayload);
-  const res = await CC.insertapi(CC.ItemInsert, payload, hdrs);
-  setLoading(false);
-
-  if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
-
-  if (res.ok ?? res.IsSuccess) {
-    toast("✅ " + (res.message || "Saved successfully"));
-    try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
-
-if (entryComplete && latestEntry?._dirty) {
-      const saved = {
-        ...latestEntry,
-        _dirty: false,
-        _isNew: false,
-        Id: res.Id || latestEntry.Id || latestEntry._rid,
+    // Parse CSV — handle quoted fields
+    const parseCSV = raw => {
+      const lines = raw.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) return [];
+      const splitLine = line => {
+        const result = []; let cur = ""; let inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+            else inQ = !inQ;
+          } else if (ch === ',' && !inQ) { result.push(cur.trim()); cur = ""; }
+          else cur += ch;
+        }
+        result.push(cur.trim()); return result;
       };
-      setRows(prev => [
-        ...prev.map(r => r._dirty ? { ...r, _dirty: false } : r),
-        saved,
-      ]);
-      resetEntry();
+      const hdrs = splitLine(lines[0]);
+      return lines.slice(1).map(line => {
+        const vals = splitLine(line);
+        const obj = {};
+        hdrs.forEach((h, i) => { obj[h.trim()] = (vals[i] || "").trim(); });
+        return obj;
+      });
+    };
+
+    const records = parseCSV(text).filter(o => o["Product Code"] || o["ProductCode"]);
+    if (!records.length) { toast("❌ No valid rows found. Check file format.", true); return; }
+
+    // Map CSV columns → payload fields
+    const labelToKey = {};
+    COLUMNS.forEach(c => { labelToKey[c.label] = c.key; });
+    labelToKey["Id"] = "Id";
+    labelToKey["Product Code"] = "ProductCode";
+
+    const toSave = records.map(row => {
+      const mapped = {};
+      Object.entries(row).forEach(([h, v]) => {
+        const key = labelToKey[h] || h;
+        mapped[key] = v;
+      });
+      // Build proper payload
+      const n  = v => parseFloat(v)  || 0;
+      const ni = v => parseInt(v)    || 0;
+      const bi = v => (v === "true" || v === "1" || v === true) ? 1 : 0;
+      const b  = v => v === "true" || v === "1" || v === true;
+      const s  = v => String(v == null ? "" : v);
+      return {
+        Id:              ni(mapped.Id),   // 0 = insert, >0 = update
+        ProductCode:     s(mapped.ProductCode).trim(),
+        SecondCode:      s(mapped.SecondCode),
+        ProductName:     s(mapped.ProductName).trim(),
+        PrinterName:     s(mapped.PrinterName),
+        HSNCode:         s(mapped.HSNCode),
+        Brand:           s(mapped.Brand),           BrandId:          ni(mapped.BrandId),
+        Category:        s(mapped.Category),        CategoryId:       ni(mapped.CategoryId),
+        Department:      s(mapped.Department),      DepartmentId:     ni(mapped.DepartmentId),
+        Supplier:        s(mapped.Supplier),        SupplierId:       ni(mapped.SupplierId),
+        UOM:             s(mapped.UOM),             UOMId:            ni(mapped.UOMId),
+        LocationMaster:  s(mapped.LocationMaster),  LocationMasterId: ni(mapped.LocationMasterId),
+        NomsQty:         ni(mapped.NomsQty),
+        MRP:             n(mapped.MRP),             DMPer:            n(mapped.DMPer),
+        DMAmt:           n(mapped.DMAmt),           PurchaseRate:     n(mapped.PurchaseRate),
+        GST:             n(mapped.GST),             GSTAmt:           n(mapped.GSTAmt),
+        TransPer:        n(mapped.TransPer),        TransAmt:         n(mapped.TransAmt),
+        CESS:            n(mapped.CESS),            CESSAmt:          n(mapped.CESSAmt),
+        SPLCESS:         n(mapped.SPLCESS),         LandingCost:      n(mapped.LandingCost),
+        ProfitPer:       n(mapped.ProfitPer),       ProfitAmt:        n(mapped.ProfitAmt),
+        SalesRate:       n(mapped.SalesRate),       CardRate:         n(mapped.CardRate),
+        WholeSaleRate:   n(mapped.WholeSaleRate),   NomsPCRate:       n(mapped.NomsPCRate),
+        SalesRateType:   b(mapped.SalesRateType),
+        SaleDiscountPer: n(mapped.SaleDiscountPer), SaleDiscountAmt:  n(mapped.SaleDiscountAmt),
+        ReorderLevelMin: n(mapped.ReorderLevelMin), ReorderLevelMax:  n(mapped.ReorderLevelMax),
+        MaxSaleQty:      n(mapped.MaxSaleQty),      LessAmt:          n(mapped.LessAmt),
+        StockNeed:       bi(mapped.StockNeed),      ExpriyDate:       bi(mapped.ExpriyDate),
+        OnlineShow:      bi(mapped.OnlineShow),     BrandType:        bi(mapped.BrandType),
+        ModelType:       bi(mapped.ModelType),      ColorType:        bi(mapped.ColorType),
+        SizeType:        bi(mapped.SizeType),       SerialNoType:     bi(mapped.SerialNoType),
+        BatchwiseStock:  bi(mapped.BatchwiseStock), Active:           bi(mapped.Active),
+        NegativetStock:  b(mapped.NegativetStock),  Repacking:        b(mapped.Repacking),
+        ExpriyDays:      ni(mapped.ExpriyDays),     ExpiryBeforeDays: ni(mapped.ExpiryBeforeDays),
+        NetWeight:       n(mapped.NetWeight),       CRMPoints:        n(mapped.CRMPoints),
+        Remarks:         s(mapped.Remarks),         ProductImage:     s(mapped.ProductImage),
+        GenderType:      bi(mapped.GenderType),
+      };
+    });
+
+    const newCount  = toSave.filter(r => !r.Id || r.Id === 0).length;
+    const editCount = toSave.filter(r => r.Id  && r.Id > 0).length;
+
+    const ok = window.confirm(
+      `Upload ${toSave.length} rows?\n➕ New: ${newCount}\n✏️ Edit: ${editCount}\n\nProceed?`
+    );
+    if (!ok) return;
+
+    setLoading(true); setLdMsg(`Uploading ${toSave.length} rows...`);
+    const hdrs = {
+      "Comid": String(sess.Comid),
+      "Commoncompany": String(sess.CommonCompany),
+      "CommoncompanyDiffStock": String(sess.CommonCompanyDiffStock),
+      "SupplierMulitipleAllow": String(sess.SupplierMulitipleAllow),
+      "MulipleMRP": String(sess.MulipleMRP),
+      "MirrorTable": String(sess.MirrorTable),
+      "Tamil": String(sess.Tamil),
+      "IdComList": String(sess.IdComList),
+      "ApiType": "0",
+    };
+    const res = await CC.insertapi(CC.ItemInsert, toSave, hdrs);
+    setLoading(false);
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+    if (res.ok ?? res.IsSuccess) {
+      toast(`✅ ${res.message || `Uploaded — ${newCount} added, ${editCount} updated`}`);
+      await loadItems("", "", true);
     } else {
-      setRows(prev => prev.map(r => r._dirty ? { ...r, _dirty: false } : r));
+      toast(`❌ ${res.message || "Upload failed"}`, true);
     }
-  } else {
-    toast(`❌ ${res.message || "Save failed"}`, true);
-  }
+  };
+  inp.click();
+}, [sess, toast, loadItems]);
+const doExcelDownload = useCallback(async () => {
+  setLoading(true); setLdMsg("Preparing Excel...");
+  const res = await CC.api(
+    CC.ItemSelect, null,
+    { "Download": "1" },
+    { Comid: sess.Comid, Startindex: 0, PageCount: 99999, Keyword: "", Column: "" }
+  );
+  setLoading(false);
+  const data1 = (res.data || res.Data1 || rows.filter(r => r.Id));
+  if (!data1?.length) { toast("No records to export", true); return; }
 
-}, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry]);
-// Note: rowsRef/entryRowRef are refs — they don't need to be in deps
-  // ── Keyboard: Entry row ───────────────────────────────────────────────────
-  // Uses CC.handleEnterNext exactly like CashierMaster does.
-  // We convert entryRefs (keyed by colKey) into the 2-D array format CC expects
-  // by building a single-row proxy on the fly.
-  const entryRowIndex = rows.length;   // virtual index = after all data rows
+  // Columns to export — Id first, then all COLUMNS
+  const exportCols = [
+    { key: "Id",          label: "Id" },
+    { key: "ProductCode", label: "Product Code" },
+    ...COLUMNS.filter(c => c.key !== "ProductCode").map(c => ({ key: c.key, label: c.label })),
+  ];
 
+const fmt = data1.map((o) => {
+  const out = {};
+  exportCols.forEach(c => { out[c.label] = o[c.key] ?? ""; });
+  return out;
+});
+
+  const hdr  = Object.keys(fmt[0]).join(",");
+  const body = fmt.map(r =>
+    Object.values(r).map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
+  ).join("\n");
+
+  const blob = new Blob(["\uFEFF" + hdr + "\n" + body], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = "itemmaster.csv"; a.click();
+  URL.revokeObjectURL(url);
+  toast("✅ Excel downloaded");
+}, [sess.Comid, rows, toast]);
   const handleEntryKeyDown = useCallback((e, colKey) => {
     if (e.key === "Enter") {
-      // Build a 1-row proxy so CC.handleEnterNext can work
       const colIdx = editableKeys.indexOf(colKey);
-      // Convert entryRefs (object) into the row-array format
-    const proxyRefs = { current: [] };
-proxyRefs.current[0] = {};
-editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k]; });
-
-     CC.handleEnterNext(
-  e, proxyRefs,
-  0,                          // ← always row 0 in the proxy
-  colIdx,
-  editableKeys.length,
-  1,                          // ← totalRows = 1 (only the entry row)
-  doSave,
-  [entryRow],
-  rowValidator
-);
+      const proxyRefs = { current: [] };
+      proxyRefs.current[0] = {};
+      editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k]; });
+      CC.handleEnterNext(e, proxyRefs, 0, colIdx, editableKeys.length, 1, doSave, [entryRow], rowValidator);
       return;
     }
     if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); const i=editableKeys.indexOf(colKey); if(i<editableKeys.length-1) focusEntry(editableKeys[i+1]); return; }
@@ -719,7 +811,6 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
   // eslint-disable-next-line
   }, [editableKeys, focusEntry, focusCell, entryRow, rowValidator, doSave, entryRowIndex]);
 
-  // ── Pagination ────────────────────────────────────────────────────────────
   const filteredRows = rows.filter(r => {
     for(const[k,v]of Object.entries(colFilters)){if(!v?.trim())continue;if(!String(r[k]??"").toLowerCase().includes(v.trim().toLowerCase()))return false;}
     return true;
@@ -731,28 +822,11 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
     const s=new Set([1,totPages]); for(let i=Math.max(1,page-3);i<=Math.min(totPages,page+3);i++)s.add(i); return Array.from(s).sort((a,b)=>a-b);
   })();
 
-  // ── Keyboard: Grid rows — uses CC.handleEnterNext directly ───────────────
-  // rowRefs is a 2-D array: rowRefs.current[rowIndex][colIndex]
   const handleCellKeyDown = useCallback((e, rid, colKey) => {
     if (e.key === "Enter") {
       const rowIdx = pagedRows.findIndex(r => r._rid === rid);
       const colIdx = editableKeys.indexOf(colKey);
-
-      // Build proxy refs mapping pagedRows to rowRefs indices
-      const proxyRefs = { current: rowRefs.current };
-
-      CC.handleEnterNext(
-        e, proxyRefs,
-        rowIdx, colIdx,
-        editableKeys.length,
-        pagedRows.length,
-        () => {
-          // Last cell of last row → focus entry row first col
-          focusEntry(editableKeys[0]);
-        },
-        pagedRows,
-        rowValidator
-      );
+      CC.handleEnterNext(e, { current:rowRefs.current }, rowIdx, colIdx, editableKeys.length, pagedRows.length, () => { focusEntry(editableKeys[0]); }, pagedRows, rowValidator);
       return;
     }
     if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); const i=editableKeys.indexOf(colKey); if(i<editableKeys.length-1) focusCell(rid,editableKeys[i+1]); return; }
@@ -762,7 +836,6 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
   // eslint-disable-next-line
   }, [editableKeys,focusCell,focusEntry,pagedRows,rowValidator]);
 
-  // ── Global keyboard shortcuts ─────────────────────────────────────────────
   const anyOpen = f12Open||ddPop||bsrOpen||gcOpen||tnOpen||pw||adminOpen;
   useEffect(() => {
     const onKey = e => {
@@ -777,7 +850,6 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
   // eslint-disable-next-line
   }, [anyOpen, doSave, selRid, doDeleteRow]);
 
-  // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(()=>{
     (async()=>{
       await loadColCfg();
@@ -810,18 +882,40 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
   // eslint-disable-next-line
   },[]);
 
-  // ── Drag scroll ───────────────────────────────────────────────────────────
   const onMD=e=>{const el=gRef.current;drag.current={on:true,x:e.pageX-el.offsetLeft,y:e.pageY-el.offsetTop,sl:el.scrollLeft,st:el.scrollTop};};
   const onML=()=>{drag.current.on=false;};
   const onMU=()=>{drag.current.on=false;};
   const onMM=e=>{if(!drag.current.on)return;e.preventDefault();const el=gRef.current;el.scrollLeft=drag.current.sl-((e.pageX-el.offsetLeft)-drag.current.x)*1.4;el.scrollTop=drag.current.st-((e.pageY-el.offsetTop)-drag.current.y)*1.4;};
 
-  // ── Render a single cell (grid row) ───────────────────────────────────────
+  // ── Cell input style helper (border-none in view mode, blue border in edit mode) ──
+  // CHANGE 6: View mode → border none, transparent bg. Edit mode → blue border, white bg
+  // மாற்றம் 6: View mode-ல் border none; Edit mode-ல் blue border, white bg
+  const cellInputStyle = (editMode) => ({
+    background:   editMode === 0 ? "transparent" : "#fff",
+    border:       editMode === 0 ? "none"        : "1px solid #93c5fd",
+    cursor:       editMode === 0 ? "default"     : "text",
+    color:        editMode === 0 ? "inherit"     : "#1e293b",
+    boxShadow:    editMode === 0 ? "none"        : "0 0 0 2px rgba(59,130,246,0.15)",
+    borderRadius: editMode === 1 ? "4px"         : "0",
+    padding:      editMode === 0 ? "2px 4px"     : undefined,
+  });
+
+  // CHANGE 7: Decimal display helper — 55 → "55.00", used in view mode for f2/f3
+  // மாற்றம் 7: Decimal display helper — view mode-ல் 55 → "55.00"
+  const fmtDisplay = (val, type) => {
+    if (val === "" || val === undefined || val === null) return "";
+    if (type === "f3") return parseFloat(vn(val)).toFixed(3);
+    if (type === "f2") return parseFloat(vn(val)).toFixed(2);
+    return String(val);
+  };
+
+  // ── renderCell ────────────────────────────────────────────────────────────
   const renderCell = useCallback((row, col, rowIdx) => {
     const cd=COLUMNS.find(c=>c.key===col.key); if(!cd) return null;
     const rid=row._rid, val=row[cd.key];
     const colIdx=editableKeys.indexOf(cd.key);
     const onFocus=()=>setSelRid(rid);
+    const editMode = row._editMode ?? 0;
 
     const regRowRef = el => {
       if(!rowRefs.current[rowIdx]) rowRefs.current[rowIdx]=[];
@@ -829,51 +923,82 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
       regRef(rid,cd.key,el);
     };
 
-    if(cd.calc) return <span className={cd.key==="LandingCost"?"lc-value":"calc-val"}>{cd.type==="f2"?vn(val).toFixed(2):cd.type==="f3"?vn(val).toFixed(3):String(val??"")}</span>;
+    // Calc columns — always show formatted decimal
+    if(cd.calc) return (
+      <span className={cd.key==="LandingCost"?"lc-value":"calc-val"}>
+        {cd.type==="f2" ? vn(val).toFixed(2) : cd.type==="f3" ? vn(val).toFixed(3) : String(val??"")}
+      </span>
+    );
 
+    // CHANGE 8: bool → Toggle component (same as CashierMaster), not select
+    // மாற்றம் 8: bool columns → Toggle component, select இல்ல
     if(cd.bool) return (
-      <select ref={regRowRef} value={val?"1":"0"} className="cm-active-sel"
-        style={{cursor:"pointer",appearance:"none",textAlign:"center"}}
-        onChange={e=>handleCellChange(rid,cd.key,e.target.value==="1")}
-        onKeyDown={e=>handleCellKeyDown(e,rid,cd.key)}
-        onFocus={onFocus}>
-        <option value="0">✗</option><option value="1">✓</option>
-      </select>
+      <div style={{ display:"flex", justifyContent:"center" }}>
+        <Toggle
+          ref={regRowRef}
+          inputRef={regRowRef}
+          value={!!val}
+          editMode={editMode}
+          onChange={v => handleCellChange(rid, cd.key, v)}
+          onKeyDown={e => handleCellKeyDown(e, rid, cd.key)}
+        />
+      </div>
     );
 
     if(cd.isCombo) return (
-      <input ref={regRowRef} type="text" value={ns(val)} readOnly className="mp-cell-input"
-        style={{cursor:"pointer",caretColor:"transparent"}}
-        placeholder={"▼ "+cd.label} onFocus={onFocus}
-        onClick={()=>openCombo(rid,cd.key)}
-        onKeyDown={e=>{if(e.key==="Enter"||e.key==="F4"){e.preventDefault();openCombo(rid,cd.key);}else handleCellKeyDown(e,rid,cd.key);}} />
+      <input ref={regRowRef} type="text" value={ns(val)}
+        readOnly
+        className="mp-cell-input"
+        style={{ ...cellInputStyle(editMode), cursor: editMode === 0 ? "default" : "pointer", caretColor:"transparent" }}
+        placeholder={editMode === 1 ? "▼ "+cd.label : ""}
+        onFocus={onFocus}
+        onClick={() => editMode === 1 && openCombo(rid, cd.key)}
+        onKeyDown={e=>{if((e.key==="Enter"||e.key==="F4")&&editMode===1){e.preventDefault();openCombo(rid,cd.key);}else handleCellKeyDown(e,rid,cd.key);}}
+      />
     );
 
+    // CHANGE 9: f2/f3 — view mode shows formatted decimal (55 → 55.00), edit mode shows raw value
+    // மாற்றம் 9: f2/f3 — view mode-ல் "55.00" காட்டும், edit mode-ல் raw value
     if(cd.type==="f2"||cd.type==="f3") return (
-      <input ref={regRowRef} type="number" step={cd.type==="f3"?"0.001":"0.01"}
-        value={val===""||val===undefined?"":val} className="mp-cell-input"
-        onChange={e=>handleCellChange(rid,cd.key,e.target.value)}
-        onKeyDown={e=>handleCellKeyDown(e,rid,cd.key)}
-        onFocus={onFocus} placeholder="0.00" />
+      <input ref={regRowRef} type={editMode === 1 ? "number" : "text"}
+        step={cd.type==="f3"?"0.001":"0.01"}
+        value={editMode === 0 ? fmtDisplay(val, cd.type) : (val===""||val===undefined?"":val)}
+        className="mp-cell-input"
+        style={cellInputStyle(editMode)}
+        readOnly={editMode === 0}
+        onChange={e => editMode === 1 && handleCellChange(rid, cd.key, e.target.value)}
+        onKeyDown={e => editMode === 1 && handleCellKeyDown(e, rid, cd.key)}
+        onFocus={onFocus}
+        placeholder={editMode === 1 ? "0.00" : ""}
+      />
     );
 
     if(cd.type==="int") return (
-      <input ref={regRowRef} type="number" step="1"
-        value={val===""||val===undefined?"":val} className="mp-cell-input"
-        onChange={e=>handleCellChange(rid,cd.key,e.target.value)}
-        onKeyDown={e=>handleCellKeyDown(e,rid,cd.key)}
-        onFocus={onFocus} placeholder="0" />
+      <input ref={regRowRef} type={editMode === 1 ? "number" : "text"} step="1"
+        value={editMode === 0 ? (val||"0") : (val===""||val===undefined?"":val)}
+        className="mp-cell-input"
+        style={cellInputStyle(editMode)}
+        readOnly={editMode === 0}
+        onChange={e => editMode === 1 && handleCellChange(rid, cd.key, e.target.value)}
+        onKeyDown={e => editMode === 1 && handleCellKeyDown(e, rid, cd.key)}
+        onFocus={onFocus}
+        placeholder={editMode === 1 ? "0" : ""}
+      />
     );
 
     return (
-      <input ref={regRowRef} type="text" value={ns(val)} className="mp-cell-input"
-        onChange={e=>handleCellChange(rid,cd.key,e.target.value)}
-        onKeyDown={e=>handleCellKeyDown(e,rid,cd.key)}
-        onFocus={onFocus} placeholder={cd.label} />
+      <input ref={regRowRef} type="text" value={ns(val)}
+        className="mp-cell-input"
+        style={cellInputStyle(editMode)}
+        readOnly={editMode === 0}
+        onChange={e => editMode === 1 && handleCellChange(rid, cd.key, e.target.value)}
+        onKeyDown={e => editMode === 1 && handleCellKeyDown(e, rid, cd.key)}
+        onFocus={onFocus}
+        placeholder={editMode === 1 ? cd.label : ""}
+      />
     );
-  }, [handleCellChange,handleCellKeyDown,regRef,openCombo,editableKeys]);
+  }, [handleCellChange,handleCellKeyDown,regRef,openCombo,editableKeys,cellInputStyle,fmtDisplay]);
 
-  // ── Render a single entry-row cell ────────────────────────────────────────
   const renderEntryCell = useCallback(col => {
     const cd=COLUMNS.find(c=>c.key===col.key); if(!cd) return null;
     const val=entryRow[cd.key];
@@ -881,13 +1006,18 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
 
     if(cd.calc) return <span className={cd.key==="LandingCost"?"lc-value":"calc-val"} style={{display:"block",padding:"2px 6px"}}>{cd.type==="f2"?vn(val).toFixed(2):cd.type==="f3"?vn(val).toFixed(3):String(val??"")}</span>;
 
+    // CHANGE 10: Entry row bool → Toggle too (always editMode=1)
+    // மாற்றம் 10: Entry row-ல் bool → Toggle (எப்போதும் editMode=1)
     if(cd.bool) return (
-      <select ref={reg} value={val?"1":"0"} className="cm-active-sel"
-        onChange={e=>handleEntryChange(cd.key,e.target.value==="1")}
-        onKeyDown={e=>handleEntryKeyDown(e,cd.key)}
-        style={{cursor:"pointer",appearance:"none",textAlign:"center"}}>
-        <option value="0">✗</option><option value="1">✓</option>
-      </select>
+      <div style={{ display:"flex", justifyContent:"center" }}>
+        <Toggle
+          inputRef={reg}
+          value={!!val}
+          editMode={1}
+          onChange={v => handleEntryChange(cd.key, v)}
+          onKeyDown={e => handleEntryKeyDown(e, cd.key)}
+        />
+      </div>
     );
 
     if(cd.isCombo) return (
@@ -920,9 +1050,8 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
     );
   }, [entryRow,handleEntryChange,handleEntryKeyDown,openComboEntry,sess]);
 
-  const totW = SNO_W + DEL_W + visCols.reduce((s,c)=>s+c.width,0);
+  const totW = SNO_W + EDIT_W + DEL_W + visCols.reduce((s,c)=>s+c.width,0);
   const eHas = String(entryRow.ProductCode||"").trim()||String(entryRow.ProductName||"").trim();
-
 
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
@@ -930,7 +1059,7 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
       {ConfirmUI}
       {f12Open && <F12Popup colSettings={cols} onSave={saveColCfg} onClose={()=>setF12Open(false)} />}
 
-      {/* ── Header (same style as CashierMaster) ── */}
+      {/* Header */}
       <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">I</div>
@@ -940,7 +1069,6 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
           </div>
         </div>
         <div className="mp-hdr-center">⬛ KASSA BM</div>
-        {/* Admin dropdown — same as original */}
         <div className="mp-hdr-right adm-wrap" ref={adminRef} onClick={()=>setAdminOpen(o=>!o)} style={{cursor:"pointer"}}>
           <div style={{width:30,height:30,borderRadius:7,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,color:"#1f65de",flexShrink:0}}>👤</div>
           <div>
@@ -959,20 +1087,10 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
 
       <div className="mp-body mp-ibody">
 
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={doSave}               disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={resetEntry}           disabled={loading}>➕ New Entry</button>
-          <button className="mp-btn"    onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
-          <button className="mp-btn"    onClick={()=>loadItems("","",true)} disabled={loading}>🔄 Reload</button>
-          <button className="mp-btn ex" onClick={()=>setPw({title:"F4 Password",onOk:()=>{/*excel download*/}})}>📥 F4 Excel↓</button>
-          <button className="mp-btn ex" onClick={()=>setPw({title:"F7 Password",onOk:()=>{/*excel upload*/}})}>📤 F7 Excel↑</button>
-          {sess.GroupCommission && <button className="mp-btn" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);if(!r?.Id){toast("Select a saved row first",true);return;}const res=await CC.api(CC.ItemGroupCommission,null,{},{Id:r.Id,Comid:sess.Comid});setGcRows(!res._netErr&&(res.data||res.Data1)?res.data||res.Data1:[]);setGcOpen(true);}} disabled={!selRid}>💰 Group Commission</button>}
-          <button className="mp-btn"    onClick={()=>{const r=rows.find(x=>x._rid===selRid);setTnVal(r?ns(r.PrinterName):"");setTnOpen(true);}} disabled={!selRid}>🌐 F6 Tamil Name</button>
-          <button className="mp-btn dl" onClick={()=>selRid?doDeleteRow(selRid):toast("Select a row to delete",true)} disabled={!selRid||loading}>🗑 Delete</button>
-        </div>
+        {/* ── TOP Toolbar ── */}
+       
 
-        {/* ── Pagination + status bar ── */}
+        {/* Pagination + status */}
         <div className="mp-toolbar" style={{justifyContent:"space-between"}}>
           <div style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap"}}>
             {pageNums.map((n,idx)=>{
@@ -993,119 +1111,141 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
           </div>
         </div>
 
-        {/* ── Grid ── */}
+        {/* Grid */}
         <div className="mp-grid-wrap">
           <div className="mp-gscroll" ref={gRef}
             onMouseDown={onMD} onMouseLeave={onML} onMouseUp={onMU} onMouseMove={onMM}>
             <table className="mp-tbl" style={{width:totW,minWidth:totW}}>
-              <thead>
-                {/* Filter row */}
-                <tr className="mp-filter-row">
-                  <th style={{width:SNO_W}}></th>
-                  {visCols.map(col=>(
-                    <th key={col.key} style={{width:col.width,minWidth:col.width}}>
-                      {FILTER_KEYS.has(col.key)&&(
-                        <input className="mp-col-filter" value={colFilters[col.key]||""} onChange={e=>{setColFilters(p=>({...p,[col.key]:e.target.value}));setPage(1);}} placeholder={`🔍 ${col.label}`} />
-                      )}
-                    </th>
-                  ))}
-                  <th style={{width:DEL_W}}></th>
-                </tr>
-                {/* Column header row */}
-                <tr className="mp-col-row">
-                  <th style={{width:SNO_W}}>S.No</th>
-                  {visCols.map(c=>(
-                    <th key={c.key} style={{width:c.width,minWidth:c.width}}>
-                      {c.label}{COLUMNS.find(x=>x.key===c.key)?.calc&&<span style={{color:"#a8c8f5",fontSize:9,marginLeft:2}}>🔒</span>}
-                    </th>
-                  ))}
-                  <th style={{width:DEL_W}}></th>
-                </tr>
-              </thead>
+         <thead>
+  {/* Single header row with filter inputs INSIDE each th */}
+  <tr className="mp-col-row">
+    <th style={{width:SNO_W, position:"sticky", top:0, zIndex:5}}>
+      S.No
+    </th>
+    <th style={{width:EDIT_W, position:"sticky", top:0, zIndex:5}}></th>
+    {visCols.map(c => {
+      const cd = COLUMNS.find(x => x.key === c.key);
+      return (
+        <th key={c.key} style={{
+          width:c.width, minWidth:c.width,
+          textAlign: cd?.bool ? "center" : undefined,
+          position:"sticky", top:0, zIndex:5,
+          paddingBottom: FILTER_KEYS.has(c.key) ? "2px" : undefined,
+        }}>
+          <div style={{marginBottom: FILTER_KEYS.has(c.key) ? 3 : 0}}>
+            {c.label}{cd?.calc && <span style={{color:"#a8c8f5",fontSize:9,marginLeft:2}}>🔒</span>}
+          </div>
+          {FILTER_KEYS.has(c.key) && (
+            <input
+              className="mp-col-filter"
+              value={colFilters[c.key]||""}
+              onChange={e=>{setColFilters(p=>({...p,[c.key]:e.target.value}));setPage(1);}}
+              placeholder={`🔍`}
+              style={{
+                width:"100%", height:18, fontSize:10,
+                background:"rgba(255,255,255,0.15)",
+                border:"1px solid rgba(255,255,255,0.3)",
+                borderRadius:3, padding:"1px 4px",
+                color:"#fff", outline:"none",
+              }}
+              onClick={e => e.stopPropagation()}
+            />
+          )}
+        </th>
+      );
+    })}
+    <th style={{width:DEL_W, position:"sticky", top:0, zIndex:5}}></th>
+  </tr>
+</thead>
 
-              {/* <tbody>
-                {pagedRows.length===0
-                  ? <tr><td colSpan={visCols.length+2} className="mp-empty">No records. Press ➕ to add an item.</td></tr>
-                  : pagedRows.map((row,idx)=>(
-                    <tr key={row._rid}
-                      className={[selRid===row._rid?"sel":"",row.Active===false||row.Active===0?"inact":"",row._dirty?"mod":""].filter(Boolean).join(" ")}
-                      onClick={()=>setSelRid(row._rid)}>
-                      <td className="sno">{(page-1)*ROWS_PER_PAGE+idx+1}</td>
-                      {visCols.map(col=>(
-                        <td key={col.key}>{renderCell(row,col,idx)}</td>
-                      ))}
-                      <td style={{textAlign:"center"}}>
-                        <button className="mp-del-btn" onClick={e=>{e.stopPropagation();doDeleteRow(row._rid);}}>🗑</button>
-                      </td>
-                    </tr>
-                  ))
-                }
-              </tbody> */}
               <tbody>
-  {pagedRows.length === 0 ? (
-    <tr>
-      <td colSpan={visCols.length + 2} className="mp-empty">
-        No records. Press ➕ to add an item.
-      </td>
-    </tr>
-  ) : (
-    pagedRows.map((row, idx) => (
-      <tr
-        key={row._rid}
-        className={[
-          selRid === row._rid                          ? "sel"   : "",
-          row.Active === false || row.Active === 0     ? "inact" : "",
-          row._dirty                                   ? "mod"   : "",
-        ].filter(Boolean).join(" ")}
-        onClick={() => setSelRid(row._rid)}
-      >
-        {/* S.No */}
-        <td className="sno">
-          {(page - 1) * ROWS_PER_PAGE + idx + 1}
-        </td>
+                {pagedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={visCols.length + 3} className="mp-empty">
+                      No records. Press ➕ to add an item.
+                    </td>
+                  </tr>
+                ) : (
+                  pagedRows.map((row, idx) => {
+                    const editMode = row._editMode ?? 0;
+                    return (
+                      <tr
+                        key={row._rid}
+                        className={[
+                          selRid === row._rid                      ? "sel"   : "",
+                          row.Active===false||row.Active===0       ? "inact" : "",
+                          row._dirty                               ? "mod"   : "",
+                        ].filter(Boolean).join(" ")}
+                        // CHANGE 12: onClick only, NO onFocus on tr (fixes toggle bug)
+                        // மாற்றம் 12: tr-ல் onClick மட்டும், onFocus இல்ல (toggle bug fix)
+                        onClick={() => selectRow(row._rid)}
+                      >
+                        <td className="sno">{(page-1)*ROWS_PER_PAGE+idx+1}</td>
 
-        {/* Data cells — click focuses the exact cell clicked */}
-        {visCols.map(col => (
-          <td
-            key={col.key}
-            onClick={e => {
-              e.stopPropagation();           // stop tr onClick firing twice
-              setSelRid(row._rid);
-              setTimeout(() => {
-                const el = cellRefs.current[row._rid]?.[col.key];
-                if (el) { el.focus(); el.select?.(); }
-              }, 20);
-            }}
-          >
-            {renderCell(row, col, idx)}
-          </td>
-        ))}
+                        {/* CHANGE 13: Edit icon cell — ✏️ when view, green ✏️ when editing */}
+                        {/* மாற்றம் 13: Edit icon cell — view-ல் ✏️, edit-ல் பச்சை ✏️ */}
+                        <td style={{ textAlign:"center", whiteSpace:"nowrap" }}>
+                          {row.Id && editMode === 0 && (
+                            <button
+                              className="mp-edit-btn"
+                              title="Edit row"
+                              onClick={e => { e.stopPropagation(); enableEdit(row._rid); }}
+                            >✏️</button>
+                          )}
+                          {row.Id && editMode === 1 && (
+                            <button
+                              className="mp-edit-btn active"
+                              title="Editing…"
+                              style={{ color:"#16a34a", cursor:"default" }}
+                            >✏️</button>
+                          )}
+                        </td>
 
-        {/* Delete button */}
-        <td style={{ textAlign: "center" }}>
-          <button
-            className="mp-del-btn"
-            onClick={e => { e.stopPropagation(); doDeleteRow(row._rid); }}
-          >
-            🗑
-          </button>
-        </td>
-      </tr>
-    ))
-  )}
-</tbody>
+                        {visCols.map(col => (
+                          <td
+                            key={col.key}
+                            style={{ textAlign: COLUMNS.find(x=>x.key===col.key)?.bool ? "center" : undefined }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              selectRow(row._rid);
+                              if (editMode === 1) {
+                                setTimeout(() => {
+                                  const el = cellRefs.current[row._rid]?.[col.key];
+                                  if (el) { el.focus(); el.select?.(); }
+                                }, 20);
+                              }
+                            }}
+                          >
+                            {renderCell(row, col, idx)}
+                          </td>
+                        ))}
 
-              {/* ── Entry row in tfoot (identical pattern to CashierMaster) ── */}
+                        <td style={{ textAlign:"center" }}>
+                          <button
+                            className="mp-del-btn"
+                            onClick={e => { e.stopPropagation(); doDeleteRow(row._rid); }}
+                          >🗑</button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+
+              {/* Entry row in tfoot */}
               <tfoot>
                 <tr>
                   <td className="mp-entry-sno">★ New</td>
+                  <td></td>
                   {visCols.map(col=>(
-                    <td key={col.key}>{renderEntryCell(col)}</td>
+                    <td key={col.key} style={{ textAlign: COLUMNS.find(x=>x.key===col.key)?.bool ? "center" : undefined }}>
+                      {renderEntryCell(col)}
+                    </td>
                   ))}
                   <td className="mp-entry-actions">
                     {eHas
                       ? <div style={{display:"flex",gap:3,justifyContent:"center"}}>
-                          <button className="mp-entry-save"  onClick={doSave}   title="Save (F1)">💾</button>
+                          <button className="mp-entry-save"  onClick={doSave}    title="Save (F1)">💾</button>
                           <button className="mp-entry-clear" onClick={resetEntry} title="Clear">✕</button>
                         </div>
                       : <span className="mp-entry-hint">F1</span>
@@ -1117,19 +1257,27 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
           </div>
         </div>
 
-        {/* ── Hint bar ── */}
-        <div className="mp-hint">
-          <kbd>Enter</kbd> next cell &nbsp;|&nbsp;
-          <kbd>Tab</kbd> next cell &nbsp;|&nbsp;
-          <kbd>↑↓</kbd> navigate rows &nbsp;|&nbsp;
-          <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>F12</kbd> columns &nbsp;|&nbsp;
-          <kbd>Del</kbd> delete selected &nbsp;|&nbsp;
-          <kbd>Esc</kbd> back
+        {/* CHANGE 14: Bottom toolbar — F1 Save + Add Row (same as CashierMaster) */}
+        {/* மாற்றம் 14: Bottom toolbar — F1 Save + Add Row (CashierMaster போல்) */}
+        <div className="mp-toolbar">
+          <button className="mp-btn sv" onClick={doSave}    disabled={loading}>💾 F1 Save</button>
+          <button className="mp-btn nw" onClick={resetEntry} disabled={loading}>➕ New Entry</button>
+                    <button className="mp-btn"    onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
+          <button className="mp-btn"    onClick={()=>loadItems("","",true)} disabled={loading}>🔄 Reload</button>
+   
+<button className="mp-btn ex" onClick={()=>setPw({title:"F4 Password", onOk: doExcelDownload})}>📥 F4 Excel↓</button>
+         <button className="mp-btn ex" onClick={()=>setPw({title:"F7 Password", onOk: doExcelUpload})}>📤 F7 Excel↑</button>
+          {sess.GroupCommission && <button className="mp-btn" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);if(!r?.Id){toast("Select a saved row first",true);return;}const res=await CC.api(CC.ItemGroupCommission,null,{},{Id:r.Id,Comid:sess.Comid});setGcRows(!res._netErr&&(res.data||res.Data1)?res.data||res.Data1:[]);setGcOpen(true);}} disabled={!selRid}>💰 Group Commission</button>}
+          <button className="mp-btn"    onClick={()=>{const r=rows.find(x=>x._rid===selRid);setTnVal(r?ns(r.PrinterName):"");setTnOpen(true);}} disabled={!selRid}>🌐 F6 Tamil Name</button>
+          <button className="mp-btn dl" onClick={()=>selRid?doDeleteRow(selRid):toast("Select a row to delete",true)} disabled={!selRid||loading}>🗑 Delete</button>
+          <button className="mp-btn dl" onClick={()=>navigate(-1)}>✕ Esc Cancel</button>
         </div>
+
+        {/* Hint bar */}
+       
       </div>
 
-      {/* ── Loading overlay ── */}
+      {/* Loading overlay */}
       {loading&&(
         <div className="mp-loader-ov">
           <div className="mp-ldr-box">
@@ -1139,16 +1287,11 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
         </div>
       )}
 
-      {/* ── Toasts ── */}
       <CC.ToastList toasts={toasts}/>
 
-      {/* ── Combo dropdown ── */}
       {ddPop&&<ComboPopup ddPop={ddPop} ddQ={ddQ} setDdQ={setDdQ} ddFilt={ddFilt} ddHilite={ddHilite} setDdHilite={setDdHilite} ddHiliteC={ddHiliteC} selectDd={selectDd} handleDdConfirm={handleDdConfirm} isNewValue={isNewVal} onClose={closeDd}/>}
-
-      {/* ── Password modal ── */}
       {pw&&<PwModal title={pw.title} comid={sess.Comid} onOk={pw.onOk} onClose={()=>setPw(null)}/>}
 
-      {/* ── Branch Sale Rate modal ── */}
       {bsrOpen&&(
         <div className="mp-ov" onClick={e=>{if(e.target===e.currentTarget)setBsrOpen(false);}}>
           <div className="mp-modal-box" style={{width:440,maxHeight:"65vh"}}>
@@ -1177,7 +1320,6 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
         </div>
       )}
 
-      {/* ── Group Commission modal ── */}
       {gcOpen&&(
         <div className="mp-ov" onClick={e=>{if(e.target===e.currentTarget)setGcOpen(false);}}>
           <div className="mp-modal-box" style={{width:500,maxHeight:"65vh"}}>
@@ -1209,7 +1351,6 @@ editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k];
         </div>
       )}
 
-      {/* ── Tamil Name modal ── */}
       {tnOpen&&(
         <div className="mp-ov" onClick={e=>{if(e.target===e.currentTarget)setTnOpen(false);}}>
           <div className="mp-modal-box" style={{width:380,padding:"20px 24px"}}>

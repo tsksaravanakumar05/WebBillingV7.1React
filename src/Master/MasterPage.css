@@ -1,17 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
-html, body, #root { height: 100%; margin: 0; padding: 0; }
+html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden;    }
 
 /* ── WRAP ── */
 .mp-wrap {
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
+  max-width: 100vw;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: #eef3fb;
   font-size: 12.5px;
 }
-
 /* ── HEADER ── */
 .mp-hdr {
   background: #ffffff;
@@ -51,13 +53,15 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
 /* ── BODY ── */
 .mp-body {
   flex: 1;
-  padding: 16px 20px;
+  min-height: 0;          /* critical — lets flex child shrink */
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 1100px;
-  width: 100%;
-  margin: 0 auto;
+  overflow: hidden;       /* body itself does NOT scroll */
+  padding: 10vh 0;        /* 10% top + 10% bottom */
+  width: 80%;             /* 80% width */
+  margin: 0 auto;         /* centered */
+  box-sizing: border-box;
 }
 
 
@@ -108,9 +112,14 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
   background: #fff;
   border: 1px solid #c5d8f8;
   border-radius: 6px;
-  overflow: auto;
+  overflow: hidden;        /* NOT auto — sticky requires this */
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
+
+
 
 /* ── TABLE ── */
 .mp-tbl {
@@ -119,19 +128,54 @@ html, body, #root { height: 100%; margin: 0; padding: 0; }
   min-width: 400px;
   table-layout: fixed;
 }
-.mp-tbl thead tr { position: sticky; top: 0; z-index: 2; }
+.mp-tbl thead tr {
+  /* reset any margin/padding */
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+}
+@keyframes thGradientShift {
+  0%,100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
 .mp-tbl th {
-  /* background: #1f65de; */
-background: linear-gradient(135deg, #1f65de 0%, #4facfe 100%);
+   /* background: linear-gradient(
+    135deg,
+    #1b3a8f 0%,
+    #2563eb 55%,
+    #06b6d4 100%
+  );
+  background-size: 300% 300%; */
+   background: #1b3a8f;
+  animation: thGradientShift 5s ease infinite;
   color: #fff;
-  /* border: 1px solid #1750b0; */
-  border: 1px solid;
-border-image: linear-gradient(135deg, #1f65de 0%, #0d2b63 100%) 1;
+  border: 1px solid rgba(31, 101, 222, 0.4);
   padding: 7px 10px;
   font-size: 11px;
   font-weight: 600;
   text-align: left;
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* shine sweep — same as login button ::after */
+.mp-tbl th::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    transparent 50%
+  );
+  pointer-events: none;
 }
 .mp-tbl td {
   border: 1px solid #eaecf4;

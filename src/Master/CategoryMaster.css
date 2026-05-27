@@ -1,2 +1,28 @@
 /* CategoryMaster.css — imports shared master styles */
 @import './MasterPage.css';
+.mp-edit-btn {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-right: 4px;
+  opacity: 0.6;
+  transition: opacity 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mp-edit-btn:hover {
+  opacity: 1;
+  border-color: #2563eb;
+}
+
+.mp-edit-btn.active {
+  opacity: 1;
+  border-color: #16a34a;
+  background: #f0fdf4;
+}

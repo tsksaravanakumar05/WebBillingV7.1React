@@ -19,7 +19,7 @@ export default function CategoryMaster() {
   // ── Shared hooks from CashierCommon ─────────────────────────────────────────
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast,   toasts    } = CC.useToast();
-
+const dirtyIds = useRef(new Set());
   // ── Session / company variables ─────────────────────────────────────────────
   // CC.buildSession reads: Comid, MComid, IdComList, MirrorTable, menudata
 
@@ -42,7 +42,43 @@ export default function CategoryMaster() {
  const focusRow = useCallback((idx, colIdx = 0) => {
   setTimeout(() => inputRefs.current[idx]?.[colIdx]?.focus(), 50);
 }, []);
-
+const selectRow = useCallback((newIdx) => {
+  setGrid(prev => prev.map((r, i) => {
+    // வேற row-க்கு போகும்போது — edit mode-ல் இருக்கும் saved row
+    // ஆனா உண்மையிலேயே type பண்ணல (dirtyIds-ல் இல்ல) — view mode-க்கு திரும்பும்
+    if (i !== newIdx && r.EditMode === 1 && r.Id && !dirtyIds.current.has(r.Id)) {
+      return { ...r, EditMode: 0 };
+    }
+    return r;
+  }));
+  setSelIdx(newIdx);
+}, []);
+const Toggle = ({ value, onChange, onKeyDown, inputRef, idx, editMode }) => (
+  <button
+    ref={inputRef}
+    onClick={() => onChange(!value)}
+    onKeyDown={onKeyDown}
+    onFocus={() => setSelIdx(idx)}
+    title={value ? "Active" : "Inactive"}
+    style={{
+      width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer",
+      background: value ? "#16a34a" : "#cbd5e1",
+      position: "relative", transition: "background 0.18s ease", outline: "none",
+      display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
+      boxShadow: value ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+      opacity: editMode === 0 ? 0.5 : 1,
+      pointerEvents: editMode === 0 ? "none" : "auto",
+    }}
+  >
+    <span style={{
+      position: "absolute", top: 3, left: value ? 15 : 3,
+      width: 12, height: 12, borderRadius: "50%", background: "#fff",
+      transition: "left 0.18s ease",
+      boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+      display: "block",
+    }} />
+  </button>
+);
   const [sess] = useState(() => {
     try {
       const main0 = (CC.getLocal("Mainsetting")    || [{}])[0] || {};
@@ -350,11 +386,17 @@ function F12Popup() {
   }, [focusRow]); // eslint-disable-line
 
   // ── updateCell ──────────────────────────────────────────────────────────────
-  const updateCell = useCallback((idx, field, value) => {
-    setGrid(prev =>
-      prev.map((r, i) => i === idx ? { ...r, [field]: value, EditMode: 1 } : r)
-    );
-  }, []);
+ const updateCell = useCallback((idx, field, value) => {
+  setGrid(prev =>
+    prev.map((r, i) => {
+      if (i === idx) {
+        if (r.Id) dirtyIds.current.add(r.Id); // உண்மையிலேயே type பண்ணினா mark பண்ணு
+        return { ...r, [field]: value, EditMode: 1 };
+      }
+      return r;
+    })
+  );
+}, []);
 
   // ── deleteRow ───────────────────────────────────────────────────────────────
   // CC.api() used for DELETE call with IdComList header
@@ -430,7 +472,13 @@ const rowValidator = useCallback((row) => {
       .map(r => String(r.CashierName).trim().toLowerCase());
     return new Set(names).size !== names.length;
   }, []);
-
+const enableEdit = useCallback((idx) => {
+  setGrid(prev =>
+    prev.map((r, i) => i === idx ? { ...r, EditMode: 1 } : r)
+  );
+  selectRow(idx); 
+  focusRow(idx, 1);
+}, [focusRow, selectRow]);
   // ── handleSave ──────────────────────────────────────────────────────────────
   // CC.insertapi() → Insert/Update POST (raw JSON response)
   const handleSave = useCallback(async () => {
@@ -551,6 +599,7 @@ const payload = cleaned
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.IsSuccess) {
+       dirtyIds.current.clear();
       toast("✅ " + (res.message || "Saved successfully!"));
 
       // If opened from another page expecting a return value
@@ -629,13 +678,7 @@ const payload = cleaned
 
       <div className="mp-body">
 
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn" onClick={() => setF12Open(true)} title="Column Settings">⚙ F12 Columns</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-        </div>
+        
 {/* ── Grid ── */}
 <div className="mp-grid-wrap">
   <table className="mp-tbl">
@@ -659,14 +702,15 @@ const payload = cleaned
             !row.Active        ? "inact" : "",
             row.EditMode === 1 ? "mod"   : "",
           ].filter(Boolean).join(" ")}
-          onClick={() => { setSelIdx(idx);  }}
+         onClick={() => selectRow(idx)}
+       //  onFocus={() => selectRow(idx)}
         >
           <td className="sno">{idx + 1}</td>
 
           {visibleColumns.map((col, colIdx) => (
             <td key={col.field} style={{ textAlign: col.field === "Active" || col.field === "LogonStatus" ? "center" : undefined }}>
               {/* Active select */}
-              {col.field === "Active" && (
+              {/* {col.field === "Active" && (
                 <select
                   ref={el => {
                     if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
@@ -687,10 +731,30 @@ const payload = cleaned
                   <option value="1">✓</option>
                   <option value="0">✗</option>
                 </select>
-              )}
+              )} */}
+              {col.field === "Active" && (
+  <Toggle
+    value={!!row.Active}
+    idx={idx}
+    inputRef={el => {
+      if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+      inputRefs.current[idx][colIdx] = el;
+    }}
+    onChange={val => row.EditMode === 1 && updateCell(idx, col.field, val)}
+    onFocus={() => selectRow(idx)}
+// and add to Toggle button style:
+ editMode={row.EditMode} 
+    onKeyDown={e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator);
+      }
+    }}
+  />
+)}
 
               {/* LogonStatus select */}
-              {col.field === "LogonStatus" && (
+              {/* {col.field === "LogonStatus" && (
                 <select
                   ref={el => {
                     if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
@@ -710,10 +774,29 @@ const payload = cleaned
                   <option value="1">✓</option>
                   <option value="0">✗</option>
                 </select>
-              )}
+              )} */}
+              {col.field === "LogonStatus" && (
+  <Toggle
+    value={!!row.LogonStatus}
+    idx={idx}
+     editMode={row.EditMode} 
+     onFocus={() => selectRow(idx)}
+    inputRef={el => {
+      if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+      inputRefs.current[idx][colIdx] = el;
+    }}
+    onChange={val => row.EditMode === 1 && updateCell(idx, col.field, val)}
+    onKeyDown={e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator);
+      }
+    }}
+  />
+)}
 
               {/* All other text inputs */}
-              {col.field !== "Active" && col.field !== "LogonStatus" && (
+              {/* {col.field !== "Active" && col.field !== "LogonStatus" && (
                 <input
                   ref={el => {
                     if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
@@ -726,18 +809,69 @@ const payload = cleaned
                   onKeyDown={e => CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator)}
                   onFocus={() => setSelIdx(idx)}
                 />
-              )}
+              )} */}
+{col.field !== "Active" && col.field !== "LogonStatus" && (
+  <input
+    ref={el => {
+      if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+      inputRefs.current[idx][colIdx] = el;
+    }}
+    className="mp-cell-input"
+    value={row[col.field] || ""}
+    maxLength={col.maxLen || 50}
+    readOnly={row.EditMode === 0}
+    onChange={e => row.EditMode === 1 && CC.applyUppercase(e, val => updateCell(idx, col.field, val))}
+    onKeyDown={e => row.EditMode === 1 && CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator)}
+    onFocus={() => setSelIdx(idx)}
+    style={{ 
+      // ── View mode (EditMode 0) ──
+      background:   row.EditMode === 0 ? "transparent" : "#fff",
+      border:       row.EditMode === 0 ? "none"        : "1px solid #93c5fd",  // ← இது
+      cursor:       row.EditMode === 0 ? "default"     : "text",
+      color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+      boxShadow:    row.EditMode === 0 ? "none"        : "0 0 0 2px rgba(59,130,246,0.15)",
+      borderRadius: row.EditMode === 1 ? "4px"         : "0",
+      padding:      row.EditMode === 0 ? "0"           : undefined,
+    }}
+  />
+)}
             </td>
           ))}
 
-          <td>
+          {/* <td>
             <button
               className="mp-del-btn"
               onClick={e => { e.stopPropagation(); deleteRow(idx); }}
             >🗑</button>
             
          
-          </td>
+          </td> */}
+          <td style={{ whiteSpace: "nowrap" }}>
+  {/* Edit button — only show when row is saved (has Id) and in view mode */}
+  {row.Id && row.EditMode === 0 && (
+    <button
+      className="mp-edit-btn"
+      title="Edit row"
+      onClick={e => { e.stopPropagation(); enableEdit(idx); }}
+    >
+      ✏️
+    </button>
+  )}
+  {/* Show a "editing" indicator when in edit mode */}
+  {row.Id && row.EditMode === 1 && (
+    <button
+      className="mp-edit-btn active"
+      title="Editing…"
+      style={{ color: "#16a34a", cursor: "default" }}
+    >
+      ✏️
+    </button>
+  )}
+  <button
+    className="mp-del-btn"
+    onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+  >🗑</button>
+</td>
         </tr>
       ))}
     </tbody>
@@ -749,11 +883,13 @@ const payload = cleaned
 </div>
 
         {/* ── Keyboard hint bar ── */}
-        <div className="mp-hint">
-          <kbd>Enter</kbd> next row &nbsp;|&nbsp;
-          <kbd>Ctrl+Delete</kbd> delete row &nbsp;|&nbsp;
-          <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> back
+       
+        {/* ── Toolbar ── */}
+        <div className="mp-toolbar">
+          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
+          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
+          <button className="mp-btn" onClick={() => setF12Open(true)} title="Column Settings">⚙ F12 Columns</button>
+          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
         </div>
       </div>
 

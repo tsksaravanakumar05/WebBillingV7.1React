@@ -7,7 +7,7 @@
 /* ── Full width table fix ─────────────────────────────────────── */
 .mp-gscroll {
   flex: 1;
-  overflow: auto;
+  overflow: auto;          /* only this scrolls */
   min-height: 0;
   cursor: grab;
   user-select: none;
@@ -157,30 +157,50 @@
 .mp-gscroll:active { cursor: grabbing; }
 
 /* ── Filter row (above column header row) ────────────────────── */
+.mp-filter-row {
+  height: 0;
+  line-height: 0;
+}
 .mp-filter-row th {
-  background: linear-gradient(180deg, #eef3fb, #deeafb) !important;
-  border-bottom: 1px solid #c5d8f8;
-  padding: 2px 3px !important;
   position: sticky;
   top: 0;
-  z-index: 4;
+  z-index: 5;
+  background: #eef3fb !important;
+  border: none !important;
+  border-bottom: 1px solid #c5d8f8 !important;
+  padding: 3px !important;
+  height: 28px;
+  box-sizing: border-box;
 }
-
+.mp-filter-row th:empty {
+  height: 26px;
+  line-height: 0;
+  font-size: 0;
+  border-top: none;
+  border-bottom: none;
+  background: #eef3fb !important;
+}
 /* Column header row sits below filter row */
 .mp-col-row th {
-  background: #1f65de;
-  color: #fff;
-  border: 1px solid #1750b0;
-  padding: 5px 8px;
+  position: sticky;
+  top: 28px;           /* must match filter row height exactly */
+  z-index: 4;
+  background: #1b3a8f !important;
+  color: #fff !important;
+  border: 1px solid #1750b0 !important;
+  padding: 6px 8px !important;
   font-size: 11px;
   font-weight: 600;
   text-align: left;
   white-space: nowrap;
-  position: sticky;
-  top: 29px;
-  z-index: 3;
+  height: 30px;
+  box-sizing: border-box;
 }
-
+.mp-filter-row th:not(:has(input)) {
+  padding: 0 !important;
+  border: none !important;
+  background: #eef3fb !important;
+}
 /* Column filter input inside filter row */
 .mp-col-filter {
   width: 100%;
@@ -189,16 +209,16 @@
   border-radius: 3px;
   padding: 1px 5px;
   font-size: 10px;
-  color: #1f65de;
+  color: #1a2e4a;
   background: #fff;
   outline: none;
   box-sizing: border-box;
   font-family: inherit;
-  text-transform: none;
+  display: block;
 }
 .mp-col-filter:focus {
   border-color: #1f65de;
-  box-shadow: 0 0 0 2px rgba(31, 101, 222, 0.18);
+  box-shadow: 0 0 0 2px rgba(31,101,222,0.18);
 }
 .mp-col-filter::placeholder {
   color: #b0bbd4;
