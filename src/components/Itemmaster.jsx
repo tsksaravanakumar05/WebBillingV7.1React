@@ -500,7 +500,44 @@ const saveBarcodes = useCallback(async () => {
   if (res.ok ?? res.IsSuccess) { toast("✅ Barcodes saved"); setBcOpen(false); }
   else toast(`❌ ${res.message || "Save failed"}`, true);
 }, [bcItemId, bcRows, sess, toast]);
-  const perm = sess.menudata[0] || { View:1,Add:1,Edit:1,Delete:1 };
+ useEffect(() => {
+    const menuStr = localStorage.getItem("menulist");
+
+    // 1. Check if session/menu exists
+    if (!menuStr) {
+      alert("Session Close Please Login !!!."); // Replace with your MsgBox / Toast
+      navigate("/Login/Index");
+      return;
+    }
+
+    const menulist = JSON.parse(menuStr);
+    const menudata = menulist.filter(obj => obj.PageName === "Cashier");
+
+    // 2. Check if page exists in user's menu
+    if (!menudata || menudata.length === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
+      return;
+    }
+
+    // 3. Check if View permission is 0
+    if (menudata[0].View === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
+      return;
+    }
+
+    // 4. User is valid, set permissions and allow rendering
+    setPerm({
+      View: menudata[0].View,
+      Add: menudata[0].Add,
+      Edit: menudata[0].Edit,
+      Delete: menudata[0].Delete
+    });
+    
+    setIsAuthorized(true);
+
+  }, [navigate]);
 
   const [cols,       setCols]      = useState(DEFAULT_COLS);
   const [f12Open,    setF12Open]   = useState(false);
@@ -1282,7 +1319,9 @@ const handleEntryKeyDown = useCallback((e, colKey) => {
 
   const totW = SNO_W + EDIT_W + DEL_W + visCols.reduce((s,c)=>s+c.width,0);
   const eHas = String(entryRow.ProductCode||"").trim()||String(entryRow.ProductName||"").trim();
-
+if (!isAuthorized) {
+    return null; // Or return a <Loader /> component
+  }
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">

@@ -66,6 +66,35 @@ export const LoginPasswordUrl = "/api/LoginApp/EditPassword";
         export const LocationInsert = "/api/LocationApp/InsertLocation";
         export const LocationDelete = "/api/LocationApp/DeleteLocation";
 
+        // ─── Supplier Master API Links ────────────────────────────────────────────────
+export const SupplierMasterSelect = "/api/SupplierApp/SelectSupplier";
+export const SupplierMasterInsert = "/api/SupplierApp/InsertSupplier";
+export const SupplierMasterDelete = "/api/SupplierApp/DeleteSupplier";
+export const SalesManSelect       = "/api/SalesManApp/SelectSalesMan"; 
+
+
+       
+        export const SalesManInsert = "/api//SalesManApp/InsertSalesMan";
+        export const SalesManDelete = "/api//SalesManApp/DeleteSalesMan";// ← fix your actual endpoint
+
+// ─── Salesman loader (called once on mount) ───────────────────────────────────
+export const loadSalesmanData = async (MComid) => {
+  try {
+    const res = await fetch(
+      mkUrl(SalesManSelect) + `?Comid=${Number(MComid)}`,
+      { method: "POST", headers: authHeaders() }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data)       ? data
+         : Array.isArray(data.data)  ? data.data
+         : Array.isArray(data.Data1) ? data.Data1
+         : [];
+  } catch (e) {
+    console.error("loadSalesmanData error:", e);
+    return [];
+  }
+};
 // ─── 2. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
