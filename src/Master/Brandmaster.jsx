@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
-import MenuSetting from "../components/Menusetting";
+
 import Topbar from "../components/Topbar";
 
 // ─── Helpers (identical pattern to ItemMaster) ────────────────────────────────
@@ -518,13 +518,15 @@ export default function BrandMaster() {
       e.preventDefault(); deleteRow(idx);
     }
   }, [grid, hasDuplicate, addRow, focusRow, deleteRow, toast]);
+  
 
+  
+   
   return (
     <div className="mp-wrap">
       {ConfirmUI}
       <Topbar />
-      {/* <MenuSetting sidebarOpen={sidebarOpen} onSidebarChange={setSidebarOpen} /> */}
-
+      
 
       {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
@@ -544,7 +546,7 @@ export default function BrandMaster() {
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
 
 
-          <div className="mp-title">Brand Master</div>
+          <div className="mp-toolbar-title">Brand Master</div>
         </div>
 
         <div className="mp-grid-wrap">

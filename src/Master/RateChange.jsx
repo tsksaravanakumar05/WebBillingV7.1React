@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "./MasterPage.css";
-
+import Topbar from "../components/Topbar";
 /* ─────────────────────────────────────────────────────────────────────────────
    HELPERS  (identical pattern to BrandMaster)
 ───────────────────────────────────────────────────────────────────────────── */
@@ -113,100 +113,7 @@ function ProductPickerModal({ onSelect, onClose }) {
   const [err,    setErr]    = useState("");
   const inputRef = useRef(null);
 
-  // useEffect(() => {
-  //   (async () => {
-  //     // jQuery calls /Master/SelectItemMaster with empty POST body
-  //     const res = await api("/ItemMaster/SelectItemMaster", {});
-  //     if (res._netErr || res._http404) { setErr(res.message); return; }
-  //     const arr = Array.isArray(res)        ? res
-  //               : Array.isArray(res.data)   ? res.data
-  //               : Array.isArray(res.Data1)  ? res.Data1 : [];
-  //     setAll(arr);
-  //   })();
-  //   setTimeout(() => inputRef.current?.focus(), 80);
-  // }, []);
-  // useEffect(() => {
-  //   let mounted = true;
-  
-  //   (async () => {
-  //     try {
-  //       setErr("");
-  
-  //       const payload = {
-  //         Comid: Number(localStorage.getItem("Comid")) || 1,
-  //         Startindex: 0,
-  //         PageCount: 500,
-  //         Keyword: "",
-  //         Column: ""
-  //       };
-  
-  //       const res = await api("/ItemMaster/SelectItemMaster", payload);
-  
-  //       console.log("SelectItemMaster Response => ", res);
-  
-  //       if (res?._netErr || res?._http404) {
-  //         setErr(res?.message || "Failed to load products");
-  //         return;
-  //       }
-  
-  //       // YOUR API RETURNS ResponseViewModel
-  //       // DATA IS INSIDE Data1
-  //       const arr =
-  //         Array.isArray(res?.Data1)
-  //           ? res.Data1
-  //           : Array.isArray(res?.data?.Data1)
-  //           ? res.data.Data1
-  //           : Array.isArray(res?.data)
-  //           ? res.data
-  //           : [];
-  
-  //       if (mounted) {
-  //         setAll(arr);
-  //       }
-  //     } catch (ex) {
-  //       console.error(ex);
-  //       setErr(ex.message || "Unexpected error");
-  //     }
-  //   })();
-  
-  //   const t = setTimeout(() => {
-  //     inputRef.current?.focus();
-  //   }, 80);
-  
-  //   return () => {
-  //     mounted = false;
-  //     clearTimeout(t);
-  //   };
-  // }, []);
 
-
-
-  
-  // const filtered = search.trim()
-  //   ? all.filter(
-  //       (p) =>
-  //         String(p.ProductName || "").toLowerCase().includes(search.toLowerCase()) ||
-  //         String(p.ProductCode || p.Productcode || "").toLowerCase().includes(search.toLowerCase())
-  //     )
-  //   : all;
-
-  // function onSearchKeyDown(e) {
-  //   if (e.key === "ArrowDown") { e.preventDefault(); setSelIdx((i) => Math.min(i + 1, filtered.length - 1)); }
-  //   else if (e.key === "Enter") {
-  //     e.preventDefault();
-  //     if (filtered[selIdx]) onSelect(filtered[selIdx].ProductCode || filtered[selIdx].Productcode);
-  //   } else if (e.key === "Escape") { onClose(); }
-  // }
-
-  // function onListKeyDown(e) {
-  //   if (e.key === "ArrowDown") { e.preventDefault(); setSelIdx((i) => Math.min(i + 1, filtered.length - 1)); }
-  //   if (e.key === "ArrowUp")   { e.preventDefault(); setSelIdx((i) => Math.max(i - 1, 0)); }
-  //   if (e.key === "Enter") {
-  //     e.preventDefault();
-  //     if (filtered[selIdx]) onSelect(filtered[selIdx].ProductCode || filtered[selIdx].Productcode);
-  //   }
-  //   if (e.key === "Escape") onClose();
-  // }
 
   useEffect(() => {
     let mounted = true;
@@ -1149,9 +1056,10 @@ export default function RateChange() {
           onClose={() => { setShowPicker(false); setPickerRow(null); }}
         />
       )}
+      <Topbar />
 
       {/* ── Header ── */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">₹</div>
           <div>
@@ -1162,7 +1070,7 @@ export default function RateChange() {
         <button className="mp-back" onClick={() => (window.location.href = "/Home")}>
           ← Back
         </button>
-      </div>
+      </div> */}
 
       {/* ── Body ── */}
       <div className="mp-body" style={{ maxWidth: "100%" }}>
@@ -1186,6 +1094,8 @@ export default function RateChange() {
           }}>
             ✕ Esc Quit
           </button>
+
+          <div className="mp-toolbar-title">Rate Change</div>
         </div>
 
         {/* ── Grid ── */}

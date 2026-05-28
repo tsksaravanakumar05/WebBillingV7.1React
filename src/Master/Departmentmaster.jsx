@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
+import Topbar from "../components/Topbar";
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
@@ -444,7 +446,7 @@ export default function DepartmentMaster() {
   return (
     <div className="mp-wrap">
       {ConfirmUI}
-
+      <Topbar/>
       {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">D</div>
@@ -463,7 +465,7 @@ export default function DepartmentMaster() {
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
 
 
-          <div className="mp-title">Department Master</div>
+          <div className="mp-toolbar-title">Department Master</div>
         </div>
 
         <div className="mp-grid-wrap">

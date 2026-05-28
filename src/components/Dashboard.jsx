@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import "../dashboard.css";
-import MenuSetting from "./Menusetting";
+
 import Topbar from "./Topbar";
 // comit test
 
@@ -411,16 +411,16 @@ const ActivityFeed = memo(() => (
    ROOT DASHBOARD
 ═══════════════════════════════════════════════ */
 const Dashboard = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
 
   return (
     <div className="kd-root">
       <Topbar />
-      <MenuSetting sidebarOpen={sidebarOpen} onSidebarChange={setSidebarOpen} />
+      
 
 
       {/* kd-content-wrap shifts right when sidebar is open */}
-      <div className={`kd-content-wrap${sidebarOpen ? " kd-content-wrap--shifted" : ""}`}>
+      <div className="kd-content-wrap">
         <main className="kd-main">
 
           {/* Page heading */}

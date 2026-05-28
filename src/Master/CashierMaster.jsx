@@ -8,8 +8,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
 
+import Topbar from "../components/Topbar";
+
+
 // ✅ Single wildcard import — all current & future CashierCommon exports
 import * as CC from "./Common";
+
 
 // ─── CategoryMaster ───────────────────────────────────────────────────────────
 export default function CategoryMaster() {
@@ -634,6 +638,8 @@ const payload = cleaned
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [handleSave, handleEsc]);
+ 
+
 
   // ── Row-level keyboard navigation ──────────────────────────────────────────
   // Enter → next row | Ctrl+Delete → delete | Delete on empty → delete
@@ -657,6 +663,9 @@ const payload = cleaned
   if (!isAuthorized) {
     return null; // Or return a <Loader /> component
   }
+
+
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
@@ -664,6 +673,8 @@ const payload = cleaned
       {/* Confirm Dialog — rendered by CC.useConfirm() */}
       {ConfirmUI}
 {f12Open && <F12Popup />}
+<Topbar />
+
       {/* ── Header ── */}
       <div className="mp-hdr">
         <div className="mp-hdr-left">

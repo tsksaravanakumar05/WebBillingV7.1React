@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 //import axios from "axios";
 import "./MasterPage.css";
+import Topbar from "../components/Topbar";
 
 // ─── Request Controller (mirrors original class) ────────────────────────────
 class Request_Controller {
@@ -552,7 +553,7 @@ export default function CRMPointsMaster() {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
-
+      <Topbar />
       {/* Loader — mirrors #jqxLoader */}
       {loading && (
         <div className="mp-loader-ov">
@@ -595,7 +596,7 @@ export default function CRMPointsMaster() {
           {msg && <span className={`mp-msg ${msg.type}`}>{msg.text}</span>}
 
 
-          <div className="mp-title">CRM Points Master</div>
+          <div className="mp-mp-toolbar-title">CRM Points Master</div>
         </div>
 
         {/* Grid */}

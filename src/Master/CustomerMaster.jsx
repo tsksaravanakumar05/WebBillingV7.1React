@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
+import Topbar from "../components/Topbar";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Column field-name constants (mirrors jQuery grd* vars)
@@ -1095,7 +1096,7 @@ export default function CustomerMaster() {
   return (
     <div className="mp-wrap">
       {ConfirmUI}
-
+      <Topbar />
       {/* ── Area Popup ── */}
       {areaPopup.open && (
         <PopupWindow title="Area" onClose={() => { setAreaPopup({ open:false, items:[], rowIdx:null }); }}>
@@ -1208,7 +1209,7 @@ export default function CustomerMaster() {
           <button className="mp-btn"    onClick={() => loadCounter(-1, sess.pagecount, "", "", 1)} disabled={loading} style={{ background:"#059669", color:"#fff" }}>🔄 Refresh</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
 
-          <div className="mp-title">Customer Master</div>
+          <div className="mpmp-toolbar-title">Customer Master</div>
 
           {/* Filter row — mirrors jQuery showfilterrow */}
           <div style={{ display:"flex", gap:4, alignItems:"center", marginLeft:"auto" }}>

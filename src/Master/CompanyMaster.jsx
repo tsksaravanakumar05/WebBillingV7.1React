@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css"; // reuse existing CSS
+import Topbar from "../components/Topbar";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const getStr   = (k) => localStorage.getItem(k) || "";
@@ -458,6 +459,7 @@ export default function CompanySettings() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
+      <Topbar/>
       {/* Header */}
       {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
@@ -479,7 +481,7 @@ export default function CompanySettings() {
           <button className="mp-btn nw" onClick={handleScriptUpdate} disabled={loading}>🔄 F2 Script Update</button>
           <button className="mp-btn dl" onClick={() => { if (window.confirm("Do You Want To Quit Page?")) navigate("/Home"); }}>✕ Esc Back</button>
         
-          <div className="mp-title">Company Settings</div>
+          <div className="mp-toolbar-title">Company Settings</div>
         </div>
 
         {/* Tab Bar */}

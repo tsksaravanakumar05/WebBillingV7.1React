@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./SupplierMaster.css";
+import Topbar from "../components/Topbar";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const mkUrl    = (path) => (path.startsWith("/") ? path : "/" + path);
@@ -1053,7 +1054,7 @@ export default function SupplierMaster() {
   return (
     <div className="mp-wrap">        
       {ConfirmUI}
-
+      <Topbar />
       {loading && (
         <div className="mp-loader-ov">
           <div className="mp-ldr-box"><div className="mp-spin" /><div className="mp-ldr-msg">Processing…</div></div>
@@ -1071,9 +1072,10 @@ export default function SupplierMaster() {
           onClose={onSalesmanPickerClose}
         />
       )}
+      
 
       {/* Header */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">S</div>
           <div>
@@ -1082,7 +1084,7 @@ export default function SupplierMaster() {
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      </div> */}
 
       <div className="mp-body">
         {/* Toolbar */}
@@ -1090,8 +1092,10 @@ export default function SupplierMaster() {
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc</button>
+          <div className="mp-toolbar-title">Supplier Master</div>
           <button className="mp-btn" style={btnF12Style} onClick={() => setF12Open(true)} title="Column Settings">⚙ F12 Columns</button>
           {salesmanLoading && <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: 8 }}>Loading salesman…</span>}
+          
         </div>
 
         {/* Grid */}

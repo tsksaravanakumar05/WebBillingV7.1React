@@ -1,7 +1,8 @@
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-// Unha CSS path-a correct aana idathula import pannikonga
-import "../dashboard.css"; 
+import "../dashboard.css";
+import MenuSetting from "./Menusetting";
+
 
 /* ═══════════════════════════════════════════════
    SVG ICONS (Used only in Topbar)
@@ -22,9 +23,11 @@ const Topbar = memo(() => {
     localStorage.removeItem("username");
     navigate("/", { replace: true });
   };
-
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
     <header className="kd-topbar">
+      <MenuSetting sidebarOpen={sidebarOpen} onSidebarChange={setSidebarOpen} />
+
       <div className="kd-topbar-left">
         <span className="kd-logo-mark">K</span>
         <span className="kd-logo-text">KASSA <strong>BM</strong></span>

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ─── CSS (inlined from provided file) ───────────────────────────────────────
 import "./MasterPage.css"; // Assumes the CSS file is co-located
 import Topbar from "../components/Topbar";
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 const CARD_TYPE_LIST = [
   { value: "CARD",      label: "CARD" },
@@ -479,11 +480,12 @@ export default function CardMaster() {
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════
   if (permDenied) return null;
-
+ 
   return (
     
     <div className="mp-wrap">
       <Topbar />
+      
       {/* ── LOADER ── */}
       {loading && (
         <div className="mp-loader-ov">
@@ -533,7 +535,7 @@ export default function CardMaster() {
           )}
 
 
-        <div className="mp-title">Card Master</div>
+        <div className="mp-toolbar-title">Card Master</div>
         </div>
 
         {/* ── GRID ── */}

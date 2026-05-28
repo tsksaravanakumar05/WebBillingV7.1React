@@ -9,6 +9,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css"; // shared masterpage CSS — same as BrandMaster
+import Topbar from "../components/Topbar";
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED HELPERS  (identical to BrandMaster.jsx)
@@ -288,7 +290,11 @@ const useRequestFlag = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-export default function ModelMaster() {
+export default function ModelMaster()
+{
+
+
+
   const navigate  = useNavigate();
   const inputRefs = useRef([]);
   const toastId   = useRef(0);
@@ -669,18 +675,18 @@ export default function ModelMaster() {
   return (
     <div className="mp-wrap">
       {ConfirmUI}
-
+      <Topbar />
       {/* ── HEADER — identical layout to BrandMaster ── */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">M</div>
           <div>
-            <div className="mp-title">Model Master</div>
+            <div className="mp-toolbar-title">Model Master</div>
             <div className="mp-sub">Co: {sess.Comid} — Manage model records</div>
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      </div> */}
 
       {/* ── BODY ── */}
       <div className="mp-body">
@@ -690,6 +696,7 @@ export default function ModelMaster() {
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={addRowFunc} disabled={loading}>➕ Add Row</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+          <div className="mp-toolbar-title">Model Master</div>
         </div>
 
         {/*

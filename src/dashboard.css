@@ -108,7 +108,9 @@
 
 @media (min-width: 769px) {
   .kd-content-wrap--shifted {
-    margin-left: 268px; /* matches --ms-w */
+    /* Gentle nudge only — sidebar overlays most of the content.
+       Dashboard stays fully readable, no aggressive push. */
+    margin-left: 80px;
   }
 }
 
@@ -444,3 +446,4 @@
 .kd-logout-btn svg {
   flex-shrink: 0;
 }
+

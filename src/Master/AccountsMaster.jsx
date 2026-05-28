@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 //import axios from "axios";
 import "./MasterPage.css";
+import Topbar from "../components/Topbar";
 
 // ─── Request Controller ───────────────────────────────────────────────────────
 class Request_Controller {
@@ -807,9 +808,10 @@ export default function AccountsMaster() {
           onSuccess={handlePasswordSuccess}
         />
       )}
+      <Topbar />
 
       {/* Header */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">A</div>
           <div>
@@ -820,7 +822,7 @@ export default function AccountsMaster() {
         <button className="mp-back" onClick={() => { window.location.href = "/Home"; }}>
           ← Home
         </button>
-      </div>
+      </div> */}
 
       {/* Body */}
       <div className="mp-body" style={{ flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
