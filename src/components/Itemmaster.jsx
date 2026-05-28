@@ -75,10 +75,11 @@ const DEL_W           = 44;
 const DEFAULT_COLS    = COLUMNS.map(c => ({ key:c.key, label:c.label, width:c.width, visible:!c.hidden }));
 const ITEM_DRAFT_KEY  = "itemmaster_draft";
 const ITEM_CURSOR_KEY = "itemmaster_cursor";
-const CALC_KEYS       = new Set(["PurchaseRate","GST","CESS","TransPer","MRP","ProfitPer","GSTAmt","CESSAmt","TransAmt"]);
+const CALC_KEYS = new Set(["PurchaseRate","GST","CESS","TransPer","MRP","GSTAmt","CESSAmt","TransAmt"]);
 const UPPER_KEYS      = new Set(["ProductCode","SecondCode","ProductName","PrinterName","HSNCode","Brand","Category","Department","Supplier","UOM","LocationMaster","Remarks"]);
 const FILTER_KEYS     = new Set(["ProductCode","SecondCode","ProductName","PrinterName","HSNCode","Brand","Category","Department","Supplier","UOM","LocationMaster","Remarks"]);
 const COMBO_NAV       = { Brand:"/brand-master", Category:"/category-master", Department:"/department-master", Supplier:"/supplier-master", UOM:"/uom-master", LocationMaster:"/location-master" };
+// ── State — add these near your other state declarations ──────────────────
 
 let _rid = 1000;
 const genRid = () => ++_rid;
@@ -112,8 +113,28 @@ function calcRow(row, sess, changedKey) {
   let CESS,CessAmt; if(changedKey==="CESSAmt"){CessAmt=vn(row.CESSAmt);CESS=PR>0?ro(CessAmt/PR*100):0;}else{CESS=vn(row.CESS);CessAmt=ro(PR*CESS/100);}
   let TP,TrAmt; if(changedKey==="TransAmt"){TrAmt=vn(row.TransAmt);TP=PR>0?ro(TrAmt/PR*100):0;}else{TP=vn(row.TransPer);TrAmt=ro(PR*TP/100);}
   const LC=ro(PR+GSTAmt+CessAmt+TrAmt), PA=ro(LC*PP/100);
-  const SR=PA!==0?f2(LC+PA):(!row.Id?f2(MRP):(vn(row.SalesRate)||f2(MRP)));
-  return { GST:f2(GST),GSTAmt:f2(GSTAmt),CESS:f2(CESS),CESSAmt:f2(CessAmt),TransPer:f2(TP),TransAmt:f2(TrAmt),LandingCost:f2(LC),DMAmt:f2(ro(MRP-LC)),DMPer:MRP>0?f2(ro((MRP-LC)/MRP*100)):0,ProfitAmt:f2(PA),SalesRate:SR,...(sess?.univercell?{MRP:f2(ro(SR))}:{}) };
+
+  // ── PurchaseProfitSaleRateChange logic (same as JS) ──
+  let SR;
+  if(sess?.PurchaseProfitSaleRateChange){
+    // if ProfitAmt is 0 → keep MRP for new rows, keep existing SalesRate for saved rows
+    if(PA === 0){
+      SR = !row.Id ? f2(MRP) : (vn(row.SalesRate) || f2(MRP));
+    } else {
+      SR = f2(LC + PA);  // LC + ProfitAmt
+    }
+  } else {
+    // original logic
+    SR = PA!==0 ? f2(LC+PA) : (!row.Id ? f2(MRP) : (vn(row.SalesRate)||f2(MRP)));
+  }
+
+  return {
+    GST:f2(GST), GSTAmt:f2(GSTAmt), CESS:f2(CESS), CESSAmt:f2(CessAmt),
+    TransPer:f2(TP), TransAmt:f2(TrAmt), LandingCost:f2(LC),
+    DMAmt:f2(ro(MRP-LC)), DMPer:MRP>0?f2(ro((MRP-LC)/MRP*100)):0,
+    ProfitAmt:f2(PA), SalesRate:SR,
+    ...(sess?.univercell?{MRP:f2(ro(SR))}:{})
+  };
 }
 
 // ── Toggle component (same as CashierMaster) ─────────────────────────────────
@@ -147,6 +168,46 @@ function Toggle({ value, onChange, onKeyDown, inputRef, editMode }) {
   );
 }
 
+
+const applyChange = (prev, colKey, value) => {
+  let fv = UPPER_KEYS.has(colKey) && typeof value === "string" ? value.toUpperCase() : value;
+  let u = { ...prev, [colKey]: fv, _dirty: true };
+
+  // ── Standard calc keys (ProfitPer excluded — handled separately) ──
+  const STD_CALC = new Set(["PurchaseRate","GST","CESS","TransPer","MRP","GSTAmt","CESSAmt","TransAmt"]);
+  if (STD_CALC.has(colKey)) {
+    u = { ...u, ...calcRow(u, sess, colKey) };
+  }
+
+  // ── SalesRate → back-calculate ProfitPer (always allowed) ──
+  if (colKey === "SalesRate") {
+    const LC = vn(u.LandingCost), SR = vn(fv), d = SR - LC;
+    u.ProfitPer = LC > 0 && d > 0 ? f2(ro(d / LC * 100)) : 0;
+    u = { ...u, ...calcRow(u, sess, "SalesRate"), SalesRate: f2(vn(fv)) };
+  }
+
+  // ── ProfitAmt → update ProfitPer, but protect SalesRate if setting OFF ──
+  if (colKey === "ProfitAmt") {
+    const LC = vn(u.LandingCost), PA = vn(fv);
+    u.ProfitPer = LC > 0 ? f2(PA / LC * 100) : 0;
+    const prevSR = u.SalesRate;
+    u = { ...u, ...calcRow(u, sess, "ProfitAmt") };
+    if (!sess.PurchaseProfitSaleRateChange) u.SalesRate = prevSR;
+  }
+
+  // ── ProfitPer → recalc but protect SalesRate if setting OFF ──
+  if (colKey === "ProfitPer") {
+    const prevSR = u.SalesRate;
+    u = { ...u, ...calcRow(u, sess, "ProfitPer") };
+    if (!sess.PurchaseProfitSaleRateChange) u.SalesRate = prevSR;
+  }
+
+  // ── DMAmt / DMPer ──
+  if (colKey === "DMAmt") { const M = vn(u.MRP), DA = vn(fv); u.DMPer = M > 0 ? f2(ro(DA / M * 100)) : 0; }
+  if (colKey === "DMPer") { const M = vn(u.MRP), DP = vn(fv); u.DMAmt = f2(ro(M * DP / 100)); }
+
+  return u;
+};
 // ── F12 Column Settings Popup ─────────────────────────────────────────────────
 function F12Popup({ colSettings, onSave, onClose }) {
   const [local, setLocal] = useState(colSettings.map(s => ({ ...s })));
@@ -276,12 +337,15 @@ export default function ItemMaster() {
 
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
-
+  const { showAlert, AlertUI } = CC.useAlert(); 
+const [bcOpen,  setBcOpen]  = useState(false);
+const [bcRows,  setBcRows]  = useState([]);   // { barcode:"", Id:0, _new:true }
+const [bcItemId, setBcItemId] = useState(null);
   // ── dirtyIds ref — tracks rows actually typed in (same as CashierMaster) ──
   // CHANGE 2: dirtyIds added to track truly modified rows so selectRow won't revert them
   // மாற்றம் 2: உண்மையிலேயே திருத்திய rows-ஐ track பண்ண dirtyIds சேர்க்கப்பட்டது
   const dirtyIds = useRef(new Set());
-
+  const pwOkRef = useRef(null);
   const [sess] = useState(() => {
     try {
       const main0 = (CC.getLocal("Mainsetting")    || [{}])[0] || {};
@@ -290,7 +354,8 @@ export default function ItemMaster() {
       const MComid= CC.getStr("MComid") || Comid;
       const IdComList = CC.getStr("IdComList") || Comid;
       const isCC  = !!main0.CommonCompany;
-      const isAG  = com0.PCode_Auto===true||com0.PCode_Auto===1||com0.PCode_Auto==="1"||String(com0.PCode_Auto).toLowerCase()==="true";
+      const isAG = com0.PCode_Auto === true || com0.PCode_Auto === 1 || com0.PCode_Auto === "1";
+    
       return {
         Comid: isCC ? MComid : Comid, MComid, IdComList,
         Tamil:!!main0.ProductNameTamil, CommonCompany:isCC,
@@ -298,6 +363,7 @@ export default function ItemMaster() {
         SupplierMulitipleAllow:!!main0.SupplierMulitipleAllow,
         BranchSaleRate:!!main0.BranchWiseSaleRate,
         MulipleMRP:!!com0.MultiMRP, MirrorTable:0,
+       
         LandingCostCompare:!!main0.LandingCostCompare,
         PurchaseProfitSaleRateChange:!!main0.PurchaseProfitSaleRateChange,
         univercell:!!main0.univercell, MultipleUOMBilling:!!main0.MultipleUOMBilling,
@@ -312,6 +378,128 @@ export default function ItemMaster() {
       return { Comid:"1",MComid:"1",IdComList:"1",MirrorTable:0,menudata:[],Productcodeautogen:false,Productcodedigit:0,Productcodeprefix:"" };
     }
   });
+    const focusEntry = useCallback(colKey => {
+    setTimeout(() => { const el=entryRefs.current[colKey]; if(el){el.focus();el.select?.();} }, 0);
+  }, []);
+  const handleMultiMRP = useCallback(async (colKey, value) => {
+  if (!sess.MulipleMRP) return false;
+  if (colKey !== "ProductCode") return false;
+  const code = String(value || "").trim();
+  if (!code) return false;
+
+  // Only trigger for NEW entry row (no Id)
+  if (entryRowRef.current?.Id) return false;
+
+  const res = await CC.api(CC.ItemSelect, null, { "Download": "0" }, {
+    Comid: sess.Comid, Startindex: 0, PageCount: 20,
+    Keyword: code, Column: "MRP", webtype: 1
+  });
+  const arr = Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [];
+  if (!arr.length) return false;
+
+  const ok = await confirm(`Do You Want To Add MultipleMRP Product?`);
+  if (!ok) return false;
+
+  const src = arr[0];
+  setEntryRow(prev => ({
+    ...prev,
+    ProductName:      src.ProductName      || prev.ProductName,
+    SecondCode:       src.SecondCode       || prev.SecondCode,
+    PrinterName:      src.PrinterName      || prev.PrinterName,
+    HSNCode:          src.HSNCode          || prev.HSNCode,
+    Brand:            src.Brand            || prev.Brand,
+    BrandId:          src.BrandId          || prev.BrandId,
+    Category:         src.Category         || prev.Category,
+    CategoryId:       src.CategoryId       || prev.CategoryId,
+    Department:       src.Department       || prev.Department,
+    DepartmentId:     src.DepartmentId     || prev.DepartmentId,
+    Supplier:         src.Supplier         || prev.Supplier,
+    SupplierId:       src.SupplierId       || prev.SupplierId,
+    UOM:              src.UOM              || prev.UOM,
+    UOMId:            src.UOMId            || prev.UOMId,
+    LocationMaster:   src.LocationMaster   || prev.LocationMaster,
+    LocationMasterId: src.LocationMasterId || prev.LocationMasterId,
+    MRP:              f2(vn(src.MRP)),
+    PurchaseRate:     f2(vn(src.PurchaseRate)),
+    GST:              f2(vn(src.GST)),
+    GSTAmt:           f2(vn(src.GSTAmt)),
+    CESS:             f2(vn(src.CESS)),
+    CESSAmt:          f2(vn(src.CESSAmt)),
+    SPLCESS:          f2(vn(src.SPLCESS)),
+    TransPer:         f2(vn(src.TransPer)),
+    TransAmt:         f2(vn(src.TransAmt)),
+    LandingCost:      f2(vn(src.LandingCost)),
+    ProfitPer:        f2(vn(src.ProfitPer)),
+    ProfitAmt:        f2(vn(src.ProfitAmt)),
+    SalesRate:        f2(vn(src.SalesRate)),
+    WholeSaleRate:    f2(vn(src.WholeSaleRate)),
+    SaleDiscountPer:  f2(vn(src.SaleDiscountPer)),
+    ReorderLevelMin:  f2(vn(src.ReorderLevelMin)),
+    ReorderLevelMax:  f2(vn(src.ReorderLevelMax)),
+    NomsQty:          parseInt(src.NomsQty) || 0,
+    ExpriyDate:       !!src.ExpriyDate,
+    ExpriyDays:       parseInt(src.ExpriyDays) || 0,
+    ExpiryBeforeDays: parseInt(src.ExpiryBeforeDays) || 0,
+    ManufactureDate:  !!src.ManufactureDate,
+    Repacking:        !!src.Repacking,
+    BrandType:        !!src.BrandType,
+    ModelType:        !!src.ModelType,
+    ColorType:        !!src.ColorType,
+    SizeType:         !!src.SizeType,
+    GenderType:       !!src.GenderType,
+    SerialNoType:     !!src.SerialNoType,
+    CRMPoints:        f2(vn(src.CRMPoints)),
+    NegativetStock:   !!src.NegativetStock,
+    BatchwiseStock:   !!src.BatchwiseStock,
+    Active:           src.Active !== undefined ? !!src.Active : true,
+    StockNeed:        !!src.StockNeed,
+    SalesRateType:    !!src.SalesRateType,
+    Remarks:          src.Remarks || prev.Remarks,
+    _dirty: true,
+  }));
+
+  // Focus MRP after prefill, same as JS
+  setTimeout(() => focusEntry("MRP"), 50);
+  return true; // handled
+// eslint-disable-next-line
+}, [sess, confirm, focusEntry]);
+const loadBarcodes = useCallback(async (itemId) => {
+  const res = await CC.api(CC.ItemBarcodeSelect, null, {}, { Id: itemId });
+  const arr = Array.isArray(res.data) ? res.data
+            : Array.isArray(res)      ? res
+            : [];
+  // Each row: { Barcode, Id }
+  setBcRows(arr.map(r => ({ barcode: r.Barcode || "", Id: r.Id || 0, _new: false })));
+  setBcItemId(itemId);
+  setBcOpen(true);
+}, []);
+
+// ── Save barcodes ─────────────────────────────────────────────────────────
+const saveBarcodes = useCallback(async () => {
+  if (!bcItemId) return;
+  // Validate — no empty barcodes
+  if (bcRows.some(r => !r.barcode.trim())) {
+    toast("❌ Enter all barcode values.", true);
+    return;
+  }
+  // Check duplicates
+  const vals = bcRows.map(r => r.barcode.trim().toUpperCase());
+  if (new Set(vals).size !== vals.length) {
+    toast("❌ Duplicate barcodes found.", true);
+    return;
+  }
+  setLoading(true); setLdMsg("Saving barcodes...");
+  const payload = bcRows.map(r => ({ Barcode: r.barcode.trim().toUpperCase(), Id: r.Id || 0 }));
+  const res = await CC.insertapi(CC.ItemBarcodeInsert, payload, {
+    "ItemId":    String(bcItemId),
+    "MComid":    String(sess.MComid),
+    "MirrorTable": String(sess.MirrorTable),
+    "IdComList": String(sess.IdComList),
+  });
+  setLoading(false);
+  if (res.ok ?? res.IsSuccess) { toast("✅ Barcodes saved"); setBcOpen(false); }
+  else toast(`❌ ${res.message || "Save failed"}`, true);
+}, [bcItemId, bcRows, sess, toast]);
   const perm = sess.menudata[0] || { View:1,Add:1,Edit:1,Delete:1 };
 
   const [cols,       setCols]      = useState(DEFAULT_COLS);
@@ -365,9 +553,7 @@ export default function ItemMaster() {
     String(row.ProductCode||"").trim().length > 0
   , []);
 
-  const focusEntry = useCallback(colKey => {
-    setTimeout(() => { const el=entryRefs.current[colKey]; if(el){el.focus();el.select?.();} }, 0);
-  }, []);
+
 
   const focusCell = useCallback((rid, colKey) => {
     setTimeout(() => { const el=cellRefs.current[rid]?.[colKey]; if(el){el.focus();el.select?.();} }, 0);
@@ -475,6 +661,7 @@ export default function ItemMaster() {
     };
   // eslint-disable-next-line
   },[sess.Comid]);
+// ── Auto edit-mode when filter results in exactly 1 row ──────────────
 
   const loadItems = useCallback(async (kw="",col="",isInit=false) => {
     setLoading(true); setLdMsg("Loading Item Master...");
@@ -484,9 +671,11 @@ export default function ItemMaster() {
     if(res._netErr) {toast(`❌ ${res.message}`,true);return;}
     const arr = Array.isArray(res.data)?res.data:Array.isArray(res)?res:[];
     if(isInit) setTotCnt(res.Count||arr.length);
-    const fmt = arr.map(fmtRow);
-    setRows(fmt);
-    setPage(Math.max(1,Math.ceil(fmt.length/ROWS_PER_PAGE)));
+  // In loadItems — keep it simple, no _editMode change here:
+const fmt = arr.map(fmtRow);
+setRows(fmt);
+// remove the setSelRid for single row here too
+setPage(Math.max(1, Math.ceil(fmt.length / ROWS_PER_PAGE)));
   }, [sess.Comid, toast]);
 
   const comboCfg = {
@@ -572,17 +761,26 @@ export default function ItemMaster() {
   // eslint-disable-next-line
   }, [sess]);
 
-  const validateRow = useCallback(row => {
-    if(!String(row.ProductCode||"").trim()){setVErr("❌ Product Code required.");return false;}
-    if(!String(row.ProductName||"").trim()){setVErr("❌ Description required.");return false;}
-    if(sess.LandingCostCompare){
-      if(vn(row.SalesRate)&&vn(row.LandingCost)>vn(row.SalesRate)){setVErr("❌ Sale Rate < Landing Cost.");return false;}
-      if(vn(row.MRP)&&vn(row.SalesRate)&&vn(row.MRP)<vn(row.SalesRate)){setVErr("❌ Sale Rate > MRP.");return false;}
-    }
-    if(vn(row.MRP)&&vn(row.PurchaseRate)&&vn(row.MRP)<vn(row.PurchaseRate)){setVErr("❌ Purchase Rate > MRP.");return false;}
-    setVErr(""); return true;
-  }, [sess]);
+const validateRow = useCallback(async row => {
+  if(!String(row.ProductCode||"").trim()){setVErr("❌ Product Code required.");return false;}
+  if(!String(row.ProductName||"").trim()){setVErr("❌ Description required.");return false;}
 
+  if(sess.LandingCostCompare){
+    if(vn(row.SalesRate)&&vn(row.LandingCost)>vn(row.SalesRate)){setVErr("❌ Sale Rate < Landing Cost.");return false;}
+    if(vn(row.MRP)&&vn(row.SalesRate)&&vn(row.MRP)<vn(row.SalesRate)){setVErr("❌ Sale Rate > MRP.");return false;}
+  }
+
+  if(vn(row.LandingCost)&&vn(row.MRP)&&vn(row.LandingCost)>vn(row.MRP)){
+    await showAlert(
+      `Landing Cost (${vn(row.LandingCost).toFixed(2)}) is greater than MRP (${vn(row.MRP).toFixed(2)}) for "${row.ProductCode}".`
+    );
+    return false;
+  }
+
+  if(vn(row.MRP)&&vn(row.PurchaseRate)&&vn(row.MRP)<vn(row.PurchaseRate)){setVErr("❌ Purchase Rate > MRP.");return false;}
+
+  setVErr(""); return true;
+}, [sess, showAlert]); // ← add showAlert here
   const buildPayload = useCallback(row => {
     const n=v=>parseFloat(v)||0,ni=v=>parseInt(v)||0,bi=v=>(v===true||v==="true"||v===1||v==="1")?1:0,b=v=>v===true||v==="true"||v===1||v==="1",s=v=>String(v==null?"":v);
     return { Id:ni(row.Id),ProductCode:s(row.ProductCode).trim(),SecondCode:s(row.SecondCode),ProductName:s(row.ProductName).trim(),PrinterName:s(row.PrinterName),HSNCode:s(row.HSNCode),Brand:s(row.Brand),BrandId:ni(row.BrandId),Category:s(row.Category),CategoryId:ni(row.CategoryId),Department:s(row.Department),DepartmentId:ni(row.DepartmentId),Supplier:s(row.Supplier),SupplierId:ni(row.SupplierId),UOM:s(row.UOM),UOMId:ni(row.UOMId),LocationMaster:s(row.LocationMaster),LocationMasterId:ni(row.LocationMasterId),NomsQty:ni(row.NomsQty),MRP:n(row.MRP),DMPer:n(row.DMPer),DMAmt:n(row.DMAmt),PurchaseRate:n(row.PurchaseRate),GST:n(row.GST),GSTAmt:n(row.GSTAmt),TransPer:n(row.TransPer),TransAmt:n(row.TransAmt),CESS:n(row.CESS),CESSAmt:n(row.CESSAmt),SPLCESS:n(row.SPLCESS),LandingCost:n(row.LandingCost),ProfitPer:n(row.ProfitPer),ProfitAmt:n(row.ProfitAmt),SalesRate:n(row.SalesRate),CardRate:n(row.CardRate),WholeSaleRate:n(row.WholeSaleRate),NomsPCRate:n(row.NomsPCRate),SalesRateType:b(row.SalesRateType),SaleDiscountPer:n(row.SaleDiscountPer),SaleDiscountAmt:n(row.SaleDiscountAmt),ReorderLevelMin:n(row.ReorderLevelMin),ReorderLevelMax:n(row.ReorderLevelMax),MaxSaleQty:n(row.MaxSaleQty),LessAmt:n(row.LessAmt),StockNeed:bi(row.StockNeed),ExpriyDate:bi(row.ExpriyDate),OnlineShow:bi(row.OnlineShow),BrandType:bi(row.BrandType),ModelType:bi(row.ModelType),ColorType:bi(row.ColorType),SizeType:bi(row.SizeType),SerialNoType:bi(row.SerialNoType),BatchwiseStock:bi(row.BatchwiseStock),Active:bi(row.Active),NegativetStock:b(row.NegativetStock),Repacking:b(row.Repacking),ExpriyDays:ni(row.ExpriyDays),ExpiryBeforeDays:ni(row.ExpiryBeforeDays),NetWeight:n(row.NetWeight),CRMPoints:n(row.CRMPoints),Remarks:s(row.Remarks),ProductImage:s(row.ProductImage) };
@@ -611,7 +809,7 @@ export default function ItemMaster() {
     if (latestEntry?._dirty && entryComplete) toSave.push(latestEntry);
     toSave.push(...dirtyRows);
     if (!toSave.length) { toast("⚠️ No modified data to save.", true); return; }
-    for (const row of toSave) { if (!validateRow(row)) return; }
+   for (const row of toSave) { if (!(await validateRow(row))) return; }
     const ok = await confirm("Do you want to Save Item Master Details?");
     if (!ok) return;
     setLoading(true); setLdMsg("Saving...");
@@ -796,25 +994,49 @@ const fmt = data1.map((o) => {
   URL.revokeObjectURL(url);
   toast("✅ Excel downloaded");
 }, [sess.Comid, rows, toast]);
-  const handleEntryKeyDown = useCallback((e, colKey) => {
-    if (e.key === "Enter") {
-      const colIdx = editableKeys.indexOf(colKey);
-      const proxyRefs = { current: [] };
-      proxyRefs.current[0] = {};
-      editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k]; });
-      CC.handleEnterNext(e, proxyRefs, 0, colIdx, editableKeys.length, 1, doSave, [entryRow], rowValidator);
+const handleEntryKeyDown = useCallback((e, colKey) => {
+  if (e.key === "Enter") {
+    // ── MultiMRP check ──────────────────────────────────────
+    if (colKey === "ProductCode" && sess.MulipleMRP) {
+      e.preventDefault();
+      handleMultiMRP(colKey, entryRowRef.current?.ProductCode).then(handled => {
+        if (!handled) {
+          // normal Enter navigation
+          const colIdx = editableKeys.indexOf(colKey);
+          const proxyRefs = { current: [] };
+          proxyRefs.current[0] = {};
+          editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k]; });
+          CC.handleEnterNext(e, proxyRefs, 0, colIdx, editableKeys.length, 1, doSave, [entryRowRef.current], rowValidator);
+        }
+      });
       return;
     }
-    if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); const i=editableKeys.indexOf(colKey); if(i<editableKeys.length-1) focusEntry(editableKeys[i+1]); return; }
-    if (e.key === "Tab" && e.shiftKey)  { e.preventDefault(); const i=editableKeys.indexOf(colKey); if(i>0) focusEntry(editableKeys[i-1]); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); if(pagedRows.length>0) focusCell(pagedRows[0]._rid,colKey); return; }
-  // eslint-disable-next-line
-  }, [editableKeys, focusEntry, focusCell, entryRow, rowValidator, doSave, entryRowIndex]);
+    // ── normal Enter ─────────────────────────────────────────
+    const colIdx = editableKeys.indexOf(colKey);
+    const proxyRefs = { current: [] };
+    proxyRefs.current[0] = {};
+    editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k]; });
+    CC.handleEnterNext(e, proxyRefs, 0, colIdx, editableKeys.length, 1, doSave, [entryRow], rowValidator);
+    return;
+  }
+  // ... rest of Tab/Arrow handlers unchanged
+// eslint-disable-next-line
+}, [editableKeys, focusEntry, focusCell, entryRow, rowValidator, doSave, entryRowIndex, sess, handleMultiMRP]);
 
   const filteredRows = rows.filter(r => {
     for(const[k,v]of Object.entries(colFilters)){if(!v?.trim())continue;if(!String(r[k]??"").toLowerCase().includes(v.trim().toLowerCase()))return false;}
     return true;
   });
+  useEffect(() => {
+  if (filteredRows.length !== 1) return;
+  const r = filteredRows[0];
+  if (!r?.Id) return;
+  if (r._editMode === 1) return; // already in edit mode
+  setRows(prev => prev.map(x =>
+    x._rid === r._rid ? { ...x, _editMode: 1 } : x
+  ));
+  setSelRid(r._rid);
+}, [filteredRows.length, filteredRows[0]?._rid]);
   const totPages  = Math.max(1,Math.ceil(filteredRows.length/ROWS_PER_PAGE));
   const pagedRows = filteredRows.slice((page-1)*ROWS_PER_PAGE,page*ROWS_PER_PAGE);
   const pageNums  = (() => {
@@ -841,6 +1063,14 @@ const fmt = data1.map((o) => {
     const onKey = e => {
       if (anyOpen) return;
       if (e.key==="F1")     { e.preventDefault(); doSave(); }
+       if (e.key === "F4")     { e.preventDefault(); pwOkRef.current = doExcelDownload; setPw({title:"F4 Password"}); }
+    if (e.key === "F7")     { e.preventDefault(); pwOkRef.current = doExcelUpload;   setPw({title:"F7 Password"}); }
+    if (e.key === "F9") {
+  e.preventDefault();
+  const r = rowsRef.current.find(x => x._rid === selRid);
+  if (!r?.Id) { toast("Select a saved item first", true); return; }
+  loadBarcodes(r.Id);
+}
       if (e.key==="F12")    { e.preventDefault(); setF12Open(true); }
       if (e.key==="Delete"&&selRid) { e.preventDefault(); doDeleteRow(selRid); }
       if (e.key==="Escape") { e.preventDefault(); navigate(-1); }
@@ -848,7 +1078,7 @@ const fmt = data1.map((o) => {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line
-  }, [anyOpen, doSave, selRid, doDeleteRow]);
+  }, [anyOpen, doSave, doExcelDownload, doExcelUpload, selRid, doDeleteRow]);
 
   useEffect(()=>{
     (async()=>{
@@ -1057,8 +1287,91 @@ const fmt = data1.map((o) => {
   return (
     <div className="mp-wrap">
       {ConfirmUI}
+      {AlertUI}
       {f12Open && <F12Popup colSettings={cols} onSave={saveColCfg} onClose={()=>setF12Open(false)} />}
+{bcOpen && (
+  <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) setBcOpen(false); }}>
+    <div className="mp-modal-box" style={{ width: 460, maxHeight: "65vh" }}>
+      <div className="mp-modal-hdr">
+        <span>🔖 Barcode List</span>
+        <button onClick={() => setBcOpen(false)}>✕</button>
+      </div>
 
+      <div className="mp-modal-body">
+        <table className="mp-utbl" style={{ width: "100%" }}>
+          <thead>
+            <tr>
+              <th style={{ width: 36 }}>S.No</th>
+              <th>Barcode</th>
+              <th style={{ width: 36 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {bcRows.length === 0 ? (
+              <tr>
+                <td colSpan={3} style={{ textAlign:"center", color:"#94a3b8", padding:14, fontSize:11 }}>
+                  No barcodes. Click ➕ to add.
+                </td>
+              </tr>
+            ) : (
+              bcRows.map((r, i) => (
+                <tr key={i}>
+                  <td style={{ textAlign:"center", fontSize:11, color:"#64748b" }}>{i + 1}</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={r.barcode}
+                      autoFocus={i === bcRows.length - 1 && r._new}
+                      style={{ width:"100%", padding:"3px 6px", border:"1px solid #c5d8f8", borderRadius:3, fontSize:12 }}
+                      onChange={e => {
+                        const v = e.target.value.toUpperCase();
+                        setBcRows(p => p.map((x, j) => j === i ? { ...x, barcode: v } : x));
+                      }}
+                      onKeyDown={e => {
+                        // Enter → add new row if last
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (i === bcRows.length - 1) {
+                            setBcRows(p => [...p, { barcode:"", Id:0, _new:true }]);
+                          }
+                        }
+                        // Delete key on empty → remove row
+                        if (e.key === "Delete" && !r.barcode) {
+                          setBcRows(p => p.filter((_, j) => j !== i));
+                        }
+                      }}
+                    />
+                  </td>
+                  <td style={{ textAlign:"center" }}>
+                    <button
+                      onClick={() => setBcRows(p => p.filter((_, j) => j !== i))}
+                      style={{ background:"none", border:"none", cursor:"pointer", color:"#dc2626", fontSize:14 }}
+                      title="Delete barcode"
+                    >🗑</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        {/* Add row button */}
+        <button
+          className="mp-btn nw"
+          style={{ marginTop: 8 }}
+          onClick={() => setBcRows(p => [...p, { barcode:"", Id:0, _new:true }])}
+        >
+          ➕ Add Barcode
+        </button>
+      </div>
+
+      <div className="mp-modal-ftr">
+        <button className="mp-btn" onClick={() => setBcOpen(false)}>Cancel</button>
+        <button className="mp-btn sv" onClick={saveBarcodes} disabled={loading}>💾 Save</button>
+      </div>
+    </div>
+  </div>
+)}
       {/* Header */}
       <div className="mp-hdr">
         <div className="mp-hdr-left">
@@ -1133,7 +1446,7 @@ const fmt = data1.map((o) => {
           paddingBottom: FILTER_KEYS.has(c.key) ? "2px" : undefined,
         }}>
           <div style={{marginBottom: FILTER_KEYS.has(c.key) ? 3 : 0}}>
-            {c.label}{cd?.calc && <span style={{color:"#a8c8f5",fontSize:9,marginLeft:2}}>🔒</span>}
+            {c.label}{cd?.calc && <span style={{color:"#a8c8f5",fontSize:9,marginLeft:2}}></span>}
           </div>
           {FILTER_KEYS.has(c.key) && (
             <input
@@ -1146,7 +1459,7 @@ const fmt = data1.map((o) => {
                 background:"rgba(255,255,255,0.15)",
                 border:"1px solid rgba(255,255,255,0.3)",
                 borderRadius:3, padding:"1px 4px",
-                color:"#fff", outline:"none",
+                color:"#000", outline:"none",fontWeight:600,
               }}
               onClick={e => e.stopPropagation()}
             />
@@ -1174,6 +1487,7 @@ const fmt = data1.map((o) => {
                         className={[
                           selRid === row._rid                      ? "sel"   : "",
                           row.Active===false||row.Active===0       ? "inact" : "",
+                           row._editMode === 1       ? "editing" : "",  
                           row._dirty                               ? "mod"   : "",
                         ].filter(Boolean).join(" ")}
                         // CHANGE 12: onClick only, NO onFocus on tr (fixes toggle bug)
@@ -1263,10 +1577,28 @@ const fmt = data1.map((o) => {
           <button className="mp-btn sv" onClick={doSave}    disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={resetEntry} disabled={loading}>➕ New Entry</button>
                     <button className="mp-btn"    onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
-          <button className="mp-btn"    onClick={()=>loadItems("","",true)} disabled={loading}>🔄 Reload</button>
+          <button className="mp-btn"    onClick={async () => { await loadItems("","",true); resetEntry(); }} disabled={loading}>🔄 Reload</button>
    
-<button className="mp-btn ex" onClick={()=>setPw({title:"F4 Password", onOk: doExcelDownload})}>📥 F4 Excel↓</button>
-         <button className="mp-btn ex" onClick={()=>setPw({title:"F7 Password", onOk: doExcelUpload})}>📤 F7 Excel↑</button>
+<button className="mp-btn ex" onClick={() => { pwOkRef.current = doExcelDownload; setPw({title:"F4 Password"}); }}>
+  📥 F4 Excel↓
+</button>
+<button className="mp-btn ex" onClick={() => { pwOkRef.current = doExcelUpload; setPw({title:"F7 Password"}); }}>
+  📤 F7 Excel↑
+</button>
+
+<button className="mp-btn" onClick={() => {
+  const r = rows.find(x => x._rid === selRid);
+  if (!r?.Id) { toast("Select a saved item first", true); return; }
+  loadBarcodes(r.Id);
+}} disabled={!selRid}>🔖 F9 Barcode</button>
+{pw && (
+  <PwModal
+    title={pw.title}
+    comid={sess.Comid}
+    onOk={() => { pwOkRef.current?.(); }}
+    onClose={() => setPw(null)}
+  />
+)}
           {sess.GroupCommission && <button className="mp-btn" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);if(!r?.Id){toast("Select a saved row first",true);return;}const res=await CC.api(CC.ItemGroupCommission,null,{},{Id:r.Id,Comid:sess.Comid});setGcRows(!res._netErr&&(res.data||res.Data1)?res.data||res.Data1:[]);setGcOpen(true);}} disabled={!selRid}>💰 Group Commission</button>}
           <button className="mp-btn"    onClick={()=>{const r=rows.find(x=>x._rid===selRid);setTnVal(r?ns(r.PrinterName):"");setTnOpen(true);}} disabled={!selRid}>🌐 F6 Tamil Name</button>
           <button className="mp-btn dl" onClick={()=>selRid?doDeleteRow(selRid):toast("Select a row to delete",true)} disabled={!selRid||loading}>🗑 Delete</button>

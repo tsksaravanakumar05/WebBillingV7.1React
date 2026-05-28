@@ -316,6 +316,8 @@ export function applyUppercase(e, onChange) {
       el.setSelectionRange(start, end);
     }
   });
+
+  
 }
 
 /**

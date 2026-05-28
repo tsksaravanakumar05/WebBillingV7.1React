@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import "./CategoryMaster.css";
+import "./MasterPage.css";
 
 // ✅ Single wildcard import — all current & future CashierCommon exports
 import * as CC from "./Common";
@@ -249,7 +249,7 @@ function F12Popup() {
         <div style={{ flex:1, overflowY:"auto", padding:12 }}>
           <table style={{ borderCollapse:"collapse", width:"100%" }}>
             <thead>
-              <tr>
+              <tr className="mp-col-row">
                 {["Column","Visible","Width (px)"].map(h => (
                   <th key={h} style={{ background:"#1a2e4a", color:"#fff",
                                        padding:"6px 10px", fontSize:11,
@@ -665,7 +665,7 @@ const payload = cleaned
       {ConfirmUI}
 {f12Open && <F12Popup />}
       {/* ── Header ── */}
-      {/* <div className="mp-hdr">
+      <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
           <div>
@@ -674,7 +674,7 @@ const payload = cleaned
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div> */}
+      </div>
 
       <div className="mp-body">
 

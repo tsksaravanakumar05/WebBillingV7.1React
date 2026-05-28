@@ -181,20 +181,17 @@
   background: #eef3fb !important;
 }
 /* Column header row sits below filter row */
-.mp-col-row th {
-  position: sticky;
-  top: 28px;           /* must match filter row height exactly */
-  z-index: 4;
-  background: #1b3a8f !important;
-  color: #fff !important;
-  border: 1px solid #1750b0 !important;
-  padding: 6px 8px !important;
-  font-size: 11px;
-  font-weight: 600;
-  text-align: left;
-  white-space: nowrap;
-  height: 30px;
-  box-sizing: border-box;
+tfoot tr td {
+  background: #93C5FD !important;
+  
+}
+
+/* Edit mode row — blue tint highlight */
+.mp-tbl tbody tr.editing {
+  background: #dbeafe !important;
+}
+.mp-tbl tbody tr.editing td {
+  background: #dbeafe !important;
 }
 .mp-filter-row th:not(:has(input)) {
   padding: 0 !important;

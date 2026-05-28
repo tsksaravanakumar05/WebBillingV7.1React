@@ -112,14 +112,12 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden;    }
   background: #fff;
   border: 1px solid #c5d8f8;
   border-radius: 6px;
-  overflow: hidden;        /* NOT auto — sticky requires this */
+  overflow: hidden;     /* ← MUST be hidden, not auto */
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
-
-
 
 /* ── TABLE ── */
 .mp-tbl {
@@ -143,7 +141,21 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden;    }
     background-position: 100% 50%;
   }
 }
-
+.mp-col-row th {
+  position: sticky;
+  top: 28px;           /* must match filter row height exactly */
+  z-index: 4;
+  background: #1b3a8f !important;
+  color: #fff !important;
+  border: 1px solid #1750b0 !important;
+  padding: 6px 8px !important;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  height: 30px;
+  box-sizing: border-box;
+}
 .mp-tbl th {
    /* background: linear-gradient(
     135deg,
@@ -422,3 +434,15 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden;    }
 .entry-row {
   background: #ffffff;
 }
+/* ── FORCE white rows — kill ALL alternating/even/odd colors ── */
+.mp-tbl tbody tr,
+.mp-tbl tbody tr:nth-child(even),
+.mp-tbl tbody tr:nth-child(odd) {
+  background: #fff !important;
+}
+
+/* Keep hover and selected working */
+.mp-tbl tbody tr:hover          { background: #deeafb !important; }
+.mp-tbl tbody tr.sel            { background: #a8c8f5 !important; }
+.mp-tbl tbody tr.inact td       { color: #bbb; }
+.mp-tbl tbody tr.mod td:first-child { border-left: 3px solid #1f65de; }

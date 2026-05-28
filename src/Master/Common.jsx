@@ -1,12 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  Common.jsx  (CashierCommon)
+//  CashierCommon.jsx
 //  Shared utilities, API helpers, hooks, and UI components
 //  used across all Cashier/Master pages.
-//
-//  CHANGELOG (TransactionPassword migration):
-//  • Added TransactionPassword API endpoint constants
-//  • Added editPassword() centralised helper
-//    → removes all try/catch + fetch boilerplate from TransactionPassword.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -15,14 +10,62 @@ import { useState, useEffect, useRef, useCallback } from "react";
 export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
-// ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 export const BASE_URL = "http://localhost:64215";
-
-// ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
+// Cashier API Links
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
 export const CashierDelete = "/api/CashierApp/DeleteCashier";
 export const SelectCounter = "/api/CashierApp/SelectCounter_local";
+
+// Item Master API Links
+export const ItemSelect = "/api/ItemMasterApp/SelectItemMaster";
+export const ItemInsert = "/api/ItemMasterApp/InsertItemMaster";
+export const ItemDelete = "/api/ItemMasterApp/DeleteItemMaster";
+export const ItemBarcodeSelect = "/api/ItemMasterApp/SelectBarcodeList";
+export const ItemBarcodeInsert = "/api/ItemMasterApp/InsertItemBarcode";
+export const ItemMaxCode = "/api/ItemMasterApp/MaxProductCode";
+export const ItemBranchRate = "/api/ItemMasterApp/SelectBranchSaleRate";
+export const ItemBranchRateUpdate = "/api/ItemMasterApp/UpdateBranchSaleRate";
+export const ItemGroupCommission = "/api/ItemMasterApp/SelectGroupCommission";
+export const ItemGroupCommissionInsert = "/api/ItemMasterApp/InsertGroupCommission";
+export const VisibleColumnsUrl = "/Login/VisibleColumns";
+export const LoginPasswordUrl = "/api/LoginApp/EditPassword";
+
+  //Brand
+        export const BrandSelect = "/api/BrandApp/SelectBrand";
+        export const BrandInsert = "/api/BrandApp/InsertBrand";
+        export const BrandDelete = "/api/BrandApp/DeleteBrand";
+
+                //Category
+        export const CategorySelect = "/api/CategoryApp/SelectCategory";
+        export const CategoryInsert = "/api/CategoryApp/InsertCategory";
+         export const CategoryDelete = "/api/CategoryApp/DeleteCategory";
+
+               //Department
+        export const DepartmentSelect = "/api/DepartmentApp/SelectDepartment";
+         export const DepartmentInsert = "/api/DepartmentApp/InsertDepartment";
+         export const DepartmentDelete = "/api/DepartmentApp/DeleteDepartment";
+ 
+        //Supplier
+        export const SupplierSelect = "/api/SupplierApp/SelectSupplier";
+        export const SupplierInsert = "/api/SupplierApp/InsertSupplier";
+        export const SupplierDelete = "/api/SupplierApp/DeleteSupplier";
+        export const SelectSupplierAll = "/api/SupplierApp/SelectSupplierAll";
+        export const SelectSupplierAllSpName = "/api/SupplierApp/SelectSupplierAllSpName";
+        export const SelectSupplierAll_NameOnly = "/api/SupplierApp/SelectSupplierAll_NameOnly";
+        export const CurrentBalance = "/api/SupplierApp/CurrentBalance";
+        export const GetSupplier = "/api/SupplierApp/GetSupplier";
+        export const CurrentBalanceherbal = "/api/SupplierApp/CurrentBalanceherbal";
+
+               //UOM
+        export const UOMSelect = "/api/UOMApp/SelectUOM";
+        export const UOMInsert = "/api/UOMApp/InsertUOM";
+        export const UOMDelete = "/api/UOMApp/DeleteUOM";
+
+        export const LocationSelect = "/api/LocationApp/SelectLocation";
+        export const LocationInsert = "/api/LocationApp/InsertLocation";
+        export const LocationDelete = "/api/LocationApp/DeleteLocation";
+
 // ─── 2. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
@@ -30,13 +73,13 @@ export const authHeaders = () => ({
   "Profile":       localStorage.getItem("Profile")    || "Admin",
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
+// ─── 3. URL BUILDER ───────────────────────────────────────────────────────────
+//export const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
+const mkUrl = (path) => {
+  return BASE_URL + path;
+};
 
-// ─── 6. URL BUILDER ───────────────────────────────────────────────────────────
-//  All fetch calls must go through mkUrl so BASE_URL is always prepended.
-//  No component should concatenate BASE_URL itself.
-const mkUrl = (path) => BASE_URL + path;
-
-// ─── 7. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
+// ─── 4. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
 /**
  * Call once per page (inside useState initialiser).
  * @param {string} pageName  - must match the PageName stored in "menulist"
@@ -62,15 +105,11 @@ export const buildSession = (pageName) => {
   }
 };
 
-// ─── 8. API HELPERS ───────────────────────────────────────────────────────────
+// ─── 5. API HELPERS ───────────────────────────────────────────────────────────
 
 /**
- * api()
  * General-purpose POST (with optional query-string params).
  * Normalises IsSuccess → ok, Data1 → data, Message → message.
- * Handles 406 / 404 / 500 / empty-response / JSON-parse errors centrally.
- *
- * Usage: await CC.api(path, bodyObject, extraHeaders?, queryParams?)
  */
 export const api = async (path, body = null, extraHeaders = {}, queryParams = null) => {
   try {
@@ -94,14 +133,15 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
       },
       body: body !== null ? JSON.stringify(body) : undefined,
     });
+    var a=1;
 
-    // ── Standard HTTP error handling ─────────────────────────────────────────
+    // ── standard HTTP error handling ──
     if (res.status === 406) {
       alert("Already Login Another User Please Login Again!!!");
       window.location.href = "/Login";
       return { ok: false };
     }
-    if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
+    if (res.status === 404) return { ok: false, _http404: true,  message: `404: ${fullUrl}` };
     if (res.status === 500) {
       const t = await res.text();
       console.error(`500 on ${fullUrl}:`, t.slice(0, 500));
@@ -125,11 +165,8 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
 };
 
 /**
- * insertapi()
- * Insert / update POST — returns raw parsed JSON (IsSuccess / Data2 conventions).
- * All auth headers, BASE_URL, JSON stringify, and network errors handled here.
- *
- * Usage: await CC.insertapi(path, bodyObject, extraHeaders?)
+ * Insert/update POST — returns raw parsed JSON.
+ * Used when the server response uses IsSuccess / Data2 conventions.
  */
 export const insertapi = async (path, body = null, extraHeaders = {}) => {
   try {
@@ -149,94 +186,14 @@ export const insertapi = async (path, body = null, extraHeaders = {}) => {
   }
 };
 
-/**
- * editPassword()
- * Dedicated helper for the Transaction Password verification modal.
- * Centralises the /api/LoginApp/EditPassword call so TransactionPassword.jsx
- * contains ZERO fetch / auth / BASE_URL logic.
- *
- * @param {object} payload  - { password, type, Comid }
- *   type values: "EditPassword" | "FormConfig" | "AdminPower"
- * @returns {{ ok: boolean, message?: string }}
- *
- * Usage (TransactionPassword.jsx):
- *   const res = await CC.editPassword({ password: pwdValue, type: typeStr, Comid: sess.Comid });
- *   if (res.ok) { ... } else { showError(res.message) }
- */
-export const editPassword = async ({ password, type, Comid }) => {
-  try {
-    const qs = new URLSearchParams({
-      password: String(password),
-      type: String(type),
-      Comid: String(Comid),
-    }).toString();
-
-    const res = await fetch(
-      mkUrl(`${TxnEditPassword}?${qs}`),
-      {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-        },
-      }
-    );
-
-    // ── HTTP error handling ─────────────────────────────
-    if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
-    }
-
-    if (res.status === 404) {
-      return {
-        ok: false,
-        message: "API Not Found",
-      };
-    }
-
-    const text = await res.text();
-
-    if (!text.trim()) {
-      return {
-        ok: false,
-        message: "Empty response",
-      };
-    }
-
-    try {
-      const j = JSON.parse(text);
-
-      if (j.IsSuccess !== undefined && j.ok === undefined)
-        j.ok = j.IsSuccess;
-
-      if (j.Message !== undefined && j.message === undefined)
-        j.message = j.Message;
-
-      return j;
-    } catch {
-      return {
-        ok: false,
-        message: text,
-      };
-    }
-  } catch (err) {
-    return {
-      ok: false,
-      message: err.message,
-    };
-  }
-};
-
-// ─── 9. MISC HELPERS ──────────────────────────────────────────────────────────
+// ─── 6. MISC HELPERS ─────────────────────────────────────────────────────────
 /** Generates a unique row key */
 export const uid = () =>
   crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
 
 /**
- * applyUppercase()
  * Converts an input value to UPPERCASE while preserving the cursor position.
- * Usage: onChange={e => CC.applyUppercase(e, val => updateCell(idx, "Field", val))}
+ * Usage: onChange={e => applyUppercase(e, val => updateCell(idx, "FieldName", val))}
  */
 export function applyUppercase(e, onChange) {
   const el    = e.target;
@@ -250,11 +207,10 @@ export function applyUppercase(e, onChange) {
   });
 }
 
-/**
- * handleEnterNext()
- * Moves focus to the next visible, enabled input/select/textarea in the grid.
- * Usage: onKeyDown={e => CC.handleEnterNext(e, inputRefs, idx, colIdx, totalCols, totalRows, addRow, grid, rowValidator)}
- */
+// ─── Common.js — add this export ─────────────────────────────────────────────
+// Moves focus to the next visible, enabled input/select/textarea in the page
+// Usage: onKeyDown={e => CC.handleEnterNext(e)}
+
 export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRows, onLastCell, grid, rowValidator) {
   if (e.key !== "Enter") return;
   e.preventDefault();
@@ -272,8 +228,6 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
 
   // Last column reached
   if (nextCol >= totalCols) {
-
-    const currentRow = grid[curRow];
     const isFilled = rowValidator(currentRow);
 
     if (!isFilled) {
@@ -295,18 +249,21 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
 
   // Next row doesn't exist yet — create it then focus
   if (nextRow >= totalRows) {
-    onLastCell?.();                          // addRow()
+    onLastCell?.();
     setTimeout(() => {
-      inputRefs.current[nextRow]?.[0]?.focus(); // ✅ longer delay — wait for render
-    }, 100);                                 // 100ms so new row renders first
+      inputRefs.current[nextRow]?.[0]?.focus();
+    }, 100);
     return;
   }
 
   // Normal — focus next cell
-  setTimeout(() => { inputRefs.current[nextRow]?.[nextCol]?.focus(); }, 30);
+  setTimeout(() => {
+    inputRefs.current[nextRow]?.[nextCol]?.focus();
+  }, 30);
 }
 
-// ─── 10. SHARED INLINE STYLES ─────────────────────────────────────────────────
+// ─── 7. SHARED INLINE STYLES ─────────────────────────────────────────────────
+
 /** Pop-in animation + active-select styles (injected once per page load) */
 if (typeof document !== "undefined" && !document.getElementById("cmActiveSelStyle")) {
   const s = document.createElement("style");
@@ -342,7 +299,7 @@ export const modalStyles = {
   no:      { background:"#f1f5f9", color:"#475569", border:"1px solid #cbd5e1" },
 };
 
-// ─── 11. CONFIRM MODAL COMPONENT ──────────────────────────────────────────────
+// ─── 8. CONFIRM MODAL COMPONENT ───────────────────────────────────────────────
 export function ConfirmModal({ message, onYes, onNo }) {
   const yesBtnRef = useRef(null);
 
@@ -371,13 +328,14 @@ export function ConfirmModal({ message, onYes, onNo }) {
   );
 }
 
-// ─── 12. useConfirm HOOK ──────────────────────────────────────────────────────
+// ─── 9. useConfirm HOOK ───────────────────────────────────────────────────────
 /**
  * Returns { confirm, ConfirmUI }.
  * Usage:
  *   const { confirm, ConfirmUI } = useConfirm();
  *   const ok = await confirm("Are you sure?");
  */
+
 export function useConfirm() {
   const [conf, setConf] = useState(null);
   const confirm   = useCallback((message) => new Promise((resolve) => setConf({ message, resolve })), []);
@@ -388,8 +346,76 @@ export function useConfirm() {
     : null;
   return { confirm, ConfirmUI };
 }
+// ─── 11. AlertModal COMPONENT ─────────────────────────────────────────────────
+export function AlertModal({ message, onClose }) {
+  const okBtnRef = useRef(null);
 
-// ─── 13. useToast HOOK ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const t = setTimeout(() => okBtnRef.current?.focus(), 30);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); onClose(); }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  return (
+    <div style={modalStyles.overlay}>
+      <div style={modalStyles.modal} role="dialog" aria-modal="true">
+        <div style={{
+          ...modalStyles.icon,
+          background:"linear-gradient(135deg,#f59e0b,#b45309)",
+          fontSize:22,
+        }}>⚠</div>
+        <p style={modalStyles.msg}>{message}</p>
+        <div style={modalStyles.btns}>
+          <button
+            ref={okBtnRef}
+            style={{ ...modalStyles.btn, ...modalStyles.yes }}
+            onClick={onClose}
+          >✔ OK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 12. useAlert HOOK ────────────────────────────────────────────────────────
+/**
+ * Returns { showAlert, AlertUI }.
+ * Usage:
+ *   const { showAlert, AlertUI } = useAlert();
+ *   await showAlert("Your warning message here");
+ *   {AlertUI}   ← render in JSX
+ */
+export function useAlert() {
+  const [alertData, setAlertData] = useState(null);
+  const resolveRef                = useRef(null);
+
+  const showAlert = useCallback((message) => {
+    return new Promise((resolve) => {
+      resolveRef.current = resolve;
+      setAlertData({ message });
+    });
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setAlertData(null);
+    resolveRef.current?.();
+    resolveRef.current = null;
+  }, []);
+
+  const AlertUI = alertData
+    ? <AlertModal message={alertData.message} onClose={handleClose} />
+    : null;
+
+  return { showAlert, AlertUI };
+}
+// ─── 10. useToast HOOK ────────────────────────────────────────────────────────
 /**
  * Returns { toast, toasts }.
  * Render <ToastList toasts={toasts} /> at the bottom of your component.
