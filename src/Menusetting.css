@@ -66,9 +66,7 @@
    when sidebar is open
 ──────────────────────────────────────────────────────────── */
 /* .ms-scroll-lock { overflow: hidden; } — intentionally OFF */
-.ms-scroll-lock {
-  /* no-op: dashboard must remain scrollable */
-}
+
 
 /* ════════════════════════════════════════════════════════════
    HAMBURGER TOGGLE BUTTON
@@ -119,6 +117,14 @@
   border-color: var(--ms-accent);
   color: #fff;
   box-shadow: 0 4px 16px var(--ms-accent-glow);
+ 
+}
+.ms-toggle {
+  transition: left 0.25s ease;
+}
+
+.ms-toggle--open {
+  left: 260px;
 }
 
 .ms-toggle--open:hover {
@@ -134,6 +140,10 @@
 .kd-topbar {
   padding-left: 68px !important;
 }
+
+
+
+
 
 /* ════════════════════════════════════════════════════════════
    BACKDROP — completely disabled (no blur, no dim, no overlay)

@@ -444,15 +444,17 @@ export default function MenuSettings() {
   return (
     <>
       {/* Hamburger Toggle */}
-      <button
-        type="button"
-        className={`ms-toggle ${sidebarOpen ? "ms-toggle--open" : ""}`}
-        onClick={toggleSidebar}
-        aria-label={sidebarOpen ? "Close menu" : "Open menu"}
-        aria-expanded={sidebarOpen}
-      >
-        {sidebarOpen ? <IconClose /> : <IconMenu />}
-      </button>
+      
+{!sidebarOpen && (
+  <button
+    type="button"
+    className="ms-toggle"
+    onClick={toggleSidebar}
+    aria-expanded={sidebarOpen}
+  >
+    <IconMenu />
+  </button>
+)}
 
       {/* Backdrop */}
       {sidebarOpen && (
