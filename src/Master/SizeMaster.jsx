@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css"; // same CSS as BrandMaster
-/// te
+import Topbar from "../components/Topbar";
 // ─── Helpers (identical to BrandMaster) ──────────────────────────────────────
 const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
 
@@ -558,12 +558,12 @@ export default function SizeMaster() {
       e.preventDefault(); deleteRow(idx);
     }
   }, [grid, hasDuplicate, addRow, focusRow, deleteRow, toast]);
-
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
       {ConfirmUI}
-
+      <Topbar />
       {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">S</div>

@@ -537,18 +537,18 @@ export default function GroupMaster() {
       )}
 
       {/* Header */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">G</div>
           <div>
-            <div className="mp-title">Group Master</div>
+            <div className="mp-toolbar-title">Group Master</div>
             <div className="mp-sub">Item Master</div>
           </div>
         </div>
         <button className="mp-back" onClick={() => { window.location.href = "/Home"; }}>
           ← Home
         </button>
-      </div>
+      </div> */}
 
       {/* Body */}
       <div className="mp-body">
@@ -569,6 +569,9 @@ export default function GroupMaster() {
           {msg && (
             <span className={`mp-msg ${msg.type}`}>{msg.text}</span>
           )}
+
+
+<div className="mp-toolbar-title">Group Master</div>
         </div>
 
         {/* Grid */}

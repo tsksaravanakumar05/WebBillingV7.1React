@@ -134,10 +134,13 @@ function App() {
         <Route path="/Cashier" element={<CashierMaster />} />
         <Route path="/SizeMaster" element={<SizeMaster />} />
         <Route path="/ColorMaster" element={<ColorMaster />} />
-        <Route path="/Model" element={<ModelMaster />} />
+        <Route path="/ModelMaster" element={<ModelMaster />} />
         <Route path="/RateChange" element={<RateChange />} />
         <Route path="/Customer" element={<CustomerMaster />} />
-        <Route path="/CustomerWiseSaleRate" element={<CustomerWiseSaleRate />} />
+        <Route
+  path="/Customer/CustomerWiseSalerate"
+  element={<CustomerWiseSaleRate />}
+/>
         <Route path="/CardMaster" element={<CardMaster />} />
         <Route path="/GroupMaster" element={<GroupMaster />} />
         <Route path="/SalesMan" element={<SalesManMaster />} />

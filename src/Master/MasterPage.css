@@ -15,7 +15,7 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden;    }
   font-size: 12.5px;
 }
 /* ── HEADER ── */
-.mp-hdr {
+/* .mp-hdr {
   background: #ffffff;
   display: flex;
   align-items: center;
@@ -26,7 +26,7 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden;    }
   box-shadow: 0 2px 8px rgba(0,0,0,.08);
   border-bottom: 1px solid #dde6f5;
 }
-.mp-hdr-left { display: flex; align-items: center; gap: 10px; }
+.mp-hdr-left { display: flex; align-items: center; gap: 10px; } */
 .mp-icon {
   width: 32px; height: 32px;
   border-radius: 6px;
@@ -78,6 +78,19 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden;    }
   gap: 6px;
   flex-wrap: wrap;
 }
+
+/* CENTER TITLE */
+.mp-toolbar-title{
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a2e4a;
+  letter-spacing: .5px;
+}
+
 .mp-btn {
   display: flex; align-items: center; gap: 4px;
   border: 1px solid transparent;

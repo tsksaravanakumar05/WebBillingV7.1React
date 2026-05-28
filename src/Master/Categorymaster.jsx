@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./CategoryMaster.css";
+import Topbar from "../components/Topbar";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
@@ -447,7 +448,7 @@ export default function CategoryMaster() {
   return (
     <div className="mp-wrap">
       {ConfirmUI}
-
+      <Topbar />
       {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
@@ -465,7 +466,7 @@ export default function CategoryMaster() {
           <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
 
-          <div className="mp-title">Category Master</div>
+          <div className="mp-toolbar-title">Category Master</div>
         </div>
 
         <div className="mp-grid-wrap">

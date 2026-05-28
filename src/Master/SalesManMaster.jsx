@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
+import Topbar from "../components/Topbar";
 
 // ─── Helpers (identical to BrandMaster) ──────────────────────────────────────
 const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
@@ -794,6 +795,7 @@ export default function SalesManMaster() {
   return (
     <div className="mp-wrap">
       {ConfirmUI}
+      <Topbar />
 
       {/* Loader */}
       {loading && (
@@ -850,16 +852,16 @@ export default function SalesManMaster() {
       )}
 
       {/* Header */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">S</div>
           <div>
-            <div className="mp-title">Sales Man Master</div>
+            <div className="mp-toolbar-title">Sales Man Master</div>
             <div className="mp-sub">Co: {sess.Comid} — Manage sales man records</div>
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      </div> */}
 
       {/* Body */}
       <div className="mp-body">
@@ -873,6 +875,8 @@ export default function SalesManMaster() {
           <button className="mp-btn dl" onClick={handleEsc}>
             ✕ Esc Cancel
           </button>
+
+          <div className="mp-toolbar-title">Sales Man Master</div>
         </div>
 
         <div className="mp-grid-wrap">
