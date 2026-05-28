@@ -459,3 +459,11 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden;    }
 .mp-tbl tbody tr.sel            { background: #a8c8f5 !important; }
 .mp-tbl tbody tr.inact td       { color: #bbb; }
 .mp-tbl tbody tr.mod td:first-child { border-left: 3px solid #1f65de; }
+
+
+.mp-tbl th,
+.mp-tbl thead th,
+.mp-tbl thead tr th {
+  background: #1b3a8f !important;
+  background-color: #1b3a8f !important;
+}
