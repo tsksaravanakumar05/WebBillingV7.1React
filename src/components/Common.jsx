@@ -58,10 +58,19 @@ export const ItemByCode          = "/api/ItemMasterApp/SelectItemMasterbyCodeId"
 
   //sizemaster
 
-export const SizeSelect = "/api/SizeApp/SelectSize";
-export const SizeInsert = "/api/SizeApp/InsertSize";
-export const SizeDelete = "/api/SizeApp/DeleteSize";
+export const SizeSelect = "/api/SizeMasterApp/SelectSizeMaster";
+export const SizeInsert = "/api/SizeMasterApp/InsertSizeMaster";
+export const SizeDelete = "/api/SizeMasterApp/DeleteSizeMaster";
 
+//ColorMaster
+export const SelectColor = "/api/ColorMasterApp/SelectColorMaster";
+export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
+export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
+
+//ModelMaster
+export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
+export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
+export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 //  Single source of truth — every fetch in the app must go through
 //  api() / insertapi() / editPassword() which all call authHeaders().
