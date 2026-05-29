@@ -516,7 +516,7 @@ export default function CategoryMaster() {
       {
         Comid:       String(parseInt(sess.Comid)),
         MirrorTable: String(sess.MirrorTable),
-        IdComList:   String(sess.IdComList),
+        IdComList:   "",
         ApiType:     0,
       }
     );

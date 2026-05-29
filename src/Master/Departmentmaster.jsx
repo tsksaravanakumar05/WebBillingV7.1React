@@ -1,232 +1,189 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  DepartmentMaster.jsx
+//
+//  Imports:
+//   • CC.*  from Common.jsx   — API helpers, session, uid, applyUppercase, etc.
+//   • MSG.* from Messages.jsx — useConfirm, useToast, ToastList
+//
+//  Features mirrored from CashierMaster:
+//   • Permission guard via useEffect + isAuthorized state (View=0 → redirect)
+//   • EditMode per row (0 = view / 1 = edit)
+//   • Edit ✏️ button — shows only on saved rows; click → enableEdit()
+//   • dirtyIds ref — tracks rows actually typed in (avoids flipping saved rows to
+//     edit mode on a mere click)
+//   • selectRow() — exits edit mode on other rows if not dirty
+//   • Toggle component for Active column
+//   • No F12 / column settings (department table is simple: Name + Active only)
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
+
 import Topbar from "../components/Topbar";
+import * as CC  from "../components/Common";
+import * as MSG from "../components/Messages";
 
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
-
-const authHeaders = () => ({
-  Authorization:  `Bearer ${localStorage.getItem("token") || ""}`,
-  Userid:         localStorage.getItem("userid")     || "0",
-  Profile:        localStorage.getItem("Profile")    || "Admin",
-  LoginCheck:     localStorage.getItem("LoginCheck") || "1",
-});
-
-const api = async (path, body = null, extraHeaders = {}, queryParams = null) => {
-  try {
-    let fullUrl = mkUrl(path);
-    if (queryParams && typeof queryParams === "object") {
-      const qs = new URLSearchParams(
-        Object.entries(queryParams)
-          .filter(([, v]) => v !== undefined && v !== null)
-          .map(([k, v]) => [k, String(v)])
-      ).toString();
-      if (qs) fullUrl += "?" + qs;
-    }
-    const res = await fetch(fullUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...authHeaders(),
-        ...extraHeaders,
-      },
-      body: body !== null ? JSON.stringify(body) : null,
-    });
-    if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
-    }
-    if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
-    if (res.status === 500) {
-      const t = await res.text();
-      console.error(`500 on ${fullUrl}:`, t.slice(0, 500));
-      return { ok: false, message: "Server error 500 — see console" };
-    }
-    const text = await res.text();
-    if (!text.trim()) return { ok: false, message: "Empty response" };
-    try {
-      const j = JSON.parse(text);
-      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
-      if (j.Data1     !== undefined && j.data    === undefined) j.data    = j.Data1;
-      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
-      return j;
-    } catch { return { ok: false, message: text }; }
-  } catch (err) {
-    return { ok: false, _netErr: true, message: err.message };
-  }
-};
-
-const insertapi = async (path, body = null, extraHeaders = {}) => {
-  try {
-    const res = await fetch(mkUrl(path), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...authHeaders(),
-        ...extraHeaders,
-      },
-      body: body !== null ? JSON.stringify(body) : null,
-    });
-    const text = await res.text();
-    return JSON.parse(text);
-  } catch (err) {
-    return { ok: false, message: err.message };
-  }
-};
-
-const getStr   = (k) => localStorage.getItem(k) || "";
-const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-const uid      = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36));
-
-// ─── Uppercase helper: convert value to uppercase, restore cursor position ────
-function applyUppercase(e, onChange) {
-  const el    = e.target;
-  const start = el.selectionStart;
-  const end   = el.selectionEnd;
-  const upper = el.value.toUpperCase();
-  onChange(upper);
-  requestAnimationFrame(() => {
-    if (el && document.activeElement === el) {
-      el.setSelectionRange(start, end);
-    }
-  });
-}
-
-// ─── Shared style injection (once per page load) ──────────────────────────────
-if (typeof document !== "undefined" && !document.getElementById("dmActiveSelStyle")) {
-  const s = document.createElement("style");
-  s.id = "dmActiveSelStyle";
-  s.textContent = `
-    @keyframes dmPopIn {
-      from { transform: scale(0.88); opacity: 0; }
-      to   { transform: scale(1);    opacity: 1; }
-    }
-    .dm-active-sel {
-      text-align: center;
-      font-size: 16px;
-      padding: 2px 4px;
-      border: 1px solid #cbd5e1;
-      border-radius: 5px;
-      background: #f8fafc;
-      cursor: pointer;
-      width: 62px;
-    }
-    .dm-active-sel:focus { outline: 2px solid #3b82f6; }
-  `;
-  document.head.appendChild(s);
-}
-
-// ─── ConfirmModal ─────────────────────────────────────────────────────────────
-function ConfirmModal({ message, onYes, onNo }) {
-  const yesBtnRef = useRef(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => yesBtnRef.current?.focus(), 30);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    const handleKey = (e) => { if (e.key === "Escape") { e.preventDefault(); onNo(); } };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onNo]);
-
+// ─── Toggle component (Active column) ────────────────────────────────────────
+//  Identical to CashierMaster's Toggle — disabled in view mode (EditMode 0).
+function Toggle({ value, onChange, onKeyDown, inputRef, idx, editMode, onFocus }) {
   return (
-    <div style={modalStyles.overlay}>
-      <div style={modalStyles.modal} role="dialog" aria-modal="true">
-        <div style={modalStyles.icon}>?</div>
-        <p style={modalStyles.msg}>{message}</p>
-        <div style={modalStyles.btns}>
-          <button ref={yesBtnRef} style={{ ...modalStyles.btn, ...modalStyles.yes }} onClick={onYes}>✔ Yes</button>
-          <button style={{ ...modalStyles.btn, ...modalStyles.no }}  onClick={onNo}>✘ No</button>
-        </div>
-      </div>
-    </div>
+    <button
+      ref={inputRef}
+      onClick={() => editMode === 1 && onChange(!value)}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
+      title={value ? "Active" : "Inactive"}
+      style={{
+        width:32, height:18, borderRadius:9, border:"none",
+        cursor: editMode === 0 ? "default" : "pointer",
+        background: value ? "#16a34a" : "#cbd5e1",
+        position:"relative", transition:"background 0.18s ease",
+        outline:"none", display:"inline-flex", alignItems:"center",
+        flexShrink:0, padding:0,
+        boxShadow: value
+          ? "inset 0 0 0 1px #15803d"
+          : "inset 0 0 0 1px #b0bec5",
+        opacity:       editMode === 0 ? 0.5 : 1,
+        pointerEvents: editMode === 0 ? "none" : "auto",
+      }}
+    >
+      <span style={{
+        position:"absolute", top:3,
+        left: value ? 15 : 3,
+        width:12, height:12, borderRadius:"50%",
+        background:"#fff",
+        transition:"left 0.18s ease",
+        boxShadow:"0 1px 2px rgba(0,0,0,0.18)",
+        display:"block",
+      }} />
+    </button>
   );
 }
 
-const modalStyles = {
-  overlay: { position:"fixed", inset:0, background:"rgba(10,20,40,0.55)", backdropFilter:"blur(2px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 },
-  modal:   { background:"#fff", borderRadius:"10px", padding:"28px 32px 22px", minWidth:"280px", maxWidth:"360px", textAlign:"center", boxShadow:"0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)", border:"1px solid #e2e8f0", animation:"dmPopIn 0.15s ease" },
-  icon:    { width:"40px", height:"40px", borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", fontSize:"20px", fontWeight:"700", lineHeight:"40px", margin:"0 auto 14px" },
-  msg:     { fontSize:"14px", color:"#1e293b", fontWeight:"500", margin:"0 0 20px", lineHeight:"1.5" },
-  btns:    { display:"flex", gap:"10px", justifyContent:"center" },
-  btn:     { padding:"7px 26px", borderRadius:"6px", border:"none", fontSize:"13px", fontWeight:"600", cursor:"pointer", outline:"none" },
-  yes:     { background:"linear-gradient(135deg,#22c55e,#16a34a)", color:"#fff", boxShadow:"0 2px 6px rgba(34,197,94,0.35)" },
-  no:      { background:"#f1f5f9", color:"#475569", border:"1px solid #cbd5e1" },
-};
-
-// ─── useConfirm hook ──────────────────────────────────────────────────────────
-function useConfirm() {
-  const [conf, setConf] = useState(null);
-  const confirm = useCallback((message) => new Promise((resolve) => setConf({ message, resolve })), []);
-  const handleYes = useCallback(() => { conf?.resolve(true);  setConf(null); }, [conf]);
-  const handleNo  = useCallback(() => { conf?.resolve(false); setConf(null); }, [conf]);
-  const ConfirmUI = conf ? <ConfirmModal message={conf.message} onYes={handleYes} onNo={handleNo} /> : null;
-  return { confirm, ConfirmUI };
-}
+// ─── Column config ────────────────────────────────────────────────────────────
+//  Department has two visible columns: Name + Active
+const ALL_COLUMNS = [
+  { field: "DepartmentName", label: "Department Name", width: 300 },
+  { field: "Active",         label: "Active",          width: 90  },
+];
 
 // ─── DepartmentMaster ─────────────────────────────────────────────────────────
 export default function DepartmentMaster() {
   const navigate  = useNavigate();
-  const inputRefs = useRef([]);
-  const toastId   = useRef(0);
+  const inputRefs = useRef([]);      // inputRefs[rowIdx][colIdx]
+  const dirtyIds  = useRef(new Set()); // tracks saved rows where user actually typed
 
-  const { confirm, ConfirmUI } = useConfirm();
+  // ── MSG hooks ──────────────────────────────────────────────────────────────
+  const { confirm, ConfirmUI } = MSG.useConfirm();
+  const { toast,   toasts    } = MSG.useToast();
 
+  // ── Permission / authorization state (mirrors CashierMaster) ───────────────
+  const [perm,         setPerm        ] = useState({ View:0, Add:0, Edit:0, Delete:0 });
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  // ── Permission guard — same useEffect pattern as CashierMaster ─────────────
+  useEffect(() => {
+    const menuStr = localStorage.getItem("menulist");
+
+    if (!menuStr) {
+      alert("Session Close Please Login !!!.");
+      navigate("/Login/Index");
+      return;
+    }
+
+    const menulist = JSON.parse(menuStr);
+    const menudata = menulist.filter(obj => obj.PageName === "Department");
+
+    if (!menudata || menudata.length === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
+      return;
+    }
+
+    if (menudata[0].View === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
+      return;
+    }
+
+    setPerm({
+      View:   menudata[0].View,
+      Add:    menudata[0].Add,
+      Edit:   menudata[0].Edit,
+      Delete: menudata[0].Delete,
+    });
+    setIsAuthorized(true);
+  }, [navigate]);
+
+  // ── Session (same pattern as CashierMaster) ────────────────────────────────
   const [sess] = useState(() => {
     try {
-      const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
-      const Comid       = getStr("Comid")    || "1";
-      const MComid      = getStr("MComid")   || Comid;
-      const IdComList   = getStr("IdComList") || Comid;
-      const MirrorTable = localStorage.getItem("MirrorTableOnline") || "0";
+      const main0     = (CC.getLocal("Mainsetting") || [{}])[0] || {};
+      const Comid     = CC.getStr("Comid")    || "1";
+      const MComid    = CC.getStr("MComid")   || Comid;
+      const IdComList = "";
+      const isCC      = !!main0.CommonCompany;
       return {
-        Comid:       main0.CommonCompany ? MComid : Comid,
+        Comid:        isCC ? MComid : Comid,
+        MComid,
         IdComList,
-        MirrorTable,
-        menudata:    (getLocal("menulist") || []).filter(o => o.PageName === "Department"),
+        MirrorTable:  Number(localStorage.getItem("MirrorTableOnline") || "0"),
+        menudata:     (CC.getLocal("menulist") || []).filter(o => o.PageName === "Department"),
       };
     } catch {
-      return { Comid: "1", IdComList: "1", MirrorTable: "0", menudata: [] };
+      return { Comid:"1", MComid:"1", IdComList:"1", MirrorTable:0, menudata:[] };
     }
   });
 
-  const perm = sess.menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 };
-
-  const [grid,    setGrid]    = useState([]);
+  // ── Component state ────────────────────────────────────────────────────────
+  const [grid,    setGrid   ] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [toasts,  setToasts]  = useState([]);
-  const [selIdx,  setSelIdx]  = useState(null);
+  const [selIdx,  setSelIdx ] = useState(null);
 
-  const toast = useCallback((msg, isErr = false) => {
-    const id = ++toastId.current;
-    setToasts(p => [...p, { id, msg, isErr }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
+  // ── focusRow ───────────────────────────────────────────────────────────────
+  const focusRow = useCallback((idx, colIdx = 0) => {
+    setTimeout(() => inputRefs.current[idx]?.[colIdx]?.focus(), 50);
   }, []);
 
-  const focusRow = useCallback((idx) => {
-    setTimeout(() => inputRefs.current[idx]?.focus(), 50);
+  // ── selectRow — exits edit mode on non-dirty saved rows (mirrors Cashier) ──
+  const selectRow = useCallback((newIdx) => {
+    setGrid(prev => prev.map((r, i) => {
+      if (i !== newIdx && r.EditMode === 1 && r.Id && !dirtyIds.current.has(r.Id)) {
+        return { ...r, EditMode:0 };
+      }
+      return r;
+    }));
+    setSelIdx(newIdx);
   }, []);
 
+  // ── makeNewRow ─────────────────────────────────────────────────────────────
   const makeNewRow = (prefill = "") => ({
-    Id: null, DepartmentName: prefill, Active: true, EditMode: 1, _uid: uid(),
+    Id:             null,
+    DepartmentName: prefill,
+    Active:         true,
+    EditMode:       1,
+    _uid:           CC.uid(),
   });
+
+  // ── rowValidator — used by handleEnterNext ─────────────────────────────────
+  const rowValidator = useCallback((row) =>
+    String(row.DepartmentName || "").trim().length > 0
+  , []);
 
   // ── loadData ───────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     const prefill = sessionStorage.getItem("masterPrefill") || "";
     setLoading(true);
-    const res = await api(
-      "/Department/SelectDepartment", null, {},
-      { Comid: Number(sess.Comid) },
+    const res = await CC.api(
+      CC.DepartmentSelect,
+      null,
+      {},
+      { Comid: sess.Comid }
     );
     setLoading(false);
 
-    if (res._http404) { toast("❌ 404 — /Department/SelectDepartment not found", true); }
+    if (res._http404) { toast(`❌ 404 — ${CC.DepartmentSelect} not found`, true); }
     if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
 
     const rawList = Array.isArray(res.data)  ? res.data
@@ -236,8 +193,9 @@ export default function DepartmentMaster() {
     const existing = rawList.map(r => ({
       ...r,
       Active:   r.Active === true || r.Active === 1,
+      Id:       Number(r.Id ?? 0),
       EditMode: 0,
-      _uid:     uid(),
+      _uid:     CC.uid(),
     }));
 
     const blank = makeNewRow(prefill);
@@ -245,10 +203,11 @@ export default function DepartmentMaster() {
     setSelIdx(existing.length);
     focusRow(existing.length);
     sessionStorage.removeItem("masterPrefill");
-  }, [sess.Comid, focusRow, toast]); // eslint-disable-line
+  }, [sess.Comid, toast, focusRow]); // eslint-disable-line
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ── addRow ─────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
     setGrid(prev => {
       const next = [...prev, makeNewRow()];
@@ -259,13 +218,32 @@ export default function DepartmentMaster() {
     });
   }, [focusRow]); // eslint-disable-line
 
+  // ── updateCell — marks row as dirty if it has an Id ───────────────────────
   const updateCell = useCallback((idx, field, value) => {
-    setGrid(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value, EditMode: 1 } : r));
+    setGrid(prev =>
+      prev.map((r, i) => {
+        if (i === idx) {
+          if (r.Id) dirtyIds.current.add(r.Id); // user actually typed → mark dirty
+          return { ...r, [field]:value, EditMode:1 };
+        }
+        return r;
+      })
+    );
   }, []);
+
+  // ── enableEdit — pencil button click (mirrors CashierMaster) ──────────────
+  const enableEdit = useCallback((idx) => {
+    setGrid(prev =>
+      prev.map((r, i) => i === idx ? { ...r, EditMode:1 } : r)
+    );
+    selectRow(idx);
+    focusRow(idx, 0); // col 0 = DepartmentName
+  }, [focusRow, selectRow]);
 
   // ── deleteRow ──────────────────────────────────────────────────────────────
   const deleteRow = useCallback(async (idx) => {
     if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; }
+
     const row     = grid[idx];
     const isSaved = row.Id != null && row.Id !== 0;
 
@@ -274,35 +252,35 @@ export default function DepartmentMaster() {
       if (!ok) return;
 
       setLoading(true);
-      const url =
-        `/Department/DeleteDepartment?Id=${Number(row.Id)}` +
-        `&Comid=${Number(sess.Comid)}` +
-        `&MirrorTable=${Number(sess.MirrorTable)}`;
-      console.log("DELETE URL =", url);
-      const res = await api(url, null, { "IdComList": String(sess.IdComList) });
-      console.log("DELETE RESPONSE =", res);
+      const res = await CC.api(
+        CC.DepartmentDelete,
+        null,
+        {},
+        { Id:Number(row.Id), Comid:Number(sess.Comid), MirrorTable:Number(sess.MirrorTable) }
+      );
       setLoading(false);
 
-      if (!res || res._netErr) { toast(`❌ ${res?.message || "Network Error"}`, true); return; }
+      if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
-      if (res?.IsSuccess === true || res?.ok === true) {
-        toast("✅ " + (res.Message || res.message || "Deleted"));
+      if (res.ok) {
+        toast("✅ " + (res.message || "Deleted"));
         setGrid(prev => {
           const next = prev.filter((_, i) => i !== idx);
           const sel  = Math.max(0, next.length - 1);
           setSelIdx(sel);
-          setTimeout(() => focusRow(sel), 50);
+          focusRow(sel);
           return next;
         });
       } else {
-        toast(`❌ ${res?.Message || res?.message || "Delete failed"}`, true);
+        toast(`❌ ${res.message || "Delete failed"}`, true);
       }
     } else {
+      // Unsaved row — remove from grid directly
       setGrid(prev => {
         const next = prev.filter((_, i) => i !== idx);
         const sel  = Math.max(0, next.length - 1);
         setSelIdx(sel);
-        setTimeout(() => focusRow(sel), 50);
+        focusRow(sel);
         return next;
       });
     }
@@ -311,25 +289,31 @@ export default function DepartmentMaster() {
   // ── gridemptycheck ─────────────────────────────────────────────────────────
   const gridemptycheck = useCallback((g) => {
     let cleaned = [...g];
+
+    // Remove trailing blank row
     if (cleaned.length > 1 && !String(cleaned[cleaned.length - 1].DepartmentName || "").trim())
       cleaned = cleaned.slice(0, -1);
+
     for (let i = 0; i < cleaned.length; i++) {
       if (cleaned[i].EditMode === 1 && !String(cleaned[i].DepartmentName || "").trim()) {
         toast("❌ Enter All Department Name in the Grid !!!", true);
-        setSelIdx(i); focusRow(i);
-        return { ok: false, cleaned };
+        setSelIdx(i);
+        focusRow(i);
+        return { ok:false, cleaned };
       }
     }
-    return { ok: true, cleaned };
+    return { ok:true, cleaned };
   }, [focusRow, toast]);
 
+  // ── hasDuplicate ───────────────────────────────────────────────────────────
   const hasDuplicate = useCallback((g) => {
-    const names = g.filter(r => String(r.DepartmentName || "").trim())
-                   .map(r => String(r.DepartmentName).trim().toLowerCase());
+    const names = g
+      .filter(r => String(r.DepartmentName || "").trim())
+      .map(r => String(r.DepartmentName).trim().toLowerCase());
     return new Set(names).size !== names.length;
   }, []);
 
-  // ── handleSave ─────────────────────────────────────────────────────────────
+  // ── handleSave (mirrors CashierMaster permission logic exactly) ────────────
   const handleSave = useCallback(async () => {
     const { ok, cleaned } = gridemptycheck(grid);
     if (!ok) return;
@@ -339,10 +323,13 @@ export default function DepartmentMaster() {
     let flag  = 1;
 
     if (perm.Add === 0 && perm.Edit === 0) {
-      toast("❌ Page Add & Update Permission Denied !!!", true); flag = 0;
+      toast("❌ Page Add & Update Permission Denied !!!", true);
+      flag = 0;
+
     } else if (perm.Add === 1 && perm.Edit === 1) {
       dirty = cleaned.filter(r => r.EditMode === 1);
       if (!dirty.length) { toast("⚠️ No Data Modified, Cannot Update !!!", true); flag = 0; }
+
     } else if (perm.Add === 1 && perm.Edit === 0) {
       dirty = cleaned.filter(r => r.EditMode === 1 && r.Id == null);
       if (!dirty.length) {
@@ -350,6 +337,7 @@ export default function DepartmentMaster() {
         toast(any.length ? "❌ Page Edit Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
         flag = 0;
       }
+
     } else if (perm.Edit === 1 && perm.Add === 0) {
       dirty = cleaned.filter(r => r.EditMode === 1 && r.Id != null);
       if (!dirty.length) {
@@ -362,11 +350,12 @@ export default function DepartmentMaster() {
     if (flag === 0) { addRow(); return; }
     if (hasDuplicate(cleaned)) { toast("❌ Duplicate Department Name found !!!", true); return; }
 
+    // Smart confirm message
     const hasNew      = dirty.some(r => r.Id == null || r.Id === 0);
     const hasExisting = dirty.some(r => r.Id != null && r.Id !== 0);
     let confirmMsg    = "Do you want to save the Department details?";
-    if (hasExisting && !hasNew)  confirmMsg = "Do you want to update the Department details?";
-    if (hasExisting && hasNew)   confirmMsg = "Do you want to save & update the Department details?";
+    if (hasExisting && !hasNew) confirmMsg = "Do you want to update the Department details?";
+    if (hasExisting &&  hasNew) confirmMsg = "Do you want to save & update the Department details?";
 
     const proceed = await confirm(confirmMsg);
     if (!proceed) { addRow(); return; }
@@ -374,17 +363,17 @@ export default function DepartmentMaster() {
     setLoading(true);
 
     const payload = dirty.map(r => ({
-      Id:             (r.Id && r.Id !== 0) ? r.Id : null,
+      Id:             Number(r.Id || 0),
       DepartmentName: String(r.DepartmentName || "").trim(),
       Active:         r.Active === true ? 1 : 0,
       EditMode:       r.EditMode,
     }));
 
-    const res = await insertapi(
-      "/Department/InsertDepartment",
+    const res = await CC.insertapi(
+      CC.DepartmentInsert,
       payload,
       {
-        Comid:       String(sess.Comid),
+        Comid:       String(parseInt(sess.Comid)),
         MirrorTable: String(sess.MirrorTable),
         IdComList:   String(sess.IdComList),
         ApiType:     "0",
@@ -392,13 +381,16 @@ export default function DepartmentMaster() {
     );
 
     setLoading(false);
-    if (!res || res._netErr) { toast(`❌ ${res?.message || "Network error"}`, true); return; }
+
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.IsSuccess) {
+      dirtyIds.current.clear();
       toast("✅ " + (res.message || "Saved successfully!"));
+
       const retField = sessionStorage.getItem("masterReturnField");
       if (retField) {
-        sessionStorage.setItem("masterReturnValue", String(res.Id ?? res.Data2 ?? ""));
+        sessionStorage.setItem("masterReturnValue", String(res.Data2 ?? res.Id ?? ""));
         sessionStorage.setItem("masterReturnName",  dirty[0]?.DepartmentName || "");
         sessionStorage.removeItem("masterReturnField");
         setTimeout(() => navigate(-1), 800);
@@ -410,12 +402,14 @@ export default function DepartmentMaster() {
     }
   }, [grid, sess, perm, navigate, loadData, gridemptycheck, hasDuplicate, addRow, toast, confirm]);
 
+  // ── handleEsc ──────────────────────────────────────────────────────────────
   const handleEsc = useCallback(() => {
     sessionStorage.removeItem("masterReturnField");
     sessionStorage.removeItem("masterPrefill");
     navigate(-1);
   }, [navigate]);
 
+  // ── Global keyboard shortcuts: F1 = Save | Esc = Back ────────────────────
   useEffect(() => {
     const onKey = e => {
       if (e.keyCode === 112) { e.preventDefault(); handleSave(); }
@@ -425,57 +419,67 @@ export default function DepartmentMaster() {
     return () => window.removeEventListener("keydown", onKey);
   }, [handleSave, handleEsc]);
 
-  const onCellKeyDown = useCallback((e, idx, col) => {
+  // ── Row-level keyboard navigation ──────────────────────────────────────────
+  const onCellKeyDown = useCallback((e, idx) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (col === "name") {
-        if (!String(grid[idx]?.DepartmentName || "").trim()) {
-          toast("❌ Enter Department Name !!!", true); return;
-        }
-        if (hasDuplicate(grid)) { toast("❌ Duplicate Department Name !!!", true); return; }
+      if (!String(grid[idx]?.DepartmentName || "").trim()) {
+        toast("❌ Enter Department Name !!!", true); return;
       }
+      if (hasDuplicate(grid)) { toast("❌ Duplicate Department Name !!!", true); return; }
       if (idx === grid.length - 1) addRow();
       else { setSelIdx(idx + 1); focusRow(idx + 1); }
     }
-    if (e.key === "Delete" && e.ctrlKey) { e.preventDefault(); deleteRow(idx); }
+    if (e.key === "Delete" && e.ctrlKey) {
+      e.preventDefault(); deleteRow(idx);
+    }
     if (e.key === "Delete" && !e.ctrlKey && !String(grid[idx]?.DepartmentName || "").trim()) {
       e.preventDefault(); deleteRow(idx);
     }
   }, [grid, hasDuplicate, addRow, focusRow, deleteRow, toast]);
 
+  // ── Block render until authorized (mirrors CashierMaster) ─────────────────
+  if (!isAuthorized) return null;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
+
+      {/* Confirm Dialog */}
       {ConfirmUI}
-      <Topbar/>
-      {/* <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">D</div>
-          <div>
-            <div className="mp-title">Department Master</div>
-            <div className="mp-sub">Co: {sess.Comid} — Manage department records</div>
-          </div>
-        </div>
-        <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div> */}
+
+      <Topbar />
 
       <div className="mp-body">
+
+        {/* ── Toolbar ── */}
         <div className="mp-toolbar">
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-
-
           <div className="mp-toolbar-title">Department Master</div>
         </div>
 
+        {/* ── Grid ── */}
         <div className="mp-grid-wrap">
           <table className="mp-tbl">
             <thead>
               <tr>
-                <th style={{ width: 50  }}>S.No</th>
-                <th style={{ width: 250 }}>Department Name</th>
-                <th style={{ width: 72, textAlign: "center" }}>Active</th>
-                <th style={{ width: 50  }}></th>
+                <th style={{ width:50 }}>S.No</th>
+                {ALL_COLUMNS.map(c => (
+                  <th
+                    key={c.field}
+                    style={{
+                      width: c.width,
+                      minWidth: c.width,
+                      textAlign: c.field === "Active" ? "center" : undefined,
+                    }}
+                  >
+                    {c.label}
+                  </th>
+                ))}
+                {/* Edit + Delete column */}
+                <th style={{ width:60 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -487,47 +491,113 @@ export default function DepartmentMaster() {
                     !row.Active        ? "inact" : "",
                     row.EditMode === 1 ? "mod"   : "",
                   ].filter(Boolean).join(" ")}
-                  onClick={() => { setSelIdx(idx); focusRow(idx); }}
+                  onClick={() => selectRow(idx)}
                 >
                   <td className="sno">{idx + 1}</td>
-                  <td>
-                    <input
-                      ref={el => (inputRefs.current[idx] = el)}
-                      className="mp-cell-input"
-                      value={row.DepartmentName || ""}
-                      maxLength={50}
-                      onChange={e => applyUppercase(e, (val) => updateCell(idx, "DepartmentName", val))}
-                      onKeyDown={e => onCellKeyDown(e, idx, "name")}
-                      onFocus={() => setSelIdx(idx)}
-                    />
-                  </td>
 
-                  <td style={{ textAlign: "center" }}>
-                    <select
-                      className="dm-active-sel"
-                      value={row.Active ? "1" : "0"}
-                      onChange={e => updateCell(idx, "Active", e.target.value === "1")}
-                      onKeyDown={e => onCellKeyDown(e, idx, "active")}
-                      onFocus={() => setSelIdx(idx)}
-                      title={row.Active ? "Active" : "Inactive"}
+                  {ALL_COLUMNS.map((col, colIdx) => (
+                    <td
+                      key={col.field}
+                      style={{ textAlign: col.field === "Active" ? "center" : undefined }}
                     >
-                      <option value="1">✓</option>
-                      <option value="0">✗</option>
-                    </select>
-                  </td>
+                      {/* ── Active Toggle ── */}
+                      {col.field === "Active" && (
+                        <Toggle
+                          value={!!row.Active}
+                          idx={idx}
+                          editMode={row.EditMode}
+                          inputRef={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][colIdx] = el;
+                          }}
+                          onChange={val => row.EditMode === 1 && updateCell(idx, col.field, val)}
+                          onFocus={() => selectRow(idx)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              CC.handleEnterNext(
+                                e, inputRefs, idx, colIdx,
+                                ALL_COLUMNS.length, grid.length,
+                                addRow, grid, rowValidator
+                              );
+                            }
+                          }}
+                        />
+                      )}
 
-                  <td>
-                    <button className="mp-del-btn" onClick={e => { e.stopPropagation(); deleteRow(idx); }}>🗑</button>
+                      {/* ── DepartmentName Input ── */}
+                      {col.field !== "Active" && (
+                        <input
+                          ref={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][colIdx] = el;
+                          }}
+                          className="mp-cell-input"
+                          value={row[col.field] || ""}
+                          maxLength={50}
+                          readOnly={row.EditMode === 0}
+                          onChange={e =>
+                            row.EditMode === 1 &&
+                            CC.applyUppercase(e, val => updateCell(idx, col.field, val))
+                          }
+                          onKeyDown={e =>
+                            row.EditMode === 1 && onCellKeyDown(e, idx)
+                          }
+                          onFocus={() => selectRow(idx)}
+                          style={{
+                            background:   row.EditMode === 0 ? "transparent" : "#fff",
+                            border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
+                            cursor:       row.EditMode === 0 ? "default" : "text",
+                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                            boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
+                            borderRadius: row.EditMode === 1 ? "4px" : "0",
+                            padding:      row.EditMode === 0 ? "0" : undefined,
+                          }}
+                        />
+                      )}
+                    </td>
+                  ))}
+
+                  {/* ── Edit + Delete buttons (mirrors CashierMaster) ── */}
+                  <td style={{ whiteSpace:"nowrap" }}>
+                    {/* Edit button: show only when row is saved and in view mode */}
+                    {row.Id && row.EditMode === 0 && (
+                      <button
+                        className="mp-edit-btn"
+                        title="Edit row"
+                        onClick={e => { e.stopPropagation(); enableEdit(idx); }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    {/* Editing indicator: saved row currently being edited */}
+                    {row.Id && row.EditMode === 1 && (
+                      <button
+                        className="mp-edit-btn active"
+                        title="Editing…"
+                        style={{ color:"#16a34a", cursor:"default" }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    <button
+                      className="mp-del-btn"
+                      onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+                    >
+                      🗑
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+
           {grid.length === 0 && !loading && (
             <div className="mp-empty">No records. Press ➕ to add a department.</div>
           )}
         </div>
 
+        {/* ── Keyboard hint bar ── */}
         <div className="mp-hint">
           <kbd>Enter</kbd> next row &nbsp;|&nbsp;
           <kbd>Ctrl+Delete</kbd> delete row &nbsp;|&nbsp;
@@ -536,6 +606,7 @@ export default function DepartmentMaster() {
         </div>
       </div>
 
+      {/* ── Loading overlay ── */}
       {loading && (
         <div className="mp-loader-ov">
           <div className="mp-ldr-box">
@@ -545,11 +616,8 @@ export default function DepartmentMaster() {
         </div>
       )}
 
-      <div className="toasts">
-        {toasts.map(t => (
-          <div key={t.id} className={`toast${t.isErr ? " err" : ""}`}>{t.msg}</div>
-        ))}
-      </div>
+      {/* ── Toast notifications ── */}
+      <MSG.ToastList toasts={toasts} />
     </div>
   );
 }
