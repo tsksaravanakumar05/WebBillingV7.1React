@@ -1,49 +1,204 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  SizeMaster.jsx
-//  Uses shared helpers from Common.jsx via wildcard import (CC.*)
-//  Logic is 1-to-1 with the working standalone version —
-//  only the local helper declarations have been removed and replaced with CC.*
+//
+//  Imports:
+//   • CC.*  from Common.jsx   — API helpers, session, uid, applyUppercase, etc.
+//   • MSG.* from Messages.jsx — useConfirm, useToast, ToastList
+//
+//  Features mirrored from DepartmentMaster:
+//   • Permission guard via useEffect + isAuthorized state (View=0 → redirect)
+//   • EditMode per row (0 = view / 1 = edit)
+//   • Edit ✏️ button — shows only on saved rows; click → enableEdit()
+//   • dirtyIds ref — tracks rows actually typed in (avoids flipping saved rows
+//     to edit mode on a mere click)
+//   • selectRow() — exits edit mode on other rows if not dirty
+//   • Toggle component for Active column
+//   • CC.SizeSelect / CC.SizeInsert / CC.SizeDelete endpoints from Common.jsx
+//   • Full View / Add / Edit / Delete permission-denied logic from DeptMaster
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
+
 import Topbar from "../components/Topbar";
+import * as CC  from "../components/Common";
+import * as MSG from "../components/Messages";
 
-// ✅ Single wildcard import — all current & future Common exports
-import * as CC from "../components/Common";
+// ─── Toggle component (Active column) ────────────────────────────────────────
+//  Disabled in view mode (EditMode 0) — identical to DepartmentMaster's Toggle.
+function Toggle({ value, onChange, onKeyDown, inputRef, editMode, onFocus }) {
+  return (
+    <button
+      ref={inputRef}
+      onClick={() => editMode === 1 && onChange(!value)}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
+      title={value ? "Active" : "Inactive"}
+      style={{
+        width: 32, height: 18, borderRadius: 9, border: "none",
+        cursor:     editMode === 0 ? "default"  : "pointer",
+        background: value          ? "#16a34a"  : "#cbd5e1",
+        position: "relative", transition: "background 0.18s ease",
+        outline: "none", display: "inline-flex", alignItems: "center",
+        flexShrink: 0, padding: 0,
+        boxShadow:     value ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+        opacity:       editMode === 0 ? 0.5  : 1,
+        pointerEvents: editMode === 0 ? "none" : "auto",
+      }}
+    >
+      <span style={{
+        position: "absolute", top: 3,
+        left: value ? 15 : 3,
+        width: 12, height: 12, borderRadius: "50%",
+        background: "#fff",
+        transition: "left 0.18s ease",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+        display: "block",
+      }} />
+    </button>
+  );
+}
 
-// ─── SizeMaster ──────────────────────────────────────────────────────────────
+// ─── Column config ────────────────────────────────────────────────────────────
+const ALL_COLUMNS = [
+  { field: "SizeName", label: "Size Name", width: 300 },
+  { field: "Active",   label: "Active",    width: 90  },
+];
+
+// ─── SizeMaster ───────────────────────────────────────────────────────────────
 export default function SizeMaster() {
   const navigate  = useNavigate();
-  const inputRefs = useRef([]);
+  const inputRefs = useRef([]);         // inputRefs[rowIdx][colIdx]
+  const dirtyIds  = useRef(new Set());  // tracks saved rows where user actually typed
 
-  // ── Shared hooks from Common ──────────────────────────────────────────────
-  const { confirm, ConfirmUI } = CC.useConfirm();
-  const { toast,   toasts    } = CC.useToast();
+  // ── MSG hooks ──────────────────────────────────────────────────────────────
+  const { confirm, ConfirmUI } = MSG.useConfirm();
+  const { toast,   toasts    } = MSG.useToast();
 
-  // ── Session / permissions ─────────────────────────────────────────────────
-  // CC.buildSession reads Comid, MComid, IdComList, MirrorTable, menudata
-  const [sess] = useState(() => CC.buildSession("Size"));
+  // ── Permission / authorization state (mirrors DepartmentMaster) ────────────
+  const [perm,         setPerm        ] = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
-  const perm = sess.menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 };
+  // ── Permission guard — same useEffect pattern as DepartmentMaster ──────────
+  useEffect(() => {
+    const menuStr = localStorage.getItem("menulist");
 
-  // ── Component state ───────────────────────────────────────────────────────
-  const [grid,    setGrid]    = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [selIdx,  setSelIdx]  = useState(null);
+    if (!menuStr) {
+      alert("Session Close Please Login !!!.");
+      navigate("/Login/Index");
+      return;
+    }
 
-  // ── focusRow ──────────────────────────────────────────────────────────────
-  const focusRow = useCallback((idx) => {
-    setTimeout(() => inputRefs.current[idx]?.focus(), 50);
-  }, []);
+    const menulist = JSON.parse(menuStr);
+    const menudata = menulist.filter(obj => obj.PageName === "Item Master");
 
-  // ── makeNewRow ────────────────────────────────────────────────────────────
-  const makeNewRow = (prefill = "") => ({
-    Id: null, SizeName: prefill, Active: true, EditMode: 1, _uid: CC.uid(),
+    if (!menudata || menudata.length === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
+      return;
+    }
+
+    if (menudata[0].View === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
+      return;
+    }
+
+    setPerm({
+      View:   menudata[0].View,
+      Add:    menudata[0].Add,
+      Edit:   menudata[0].Edit,
+      Delete: menudata[0].Delete,
+    });
+    setIsAuthorized(true);
+  }, [navigate]);
+
+  // ── Session (same pattern as DepartmentMaster) ─────────────────────────────
+  // const [sess] = useState(() => {
+  //   try {
+  //     const main0     = (CC.getLocal("Mainsetting") || [{}])[0] || {};
+  //     const Comid     = CC.getStr("Comid")  || "1";
+  //     const MComid    = CC.getStr("MComid") || Comid;
+  //     const IdComList = "";
+  //     const isCC      = !!main0.CommonCompany;
+  //     return {
+  //       Comid:       isCC ? MComid : Comid,
+  //       MComid,
+  //       IdComList,
+  //       MirrorTable: Number(localStorage.getItem("MirrorTableOnline") || "0"),
+  //       menudata:    (CC.getLocal("menulist") || []).filter(o => o.PageName === "size Master"),
+  //     };
+  //   } catch {
+  //     return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: 0, menudata: [] };
+  //   }
+  // });
+
+  const [sess] = useState(() => {
+    try {
+      const main0     = (CC.getLocal("Mainsetting") || [{}])[0] || {};
+      const Comid     = CC.getStr("Comid") || "1";
+      const MComid    = CC.getStr("MComid") || Comid;
+      const IdComList = "";
+      const isCC      = !!main0.CommonCompany;
+  
+      return {
+        Comid: isCC ? MComid : Comid,
+        MComid,
+        IdComList,
+        MirrorTable: Number(localStorage.getItem("MirrorTableOnline") || "0"),
+  
+        menudata: (CC.getLocal("menulist") || []).filter(
+          o => o.PageName === "Size Master"
+        ),
+      };
+    } catch {
+      return {
+        Comid: "1",
+        MComid: "1",
+        IdComList: "1",
+        MirrorTable: 0,
+        menudata: [],
+      };
+    }
   });
 
-  // ── loadData ──────────────────────────────────────────────────────────────
+  // ── Component state ────────────────────────────────────────────────────────
+  const [grid,    setGrid   ] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selIdx,  setSelIdx ] = useState(null);
+
+  // ── focusRow ───────────────────────────────────────────────────────────────
+  const focusRow = useCallback((idx, colIdx = 0) => {
+    setTimeout(() => inputRefs.current[idx]?.[colIdx]?.focus(), 50);
+  }, []);
+
+  // ── selectRow — exits edit mode on non-dirty saved rows (mirrors DeptMaster) 
+  const selectRow = useCallback((newIdx) => {
+    setGrid(prev => prev.map((r, i) => {
+      if (i !== newIdx && r.EditMode === 1 && r.Id && !dirtyIds.current.has(r.Id)) {
+        return { ...r, EditMode: 0 };
+      }
+      return r;
+    }));
+    setSelIdx(newIdx);
+  }, []);
+
+  // ── makeNewRow ─────────────────────────────────────────────────────────────
+  const makeNewRow = (prefill = "") => ({
+    Id:       null,
+    SizeName: prefill,
+    Active:   true,
+    EditMode: 1,
+    _uid:     CC.uid(),
+  });
+
+  // ── rowValidator — used by handleEnterNext ─────────────────────────────────
+  const rowValidator = useCallback((row) =>
+    String(row.SizeName || "").trim().length > 0
+  , []);
+
+  // ── loadData ───────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     const prefill = sessionStorage.getItem("masterPrefill") || "";
     setLoading(true);
@@ -54,7 +209,6 @@ export default function SizeMaster() {
       {},
       { Comid: sess.Comid }
     );
-
     setLoading(false);
 
     if (res._http404) { toast(`❌ 404 — ${CC.SizeSelect} not found`, true); }
@@ -67,6 +221,7 @@ export default function SizeMaster() {
     const existing = rawList.map(r => ({
       ...r,
       Active:   r.Active === true || r.Active === 1,
+      Id:       Number(r.Id ?? 0),
       EditMode: 0,
       _uid:     CC.uid(),
     }));
@@ -76,11 +231,11 @@ export default function SizeMaster() {
     setSelIdx(existing.length);
     focusRow(existing.length);
     sessionStorage.removeItem("masterPrefill");
-  }, [sess.Comid, focusRow, toast]); // eslint-disable-line
+  }, [sess.Comid, toast, focusRow]); // eslint-disable-line
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ── addRow ────────────────────────────────────────────────────────────────
+  // ── addRow ─────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
     setGrid(prev => {
       const next = [...prev, makeNewRow()];
@@ -91,14 +246,29 @@ export default function SizeMaster() {
     });
   }, [focusRow]); // eslint-disable-line
 
-  // ── updateCell ────────────────────────────────────────────────────────────
+  // ── updateCell — marks row as dirty if it has an Id ───────────────────────
   const updateCell = useCallback((idx, field, value) => {
     setGrid(prev =>
-      prev.map((r, i) => i === idx ? { ...r, [field]: value, EditMode: 1 } : r)
+      prev.map((r, i) => {
+        if (i === idx) {
+          if (r.Id) dirtyIds.current.add(r.Id); // user actually typed → mark dirty
+          return { ...r, [field]: value, EditMode: 1 };
+        }
+        return r;
+      })
     );
   }, []);
 
-  // ── deleteRow ─────────────────────────────────────────────────────────────
+  // ── enableEdit — pencil button click (mirrors DepartmentMaster) ────────────
+  const enableEdit = useCallback((idx) => {
+    setGrid(prev =>
+      prev.map((r, i) => i === idx ? { ...r, EditMode: 1 } : r)
+    );
+    selectRow(idx);
+    focusRow(idx, 0); // col 0 = SizeName
+  }, [focusRow, selectRow]);
+
+  // ── deleteRow ──────────────────────────────────────────────────────────────
   const deleteRow = useCallback(async (idx) => {
     if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; }
 
@@ -106,22 +276,20 @@ export default function SizeMaster() {
     const isSaved = row.Id != null && row.Id !== 0;
 
     if (isSaved) {
-      const ok = await confirm(`Wish to Delete the Record "${row.SizeName}"?`);
+      const ok = await confirm(`Do you want to delete "${row.SizeName}"?`);
       if (!ok) return;
 
       setLoading(true);
-
       const res = await CC.api(
         CC.SizeDelete,
         null,
-        { "IdComList": String(sess.IdComList) },
+        {},
         {
           Id:          Number(row.Id),
           Comid:       Number(sess.Comid),
           MirrorTable: Number(sess.MirrorTable),
         }
       );
-
       setLoading(false);
 
       if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
@@ -139,7 +307,7 @@ export default function SizeMaster() {
         toast(`❌ ${res.message || "Delete failed"}`, true);
       }
     } else {
-      // Unsaved row — just remove from grid
+      // Unsaved row — remove from grid directly
       setGrid(prev => {
         const next = prev.filter((_, i) => i !== idx);
         const sel  = Math.max(0, next.length - 1);
@@ -150,11 +318,11 @@ export default function SizeMaster() {
     }
   }, [grid, sess, perm, focusRow, toast, confirm]);
 
-  // ── gridemptycheck ────────────────────────────────────────────────────────
+  // ── gridemptycheck ─────────────────────────────────────────────────────────
   const gridemptycheck = useCallback((g) => {
     let cleaned = [...g];
 
-    // Remove trailing empty blank row
+    // Remove trailing blank row
     if (cleaned.length > 1 && !String(cleaned[cleaned.length - 1].SizeName || "").trim())
       cleaned = cleaned.slice(0, -1);
 
@@ -169,7 +337,7 @@ export default function SizeMaster() {
     return { ok: true, cleaned };
   }, [focusRow, toast]);
 
-  // ── hasDuplicate ──────────────────────────────────────────────────────────
+  // ── hasDuplicate ───────────────────────────────────────────────────────────
   const hasDuplicate = useCallback((g) => {
     const names = g
       .filter(r => String(r.SizeName || "").trim())
@@ -177,7 +345,7 @@ export default function SizeMaster() {
     return new Set(names).size !== names.length;
   }, []);
 
-  // ── handleSave ────────────────────────────────────────────────────────────
+  // ── handleSave — full permission logic mirrors DepartmentMaster exactly ─────
   const handleSave = useCallback(async () => {
     const { ok, cleaned } = gridemptycheck(grid);
     if (!ok) return;
@@ -186,7 +354,6 @@ export default function SizeMaster() {
     let dirty = [];
     let flag  = 1;
 
-    // ── Permission checks ─────────────────────────────────────────────────
     if (perm.Add === 0 && perm.Edit === 0) {
       toast("❌ Page Add & Update Permission Denied !!!", true);
       flag = 0;
@@ -215,32 +382,33 @@ export default function SizeMaster() {
     if (flag === 0) { addRow(); return; }
     if (hasDuplicate(cleaned)) { toast("❌ Duplicate Size Name found !!!", true); return; }
 
-    // ── Confirm message (smart: save / update / save & update) ───────────
+    // Smart confirm message
     const hasNew      = dirty.some(r => r.Id == null || r.Id === 0);
     const hasExisting = dirty.some(r => r.Id != null && r.Id !== 0);
-    let confirmMsg    = "Do you Want to Save the Size Details?";
-    if (hasExisting && !hasNew) confirmMsg = "Do you Want to Update the Size Details?";
-    if (hasExisting &&  hasNew) confirmMsg = "Do you Want to Save & Update the Size Details?";
+    let confirmMsg    = "Do you want to save the Size details?";
+    if (hasExisting && !hasNew) confirmMsg = "Do you want to update the Size details?";
+    if (hasExisting &&  hasNew) confirmMsg = "Do you want to save & update the Size details?";
 
     const proceed = await confirm(confirmMsg);
     if (!proceed) { addRow(); return; }
 
     setLoading(true);
 
-    // ── Build API payload ─────────────────────────────────────────────────
     const payload = dirty.map(r => ({
-      Id:       (r.Id && r.Id !== 0) ? r.Id : null,
+      Id:       Number(r.Id || 0),
       SizeName: String(r.SizeName || "").trim(),
       Active:   r.Active === true ? 1 : 0,
+      EditMode: r.EditMode,
     }));
 
     const res = await CC.insertapi(
       CC.SizeInsert,
       payload,
       {
-        "Comid":       String(sess.Comid),
-        "MirrorTable": String(sess.MirrorTable),
-        "IdComList":   String(sess.IdComList),
+        Comid:       String(parseInt(sess.Comid)),
+        MirrorTable: String(sess.MirrorTable),
+        IdComList:   String(sess.IdComList),
+        ApiType:     "0",
       }
     );
 
@@ -248,7 +416,8 @@ export default function SizeMaster() {
 
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
-    if (res.ok || res.IsSuccess) {
+    if (res.IsSuccess) {
+      dirtyIds.current.clear();
       toast("✅ " + (res.message || "Saved successfully!"));
 
       const retField = sessionStorage.getItem("masterReturnField");
@@ -265,16 +434,14 @@ export default function SizeMaster() {
     }
   }, [grid, sess, perm, navigate, loadData, gridemptycheck, hasDuplicate, addRow, toast, confirm]);
 
-  // ── handleEsc ─────────────────────────────────────────────────────────────
-  const handleEsc = useCallback(async () => {
-    const ok = await confirm("Do You Want To Quit Page?");
-    if (!ok) return;
+  // ── handleEsc ──────────────────────────────────────────────────────────────
+  const handleEsc = useCallback(() => {
     sessionStorage.removeItem("masterReturnField");
     sessionStorage.removeItem("masterPrefill");
     navigate(-1);
-  }, [confirm, navigate]);
+  }, [navigate]);
 
-  // ── Global keyboard shortcuts: F1 = Save | Esc = Quit ────────────────────
+  // ── Global keyboard shortcuts: F1 = Save | Esc = Back ────────────────────
   useEffect(() => {
     const onKey = e => {
       if (e.keyCode === 112) { e.preventDefault(); handleSave(); }
@@ -284,33 +451,33 @@ export default function SizeMaster() {
     return () => window.removeEventListener("keydown", onKey);
   }, [handleSave, handleEsc]);
 
-  // ── Per-cell keyboard: Enter = next row | Delete = delete row ─────────────
+  // ── Row-level keyboard navigation ──────────────────────────────────────────
   const onCellKeyDown = useCallback((e, idx) => {
     if (e.key === "Enter") {
       e.preventDefault();
       if (!String(grid[idx]?.SizeName || "").trim()) {
-        toast("❌ Enter Size Name !!!", true);
-        return;
+        toast("❌ Enter Size Name !!!", true); return;
       }
       if (hasDuplicate(grid)) { toast("❌ Duplicate Size Name !!!", true); return; }
       if (idx === grid.length - 1) addRow();
       else { setSelIdx(idx + 1); focusRow(idx + 1); }
     }
     if (e.key === "Delete" && e.ctrlKey) {
-      e.preventDefault();
-      deleteRow(idx);
+      e.preventDefault(); deleteRow(idx);
     }
     if (e.key === "Delete" && !e.ctrlKey && !String(grid[idx]?.SizeName || "").trim()) {
-      e.preventDefault();
-      deleteRow(idx);
+      e.preventDefault(); deleteRow(idx);
     }
   }, [grid, hasDuplicate, addRow, focusRow, deleteRow, toast]);
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Block render until authorized (mirrors DepartmentMaster) ──────────────
+  if (!isAuthorized) return null;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
 
-      {/* Confirm Dialog — rendered by CC.useConfirm() */}
+      {/* Confirm Dialog */}
       {ConfirmUI}
 
       <Topbar />
@@ -322,7 +489,7 @@ export default function SizeMaster() {
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-          <div className="mp-title">Size Master</div>
+          <div className="mp-toolbar-title">Size Master</div>
         </div>
 
         {/* ── Grid ── */}
@@ -330,10 +497,21 @@ export default function SizeMaster() {
           <table className="mp-tbl">
             <thead>
               <tr>
-                <th style={{ width: 50  }}>S.No</th>
-                <th style={{ width: 300 }}>Size Name</th>
-                <th style={{ width: 72, textAlign: "center" }}>Active</th>
-                <th style={{ width: 50  }}></th>
+                <th style={{ width: 50 }}>S.No</th>
+                {ALL_COLUMNS.map(c => (
+                  <th
+                    key={c.field}
+                    style={{
+                      width:    c.width,
+                      minWidth: c.width,
+                      textAlign: c.field === "Active" ? "center" : undefined,
+                    }}
+                  >
+                    {c.label}
+                  </th>
+                ))}
+                {/* Edit + Delete column */}
+                <th style={{ width: 60 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -341,43 +519,99 @@ export default function SizeMaster() {
                 <tr
                   key={row._uid}
                   className={[
-                    selIdx === idx     ? "sel"  : "",
-                    !row.Active        ? "inact": "",
-                    row.EditMode === 1 ? "mod"  : "",
+                    selIdx === idx     ? "sel"   : "",
+                    !row.Active        ? "inact" : "",
+                    row.EditMode === 1 ? "mod"   : "",
                   ].filter(Boolean).join(" ")}
-                  onClick={() => { setSelIdx(idx); focusRow(idx); }}
+                  onClick={() => selectRow(idx)}
                 >
                   <td className="sno">{idx + 1}</td>
 
-                  {/* SizeName column */}
-                  <td>
-                    <input
-                      ref={el => (inputRefs.current[idx] = el)}
-                      className="mp-cell-input"
-                      value={row.SizeName || ""}
-                      maxLength={200}
-                      onChange={e => CC.applyUppercase(e, val => updateCell(idx, "SizeName", val))}
-                      onKeyDown={e => onCellKeyDown(e, idx)}
-                      onFocus={() => setSelIdx(idx)}
-                    />
-                  </td>
-
-                  {/* Active column */}
-                  <td style={{ textAlign: "center" }}>
-                    <select
-                      className="mp-active-sel"
-                      value={row.Active ? "1" : "0"}
-                      onChange={e => updateCell(idx, "Active", e.target.value === "1")}
-                      onFocus={() => setSelIdx(idx)}
-                      title={row.Active ? "Active" : "Inactive"}
+                  {ALL_COLUMNS.map((col, colIdx) => (
+                    <td
+                      key={col.field}
+                      style={{ textAlign: col.field === "Active" ? "center" : undefined }}
                     >
-                      <option value="1">✓</option>
-                      <option value="0">✗</option>
-                    </select>
-                  </td>
+                      {/* ── Active Toggle ── */}
+                      {col.field === "Active" && (
+                        <Toggle
+                          value={!!row.Active}
+                          idx={idx}
+                          editMode={row.EditMode}
+                          inputRef={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][colIdx] = el;
+                          }}
+                          onChange={val => row.EditMode === 1 && updateCell(idx, col.field, val)}
+                          onFocus={() => selectRow(idx)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              CC.handleEnterNext(
+                                e, inputRefs, idx, colIdx,
+                                ALL_COLUMNS.length, grid.length,
+                                addRow, grid, rowValidator
+                              );
+                            }
+                          }}
+                        />
+                      )}
 
-                  {/* Delete button */}
-                  <td>
+                      {/* ── SizeName Input ── */}
+                      {col.field !== "Active" && (
+                        <input
+                          ref={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][colIdx] = el;
+                          }}
+                          className="mp-cell-input"
+                          value={row[col.field] || ""}
+                          maxLength={200}
+                          readOnly={row.EditMode === 0}
+                          onChange={e =>
+                            row.EditMode === 1 &&
+                            CC.applyUppercase(e, val => updateCell(idx, col.field, val))
+                          }
+                          onKeyDown={e =>
+                            row.EditMode === 1 && onCellKeyDown(e, idx)
+                          }
+                          onFocus={() => selectRow(idx)}
+                          style={{
+                            background:   row.EditMode === 0 ? "transparent"                     : "#fff",
+                            border:       row.EditMode === 0 ? "none"                             : "1px solid #93c5fd",
+                            cursor:       row.EditMode === 0 ? "default"                          : "text",
+                            color:        row.EditMode === 0 ? "var(--color-text-secondary)"      : "#1e293b",
+                            boxShadow:    row.EditMode === 0 ? "none"                             : "0 0 0 2px rgba(59,130,246,0.15)",
+                            borderRadius: row.EditMode === 1 ? "4px"                              : "0",
+                            padding:      row.EditMode === 0 ? "0"                                : undefined,
+                          }}
+                        />
+                      )}
+                    </td>
+                  ))}
+
+                  {/* ── Edit + Delete buttons (mirrors DepartmentMaster) ── */}
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {/* Edit button: show only when row is saved and in view mode */}
+                    {row.Id && row.EditMode === 0 && (
+                      <button
+                        className="mp-edit-btn"
+                        title="Edit row"
+                        onClick={e => { e.stopPropagation(); enableEdit(idx); }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    {/* Editing indicator: saved row currently being edited */}
+                    {row.Id && row.EditMode === 1 && (
+                      <button
+                        className="mp-edit-btn active"
+                        title="Editing…"
+                        style={{ color: "#16a34a", cursor: "default" }}
+                      >
+                        ✏️
+                      </button>
+                    )}
                     <button
                       className="mp-del-btn"
                       onClick={e => { e.stopPropagation(); deleteRow(idx); }}
@@ -402,7 +636,6 @@ export default function SizeMaster() {
           <kbd>F1</kbd> save &nbsp;|&nbsp;
           <kbd>Esc</kbd> back
         </div>
-
       </div>
 
       {/* ── Loading overlay ── */}
@@ -415,9 +648,8 @@ export default function SizeMaster() {
         </div>
       )}
 
-      {/* ── Toast notifications — CC.useToast + CC.ToastList ── */}
-      <CC.ToastList toasts={toasts} />
-
+      {/* ── Toast notifications ── */}
+      <MSG.ToastList toasts={toasts} />
     </div>
   );
 }
