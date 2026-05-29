@@ -341,6 +341,8 @@ export default function ItemMaster() {
 const [bcOpen,  setBcOpen]  = useState(false);
 const [bcRows,  setBcRows]  = useState([]);   // { barcode:"", Id:0, _new:true }
 const [bcItemId, setBcItemId] = useState(null);
+const [perm, setPerm] = useState({ View:0, Add:0, Edit:0, Delete:0 });
+const [isAuthorized, setIsAuthorized] = useState(false);
   // ── dirtyIds ref — tracks rows actually typed in (same as CashierMaster) ──
   // CHANGE 2: dirtyIds added to track truly modified rows so selectRow won't revert them
   // மாற்றம் 2: உண்மையிலேயே திருத்திய rows-ஐ track பண்ண dirtyIds சேர்க்கப்பட்டது
@@ -473,7 +475,39 @@ const loadBarcodes = useCallback(async (itemId) => {
   setBcItemId(itemId);
   setBcOpen(true);
 }, []);
+useEffect(() => {
+  const menuStr = localStorage.getItem("menulist");
 
+  if (!menuStr) {
+    alert("Session Close Please Login !!!.");
+    navigate("/Login/Index");
+    return;
+  }
+
+  const menulist = JSON.parse(menuStr);
+  const menudata = menulist.filter(obj => obj.PageName === "Item Master"); // ← fixed from "Cashier"
+
+  if (!menudata || menudata.length === 0) {
+    alert("Page Access Permission Denied !!!.");
+    setTimeout(() => navigate("/Home"), 3000);
+    return;
+  }
+
+  if (menudata[0].View === 0) {
+    alert("Page Access Permission Denied !!!.");
+    setTimeout(() => navigate("/Home"), 3000);
+    return;
+  }
+
+  setPerm({
+    View:   menudata[0].View,
+    Add:    menudata[0].Add,
+    Edit:   menudata[0].Edit,
+    Delete: menudata[0].Delete,
+  });
+  setIsAuthorized(true);
+
+}, [navigate]);
 // ── Save barcodes ─────────────────────────────────────────────────────────
 const saveBarcodes = useCallback(async () => {
   if (!bcItemId) return;
@@ -1322,6 +1356,8 @@ const handleEntryKeyDown = useCallback((e, colKey) => {
 if (!isAuthorized) {
     return null; // Or return a <Loader /> component
   }
+  // At the top of your return, before everything else:
+if (!isAuthorized) return null;
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">

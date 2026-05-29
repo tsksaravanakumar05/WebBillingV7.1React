@@ -88,35 +88,44 @@
   font-size: 12px;
 }
 /* Make the page wrapper fill full viewport */
-.mp-wrap {
+.supplier-page .mp-wrap {
   width: 100%;
   min-height: 100vh;
   box-sizing: border-box;
 }
 
 /* Body fills remaining height */
-.mp-body {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0 8px;         /* small side breathing room */
+.supplier-page .mp-body {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 8px 10px !important;   /* small uniform padding instead of 10vh */
 }
 
-/* Grid wrapper stretches full width */
-.mp-grid-wrap {
-  width: 100%;
+/* ── Grid must also scroll internally, not clip ── */
+.supplier-page .mp-grid-wrap {
+  overflow: hidden !important;    /* keep the border-radius clean */
+  overflow-y: auto !important;    /* rows scroll vertically */
+}
+
+/* ── Table scrolls horizontally inside the wrapper ── */
+.supplier-page .mp-grid-wrap > div,
+.supplier-page .mp-grid-wrap > table {
   overflow-x: auto;
-  box-sizing: border-box;
 }
 
 /* Table fills wrapper */
-.mp-tbl {
+.supplier-page .mp-tbl {
   width: 100%;
   table-layout: fixed;    /* key: distributes column widths evenly */
   border-collapse: collapse;
 }
 
 /* Toolbar fills full width */
-.mp-toolbar {
+.supplier-page .mp-toolbar {
   width: 100%;
   box-sizing: border-box;
 }      
+
+.supplier-page .mp-tbl th:last-child,
+.supplier-page .mp-tbl td:last-child { text-align: center; }
