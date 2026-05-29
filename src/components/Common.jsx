@@ -31,6 +31,10 @@ export const TxnSelectPassword = "/api/LoginApp/SelectTransactionPassword";
 export const TxnUpdatePassword = "/api/LoginApp/UpdateTransactionPassword";
 export const TxnEditPassword   = "/api/LoginApp/EditPassword";
 
+          //Department
+        export const DepartmentSelect = "/api/DepartmentApp/SelectDepartment";
+         export const DepartmentInsert = "/api/DepartmentApp/InsertDepartment";
+         export const DepartmentDelete = "/api/DepartmentApp/DeleteDepartment";
 // ─── 5. REPACKING MASTER API ENDPOINT CONSTANTS ───────────────────────────────
 //  Centralised here so RepackingMaster.jsx imports CC.Repacking* names only
 //  and never constructs URL strings itself.
