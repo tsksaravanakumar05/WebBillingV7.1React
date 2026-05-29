@@ -68,9 +68,9 @@ export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
 export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
 
 //ModelMaster
-export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
-export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
-export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
+export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
+export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
+export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 //  Single source of truth — every fetch in the app must go through
 //  api() / insertapi() / editPassword() which all call authHeaders().
