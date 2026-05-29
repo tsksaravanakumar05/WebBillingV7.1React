@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import "../Master/MasterPage.css";
 import "../Itemmaster.css";
 import * as CC from "../Master/Common";
+import Topbar from "./Topbar";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 const COLUMNS = [
@@ -1447,8 +1448,9 @@ if (!isAuthorized) return null;
     </div>
   </div>
 )}
+<Topbar />
       {/* Header */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">I</div>
           <div>
@@ -1471,7 +1473,7 @@ if (!isAuthorized) return null;
           )}
         </div>
         <button className="mp-back" onClick={()=>navigate(-1)}>← Back</button>
-      </div>
+      </div> */}
 
       <div className="mp-body mp-ibody">
 

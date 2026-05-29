@@ -44,7 +44,12 @@ export const RepackingSelect     = "/api/RepackingMasterApp/SelectRepackingMaste
 export const RepackingCombo      = "/api/RepackingMasterApp/RepackingItemMaster";
 export const ItemByCode          = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
   export const RepackingEditPwd    = "/api/LoginApp/EditPassword";
-
+ 
+ //BrandMaster
+ 
+  export const BrandSelect = "/api/BrandApp/SelectBrand";
+  export const BrandInsert = "/api/BrandApp/InsertBrand";
+  export const BrandDelete = "/api/BrandApp/DeleteBrand";
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 //  Single source of truth — every fetch in the app must go through
 //  api() / insertapi() / editPassword() which all call authHeaders().
