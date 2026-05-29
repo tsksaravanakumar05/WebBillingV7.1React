@@ -473,19 +473,33 @@ function renderCell(row, rowIdx, colDef) {
     onFocus:   () => setSelIdx(rowIdx),
     onKeyDown: e  => editMode === 1 && onCellKeyDown(e, rowIdx, field),
   };
-
-  if (type === "active-select") return (
-    <select {...common} className="sm-active-sel"
-      value={value===1||value===true ? "1" : "0"}
-      disabled={editMode === 0}
-      style={{ opacity: editMode === 0 ? 0.6 : 1,
-               cursor: editMode === 0 ? "default" : "pointer" }}
-      onChange={e => editMode === 1 && updateCell(rowIdx, field, e.target.value==="1"?1:0)}>
-      <option value="1">✓</option>
-      <option value="0">✗</option>
-    </select>
-  );
-
+if (type === "active-select") return (
+  <div style={{ display:"flex", justifyContent:"center", alignItems:"center" }}>
+    <div
+      onClick={() => editMode === 1 && updateCell(rowIdx, field, value === 1 || value === true ? 0 : 1)}
+      style={{
+        width: 34, height: 18,
+        borderRadius: 9,
+        background: (value === 1 || value === true) ? "#16a34a" : "#d1d5db",
+        position: "relative",
+        cursor: editMode === 1 ? "pointer" : "not-allowed",
+        transition: "background .2s",
+        opacity: editMode === 0 ? 0.6 : 1,
+        flexShrink: 0,
+      }}>
+      <div style={{
+        position: "absolute",
+        top: 2,
+        left: (value === 1 || value === true) ? 16 : 2,
+        width: 14, height: 14,
+        borderRadius: "50%",
+        background: "#fff",
+        boxShadow: "0 1px 3px rgba(0,0,0,.25)",
+        transition: "left .2s",
+      }} />
+    </div>
+  </div>
+);
   if (type === "select") return (
     <select {...common} className="mp-cell-select"
       value={value ?? ""}
@@ -567,7 +581,7 @@ function renderCell(row, rowIdx, colDef) {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="mp-wrap supplier-page">
       {ConfirmUI}
       <Topbar />
       {loading && <div className="mp-loader-ov"><div className="mp-ldr-box"><div className="mp-spin"/><div className="mp-ldr-msg">Processing…</div></div></div>}
