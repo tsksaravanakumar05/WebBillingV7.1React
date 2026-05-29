@@ -1,2 +1,122 @@
 /* SupplierMaster.css — imports shared master styles */
 @import './MasterPage.css';
+/* ── SALESMAN PICKER ── */
+.sm-picker-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10,20,40,.42);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 8500;
+}
+.sm-picker-box {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.25);
+  display: flex; flex-direction: column;
+  width: 280px; max-height: 420px;
+  overflow: hidden;
+}
+.sm-picker-hdr {
+  padding: 10px 14px;
+  background: #1f65de;
+  color: #fff;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; font-weight: 700;
+  flex-shrink: 0;
+}
+.sm-picker-hdr button {
+  background: none; border: none;
+  color: #fff; cursor: pointer;
+  font-size: 16px; line-height: 1;
+}
+.sm-picker-search {
+  padding: 7px 10px;
+  border-bottom: 1px solid #deeafb;
+  flex-shrink: 0;
+}
+.sm-picker-search input {
+  width: 100%; height: 28px;
+  border: 1px solid #c5d8f8; border-radius: 4px;
+  padding: 0 8px; font-size: 12px; outline: none;
+}
+.sm-picker-search input:focus {
+  border-color: #1f65de;
+  box-shadow: 0 0 0 2px rgba(31,101,222,.15);
+}
+.sm-picker-list {
+  overflow-y: auto; flex: 1;
+}
+.sm-picker-item {
+  padding: 7px 14px;
+  font-size: 12px; color: #1a2e4a;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f4fb;
+  outline: none;
+}
+.sm-picker-item:hover,
+.sm-picker-item.focused {
+  background: #deeafb; color: #1f65de;
+}
+.sm-picker-empty {
+  padding: 14px;
+  text-align: center;
+  font-size: 11px; color: #94a3b8;
+}
+.sm-active-sel {
+  border: 1px solid #c5d8f8; border-radius: 3px;
+  padding: 2px 4px; font-size: 12px;
+  width: 100%; height: 26px;
+  outline: none; background: #fff;
+  color: #1a2e4a; cursor: pointer;
+}
+.sm-active-sel:focus { border-color: #1f65de; }
+
+.mp-edit-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background .1s;
+  line-height: 1;
+}
+.mp-edit-btn:hover { background: #deeafb; }
+.mp-empty {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+/* Make the page wrapper fill full viewport */
+.mp-wrap {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* Body fills remaining height */
+.mp-body {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 8px;         /* small side breathing room */
+}
+
+/* Grid wrapper stretches full width */
+.mp-grid-wrap {
+  width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+/* Table fills wrapper */
+.mp-tbl {
+  width: 100%;
+  table-layout: fixed;    /* key: distributes column widths evenly */
+  border-collapse: collapse;
+}
+
+/* Toolbar fills full width */
+.mp-toolbar {
+  width: 100%;
+  box-sizing: border-box;
+}      
