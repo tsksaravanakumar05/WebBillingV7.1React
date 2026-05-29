@@ -50,10 +50,14 @@ export const ItemByCode          = "/api/ItemMasterApp/SelectItemMasterbyCodeId"
   export const RepackingEditPwd    = "/api/LoginApp/EditPassword";
  
  //BrandMaster
- 
   export const BrandSelect = "/api/BrandApp/SelectBrand";
   export const BrandInsert = "/api/BrandApp/InsertBrand";
   export const BrandDelete = "/api/BrandApp/DeleteBrand";
+
+  //Salesman
+  export const SalesManSelect       = "/api/SalesManApp/SelectSalesMan"; 
+  export const SalesManInsert = "/api//SalesManApp/InsertSalesMan";
+  export const SalesManDelete = "/api//SalesManApp/DeleteSalesMan";
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 //  Single source of truth — every fetch in the app must go through
 //  api() / insertapi() / editPassword() which all call authHeaders().
@@ -129,10 +133,10 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
     });
 
     // ── Standard HTTP error handling ─────────────────────────────────────────
-    if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
+   if (res.status === 406) {
+      
+        return { ok: false, _dualLogin: true };
+      
     }
     if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
     if (res.status === 500) {

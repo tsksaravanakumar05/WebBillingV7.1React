@@ -167,9 +167,10 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
     // ── standard HTTP error handling ──
     if (res.status === 406) {
       alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
+        return { ok: false, _dualLogin: true };
+      
     }
+     
     if (res.status === 404) return { ok: false, _http404: true,  message: `404: ${fullUrl}` };
     if (res.status === 500) {
       const t = await res.text();
