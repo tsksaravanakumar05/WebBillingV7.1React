@@ -1,11 +1,34 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  CustomerMaster.jsx
+//
+//  Imports:
+//   • CC.*  from Common.jsx   — API helpers, session, uid, applyUppercase, etc.
+//   • MSG.* from Messages.jsx — useConfirm, useToast, ToastList
+//
+//  Design / logic mirrors SupplierMaster exactly:
+//   • Permission guard via useEffect + isAuthorized state
+//   • EditMode per row (0=view / 1=edit)
+//   • Edit ✏️ button — shows only on saved rows; click → enableEdit()
+//   • dirtyIds ref — tracks rows actually typed in
+//   • selectRow() — exits edit mode on non-dirty saved rows
+//   • Popup pickers for Area, SalesMan, CustomerCard, Branch (same pattern)
+//   • Tamil Name popup (F6)
+//   • Pagination mirrors jQuery render() + loadCounter
+//   • Uses MSG.useConfirm / MSG.useToast / MSG.ToastList
+//   • 100% page width via supplier-page className
+//   • Dual-login guard: _dualLogin → navigate("/")
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
-import Topbar from "../components/Topbar";
+import "./SupplierMaster.css";   // reuse supplier CSS (100% width layout)
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Column field-name constants (mirrors jQuery grd* vars)
-// ─────────────────────────────────────────────────────────────────────────────
+import Topbar from "../components/Topbar";
+import * as CC  from "../components/Common";
+import * as MSG from "../components/Messages";
+
+// ─── Column field-name constants ──────────────────────────────────────────────
 const grdId                   = "Id";
 const grdSupplierName         = "AccountName";
 const grdCustomerNameTamil    = "CustomerNameTamil";
@@ -43,90 +66,40 @@ const grdEditMode             = "EditMode";
 const grdContactPersonName    = "ContactPersonName";
 const grdDesignation          = "Designation";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers — same pattern as BrandMaster
-// ─────────────────────────────────────────────────────────────────────────────
-const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
 
-const authHeaders = () => ({
-  "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
-  "Userid":        localStorage.getItem("userid")     || "0",
-  "Profile":       localStorage.getItem("Profile")    || "Admin",
-  "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
-});
-
-const api = async (path, body = null, extraHeaders = {}, queryParams = null) => {
-  try {
-    let fullUrl = mkUrl(path);
-    if (queryParams && typeof queryParams === "object") {
-      const qs = new URLSearchParams(
-        Object.entries(queryParams)
-          .filter(([, v]) => v !== undefined && v !== null)
-          .map(([k, v]) => [k, String(v)])
-      ).toString();
-      if (qs) fullUrl += "?" + qs;
-    }
-    const res = await fetch(fullUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...authHeaders(),
-        ...extraHeaders,
-      },
-      body: body !== null ? (typeof body === "string" ? body : JSON.stringify(body)) : null,
-    });
-    if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
-    }
-    if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
-    if (res.status === 500) {
-      const t = await res.text();
-      console.error(`500 on ${fullUrl}:`, t.slice(0, 500));
-      return { ok: false, message: "Server error 500 — see console" };
-    }
-    const text = await res.text();
-    if (!text.trim()) return { ok: false, message: "Empty response" };
-    try {
-      const j = JSON.parse(text);
-      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
-      if (j.Data1     !== undefined && j.data    === undefined) j.data    = j.Data1;
-      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
-      return j;
-    } catch { return { ok: false, message: text }; }
-  } catch (err) {
-    return { ok: false, _netErr: true, message: err.message };
-  }
-};
-
-const insertapi = async (path, body = null, extraHeaders = {}) => {
-  try {
-    const res = await fetch(mkUrl(path), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...authHeaders(),
-        ...extraHeaders,
-      },
-      body: body != null ? JSON.stringify(body) : null,
-    });
-    const text = await res.text();
-    return JSON.parse(text);
-  } catch (err) {
-    return { ok: false, message: err.message };
-  }
-};
-
-const getStr   = (k) => localStorage.getItem(k) || "";
-const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-const uid      = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
-const ValNum   = (v) => isNaN(parseFloat(v)) ? 0 : parseFloat(v);
-const NullToString = (v) => (v == null || v === undefined) ? "" : String(v);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// makeNewRow — mirrors addrow(gridSupplier) → sets Active=true
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Column config (mirrors SupplierMaster pattern) ───────────────────────────
+const ALL_COLUMNS = [
+  { field: grdSupplierName,       label: "Customer Name",    type: "string",  maxLen: 500, width: 180, hidden: false, required: true },
+  { field: grdCustomerNameTamil,  label: "Tamil Name",       type: "string",  maxLen: 200, width: 140, hidden: true  },
+  { field: grdCode,               label: "Code",             type: "string",  maxLen: 50,  width: 80,  hidden: true  },
+  { field: grdArea,               label: "Area",             type: "popup",   maxLen: 200, width: 120, hidden: false },
+  { field: grdSalesMan,           label: "Sales Man",        type: "popup",   maxLen: 200, width: 120, hidden: false },
+  { field: grdBranchName,         label: "Branch",           type: "popup",   maxLen: 200, width: 130, hidden: true  },
+  { field: grdGroupName,          label: "Group",            type: "string",  maxLen: 200, width: 120, hidden: true  },
+  { field: grdAddress1,           label: "Address 1",        type: "string",  maxLen: 500, width: 140, hidden: false },
+  { field: grdAddress2,           label: "Address 2",        type: "string",  maxLen: 500, width: 130, hidden: true  },
+  { field: grdCity,               label: "City",             type: "string",  maxLen: 500, width: 90,  hidden: false },
+  { field: grdPincode,            label: "Pincode",          type: "int",     maxLen: 8,   width: 80,  hidden: true  },
+  { field: grdMobileNo,           label: "Mobile No",        type: "string",  maxLen: 50,  width: 110, hidden: false },
+  { field: grdPhone,              label: "Phone",            type: "string",  maxLen: 50,  width: 90,  hidden: true  },
+  { field: grdGSTINNo,            label: "GSTIN No",         type: "string",  maxLen: 50,  width: 140, hidden: false },
+  { field: grdEmail,              label: "Email",            type: "string",  maxLen: 100, width: 130, hidden: true  },
+  { field: grdCreditBillDays,     label: "Credit Days",      type: "int",     maxLen: 8,   width: 70,  hidden: false },
+  { field: grdCreditBillLimit,    label: "Credit Limit",     type: "float",   maxLen: 18,  width: 100, hidden: true  },
+  { field: grdOpeningBalance,     label: "Opening Bal",      type: "float",   maxLen: 18,  width: 100, hidden: true  },
+  { field: grdCRMNo,              label: "CRM No",           type: "string",  maxLen: 50,  width: 90,  hidden: true  },
+  { field: grdCRMPoint,           label: "CRM Point",        type: "float",   maxLen: 18,  width: 90,  hidden: true  },
+  { field: grdCRMValue,           label: "CRM Value",        type: "float",   maxLen: 18,  width: 90,  hidden: true  },
+  { field: grdcustomercardtype,   label: "Card Type",        type: "popup",   maxLen: 150, width: 120, hidden: false },
+  { field: grdPANNo,              label: "State Code",       type: "string",  maxLen: 50,  width: 90,  hidden: true  },
+  { field: grdPANNo1,             label: "PAN No",           type: "string",  maxLen: 50,  width: 90,  hidden: true  },
+  { field: grdPlaceofSupply,      label: "Place of Supply",  type: "string",  maxLen: 100, width: 110, hidden: true  },
+  { field: grdIGSTBill,           label: "GST Type",         type: "select",  options: ["GST", "IGST"], width: 80, hidden: true },
+  { field: grdContactPersonName,  label: "Contact Person",   type: "string",  maxLen: 100, width: 130, hidden: true  },
+  { field: grdDesignation,        label: "Designation",      type: "string",  maxLen: 100, width: 110, hidden: true  },
+  { field: grdActive,             label: "Active",           type: "active-select", width: 60, hidden: false },
+];
+// ─── makeNewRow ───────────────────────────────────────────────────────────────
 const makeNewRow = (prefillName = "", prefillMobile = "") => ({
   [grdId]:                null,
   [grdSupplierName]:      prefillName,
@@ -164,64 +137,19 @@ const makeNewRow = (prefillName = "", prefillMobile = "") => ({
   [grdDesignation]:       "",
   [grdActive]:            true,
   [grdEditMode]:          1,
-  _uid: uid(),
+  _uid: CC.uid(),
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ConfirmModal — same pattern as BrandMaster
-// ─────────────────────────────────────────────────────────────────────────────
-function ConfirmModal({ message, onYes, onNo }) {
-  const yesBtnRef = useRef(null);
-  useEffect(() => { const t = setTimeout(() => yesBtnRef.current?.focus(), 30); return () => clearTimeout(t); }, []);
-  useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") { e.preventDefault(); onNo(); } };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onNo]);
+// ─── Reusable PopupWindow ─────────────────────────────────────────────────────
+function PopupWindow({ title, children, onClose, width = 280 }) {
   return (
-    <div style={modalStyles.overlay}>
-      <div style={modalStyles.box} role="dialog" aria-modal="true">
-        <div style={modalStyles.icon}>?</div>
-        <p style={modalStyles.msg}>{message}</p>
-        <div style={modalStyles.btns}>
-          <button ref={yesBtnRef} style={{ ...modalStyles.btn, ...modalStyles.yes }} onClick={onYes}>✔ Yes</button>
-          <button style={{ ...modalStyles.btn, ...modalStyles.no }} onClick={onNo}>✘ No</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-const modalStyles = {
-  overlay: { position:"fixed",inset:0,background:"rgba(10,20,40,0.55)",backdropFilter:"blur(2px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999 },
-  box:     { background:"#fff",borderRadius:"10px",padding:"28px 32px 22px",minWidth:"280px",maxWidth:"380px",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,0.22)",border:"1px solid #e2e8f0" },
-  icon:    { width:"40px",height:"40px",borderRadius:"50%",background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",color:"#fff",fontSize:"20px",fontWeight:"700",lineHeight:"40px",margin:"0 auto 14px" },
-  msg:     { fontSize:"14px",color:"#1e293b",fontWeight:"500",margin:"0 0 20px",lineHeight:"1.5" },
-  btns:    { display:"flex",gap:"10px",justifyContent:"center" },
-  btn:     { padding:"7px 26px",borderRadius:"6px",border:"none",fontSize:"13px",fontWeight:"600",cursor:"pointer" },
-  yes:     { background:"linear-gradient(135deg,#22c55e,#16a34a)",color:"#fff" },
-  no:      { background:"#f1f5f9",color:"#475569",border:"1px solid #cbd5e1" },
-};
-
-function useConfirm() {
-  const [conf, setConf] = useState(null);
-  const confirm  = useCallback((msg) => new Promise(resolve => setConf({ msg, resolve })), []);
-  const handleYes = useCallback(() => { conf?.resolve(true); setConf(null); }, [conf]);
-  const handleNo  = useCallback(() => { conf?.resolve(false); setConf(null); }, [conf]);
-  const ConfirmUI = conf ? <ConfirmModal message={conf.msg} onYes={handleYes} onNo={handleNo} /> : null;
-  return { confirm, ConfirmUI };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Popup Windows — Area, SalesMan, CustomerCard, Branch, TamilName
-// Each mirrors its jQuery jqxWindow popup with search input + list
-// ─────────────────────────────────────────────────────────────────────────────
-function PopupWindow({ title, children, onClose, width = 260 }) {
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:5000,display:"flex",alignItems:"center",justifyContent:"center" }}>
-      <div style={{ background:"#fff",borderRadius:8,boxShadow:"0 8px 32px rgba(0,0,0,0.2)",width,maxHeight:460,display:"flex",flexDirection:"column",overflow:"hidden" }}>
-        <div style={{ padding:"8px 12px",background:"#1e40af",color:"#fff",fontWeight:700,fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          {title}
-          <button onClick={onClose} style={{ background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:16 }}>✕</button>
+    <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.45)",zIndex:8500,display:"flex",alignItems:"center",justifyContent:"center" }}
+      onClick={onClose}>
+      <div style={{ background:"#fff",borderRadius:8,boxShadow:"0 8px 32px rgba(0,0,0,0.22)",width,maxHeight:460,display:"flex",flexDirection:"column",overflow:"hidden" }}
+        onClick={e => e.stopPropagation()}>
+        <div style={{ padding:"9px 14px",background:"#1f65de",color:"#fff",fontWeight:700,fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
+          <span>{title}</span>
+          <button onClick={onClose} style={{ background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:17,lineHeight:1 }}>✕</button>
         </div>
         {children}
       </div>
@@ -229,373 +157,286 @@ function PopupWindow({ title, children, onClose, width = 260 }) {
   );
 }
 
-function SearchableList({ items, labelField, value, onChange, onClose, onEnterEmpty, searchPlaceholder, inputRef, listRef }) {
-  const [search, setSearch] = useState(value || "");
+// ─── SearchableList inside popup ──────────────────────────────────────────────
+function SearchableList({ items, labelField, prefill, onChange, onClose, onEnterEmpty, searchPlaceholder }) {
+  const [search, setSearch]   = useState(prefill || "");
+  const [focIdx, setFocIdx]   = useState(-1);
+  const inputRef  = useRef(null);
+  const listRef   = useRef(null);
+
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 60); }, []);
+
   const filtered = items.filter(item =>
     String(item[labelField] || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleInputKeyDown = (e) => {
-    const key = e.keyCode;
-    if (key === 40) { // Arrow Down → focus list
+  const handleKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (filtered.length > 0) listRef?.current?.focus();
+      const next = Math.min(focIdx + 1, filtered.length - 1);
+      setFocIdx(next);
+      listRef.current?.children[next]?.focus();
     }
-    if (key === 13) {
-      if (search.trim() === "") { onEnterEmpty && onEnterEmpty(); return; }
-      if (filtered.length > 0) { onChange(filtered[0]); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (search.trim() === "") { onEnterEmpty?.(); return; }
+      const target = focIdx >= 0 ? filtered[focIdx] : filtered[0];
+      if (target) onChange(target); else onEnterEmpty?.();
     }
-    if (key === 27) { onClose(); }
+    if (e.key === "Escape") onClose();
   };
 
-  const handleListKeyDown = (e, item) => {
-    if (e.keyCode === 13) { onChange(item); }
-    if (e.keyCode === 27) { onClose(); }
+  const handleItemKeyDown = (e, item, i) => {
+    if (e.key === "Enter") { e.preventDefault(); onChange(item); }
+    if (e.key === "ArrowDown") { e.preventDefault(); const next = Math.min(i+1, filtered.length-1); setFocIdx(next); listRef.current?.children[next]?.focus(); }
+    if (e.key === "ArrowUp")   { e.preventDefault(); if (i > 0) { setFocIdx(i-1); listRef.current?.children[i-1]?.focus(); } else { setFocIdx(-1); inputRef.current?.focus(); } }
+    if (e.key === "Escape") onClose();
   };
 
   return (
     <>
-      <div style={{ padding:"6px 8px",borderBottom:"1px solid #e2e8f0" }}>
+      <div style={{ padding:"6px 8px",borderBottom:"1px solid #e2e8f0",flexShrink:0 }}>
         <input
           ref={inputRef}
-          style={{ width:"100%",padding:"4px 8px",fontSize:13,border:"1px solid #cbd5e1",borderRadius:4,boxSizing:"border-box" }}
+          className="mp-cell-input"
           placeholder={searchPlaceholder}
           value={search}
-          onChange={e => setSearch(e.target.value)}
-          onKeyDown={handleInputKeyDown}
-          autoFocus
+          onChange={e => { setSearch(e.target.value); setFocIdx(-1); }}
+          onKeyDown={handleKeyDown}
+          style={{ height:28 }}
         />
       </div>
-      <div ref={listRef} style={{ overflowY:"auto",flex:1,outline:"none" }} tabIndex={-1}>
+      <div ref={listRef} style={{ overflowY:"auto",flex:1 }}>
+        {filtered.length === 0 && (
+          <div style={{ padding:12,color:"#94a3b8",fontSize:12,textAlign:"center" }}>No results</div>
+        )}
         {filtered.map((item, i) => (
           <div
             key={i}
-            style={{ padding:"5px 10px",cursor:"pointer",fontSize:13,borderBottom:"1px solid #f1f5f9" }}
-            onMouseEnter={e => e.currentTarget.style.background="#eff6ff"}
-            onMouseLeave={e => e.currentTarget.style.background=""}
-            onClick={() => onChange(item)}
-            onKeyDown={e => handleListKeyDown(e, item)}
             tabIndex={0}
+            className={`sm-picker-item${focIdx === i ? " focused" : ""}`}
+            onClick={() => onChange(item)}
+            onKeyDown={e => handleItemKeyDown(e, item, i)}
+            onFocus={() => setFocIdx(i)}
           >
             {item[labelField]}
           </div>
         ))}
-        {filtered.length === 0 && (
-          <div style={{ padding:10,color:"#94a3b8",fontSize:13,textAlign:"center" }}>No results</div>
-        )}
+      </div>
+      <div style={{ padding:"4px 10px",fontSize:10,color:"#94a3b8",borderTop:"1px solid #f1f5f9",flexShrink:0 }}>
+        ↑↓ Navigate &nbsp;|&nbsp; Enter Select &nbsp;|&nbsp; Esc Close
       </div>
     </>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CustomerMaster — main component
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── CustomerMaster ───────────────────────────────────────────────────────────
 export default function CustomerMaster() {
   const navigate  = useNavigate();
-  const toastId   = useRef(0);
-  const inputRefs = useRef({});   // keyed by `${rowIdx}-${colField}`
-
-  const { confirm, ConfirmUI } = useConfirm();
-
-  // ── Session / permissions ─────────────────────────────────────────────────
-  const [sess] = useState(() => {
-    const menulist  = getLocal("menulist") || [];
-    const menudata  = menulist.filter(o => o.PageName === "Customer");
-    const MainSet   = (getLocal("Mainsetting") || [{}])[0] || {};
-    const ComSet    = (getLocal("Companysetting") || [{}])[0] || {};
-    const Comid     = getStr("Comid")  || "1";
-    const MComid    = getStr("MComid") || Comid;
-    const IdComList = getStr("IdComList") || Comid;
-    const MirrorTable = getStr("MirrorTableOnline") || "0";
-    const SupplierMulitipleAllow = MainSet.CustomerMulitipleAllow ?? false;
-    const SupplierCommon         = MainSet.CustomerCommonCompany  ?? false;
-    const CustomerNameTamil      = MainSet.CustomerNameTamil      ?? false;
-    const effectiveComid         = SupplierCommon ? MComid : Comid;
-    const ComCustomer            = SupplierCommon ? 1 : 0;
-    const BillFormatName         = ComSet.SaleBillFormat || "";
-    const pagecount              = BillFormatName === "JJBitumen" ? 500 : 20;
-    return {
-      Comid: effectiveComid, MComid, IdComList, MirrorTable,
-      SupplierMulitipleAllow, CustomerNameTamil, ComCustomer, pagecount,
-      menudata,
-      perm: menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 },
-    };
-  });
-
-  // ── Grid state ─────────────────────────────────────────────────────────────
-  const [grid,    setGrid]    = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [toasts,  setToasts]  = useState([]);
-  const [selIdx,  setSelIdx]  = useState(null);
-  const [selCol,  setSelCol]  = useState(grdSupplierName);
+  const inputRefs = useRef({});    // keyed `${rowIdx}-${colField}`
+  const dirtyIds  = useRef(new Set());
   const gridRef   = useRef([]);
 
-  // ── Pagination state (mirrors jQuery curPage, pageLen, pagecountnew) ───────
-  const [pagecountnew, setPagecountnew] = useState(0);
-  const [curPage,      setCurPage]      = useState(1);
-  const [pageLen,      setPageLen]      = useState(1);
+  // ── MSG hooks ──────────────────────────────────────────────────────────────
+  const { confirm, ConfirmUI } = MSG.useConfirm();
+  const { toast,   toasts    } = MSG.useToast();
 
-  // ── Popup states ──────────────────────────────────────────────────────────
-  const [areaPopup,       setAreaPopup]       = useState({ open:false, items:[], rowIdx:null });
-  const [salesmanPopup,   setSalesmanPopup]   = useState({ open:false, items:[], rowIdx:null });
-  const [cardPopup,       setCardPopup]       = useState({ open:false, items:[], rowIdx:null });
-  const [branchPopup,     setBranchPopup]     = useState({ open:false, items:[], rowIdx:null });
-  const [tamilPopup,      setTamilPopup]      = useState({ open:false, rowIdx:null, value:"" });
-  const [filterSearch,    setFilterSearch]    = useState("");
-  const [filterColumn,    setFilterColumn]    = useState(grdSupplierName);
-  const [activeFilter,    setActiveFilter]    = useState("all"); // "all" | "active"
+  // ── Permission / authorization state ──────────────────────────────────────
+  const [perm,         setPerm        ] = useState({ View:0, Add:0, Edit:0, Delete:0 });
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
-  const popupInputRef = useRef(null);
-  const popupListRef  = useRef(null);
-  const tamilInputRef = useRef(null);
+  // ── Dual-login guard ───────────────────────────────────────────────────────
+  const redirectIfDualLogin = useCallback((res) => {
+    if (res?._dualLogin || res?.redis === false) {
+      alert("Already Login Another User Please Login Again!!!");
+      navigate("/");
+      return true;
+    }
+    return false;
+  }, [navigate]);
 
-  // ── Toast helper ──────────────────────────────────────────────────────────
-  const toast = useCallback((msg, isErr = false) => {
-    const id = ++toastId.current;
-    setToasts(p => [...p, { id, msg, isErr }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
-  }, []);
-
-  // ── Focus helper ──────────────────────────────────────────────────────────
-  const focusCell = useCallback((rowIdx, colField) => {
-    setTimeout(() => {
-      const key = `${rowIdx}-${colField}`;
-      inputRefs.current[key]?.focus();
-    }, 50);
-  }, []);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Permission check — mirrors jQuery menudata check + View==0 check
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Permission guard ───────────────────────────────────────────────────────
   useEffect(() => {
-    const menulist = getLocal("menulist");
-    if (!menulist) {
+    const menuStr = localStorage.getItem("menulist");
+    if (!menuStr) {
       alert("Session Close Please Login !!!.");
-      window.location.href = "/Login/Index";
+      navigate("/");
       return;
     }
-    const menudata = menulist.filter(o => o.PageName === "Customer");
+    const menulist = JSON.parse(menuStr);
+    const menudata = menulist.filter(obj => obj.PageName === "Customer");
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 3000);
+      setTimeout(() => navigate("/Home"), 3000);
       return;
     }
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 3000);
+      setTimeout(() => navigate("/Home"), 3000);
       return;
     }
+    setPerm({ View: menudata[0].View, Add: menudata[0].Add, Edit: menudata[0].Edit, Delete: menudata[0].Delete });
+    setIsAuthorized(true);
+  }, [navigate]);
+
+  // ── Session ────────────────────────────────────────────────────────────────
+  const [sess] = useState(() => {
+    try {
+      const main0     = (CC.getLocal("Mainsetting")    || [{}])[0] || {};
+      const comSet    = (CC.getLocal("Companysetting") || [{}])[0] || {};
+      const Comid     = CC.getStr("Comid")    || "1";
+      const MComid    = CC.getStr("MComid")   || Comid;
+      const IdComList = "";
+      const MirrorTable = CC.getStr("MirrorTableOnline") || "0";
+      const SupplierMulitipleAllow = main0.CustomerMulitipleAllow  ?? false;
+      const SupplierCommon         = main0.CustomerCommonCompany   ?? false;
+      const CustomerNameTamil      = main0.CustomerNameTamil       ?? false;
+      const effectiveComid         = SupplierCommon ? MComid : Comid;
+      const ComCustomer            = SupplierCommon ? 1 : 0;
+      const BillFormatName         = comSet.SaleBillFormat || "";
+      const pagecount              = BillFormatName === "JJBitumen" ? 500 : 20;
+      return {
+        Comid: effectiveComid, MComid, IdComList, MirrorTable,
+        SupplierMulitipleAllow, CustomerNameTamil, ComCustomer, pagecount,
+      };
+    } catch {
+      return { Comid:"1", MComid:"1", IdComList:"1", MirrorTable:"0", SupplierMulitipleAllow:false, CustomerNameTamil:false, ComCustomer:0, pagecount:20 };
+    }
+  });
+
+  // ── Component state ───────────────────────────────────────────────────────
+  const [grid,         setGrid        ] = useState([]);
+  const [loading,      setLoading     ] = useState(false);
+  const [selIdx,       setSelIdx      ] = useState(null);
+  const [pagecountnew, setPagecountnew] = useState(0);
+  const [curPage,      setCurPage     ] = useState(1);
+  const [pageLen,      setPageLen     ] = useState(1);
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterColumn, setFilterColumn] = useState(grdSupplierName);
+  const [activeFilter, setActiveFilter] = useState("all");
+
+  // ── Popup states ──────────────────────────────────────────────────────────
+  const [areaPopup,    setAreaPopup   ] = useState({ open:false, items:[], rowIdx:null, prefill:"" });
+  const [salesmanPopup,setSalesmanPopup]= useState({ open:false, items:[], rowIdx:null, prefill:"" });
+  const [cardPopup,    setCardPopup   ] = useState({ open:false, items:[], rowIdx:null, prefill:"" });
+  const [branchPopup,  setBranchPopup ] = useState({ open:false, items:[], rowIdx:null, prefill:"" });
+  const [tamilPopup,   setTamilPopup  ] = useState({ open:false, rowIdx:null, value:"" });
+  const tamilInputRef = useRef(null);
+
+  // ── focusCell ──────────────────────────────────────────────────────────────
+  const focusCell = useCallback((rowIdx, colField) => {
+    setTimeout(() => inputRefs.current[`${rowIdx}-${colField}`]?.focus(), 50);
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // loadCounter — mirrors methods.loadCounter(Startindex, PageCount, Keyword, Column, loadstatus)
-  // URL: /Supplier/SelectSupplier
-  // AccountType: "CUSTOMER"
-  // ─────────────────────────────────────────────────────────────────────────
-  // const loadCounter = useCallback(async (Startindex, PageCount, Keyword, Column, loadstatus) => {
-  //   setLoading(true);
-  //   const { Comid, pagecount } = sess;
-
-  //   const res = await api("/Supplier/SelectSupplier", {
-  //     Comid:      parseInt(Comid),
-  //     Startindex,
-  //     PageCount,
-  //     AccountType:"CUSTOMER",
-  //     Keyword:    Keyword || "",
-  //     Column:     Column  || "",
-  //   });
-
-  //   setLoading(false);
-
-  //   if (!res.ok) { toast(`❌ ${res.message || "Load failed"}`, true); return; }
-
-  //   // mirrors: if (loadstatus == 1) { pagination calc }
-  //   if (loadstatus === 1) {
-  //     const count = res.Count || 0;
-  //     const pc    = count === 0 ? 1 : count;
-  //     setPagecountnew(pc);
-  //     if (Keyword === "") {
-  //       const newPageLen = Math.ceil((pc + pagecount - 1) / pagecount);
-  //       setPageLen(newPageLen);
-  //       setCurPage(newPageLen);
-  //     } else {
-  //       setPageLen(1);
-  //       setCurPage(1);
-  //     }
-  //   }
-
-  //   // mirrors: data.data.forEach — format decimal fields
-  //   const rawList = Array.isArray(res.data) ? res.data : [];
-  //   const formatted = rawList.map(obj => ({
-  //     ...obj,
-  //     [grdCreditBillDays]:  String(ValNum(obj[grdCreditBillDays])),
-  //     [grdCreditBillLimit]: parseFloat(obj[grdCreditBillLimit] || 0).toFixed(2),
-  //     [grdOpeningBalance]:  parseFloat(obj[grdOpeningBalance]  || 0).toFixed(2),
-  //     [grdCRMPoint]:        parseFloat(obj[grdCRMPoint]        || 0).toFixed(2),
-  //     [grdCRMValue]:        parseFloat(obj[grdCRMValue]        || 0).toFixed(2),
-  //     [grdEditMode]:        0,
-  //     [grdActive]:          obj[grdActive] === true || obj[grdActive] === 1,
-  //     _uid: uid(),
-  //   }));
-
-  //   // mirrors: addrow(gridSupplier) → blank row at bottom
-  //   // also mirrors: sessionStorage POPValue / POPValue1 prefill
-  //   const prefillName   = sessionStorage.getItem("POPValue")  || "";
-  //   const prefillMobile = sessionStorage.getItem("POPValue1") || "";
-  //   const newRow        = makeNewRow(prefillName, prefillMobile);
-  //   const fullGrid      = [...formatted, newRow];
-
-  //   gridRef.current = fullGrid;
-  //   setGrid(fullGrid);
-  //   setSelIdx(fullGrid.length - 1);
-  //   setSelCol(grdSupplierName);
-  //   focusCell(fullGrid.length - 1, grdSupplierName);
-  // }, [sess, toast, focusCell]);
-
-  const loadCounter = useCallback(async (
-    Startindex,
-    PageCount,
-    Keyword = "",
-    Column = "",
-    loadstatus
-  ) => {
-    try {
-      setLoading(true);
-  
-      const { Comid, pagecount } = sess;
-  
-      const payload = {
-        Comid: Number(Comid),
-        Startindex: Number(Startindex),
-        PageCount: Number(PageCount),
-        AccountType: "CUSTOMER",
-        Keyword: Keyword || "",
-        Column: Column || "",
-      };
-  
-      // IMPORTANT:
-      // Your backend SelectSupplier is normal API params style,
-      // so pass payload as 4th argument (query params)
-      const res = await api(
-        "/Supplier/SelectSupplier",
-        null,
-        {},
-        payload
-      );
-  
-      if (!res?.ok) {
-        toast(`❌ ${res?.message || "Load failed"}`, true);
-        return;
+  // ── selectRow ─────────────────────────────────────────────────────────────
+  const selectRow = useCallback((newIdx) => {
+    setGrid(prev => prev.map((r, i) => {
+      if (i !== newIdx && r[grdEditMode] === 1 && r[grdId] && !dirtyIds.current.has(r[grdId])) {
+        return { ...r, [grdEditMode]: 0 };
       }
-  
-      // pagination
-      if (loadstatus === 1) {
-        const count = Number(res?.Count || res?.count || 0);
-        const pc = count === 0 ? 1 : count;
-  
-        setPagecountnew(pc);
-  
-        if ((Keyword || "") === "") {
-          const newPageLen = Math.ceil(pc / Number(pagecount || 1));
-          setPageLen(newPageLen);
-          setCurPage(newPageLen);
-        } else {
-          setPageLen(1);
-          setCurPage(1);
-        }
+      return r;
+    }));
+    setSelIdx(newIdx);
+  }, []);
+const [colSettings, setColSettings] = useState(() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem("customer_colSettings") || "null");
+    if (saved && Array.isArray(saved)) return saved;
+  } catch {}
+  return ALL_COLUMNS.map(c => ({ field: c.field, label: c.label, hidden: c.hidden, width: c.width }));
+});
+const [f12Open, setF12Open] = useState(false);
+
+const visibleColumns = ALL_COLUMNS.filter(c => {
+  if (c.field === grdCustomerNameTamil && !sess.CustomerNameTamil) return false;
+  const cs = colSettings.find(s => s.field === c.field);
+  return cs ? !cs.hidden : !c.hidden;
+}).map(c => {
+  const cs = colSettings.find(s => s.field === c.field);
+  return { ...c, width: cs?.width ?? c.width };
+});
+const saveColSettings = useCallback((localSettings) => {
+  try { localStorage.setItem("customer_colSettings", JSON.stringify(localSettings)); } catch {}
+  setColSettings(localSettings);
+  setF12Open(false);
+  toast("✅ Column settings saved");
+}, [toast]);
+  // ── loadCounter ───────────────────────────────────────────────────────────
+  const loadCounter = useCallback(async (Startindex, PageCount, Keyword = "", Column = "", loadstatus) => {
+    setLoading(true);
+    const res = await CC.api(CC.SupplierSelect, null, {}, {
+         Comid: Number(sess.Comid), Startindex:-1, PageCount:20,
+         AccountType:"CUSTOMER", Keyword:"", Column:"",
+       });
+    setLoading(false);
+
+    if (redirectIfDualLogin(res)) return;
+    if (res._http404) { toast(`❌ 404 — SelectSupplier not found`, true); return; }
+    if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); return; }
+
+    if (loadstatus === 1) {
+      const count = Number(res?.Count || res?.count || 0);
+      const pc    = count === 0 ? 1 : count;
+      setPagecountnew(pc);
+      if ((Keyword || "") === "") {
+        const newPageLen = Math.ceil(pc / Number(sess.pagecount || 1));
+        setPageLen(newPageLen);
+        setCurPage(newPageLen);
+      } else {
+        setPageLen(1); setCurPage(1);
       }
-  
-      // backend returns Data1
-      const rawList = Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res?.Data1)
-        ? res.Data1
-        : [];
-  
-      const formatted = rawList.map((obj) => ({
-        ...obj,
-  
-        [grdCreditBillDays]: String(
-          ValNum(obj?.[grdCreditBillDays] || 0)
-        ),
-  
-        [grdCreditBillLimit]: Number(
-          obj?.[grdCreditBillLimit] || 0
-        ).toFixed(2),
-  
-        [grdOpeningBalance]: Number(
-          obj?.[grdOpeningBalance] || 0
-        ).toFixed(2),
-  
-        [grdCRMPoint]: Number(
-          obj?.[grdCRMPoint] || 0
-        ).toFixed(2),
-  
-        [grdCRMValue]: Number(
-          obj?.[grdCRMValue] || 0
-        ).toFixed(2),
-  
-        [grdEditMode]: 0,
-  
-        [grdActive]:
-          obj?.[grdActive] === true ||
-          obj?.[grdActive] === 1,
-  
-        _uid: uid(),
-      }));
-  
-      // popup prefill
-      const prefillName =
-        sessionStorage.getItem("POPValue") || "";
-  
-      const prefillMobile =
-        sessionStorage.getItem("POPValue1") || "";
-  
-      const newRow = makeNewRow(
-        prefillName,
-        prefillMobile
-      );
-  
-      const fullGrid = [...formatted, newRow];
-  
-      gridRef.current = fullGrid;
-  
-      setGrid(fullGrid);
-  
-      setSelIdx(fullGrid.length - 1);
-  
-      setSelCol(grdSupplierName);
-  
-      setTimeout(() => {
-        focusCell(fullGrid.length - 1, grdSupplierName);
-      }, 100);
-  
-    } catch (err) {
-      console.error("loadCounter Error :", err);
-  
-      toast(
-        `❌ ${err?.message || "Something went wrong"}`,
-        true
-      );
-    } finally {
-      setLoading(false);
     }
-  }, [sess, toast, focusCell]);
 
-  // ── Init — mirrors methods.init()
+    const rawList = Array.isArray(res?.data)  ? res.data
+                  : Array.isArray(res?.Data1) ? res.Data1
+                  : [];
+
+    const existing = rawList.map(obj => ({
+      ...obj,
+      [grdCreditBillDays]:  String(isNaN(parseFloat(obj[grdCreditBillDays])) ? 0 : parseFloat(obj[grdCreditBillDays])),
+      [grdCreditBillLimit]: Number(obj[grdCreditBillLimit] || 0).toFixed(2),
+      [grdOpeningBalance]:  Number(obj[grdOpeningBalance]  || 0).toFixed(2),
+      [grdCRMPoint]:        Number(obj[grdCRMPoint]        || 0).toFixed(2),
+      [grdCRMValue]:        Number(obj[grdCRMValue]        || 0).toFixed(2),
+      [grdEditMode]:        0,
+      [grdActive]:          obj[grdActive] === true || obj[grdActive] === 1,
+      _uid: CC.uid(),
+    }));
+
+    const prefillName   = sessionStorage.getItem("POPValue")  || "";
+    const prefillMobile = sessionStorage.getItem("POPValue1") || "";
+    const blank         = makeNewRow(prefillName, prefillMobile);
+    const full          = [...existing, blank];
+
+    gridRef.current = full;
+    setGrid(full);
+    setSelIdx(full.length - 1);
+    setTimeout(() => focusCell(full.length - 1, grdSupplierName), 100);
+  }, [sess, toast, focusCell, redirectIfDualLogin]);
+
   useEffect(() => { loadCounter(-1, sess.pagecount, "", "", 1); }, []); // eslint-disable-line
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // updateCell — mirrors updaterow handler: newdata.EditMode = 1
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── addRow ─────────────────────────────────────────────────────────────────
+  const addRow = useCallback(() => {
+    const blank = makeNewRow();
+    setGrid(prev => {
+      const next = [...prev, blank];
+      gridRef.current = next;
+      const idx = next.length - 1;
+      setSelIdx(idx);
+      focusCell(idx, grdSupplierName);
+      return next;
+    });
+  }, [focusCell]);
+
+  // ── updateCell ─────────────────────────────────────────────────────────────
   const updateCell = useCallback((idx, field, value) => {
     setGrid(prev => {
-      const updated = prev.map((r, i) => i === idx ? { ...r, [field]: value, [grdEditMode]: 1 } : r);
+      const updated = prev.map((r, i) => {
+        if (i !== idx) return r;
+        if (r[grdId]) dirtyIds.current.add(r[grdId]);
+        return { ...r, [field]: value, [grdEditMode]: 1 };
+      });
       gridRef.current = updated;
       return updated;
     });
@@ -603,109 +444,58 @@ export default function CustomerMaster() {
 
   const updateCells = useCallback((idx, fields) => {
     setGrid(prev => {
-      const updated = prev.map((r, i) => i === idx ? { ...r, ...fields, [grdEditMode]: 1 } : r);
+      const updated = prev.map((r, i) => {
+        if (i !== idx) return r;
+        if (r[grdId]) dirtyIds.current.add(r[grdId]);
+        return { ...r, ...fields, [grdEditMode]: 1 };
+      });
       gridRef.current = updated;
       return updated;
     });
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Addrowfunc — mirrors methods.Addrowfunc()
-  // ─────────────────────────────────────────────────────────────────────────
-  const addRow = useCallback(() => {
-    const newRow = makeNewRow();
+  // ── enableEdit ─────────────────────────────────────────────────────────────
+  const enableEdit = useCallback((idx) => {
     setGrid(prev => {
-      const next = [...prev, newRow];
-      gridRef.current = next;
-      const idx = next.length - 1;
-      setSelIdx(idx);
-      setSelCol(grdSupplierName);
-      focusCell(idx, grdSupplierName);
-      return next;
+      const updated = prev.map((r, i) => i === idx ? { ...r, [grdEditMode]: 1 } : r);
+      gridRef.current = updated;
+      return updated;
     });
-  }, [focusCell]);
+    selectRow(idx);
+    focusCell(idx, grdSupplierName);
+  }, [selectRow, focusCell]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // gridemptycheck — mirrors methods.gridemptycheck()
-  // ─────────────────────────────────────────────────────────────────────────
-  const gridemptycheck = useCallback((g) => {
-    let cleaned = [...g];
-    // mirrors: if last row AccountName is empty and rowcount > 1 → delete it
-    const last = cleaned[cleaned.length - 1];
-    if (cleaned.length > 1 && (!last[grdSupplierName] || last[grdSupplierName] === "")) {
-      cleaned = cleaned.slice(0, -1);
-    }
-    // mirrors: for loop — check EditMode==1 rows for empty name
-    for (let i = 0; i < cleaned.length; i++) {
-      if (cleaned[i][grdEditMode] === 1) {
-        if (!cleaned[i][grdSupplierName] || cleaned[i][grdSupplierName] === "") {
-          toast("❌ Enter All Supplier Name in the Grid !!!", true);
-          setSelIdx(i); setSelCol(grdSupplierName);
-          focusCell(i, grdSupplierName);
-          return { ok: false, cleaned };
-        }
-      }
-    }
-    return { ok: true, cleaned };
-  }, [toast, focusCell]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // CheckDuplicate — mirrors CheckDuplicate(gridSupplier, grdSupplierName, "Customer Name")
-  // ─────────────────────────────────────────────────────────────────────────
-  const checkDuplicate = useCallback((g, field, label) => {
-    const seen = {};
-    for (let i = 0; i < g.length; i++) {
-      const val = String(g[i][field] || "").trim().toLowerCase();
-      if (!val) continue;
-      if (seen[val]) {
-        toast(`❌ Duplicate ${label} Found !!!.`, true);
-        setSelIdx(i); setSelCol(field);
-        focusCell(i, field);
-        return false;
-      }
-      seen[val] = true;
-    }
-    return true;
-  }, [toast, focusCell]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // deleteRow — mirrors keyCode===46 handler in gridSupplier keydown
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── deleteRow ──────────────────────────────────────────────────────────────
   const deleteRow = useCallback(async (idx) => {
-    const row   = gridRef.current[idx];
+    const row = gridRef.current[idx];
     if (!row) return;
-    const value = row[grdId];
+    const id = row[grdId];
 
-    if (value != null && value !== 0) {
-      // mirrors: if (pagedelete == 1)
-      if (sess.perm.Delete !== 1 && sess.perm.Delete !== true) {
-        toast("❌ Page Delete Permission Denied !!!.", true);
-        return;
-      }
-      const name = row[grdSupplierName];
-      const ok   = await confirm(`Wish to Delete the Record ${name}?`);
+    if (id != null && id !== 0) {
+      if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; }
+      const ok = await confirm(`Do you want to delete "${row[grdSupplierName]}"?`);
       if (!ok) return;
 
       setLoading(true);
-      const res = await api("/Supplier/DeleteSupplier", {
-        Id:          parseInt(value),
-        AccountType: "CUSTOMER",
-        Comid:       parseInt(sess.Comid),
-        MirrorTable: parseInt(sess.MirrorTable),
-      }, {
-        IdComList:   String(sess.IdComList),
-        ComCustomer: String(sess.ComCustomer),
-      });
+      const res = await CC.api(
+        CC.SupplierDelete,
+        null,
+        { IdComList: String(sess.IdComList), ComCustomer: String(sess.ComCustomer) },
+        { Id: Number(id), AccountType:"CUSTOMER", Comid: Number(sess.Comid), MirrorTable: Number(sess.MirrorTable) }
+      );
       setLoading(false);
+
+      if (redirectIfDualLogin(res)) return;
+      if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
       if (res.ok) {
         toast("✅ " + (res.message || "Deleted"));
+        dirtyIds.current.delete(id);
         setGrid(prev => {
           const next = prev.filter((_, i) => i !== idx);
           gridRef.current = next;
           const sel = Math.max(0, next.length - 1);
           setSelIdx(sel);
-          setSelCol(grdSupplierName);
           focusCell(sel, grdSupplierName);
           return next;
         });
@@ -713,237 +503,221 @@ export default function CustomerMaster() {
         toast(`❌ ${res.message || "Delete failed"}`, true);
       }
     } else {
-      // mirrors: DeleteRow with id=0 → just remove from grid
       setGrid(prev => {
         const next = prev.filter((_, i) => i !== idx);
         gridRef.current = next;
         const sel = Math.max(0, next.length - 1);
         setSelIdx(sel);
-        setSelCol(grdSupplierName);
         focusCell(sel, grdSupplierName);
         return next;
       });
     }
-  }, [sess, confirm, toast, focusCell]);
+  }, [perm, sess, confirm, toast, focusCell, redirectIfDualLogin]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // handleSave — mirrors F1 keydown handler
-  // URL: /Supplier/InsertSupplier
-  // headers: Comid, SupplierMulitipleAllow, AccountTypeNew, MirrorTable, Tamil, IdComList
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleSave = useCallback(async () => {
-    let flag = 1;
-    const { perm, Comid, MirrorTable, IdComList, SupplierMulitipleAllow, CustomerNameTamil, ComCustomer } = sess;
-
-    if (perm.Add === 0 && perm.Edit === 0) {
-      toast("❌ Page Add & Update Permission Denied !!!.", true);
-      flag = 0;
+  // ── gridemptycheck ─────────────────────────────────────────────────────────
+  const gridemptycheck = useCallback((g) => {
+    let cleaned = [...g];
+    const last = cleaned[cleaned.length - 1];
+    if (cleaned.length > 1 && (!last[grdSupplierName] || last[grdSupplierName] === "")) {
+      cleaned = cleaned.slice(0, -1);
     }
+    for (let i = 0; i < cleaned.length; i++) {
+      if (cleaned[i][grdEditMode] === 1) {
+        if (!cleaned[i][grdSupplierName] || cleaned[i][grdSupplierName] === "") {
+          toast("❌ Enter All Customer Name in the Grid !!!", true);
+          setSelIdx(i); focusCell(i, grdSupplierName);
+          return { ok: false, cleaned };
+        }
+      }
+    }
+    return { ok: true, cleaned };
+  }, [toast, focusCell]);
 
+  // ── checkDuplicate ─────────────────────────────────────────────────────────
+  const checkDuplicate = useCallback((g, field, label) => {
+    const seen = {};
+    for (let i = 0; i < g.length; i++) {
+      const val = String(g[i][field] || "").trim().toLowerCase();
+      if (!val) continue;
+      if (seen[val]) {
+        toast(`❌ Duplicate ${label} Found !!!`, true);
+        setSelIdx(i); focusCell(i, field);
+        return false;
+      }
+      seen[val] = true;
+    }
+    return true;
+  }, [toast, focusCell]);
+const vn = v => parseFloat(v) || 0;
+  // ── handleSave ─────────────────────────────────────────────────────────────
+  const handleSave = useCallback(async () => {
     const { ok, cleaned } = gridemptycheck(gridRef.current);
     if (!ok) return;
-    if (flag === 0) { setGrid(cleaned); gridRef.current = cleaned; addRow(); return; }
+    setGrid(cleaned); gridRef.current = cleaned;
 
-    let getdata = [];
-    if (perm.Add === 1 && perm.Edit === 1) {
-      getdata = cleaned.filter(r => r[grdEditMode] === 1);
-      if (!getdata.length) { toast("⚠️ No Data Modified,Cannot Update !!!.", true); flag = 0; }
+    let dirty = [];
+    let flag  = 1;
+
+    if (perm.Add === 0 && perm.Edit === 0) {
+      toast("❌ Page Add & Update Permission Denied !!!", true); flag = 0;
+
+    } else if (perm.Add === 1 && perm.Edit === 1) {
+      dirty = cleaned.filter(r => r[grdEditMode] === 1);
+      if (!dirty.length) { toast("⚠️ No Data Modified, Cannot Update !!!", true); flag = 0; }
+
     } else if (perm.Add === 1 && perm.Edit === 0) {
-      getdata = cleaned.filter(r => r[grdEditMode] === 1 && r[grdId] == null);
-      if (!getdata.length) {
-        const tmp = cleaned.filter(r => r[grdEditMode] === 1);
-        toast(tmp.length ? "❌ Page Edit Permission Denied !!!." : "⚠️ No Data Modified,Cannot Update !!!.", true);
+      dirty = cleaned.filter(r => r[grdEditMode] === 1 && r[grdId] == null);
+      if (!dirty.length) {
+        const any = cleaned.filter(r => r[grdEditMode] === 1);
+        toast(any.length ? "❌ Page Edit Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
         flag = 0;
       }
     } else if (perm.Edit === 1 && perm.Add === 0) {
-      getdata = cleaned.filter(r => r[grdEditMode] === 1 && r[grdId] != null);
-      if (!getdata.length) {
-        const tmp = cleaned.filter(r => r[grdEditMode] === 1);
-        toast(tmp.length ? "❌ Page Add Permission Denied !!!." : "⚠️ No Data Modified,Cannot Update !!!.", true);
+      dirty = cleaned.filter(r => r[grdEditMode] === 1 && r[grdId] != null);
+      if (!dirty.length) {
+        const any = cleaned.filter(r => r[grdEditMode] === 1);
+        toast(any.length ? "❌ Page Add Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
         flag = 0;
       }
     }
 
-    if (flag === 0) { setGrid(cleaned); gridRef.current = cleaned; addRow(); return; }
+    if (flag === 0) { addRow(); return; }
 
-    // mirrors: gridemptycheck again after filtering
-    const check2 = gridemptycheck(cleaned);
-    if (!check2.ok) return;
-
-    // mirrors: SupplierMulitipleAllow == false → CheckDuplicate
-    if (!SupplierMulitipleAllow) {
+    if (!sess.SupplierMulitipleAllow) {
       if (!checkDuplicate(cleaned, grdSupplierName, "Customer Name")) return;
     }
 
-    const proceed = await confirm("Do you Want to Save the Customer Details?");
+    const hasNew      = dirty.some(r => r[grdId] == null || r[grdId] === 0);
+    const hasExisting = dirty.some(r => r[grdId] != null && r[grdId] !== 0);
+    let confirmMsg    = "Do you want to save the Customer details?";
+    if (hasExisting && !hasNew) confirmMsg = "Do you want to update the Customer details?";
+    if (hasExisting &&  hasNew) confirmMsg = "Do you want to save & update the Customer details?";
+
+    const proceed = await confirm(confirmMsg);
     if (!proceed) { addRow(); return; }
 
-    // strip _uid before sending
-    const cleanData = getdata.map(({ _uid, ...rest }) => rest);
+     const payload = dirty.map(({ _uid, ...rest }) => ({
+      ...rest, Id:rest.Id??null, AccountType:rest.AccountType||"CUSTOMER",
+      Active:          rest.Active===true||rest.Active===1?1:0,
+      OpeningBalance:  parseFloat(vn(rest.OpeningBalance))||0,
+      CreditBillLimit: parseFloat(vn(rest.CreditBillLimit))||0,
+      CreditBillDays:  parseInt(vn(rest.CreditBillDays))||0,
+      SalemanRefid:    rest.SalemanRefid||null,
+    }));
 
     setLoading(true);
-    const res = await insertapi("/Supplier/InsertSupplier", cleanData, {
-      Comid:                  String(Comid),
-      SupplierMulitipleAllow: String(SupplierMulitipleAllow),
-      AccountTypeNew:         "CUSTOMER",
-      MirrorTable:            String(MirrorTable),
-      Tamil:                  String(CustomerNameTamil),
-      IdComList:              String(IdComList),
+
+ setLoading(true);
+    const res = await CC.insertapi(CC.SupplierInsert, payload, {
+      "Comid":String(sess.Comid), "SupplierMulitipleAllow":String(sess.SupplierMulitipleAllow),
+      "AccountTypeNew":"CUSTOMER", "MirrorTable":String(sess.MirrorTable),
+      "Tamil":"0", "IdComList":String(sess.IdComList), "ApiType":"1",
     });
     setLoading(false);
 
+    if (redirectIfDualLogin(res)) return;
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+
     if (res.ok || res.IsSuccess) {
+      dirtyIds.current.clear();
       toast("✅ " + (res.message || "Saved successfully!"));
-      // mirrors: if POPStatus == "ON" → set POPValue/POPName, close dialog
       if (sessionStorage.getItem("POPStatus") === "ON") {
-        sessionStorage.setItem("POPValue", String(res.Id || ""));
-        sessionStorage.setItem("POPName",  res.Name || "");
+        sessionStorage.setItem("POPValue",  String(res.Id || ""));
+        sessionStorage.setItem("POPName",   res.Name || "");
         sessionStorage.setItem("POPStatus", "OFF");
-        // mirrors: window.parent.$('.ui-dialog-content:visible').dialog('close')
-        try { window.parent.postMessage({ action: "closeDialog" }, "*"); } catch {}
+        try { window.parent.postMessage({ action:"closeDialog" }, "*"); } catch {}
       }
-      loadCounter(0, sess.pagecount, "", "", 1);
+      await loadCounter(0, sess.pagecount, "", "", 1);
     } else {
       toast(`❌ ${res.message || "Save failed"}`, true);
     }
-  }, [sess, gridemptycheck, checkDuplicate, addRow, loadCounter, confirm, toast]);
+  }, [perm, sess, gridemptycheck, checkDuplicate, addRow, loadCounter, confirm, toast, redirectIfDualLogin]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // handleEsc — mirrors Esc keyCode 27
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── handleEsc ──────────────────────────────────────────────────────────────
   const handleEsc = useCallback(async () => {
-    // mirrors: if TamilNameWindow open → close it
     if (tamilPopup.open) { setTamilPopup({ open:false, rowIdx:null, value:"" }); return; }
-    const ok = await confirm("Do You Want To Quit Page?");
-    if (ok) {
-      if (sessionStorage.getItem("POPStatus") === "ON") {
-        sessionStorage.setItem("POPValue",  "-1");
-        sessionStorage.setItem("POPStatus", "OFF");
-        try { window.parent.postMessage({ action: "closeDialog" }, "*"); } catch {}
-      } else {
-        window.location.href = "/Home";
-      }
+    const ok = await confirm("Do you want to quit this page?");
+    if (!ok) return;
+    if (sessionStorage.getItem("POPStatus") === "ON") {
+      sessionStorage.setItem("POPValue",  "-1");
+      sessionStorage.setItem("POPStatus", "OFF");
+      try { window.parent.postMessage({ action:"closeDialog" }, "*"); } catch {}
+    } else {
+      navigate(-1);
     }
-  }, [tamilPopup.open, confirm]);
+  }, [tamilPopup.open, confirm, navigate]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Popup loaders — mirrors AreaList, SalesManList, etc.
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Popup loaders ──────────────────────────────────────────────────────────
   const openAreaPopup = useCallback(async (rowIdx) => {
-    const res = await api("/Area/SelectArea", { Comid: parseInt(sess.MComid) });
-    const items = Array.isArray(res.data) ? res.data : [];
-    const curVal = NullToString(gridRef.current[rowIdx]?.[grdArea]);
-    setAreaPopup({ open:true, items, rowIdx, prefill: curVal });
-  }, [sess.MComid]);
+    const res   = await CC.api(CC.AreaSelect, { Comid: Number(sess.MComid) });
+    if (redirectIfDualLogin(res)) return;
+    const items = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    setAreaPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdArea] || "" });
+  }, [sess.MComid, redirectIfDualLogin]);
 
   const openSalesManPopup = useCallback(async (rowIdx) => {
-    const res = await api("/SalesMan/SelectSalesMan", { Comid: parseInt(sess.MComid) });
-    const items = Array.isArray(res.data) ? res.data : [];
-    const curVal = NullToString(gridRef.current[rowIdx]?.[grdSalesMan]);
-    setSalesmanPopup({ open:true, items, rowIdx, prefill: curVal });
-  }, [sess.MComid]);
+    const res   = await CC.api(CC.SalesManSelect, { Comid: Number(sess.MComid) });
+    if (redirectIfDualLogin(res)) return;
+    const items = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    setSalesmanPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdSalesMan] || "" });
+  }, [sess.MComid, redirectIfDualLogin]);
 
   const openCardPopup = useCallback(async (rowIdx) => {
-    const res = await api("/CustomerCardType/SelectCustomerCardType", { Comid: parseInt(sess.MComid) });
-    const items = Array.isArray(res.data) ? res.data : [];
-    const curVal = NullToString(gridRef.current[rowIdx]?.[grdcustomercardtype]);
-    setCardPopup({ open:true, items, rowIdx, prefill: curVal });
-  }, [sess.MComid]);
+    const res   = await CC.api(CC.CustomerCardSelect, { Comid: Number(sess.MComid) });
+    if (redirectIfDualLogin(res)) return;
+    const items = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    setCardPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdcustomercardtype] || "" });
+  }, [sess.MComid, redirectIfDualLogin]);
 
   const openBranchPopup = useCallback(async (rowIdx) => {
-    const res = await api("/StockTransfer/SelectCompany", {
-      Comid: parseInt(sess.Comid), MComid: parseInt(sess.MComid),
-    });
-    const items = Array.isArray(res.data) ? res.data : [];
-    const curVal = NullToString(gridRef.current[rowIdx]?.[grdBranchName]);
-    setBranchPopup({ open:true, items, rowIdx, prefill: curVal });
-  }, [sess.Comid, sess.MComid]);
+    const res   = await CC.api(CC.BranchSelect, { Comid: Number(sess.Comid), MComid: Number(sess.MComid) });
+    if (redirectIfDualLogin(res)) return;
+    const items = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    setBranchPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdBranchName] || "" });
+  }, [sess.Comid, sess.MComid, redirectIfDualLogin]);
 
   const openTamilPopup = useCallback((rowIdx) => {
-    const curVal = NullToString(gridRef.current[rowIdx]?.[grdCustomerNameTamil]);
-    setTamilPopup({ open:true, rowIdx, value: curVal });
-    setTimeout(() => tamilInputRef.current?.focus(), 100);
+    const val = gridRef.current[rowIdx]?.[grdCustomerNameTamil] || "";
+    setTamilPopup({ open:true, rowIdx, value: val });
+    setTimeout(() => tamilInputRef.current?.focus(), 80);
   }, []);
 
-  // ── Area selected ─────────────────────────────────────────────────────────
+  // ── Popup selection handlers ───────────────────────────────────────────────
   const onAreaSelect = useCallback((item) => {
     const idx = areaPopup.rowIdx;
     updateCells(idx, { [grdArea]: item.AreaName, [grdAreaId]: item.Id });
-    setAreaPopup({ open:false, items:[], rowIdx:null });
-    // mirrors: GirdNextCell → move to SalesMan
-    setSelCol(grdSalesMan);
+    setAreaPopup({ open:false, items:[], rowIdx:null, prefill:"" });
     focusCell(idx, grdSalesMan);
   }, [areaPopup.rowIdx, updateCells, focusCell]);
 
-  const onAreaEnterEmpty = useCallback(() => {
-    const idx = areaPopup.rowIdx;
-    setAreaPopup({ open:false, items:[], rowIdx:null });
-    setSelIdx(idx); setSelCol(grdSalesMan);
-    focusCell(idx, grdSalesMan);
-  }, [areaPopup.rowIdx, focusCell]);
-
-  // ── SalesMan selected ─────────────────────────────────────────────────────
   const onSalesManSelect = useCallback((item) => {
     const idx = salesmanPopup.rowIdx;
     updateCells(idx, { [grdSalesMan]: item.SalesManName, [grdSalesManId]: item.Id });
-    setSalesmanPopup({ open:false, items:[], rowIdx:null });
-    // mirrors: GirdNextCell → move to Address1
-    setSelCol(grdAddress1);
+    setSalesmanPopup({ open:false, items:[], rowIdx:null, prefill:"" });
     focusCell(idx, grdAddress1);
   }, [salesmanPopup.rowIdx, updateCells, focusCell]);
 
-  const onSalesManEnterEmpty = useCallback(() => {
-    const idx = salesmanPopup.rowIdx;
-    setSalesmanPopup({ open:false, items:[], rowIdx:null });
-    setSelIdx(idx); setSelCol(grdAddress1);
-    focusCell(idx, grdAddress1);
-  }, [salesmanPopup.rowIdx, focusCell]);
-
-  // ── CustomerCard selected ─────────────────────────────────────────────────
   const onCardSelect = useCallback((item) => {
     const idx = cardPopup.rowIdx;
     updateCells(idx, { [grdcustomercardtype]: item.TypeName, [grdcustomercardtypeId]: item.Id });
-    setCardPopup({ open:false, items:[], rowIdx:null });
-    // mirrors: GirdNextCell → move to Active
-    setSelCol(grdActive);
+    setCardPopup({ open:false, items:[], rowIdx:null, prefill:"" });
     focusCell(idx, grdActive);
   }, [cardPopup.rowIdx, updateCells, focusCell]);
 
-  const onCardEnterEmpty = useCallback(() => {
-    const idx = cardPopup.rowIdx;
-    setCardPopup({ open:false, items:[], rowIdx:null });
-    setSelIdx(idx); setSelCol(grdActive);
-    focusCell(idx, grdActive);
-  }, [cardPopup.rowIdx, focusCell]);
-
-  // ── Branch selected ───────────────────────────────────────────────────────
   const onBranchSelect = useCallback((item) => {
     const idx = branchPopup.rowIdx;
     updateCells(idx, { [grdBranchName]: item.BranchName, [grdBranchCompanyRefid]: item.Id });
-    setBranchPopup({ open:false, items:[], rowIdx:null });
-    // mirrors: GirdNextCell
-    setSelCol(grdAddress1);
+    setBranchPopup({ open:false, items:[], rowIdx:null, prefill:"" });
     focusCell(idx, grdAddress1);
   }, [branchPopup.rowIdx, updateCells, focusCell]);
 
-  const onBranchEnterEmpty = useCallback(() => {
-    const idx = branchPopup.rowIdx;
-    setBranchPopup({ open:false, items:[], rowIdx:null });
-    setSelIdx(idx); setSelCol(grdAddress1);
-    focusCell(idx, grdAddress1);
-  }, [branchPopup.rowIdx, focusCell]);
-
-  // ── Tamil name confirmed ──────────────────────────────────────────────────
   const onTamilConfirm = useCallback(() => {
-    const { rowIdx, value } = tamilPopup;
-    updateCells(rowIdx, { [grdCustomerNameTamil]: value });
+    updateCells(tamilPopup.rowIdx, { [grdCustomerNameTamil]: tamilPopup.value });
     setTamilPopup({ open:false, rowIdx:null, value:"" });
-    focusCell(rowIdx, grdSupplierName);
+    focusCell(tamilPopup.rowIdx, grdSupplierName);
   }, [tamilPopup, updateCells, focusCell]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Visible columns for navigation order — mirrors Widthdatacolumns (pinned==false, hidden==false)
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Column navigation order ────────────────────────────────────────────────
   const columnNavOrder = [
     grdSupplierName, grdArea, grdSalesMan,
     grdAddress1, grdAddress2, grdCity,
@@ -952,72 +726,37 @@ export default function CustomerMaster() {
     grdcustomercardtype, grdActive,
   ];
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // GirdNextCell equivalent — moves to next visible column or next row
-  // ─────────────────────────────────────────────────────────────────────────
   const moveNext = useCallback((rowIdx, columnname) => {
     const colIdx = columnNavOrder.indexOf(columnname);
     if (colIdx < columnNavOrder.length - 1) {
-      const nextCol = columnNavOrder[colIdx + 1];
-      setSelCol(nextCol);
-      focusCell(rowIdx, nextCol);
+      focusCell(rowIdx, columnNavOrder[colIdx + 1]);
     } else {
-      // last column → move to next row or add row
-      if (rowIdx >= gridRef.current.length - 1) {
-        addRow();
-      } else {
-        const nextIdx = rowIdx + 1;
-        setSelIdx(nextIdx);
-        setSelCol(columnNavOrder[0]);
-        focusCell(nextIdx, columnNavOrder[0]);
-      }
+      if (rowIdx >= gridRef.current.length - 1) addRow();
+      else { setSelIdx(rowIdx + 1); focusCell(rowIdx + 1, columnNavOrder[0]); }
     }
   }, [columnNavOrder, addRow, focusCell]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // handleCellKeyDown — mirrors gridSupplier.bind('keydown') Enter handler
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── handleCellKeyDown ──────────────────────────────────────────────────────
   const handleCellKeyDown = useCallback((e, idx, columnname) => {
-    const key = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0;
-
-    // mirrors: key == 8 → trigger keypress (handled by onChange)
-    // mirrors: key === 46 (Delete) → deleteRow
     if (e.keyCode === 46 && e.ctrlKey) { e.preventDefault(); deleteRow(idx); return; }
-
-    if (e.key !== "Enter" && key !== 13) return;
+    if (e.key !== "Enter") return;
     e.preventDefault();
 
     const row   = gridRef.current[idx];
     if (!row) return;
     const value = row[columnname];
 
-    // mirrors: if (rowindex == -1) → filter search
-    // handled separately in filter row
-
     if (columnname === grdSupplierName) {
-      // mirrors: if (value == null || value == "") → MsgBox
-      if (!value || value === "") { toast("❌ Enter Customer Name!!!.", true); return; }
-      // mirrors: SupplierMulitipleAllow == false → CheckDuplicate
-      if (!sess.SupplierMulitipleAllow) {
-        if (!checkDuplicate(gridRef.current, grdSupplierName, "Customer Name")) return;
-      }
+      if (!value || value === "") { toast("❌ Enter Customer Name !!!", true); return; }
+      if (!sess.SupplierMulitipleAllow && !checkDuplicate(gridRef.current, grdSupplierName, "Customer Name")) return;
       moveNext(idx, columnname);
     } else if (columnname === grdArea) {
-      // mirrors: AreaList + AreaWindow open
       openAreaPopup(idx);
     } else if (columnname === grdSalesMan) {
-      // mirrors: SalesManList + SaleManWindow open
       openSalesManPopup(idx);
     } else if (columnname === grdcustomercardtype) {
-      // mirrors: CustomerCardrList + CustomerCardWindow open
       openCardPopup(idx);
-    } else if (columnname === grdBranchName) {
-      // mirrors: GirdNextCell (branch name is read-only navigation)
-      moveNext(idx, columnname);
-    } else if (columnname === grdGroupName) {
-      moveNext(idx, columnname);
     } else if (columnname === grdOpeningBalance || columnname === grdCreditBillLimit) {
-      // mirrors: setcellvalue to toFixed(2) then GirdNextCell
       updateCell(idx, columnname, parseFloat(value || 0).toFixed(2));
       moveNext(idx, columnname);
     } else {
@@ -1025,547 +764,431 @@ export default function CustomerMaster() {
     }
   }, [sess, toast, checkDuplicate, moveNext, openAreaPopup, openSalesManPopup, openCardPopup, deleteRow, updateCell]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Filter logic — mirrors jQuery filter row + loadCounter keyword search
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Filter ─────────────────────────────────────────────────────────────────
   const handleFilterSearch = useCallback((e) => {
-    if (e.key === "Enter") {
-      if (filterSearch.trim() !== "") {
-        loadCounter(0, 0, filterSearch, filterColumn, 1);
-      }
+    if (e.key === "Enter" && filterSearch.trim()) {
+      loadCounter(0, 0, filterSearch, filterColumn, 1);
     }
   }, [filterSearch, filterColumn, loadCounter]);
+ function renderCell(row, realIdx, colDef, inViewMode) {
+  const { field, type, maxLen, options } = colDef;
+  const value = row[field] ?? "";
 
-  // mirrors: F2 → loadCounter(-1, pagecount, "Active", "Active", 1)
-  const handleF2 = useCallback(() => {
-    loadCounter(-1, sess.pagecount, "Active", "Active", 1);
-  }, [sess.pagecount, loadCounter]);
+  const cellStyle = {
+    background:   inViewMode ? "transparent" : "#fff",
+    border:       inViewMode ? "none"        : "1px solid #93c5fd",
+    cursor:       inViewMode ? "default"     : "text",
+    color:        inViewMode ? "inherit"     : "#1e293b",
+    boxShadow:    inViewMode ? "none"        : "0 0 0 2px rgba(59,130,246,0.15)",
+    borderRadius: inViewMode ? 0             : "4px",
+    padding:      inViewMode ? "2px 4px"     : undefined,
+  };
+  const popupStyle = { ...cellStyle, cursor: inViewMode ? "default" : "pointer", background: inViewMode ? "transparent" : "#f8fafc" };
 
-  // mirrors: F5 → BranchWindow open
-  const handleF5 = useCallback(() => {
-    const idx = selIdx ?? (gridRef.current.length - 1);
-    openBranchPopup(idx);
-  }, [selIdx, openBranchPopup]);
+  const ref = el => { if (el) inputRefs.current[`${realIdx}-${field}`] = el; else delete inputRefs.current[`${realIdx}-${field}`]; };
 
-  // mirrors: F6 → TamilWindow open
-  const handleF6 = useCallback(() => {
-    const idx = selIdx ?? (gridRef.current.length - 1);
-    openTamilPopup(idx);
-  }, [selIdx, openTamilPopup]);
+  if (type === "active-select") return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center" }}>
+      <div onClick={() => !inViewMode && updateCell(realIdx, field, (value === 1 || value === true) ? 0 : 1)}
+        style={{ width:34, height:18, borderRadius:9,
+          background: (value === 1 || value === true) ? "#16a34a" : "#d1d5db",
+          position:"relative", cursor: inViewMode ? "not-allowed" : "pointer",
+          transition:"background .2s", opacity: inViewMode ? 0.6 : 1 }}>
+        <div style={{ position:"absolute", top:2, left:(value === 1 || value === true) ? 16 : 2,
+          width:14, height:14, borderRadius:"50%", background:"#fff",
+          boxShadow:"0 1px 3px rgba(0,0,0,.25)", transition:"left .2s" }} />
+      </div>
+    </div>
+  );
 
-  // ── Global keydown — mirrors $(document).on('keydown') ───────────────────
+  if (type === "select") return (
+    <select ref={ref} className="mp-cell-select" value={value}
+      disabled={!!inViewMode}
+      style={{ opacity: inViewMode ? 0.6 : 1 }}
+      onChange={e => !inViewMode && updateCell(realIdx, field, e.target.value)}
+      onFocus={() => selectRow(realIdx)}>
+      {(options || []).map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+
+  if (type === "popup") {
+    const openMap = {
+      [grdArea]:            () => openAreaPopup(realIdx),
+      [grdSalesMan]:        () => openSalesManPopup(realIdx),
+      [grdcustomercardtype]:() => openCardPopup(realIdx),
+      [grdBranchName]:      () => openBranchPopup(realIdx),
+    };
+    return (
+      <input ref={ref} className="mp-cell-input" type="text" readOnly
+        value={String(value)}
+        style={popupStyle}
+        placeholder={inViewMode ? "" : "Enter to select…"}
+        onFocus={() => selectRow(realIdx)}
+        onClick={() => !inViewMode && openMap[field]?.()}
+        onKeyDown={e => !inViewMode && handleCellKeyDown(e, realIdx, field)} />
+    );
+  }
+
+  const isNum = type === "int" || type === "float";
+  return (
+    <input ref={ref} className="mp-cell-input" type="text"
+      maxLength={maxLen || 200}
+      value={String(value)}
+      readOnly={!!inViewMode}
+      style={{ ...cellStyle, ...(isNum ? { textAlign:"right" } : {}) }}
+      onFocus={() => selectRow(realIdx)}
+      onKeyDown={e => !inViewMode && handleCellKeyDown(e, realIdx, field)}
+      onChange={e => {
+        if (inViewMode) return;
+        if (isNum) updateCell(realIdx, field, e.target.value);
+        else CC.applyUppercase(e, v => updateCell(realIdx, field, v));
+      }}
+      onBlur={e => {
+        if (inViewMode) return;
+        if (type === "float") updateCell(realIdx, field, parseFloat(parseFloat(e.target.value) || 0).toFixed(2));
+        if (type === "int")   updateCell(realIdx, field, String(parseInt(e.target.value) || 0));
+      }} />
+  );
+}
+  // ── Global keyboard shortcuts ──────────────────────────────────────────────
   useEffect(() => {
+    const anyPopup = () => areaPopup.open || salesmanPopup.open || cardPopup.open || branchPopup.open || tamilPopup.open;
     const onKey = (e) => {
-      const anyPopupOpen = areaPopup.open || salesmanPopup.open || cardPopup.open || branchPopup.open;
-      if (anyPopupOpen) return; // popups handle their own keys
-
+      if (anyPopup()) return;
       if (e.keyCode === 112) { e.preventDefault(); handleSave(); }   // F1
-      if (e.keyCode === 113) { e.preventDefault(); handleF2(); }     // F2
-      if (e.keyCode === 116) { e.preventDefault(); handleF5(); }     // F5
-      if (e.keyCode === 117) { e.preventDefault(); handleF6(); }     // F6
+      // inside the onKey handler, add:
+      if (e.keyCode === 123) { e.preventDefault(); setF12Open(true); }  // F12
+      if (e.keyCode === 113) { e.preventDefault(); loadCounter(-1, sess.pagecount, "Active", "Active", 1); } // F2
+      if (e.keyCode === 116) { e.preventDefault(); const idx = selIdx ?? (gridRef.current.length - 1); openBranchPopup(idx); } // F5
+      if (e.keyCode === 117) { e.preventDefault(); const idx = selIdx ?? (gridRef.current.length - 1); openTamilPopup(idx); }   // F6
       if (e.keyCode === 27)  { e.preventDefault(); handleEsc(); }    // Esc
     };
+   
+ 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleSave, handleF2, handleF5, handleF6, handleEsc, areaPopup.open, salesmanPopup.open, cardPopup.open, branchPopup.open]);
+  }, [handleSave, handleEsc, loadCounter, openBranchPopup, openTamilPopup, sess.pagecount, selIdx,
+      areaPopup.open, salesmanPopup.open, cardPopup.open, branchPopup.open, tamilPopup.open]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Filtered grid for display — mirrors jQuery filterable grid
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  const handlePageClick = useCallback((page) => {
+    setCurPage(page);
+    loadCounter((page - 1) * sess.pagecount, sess.pagecount, "", "", 0);
+  }, [sess.pagecount, loadCounter]);
+
+  // ── Display grid (active filter) ───────────────────────────────────────────
   const displayGrid = grid.filter(row => {
     if (activeFilter === "active" && row[grdActive] === false) return false;
     return true;
   });
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Pagination — mirrors render(curPage, item) + holder click
-  // ─────────────────────────────────────────────────────────────────────────
-  const pageNumbers = Array.from({ length: pageLen }, (_, i) => i + 1);
-
-  const handlePageClick = useCallback((page) => {
-    setCurPage(page);
-    const startIndex = (page - 1) * sess.pagecount;
-    loadCounter(startIndex, sess.pagecount, "", "", 0);
-  }, [sess.pagecount, loadCounter]);
+   function F12Popup() {
+  const [local, setLocal] = useState(colSettings.map(s => ({ ...s })));
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,.5)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+      <div style={{ background:"#fff",borderRadius:8,width:450,maxHeight:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 16px 48px rgba(0,0,0,.3)",overflow:"hidden" }}>
+        <div style={{ background:"#1a2e4a",color:"#fff",padding:"10px 16px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+          <span>⚙ Column Settings (F12)</span>
+          <button style={{ background:"none",border:"none",color:"#fff",fontSize:17,cursor:"pointer" }} onClick={() => setF12Open(false)}>✕</button>
+        </div>
+        <div style={{ flex:1,overflowY:"auto",padding:12 }}>
+          <table style={{ borderCollapse:"collapse",width:"100%" }}>
+            <thead>
+              <tr>
+                {["Column","Visible","Width (px)"].map(h => (
+                  <th key={h} style={{ background:"#1a2e4a",color:"#fff",padding:"6px 10px",fontSize:11,fontWeight:600,textAlign:"left" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {local.map(s => (
+                <tr key={s.field}>
+                  <td style={{ padding:"5px 10px",fontSize:12,borderBottom:"1px solid #eaecf4" }}>{s.label}</td>
+                  <td style={{ padding:"5px 10px",textAlign:"center",borderBottom:"1px solid #eaecf4" }}>
+                    <input type="checkbox" checked={!s.hidden}
+                      onChange={() => setLocal(p => p.map(x => x.field === s.field ? { ...x, hidden: !x.hidden } : x))} />
+                  </td>
+                  <td style={{ padding:"5px 10px",borderBottom:"1px solid #eaecf4" }}>
+                    <input type="number" min="40" max="500" value={s.width}
+                      style={{ width:70,border:"1px solid #d4dbe8",borderRadius:3,padding:"2px 6px",fontSize:12,textAlign:"right" }}
+                      onChange={e => setLocal(p => p.map(x => x.field === s.field ? { ...x, width: parseInt(e.target.value) || x.width } : x))} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ padding:"10px 14px",display:"flex",gap:8,justifyContent:"flex-end",borderTop:"1px solid #e5e7eb" }}>
+          <button onClick={() => saveColSettings(local)}
+            style={{ background:"#1a2e4a",color:"#fff",border:"none",borderRadius:4,padding:"6px 18px",fontSize:12,fontWeight:700,cursor:"pointer" }}>
+            💾 Save
+          </button>
+          <button onClick={() => setF12Open(false)}
+            style={{ background:"#fff",color:"#6b7280",border:"1px solid #d1d5db",borderRadius:4,padding:"6px 14px",fontSize:12,cursor:"pointer" }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+  // ── Block render until authorized ──────────────────────────────────────────
+  if (!isAuthorized) return null;
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
-  const anyPopupOpen = areaPopup.open || salesmanPopup.open || cardPopup.open || branchPopup.open || tamilPopup.open;
-
   return (
-    <div className="mp-wrap">
+    <div className="mp-wrap supplier-page">
       {ConfirmUI}
+      {f12Open && <F12Popup />}
       <Topbar />
+
       {/* ── Area Popup ── */}
       {areaPopup.open && (
-        <PopupWindow title="Area" onClose={() => { setAreaPopup({ open:false, items:[], rowIdx:null }); }}>
-          <SearchableList
-            items={areaPopup.items}
-            labelField="AreaName"
-            value={areaPopup.prefill || ""}
-            onChange={onAreaSelect}
-            onClose={() => setAreaPopup({ open:false, items:[], rowIdx:null })}
-            onEnterEmpty={onAreaEnterEmpty}
-            searchPlaceholder="Search Area"
-            inputRef={popupInputRef}
-            listRef={popupListRef}
-          />
+        <PopupWindow title="Select Area" onClose={() => setAreaPopup(p => ({ ...p, open:false }))}>
+          <SearchableList items={areaPopup.items} labelField="AreaName" prefill={areaPopup.prefill}
+            onChange={onAreaSelect} onClose={() => setAreaPopup(p => ({ ...p, open:false }))}
+            onEnterEmpty={() => { setAreaPopup(p => ({ ...p, open:false })); focusCell(areaPopup.rowIdx, grdSalesMan); }}
+            searchPlaceholder="Search Area…" />
         </PopupWindow>
       )}
 
       {/* ── SalesMan Popup ── */}
       {salesmanPopup.open && (
-        <PopupWindow title="Sales Man" onClose={() => setSalesmanPopup({ open:false, items:[], rowIdx:null })}>
-          <SearchableList
-            items={salesmanPopup.items}
-            labelField="SalesManName"
-            value={salesmanPopup.prefill || ""}
-            onChange={onSalesManSelect}
-            onClose={() => setSalesmanPopup({ open:false, items:[], rowIdx:null })}
-            onEnterEmpty={onSalesManEnterEmpty}
-            searchPlaceholder="Search Sales Man"
-            inputRef={popupInputRef}
-            listRef={popupListRef}
-          />
+        <PopupWindow title="Select Sales Man" onClose={() => setSalesmanPopup(p => ({ ...p, open:false }))}>
+          <SearchableList items={salesmanPopup.items} labelField="SalesManName" prefill={salesmanPopup.prefill}
+            onChange={onSalesManSelect} onClose={() => setSalesmanPopup(p => ({ ...p, open:false }))}
+            onEnterEmpty={() => { setSalesmanPopup(p => ({ ...p, open:false })); focusCell(salesmanPopup.rowIdx, grdAddress1); }}
+            searchPlaceholder="Search Sales Man…" />
         </PopupWindow>
       )}
 
       {/* ── Customer Card Popup ── */}
       {cardPopup.open && (
-        <PopupWindow title="Customer Card Type" onClose={() => setCardPopup({ open:false, items:[], rowIdx:null })}>
-          <SearchableList
-            items={cardPopup.items}
-            labelField="TypeName"
-            value={cardPopup.prefill || ""}
-            onChange={onCardSelect}
-            onClose={() => setCardPopup({ open:false, items:[], rowIdx:null })}
-            onEnterEmpty={onCardEnterEmpty}
-            searchPlaceholder="Search Customer Card"
-            inputRef={popupInputRef}
-            listRef={popupListRef}
-          />
+        <PopupWindow title="Select Card Type" onClose={() => setCardPopup(p => ({ ...p, open:false }))}>
+          <SearchableList items={cardPopup.items} labelField="TypeName" prefill={cardPopup.prefill}
+            onChange={onCardSelect} onClose={() => setCardPopup(p => ({ ...p, open:false }))}
+            onEnterEmpty={() => { setCardPopup(p => ({ ...p, open:false })); focusCell(cardPopup.rowIdx, grdActive); }}
+            searchPlaceholder="Search Card Type…" />
         </PopupWindow>
       )}
 
       {/* ── Branch Popup ── */}
       {branchPopup.open && (
-        <PopupWindow title="Branch" onClose={() => setBranchPopup({ open:false, items:[], rowIdx:null })}>
-          <SearchableList
-            items={branchPopup.items}
-            labelField="BranchName"
-            value={branchPopup.prefill || ""}
-            onChange={onBranchSelect}
-            onClose={() => setBranchPopup({ open:false, items:[], rowIdx:null })}
-            onEnterEmpty={onBranchEnterEmpty}
-            searchPlaceholder="Search Branch"
-            inputRef={popupInputRef}
-            listRef={popupListRef}
-          />
+        <PopupWindow title="Select Branch" onClose={() => setBranchPopup(p => ({ ...p, open:false }))}>
+          <SearchableList items={branchPopup.items} labelField="BranchName" prefill={branchPopup.prefill}
+            onChange={onBranchSelect} onClose={() => setBranchPopup(p => ({ ...p, open:false }))}
+            onEnterEmpty={() => { setBranchPopup(p => ({ ...p, open:false })); focusCell(branchPopup.rowIdx, grdAddress1); }}
+            searchPlaceholder="Search Branch…" />
         </PopupWindow>
       )}
 
-      {/* ── Tamil Name Popup (F6) ── */}
+      {/* ── Tamil Name Popup ── */}
       {tamilPopup.open && (
-        <PopupWindow title="Tamil Name" width={440} onClose={() => setTamilPopup({ open:false, rowIdx:null, value:"" })}>
-          <div style={{ padding:12, display:"flex", gap:8 }}>
+        <PopupWindow title="Tamil Name (F6)" width={420} onClose={() => setTamilPopup({ open:false, rowIdx:null, value:"" })}>
+          <div style={{ padding:14, display:"flex", gap:8 }}>
             <input
               ref={tamilInputRef}
-              style={{ flex:1, padding:"4px 8px", fontSize:13, border:"1px solid #cbd5e1", borderRadius:4 }}
-              placeholder="TamilName"
+              className="mp-cell-input"
+              placeholder="Enter Tamil name…"
               value={tamilPopup.value}
               onChange={e => setTamilPopup(p => ({ ...p, value: e.target.value }))}
               onKeyDown={e => {
                 if (e.key === "Enter") onTamilConfirm();
                 if (e.key === "Escape") setTamilPopup({ open:false, rowIdx:null, value:"" });
               }}
-              autoFocus
+              style={{ flex:1 }}
             />
-            <button style={{ padding:"4px 12px", background:"#1e40af", color:"#fff", border:"none", borderRadius:4, cursor:"pointer" }} onClick={onTamilConfirm}>✓</button>
+            <button
+              className="mp-btn sv"
+              onClick={onTamilConfirm}
+              style={{ flexShrink:0 }}
+            >✓ OK</button>
           </div>
         </PopupWindow>
       )}
 
-      {/* ── Header ── */}
-      {/* <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">C</div>
-          <div>
-            <div className="mp-title">Customer Master</div>
-            <div className="mp-sub">Co: {sess.Comid} — Manage customer records • {pagecountnew} records</div>
-          </div>
-        </div>
-        <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div> */}
-
       <div className="mp-body">
         {/* ── Toolbar ── */}
-        <div className="mp-toolbar" style={{ flexWrap:"wrap", gap:6 }}>
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn"    onClick={handleF2}   disabled={loading} style={{ background:"#0891b2", color:"#fff" }}>🔍 F2 Active</button>
-          <button className="mp-btn"    onClick={handleF5}   disabled={loading} style={{ background:"#7c3aed", color:"#fff" }}>🏢 F5 Branch</button>
-          <button className="mp-btn"    onClick={handleF6}   disabled={loading} style={{ background:"#be185d", color:"#fff" }}>🔤 F6 Tamil</button>
-          <button className="mp-btn"    onClick={() => loadCounter(-1, sess.pagecount, "", "", 1)} disabled={loading} style={{ background:"#059669", color:"#fff" }}>🔄 Refresh</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+        {/* ── TOP TOOLBAR: Save + F12 + Title + Filter ── */}
+<div className="mp-toolbar" style={{
+  borderBottom: "2px solid #1a2e4a",
+  display: "flex", alignItems: "center",
+  gap: 6, padding: "6px 10px", flexWrap: "wrap",
+}}>
 
-          <div className="mpmp-toolbar-title">Customer Master</div>
 
-          {/* Filter row — mirrors jQuery showfilterrow */}
-          <div style={{ display:"flex", gap:4, alignItems:"center", marginLeft:"auto" }}>
-            <select
-              style={{ padding:"4px 6px", fontSize:12, border:"1px solid #cbd5e1", borderRadius:4 }}
-              value={filterColumn}
-              onChange={e => setFilterColumn(e.target.value)}
-            >
-              <option value={grdSupplierName}>Customer Name</option>
-              <option value={grdMobileNo}>Mobile No</option>
-              <option value={grdGSTINNo}>GSTIN No</option>
-              <option value={grdArea}>Area</option>
-              <option value={grdCity}>City</option>
-              <option value={grdCode}>Code</option>
-            </select>
-            <input
-              style={{ padding:"4px 8px", fontSize:12, border:"1px solid #cbd5e1", borderRadius:4, width:160 }}
-              placeholder="Search… (Enter)"
-              value={filterSearch}
-              onChange={e => setFilterSearch(e.target.value)}
-              onKeyDown={handleFilterSearch}
-            />
-            <select
-              style={{ padding:"4px 6px", fontSize:12, border:"1px solid #cbd5e1", borderRadius:4 }}
-              value={activeFilter}
-              onChange={e => setActiveFilter(e.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="active">Active Only</option>
-            </select>
-          </div>
-        </div>
+  <div style={{ width: 1, height: 22, background: "#d1d5db", margin: "0 4px" }} />
+
+  <div className="mp-toolbar-title">Customer Master</div>
+
+  {/* Search filter — pushed to the right */}
+  <div style={{ display: "flex", gap: 4, alignItems: "center", marginLeft: "auto" }}>
+    <select className="mp-cell-select" style={{ width: 140, height: 28 }}
+      value={filterColumn} onChange={e => setFilterColumn(e.target.value)}>
+      <option value={grdSupplierName}>Customer Name</option>
+      <option value={grdMobileNo}>Mobile No</option>
+      <option value={grdGSTINNo}>GSTIN No</option>
+      <option value={grdArea}>Area</option>
+      <option value={grdCity}>City</option>
+      <option value={grdCode}>Code</option>
+    </select>
+    <input className="mp-cell-input" style={{ width: 160, height: 28 }}
+      placeholder="Search… (Enter)"
+      value={filterSearch}
+      onChange={e => setFilterSearch(e.target.value)}
+      onKeyDown={handleFilterSearch}
+    />
+    <select className="mp-cell-select" style={{ width: 100, height: 28 }}
+      value={activeFilter} onChange={e => setActiveFilter(e.target.value)}>
+      <option value="all">All</option>
+      <option value="active">Active Only</option>
+    </select>
+  </div>
+</div>
 
         {/* ── Grid ── */}
-        <div className="mp-grid-wrap" style={{ overflowX:"auto" }}>
-          <table className="mp-tbl" style={{ minWidth:1400 }}>
-            <thead>
-              <tr>
-                <th style={{ width:45 }}>S.No</th>
-                <th style={{ width:180 }}>Customer Name*</th>
-                {sess.CustomerNameTamil && <th style={{ width:150 }}>Tamil Name</th>}
-                <th style={{ width:90 }}>Code</th>
-                <th style={{ width:130 }}>Area</th>
-                <th style={{ width:130 }}>Sales Man</th>
-                <th style={{ width:150 }}>Address 1</th>
-                <th style={{ width:120 }}>Address 2</th>
-                <th style={{ width:100 }}>City</th>
-                <th style={{ width:90 }}>Mobile No</th>
-                <th style={{ width:140 }}>GSTIN No</th>
-                <th style={{ width:80 }}>Cr.Days</th>
-                <th style={{ width:95 }}>Cr.Limit</th>
-                <th style={{ width:95 }}>Opening Bal</th>
-                <th style={{ width:130 }}>Card Type</th>
-                <th style={{ width:90 }}>IGST Bill</th>
-                <th style={{ width:60, textAlign:"center" }}>Active</th>
-                <th style={{ width:50 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && displayGrid.length === 0 ? (
-                <tr>
-                  <td colSpan={18} style={{ textAlign:"center", padding:20, color:"#888" }}>Loading...</td>
-                </tr>
-              ) : displayGrid.map((row, idx) => {
-                // find real index in full grid
-                const realIdx = grid.indexOf(row);
-                if (!row) return null;
-                const isInactive = row[grdActive] === false || row[grdActive] === 0;
-                const isModified = row[grdEditMode] === 1;
-                const isSel      = selIdx === realIdx;
-                return (
-                  <tr
-                    key={row._uid}
-                    className={[isSel ? "sel" : "", isInactive ? "inact" : "", isModified ? "mod" : ""].filter(Boolean).join(" ")}
-                    onClick={() => { setSelIdx(realIdx); }}
-                  >
-                    <td className="sno">{idx + 1}</td>
+       <div className="mp-grid-wrap" style={{ overflowX:"auto", overflowY:"auto" }}>
+  <table className="mp-tbl" style={{
+    minWidth: visibleColumns.reduce((a, c) => a + c.width, 150) + "px",
+    tableLayout: "fixed", width: "100%"
+  }}>
+    <thead>
+      <tr>
+        <th style={{ width:45 }}>S.No</th>
+        <th style={{ width:44 }}></th>
+        {visibleColumns.map(c => (
+          <th key={c.field} style={{ width:c.width, minWidth:c.width,
+            textAlign: c.field === grdActive ? "center" : undefined }}>
+            {c.label}{c.required ? " *" : ""}
+          </th>
+        ))}
+        <th style={{ width:70, textAlign:"center" }}></th>
+      </tr>
+    </thead>
+    <tbody>
+      {displayGrid.map((row, idx) => {
+        const realIdx = grid.indexOf(row);
+        const isInact = row[grdActive] === false || row[grdActive] === 0;
+        const isMod   = row[grdEditMode] === 1;
+        const isSel   = selIdx === realIdx;
+        const inViewMode = row[grdEditMode] === 0 && row[grdId];
 
-                    {/* Customer Name */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdSupplierName}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdSupplierName] || ""}
-                        maxLength={500}
-                        onChange={e => updateCell(realIdx, grdSupplierName, e.target.value.toUpperCase())}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdSupplierName)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdSupplierName); }}
-                      />
-                    </td>
+        return (
+          <tr key={row._uid}
+            className={[isSel?"sel":"", isInact?"inact":"", isMod?"mod":""].filter(Boolean).join(" ")}
+            onClick={() => selectRow(realIdx)}>
 
-                    {/* Tamil Name (conditional) */}
-                    {sess.CustomerNameTamil && (
-                      <td>
-                        <input
-                          ref={el => (inputRefs.current[`${realIdx}-${grdCustomerNameTamil}`] = el)}
-                          className="mp-cell-input"
-                          value={row[grdCustomerNameTamil] || ""}
-                          maxLength={500}
-                          readOnly
-                          onClick={() => openTamilPopup(realIdx)}
-                          onFocus={() => { setSelIdx(realIdx); setSelCol(grdCustomerNameTamil); }}
-                          style={{ cursor:"pointer", background:"#f8fafc" }}
-                          title="Press F6 to enter Tamil Name"
-                        />
-                      </td>
-                    )}
+            <td className="sno">{idx + 1}</td>
 
-                    {/* Code */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdCode}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdCode] || ""}
-                        maxLength={50}
-                        onChange={e => updateCell(realIdx, grdCode, e.target.value.toUpperCase())}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdCode)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdCode); }}
-                      />
-                    </td>
+            {/* Edit icon */}
+            <td style={{ textAlign:"center", whiteSpace:"nowrap" }}>
+              {row[grdId] && row[grdEditMode] === 0 && (
+                <button className="mp-edit-btn" title="Edit row"
+                  onClick={e => { e.stopPropagation(); enableEdit(realIdx); }}>✏️</button>
+              )}
+              {row[grdId] && row[grdEditMode] === 1 && (
+                <button className="mp-edit-btn active" title="Editing…"
+                  style={{ color:"#16a34a", cursor:"default" }}>✏️</button>
+              )}
+            </td>
 
-                    {/* Area — mirrors grdArea combo → popup */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdArea}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdArea] || ""}
-                        readOnly
-                        onClick={() => openAreaPopup(realIdx)}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdArea)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdArea); }}
-                        style={{ cursor:"pointer", background:"#f8fafc" }}
-                        title="Press Enter to select Area"
-                      />
-                    </td>
+            {visibleColumns.map(colDef => (
+              <td key={colDef.field}
+                style={{ padding:"2px 4px",
+                  textAlign: colDef.field === grdActive ? "center" : undefined }}
+                onClick={e => {
+                  e.stopPropagation();
+                  selectRow(realIdx);
+                  if (!inViewMode) {
+                    setTimeout(() => {
+                      const el = inputRefs.current[`${realIdx}-${colDef.field}`];
+                      if (el) { el.focus(); el.select?.(); }
+                    }, 20);
+                  }
+                }}>
+                {renderCell(row, realIdx, colDef, inViewMode)}
+              </td>
+            ))}
 
-                    {/* Sales Man — mirrors grdSalesMan combo → popup */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdSalesMan}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdSalesMan] || ""}
-                        readOnly
-                        onClick={() => openSalesManPopup(realIdx)}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdSalesMan)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdSalesMan); }}
-                        style={{ cursor:"pointer", background:"#f8fafc" }}
-                        title="Press Enter to select Sales Man"
-                      />
-                    </td>
+            <td style={{ textAlign:"center", padding:"2px 4px", whiteSpace:"nowrap" }}>
+              {row[grdId] && row[grdEditMode] === 0 && (
+                <button className="mp-edit-btn" title="Edit row"
+                  onClick={e => { e.stopPropagation(); enableEdit(realIdx); }}>✏️</button>
+              )}
+              {row[grdId] && row[grdEditMode] === 1 && (
+                <button className="mp-edit-btn active" style={{ color:"#16a34a",cursor:"default" }}>✏️</button>
+              )}
+              <button className="mp-del-btn"
+                onClick={e => { e.stopPropagation(); deleteRow(realIdx); }}>🗑</button>
+            </td>
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+  {displayGrid.length === 0 && !loading && (
+    <div className="mp-empty">No records. Press ➕ to add a customer.</div>
+  )}
+</div>
+{/* ── BOTTOM TOOLBAR: Action buttons ── */}
+<div className="mp-toolbar" style={{
+  borderTop: "2px solid #1a2e4a",
+  display: "flex", alignItems: "center",
+  gap: 6, padding: "6px 10px", flexWrap: "wrap",
+}}>
+  <button className="mp-btn nw" onClick={addRow} disabled={loading}>➕ Add Row</button>
+    <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
+  <button className="mp-btn"
+    style={{ background: "var(--color-background-secondary)", color: "var(--color-text-primary)", border: "1px solid #9ca3af" }}
+    onClick={() => setF12Open(true)}>
+    ⚙ F12 Columns
+  </button>
+  <button className="mp-btn"
+    onClick={() => loadCounter(-1, sess.pagecount, "Active", "Active", 1)}
+    disabled={loading}
+    style={{ background: "#0891b2", color: "#fff", borderColor: "#0891b2" }}>
+    🔍 F2 Active
+  </button>
+  <button className="mp-btn"
+    onClick={() => { const i = selIdx ?? (gridRef.current.length - 1); openBranchPopup(i); }}
+    disabled={loading}
+    style={{ background: "#7c3aed", color: "#fff", borderColor: "#7c3aed" }}>
+    🏢 F5 Branch
+  </button>
+  {sess.CustomerNameTamil && (
+    <button className="mp-btn"
+      onClick={() => { const i = selIdx ?? (gridRef.current.length - 1); openTamilPopup(i); }}
+      disabled={loading}
+      style={{ background: "#be185d", color: "#fff", borderColor: "#be185d" }}>
+      🔤 F6 Tamil
+    </button>
+  )}
+  <button className="mp-btn"
+    onClick={() => loadCounter(-1, sess.pagecount, "", "", 1)}
+    disabled={loading}
+    style={{ background: "#059669", color: "#fff", borderColor: "#059669" }}>
+    🔄 Refresh
+  </button>
 
-                    {/* Address1 */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdAddress1}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdAddress1] || ""}
-                        maxLength={500}
-                        onChange={e => updateCell(realIdx, grdAddress1, e.target.value)}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdAddress1)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdAddress1); }}
-                      />
-                    </td>
-
-                    {/* Address2 */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdAddress2}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdAddress2] || ""}
-                        maxLength={500}
-                        onChange={e => updateCell(realIdx, grdAddress2, e.target.value)}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdAddress2)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdAddress2); }}
-                      />
-                    </td>
-
-                    {/* City */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdCity}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdCity] || ""}
-                        maxLength={500}
-                        onChange={e => updateCell(realIdx, grdCity, e.target.value)}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdCity)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdCity); }}
-                      />
-                    </td>
-
-                    {/* Mobile No */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdMobileNo}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdMobileNo] || ""}
-                        maxLength={50}
-                        onChange={e => updateCell(realIdx, grdMobileNo, e.target.value.replace(/\D/g, ""))}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdMobileNo)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdMobileNo); }}
-                      />
-                    </td>
-
-                    {/* GSTIN No */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdGSTINNo}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdGSTINNo] || ""}
-                        maxLength={50}
-                        onChange={e => updateCell(realIdx, grdGSTINNo, e.target.value.toUpperCase())}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdGSTINNo)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdGSTINNo); }}
-                      />
-                    </td>
-
-                    {/* Credit Bill Days */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdCreditBillDays}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdCreditBillDays] || "0"}
-                        maxLength={8}
-                        style={{ textAlign:"right" }}
-                        onChange={e => updateCell(realIdx, grdCreditBillDays, e.target.value.replace(/\D/g, ""))}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdCreditBillDays)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdCreditBillDays); }}
-                      />
-                    </td>
-
-                    {/* Credit Bill Limit */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdCreditBillLimit}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdCreditBillLimit] || "0.00"}
-                        maxLength={18}
-                        style={{ textAlign:"right" }}
-                        onChange={e => updateCell(realIdx, grdCreditBillLimit, e.target.value)}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdCreditBillLimit)}
-                        onBlur={e => updateCell(realIdx, grdCreditBillLimit, parseFloat(e.target.value || 0).toFixed(2))}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdCreditBillLimit); }}
-                      />
-                    </td>
-
-                    {/* Opening Balance */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdOpeningBalance}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdOpeningBalance] || "0.00"}
-                        maxLength={18}
-                        style={{ textAlign:"right" }}
-                        onChange={e => updateCell(realIdx, grdOpeningBalance, e.target.value)}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdOpeningBalance)}
-                        onBlur={e => updateCell(realIdx, grdOpeningBalance, parseFloat(e.target.value || 0).toFixed(2))}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdOpeningBalance); }}
-                      />
-                    </td>
-
-                    {/* Customer Card Type — mirrors grdcustomercardtype combo → popup */}
-                    <td>
-                      <input
-                        ref={el => (inputRefs.current[`${realIdx}-${grdcustomercardtype}`] = el)}
-                        className="mp-cell-input"
-                        value={row[grdcustomercardtype] || ""}
-                        readOnly
-                        onClick={() => openCardPopup(realIdx)}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdcustomercardtype)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdcustomercardtype); }}
-                        style={{ cursor:"pointer", background:"#f8fafc" }}
-                      />
-                    </td>
-
-                    {/* IGST Bill — mirrors grdIGSTBill combobox (GST/IGST) */}
-                    <td>
-                      <select
-                        ref={el => (inputRefs.current[`${realIdx}-${grdIGSTBill}`] = el)}
-                        className="mp-cell-select"
-                        value={row[grdIGSTBill] || "GST"}
-                        onChange={e => updateCell(realIdx, grdIGSTBill, e.target.value)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdIGSTBill); }}
-                      >
-                        <option value="GST">GST</option>
-                        <option value="IGST">IGST</option>
-                      </select>
-                    </td>
-
-                    {/* Active — mirrors grdActive checkbox */}
-                    <td style={{ textAlign:"center" }}>
-                      <select
-                        ref={el => (inputRefs.current[`${realIdx}-${grdActive}`] = el)}
-                        className="mp-active-sel"
-                        value={row[grdActive] === true || row[grdActive] === 1 ? "1" : "0"}
-                        onChange={e => updateCell(realIdx, grdActive, e.target.value === "1")}
-                        onKeyDown={e => handleCellKeyDown(e, realIdx, grdActive)}
-                        onFocus={() => { setSelIdx(realIdx); setSelCol(grdActive); }}
-                        title={row[grdActive] ? "Active" : "Inactive"}
-                      >
-                        <option value="1">✓</option>
-                        <option value="0">✗</option>
-                      </select>
-                    </td>
-
-                    {/* Delete button */}
-                    <td>
-                      <button
-                        className="mp-del-btn"
-                        onClick={e => { e.stopPropagation(); deleteRow(realIdx); }}
-                        title="Delete (Ctrl+Delete)"
-                      >🗑</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {displayGrid.length === 0 && !loading && (
-            <div className="mp-empty">No records. Press ➕ to add a customer.</div>
-          )}
-        </div>
-
-        {/* ── Pagination — mirrors jQuery render() pagination ── */}
+  <button className="mp-btn dl" onClick={handleEsc} style={{ marginLeft: "auto" }}>
+    ✕ Esc Cancel
+  </button>
+</div>
+        {/* ── Pagination ── */}
         {pageLen > 1 && (
-          <div id="holder" style={{ display:"flex", flexWrap:"wrap", gap:4, padding:"8px 0", alignItems:"center" }}>
-            {pageNumbers.map(page => (
-              <button
-                key={page}
-                onClick={() => handlePageClick(page)}
-                style={{
-                  padding:"3px 10px", borderRadius:4, border:"1px solid #cbd5e1",
-                  background: curPage === page ? "#1e40af" : "#f8fafc",
-                  color:      curPage === page ? "#fff"    : "#374151",
-                  fontWeight: curPage === page ? 700 : 400,
-                  cursor:"pointer", fontSize:12,
-                }}
-              >
+          <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
+            {Array.from({ length: pageLen }, (_, i) => i + 1).map(page => (
+              <button key={page} onClick={() => handlePageClick(page)}
+                className={`mp-page-btn${curPage === page ? " active" : ""}`}>
                 {page}
               </button>
             ))}
-            <span style={{ color:"navy", fontSize:14, fontWeight:"bold", marginLeft:8 }}>
-              Record {pagecountnew}
-            </span>
+            <span className="mp-rec-count">Records: {pagecountnew}</span>
           </div>
         )}
 
-        {/* ── Hint bar ── */}
-        <div className="mp-hint">
-          <kbd>Enter</kbd> next cell &nbsp;|&nbsp;
-          <kbd>Ctrl+Delete</kbd> delete row &nbsp;|&nbsp;
-          <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>F2</kbd> active only &nbsp;|&nbsp;
-          <kbd>F5</kbd> branch &nbsp;|&nbsp;
-          <kbd>F6</kbd> tamil name &nbsp;|&nbsp;
-          <kbd>Esc</kbd> back
-        </div>
+    
       </div>
 
       {/* ── Loading overlay ── */}
@@ -1578,12 +1201,8 @@ export default function CustomerMaster() {
         </div>
       )}
 
-      {/* ── Toasts ── */}
-      <div className="toasts">
-        {toasts.map(t => (
-          <div key={t.id} className={`toast${t.isErr ? " err" : ""}`}>{t.msg}</div>
-        ))}
-      </div>
+      {/* ── Toast notifications — from MSG.ToastList ── */}
+      <MSG.ToastList toasts={toasts} />
     </div>
   );
 }

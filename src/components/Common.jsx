@@ -54,6 +54,19 @@ export const ItemByCode          = "/api/ItemMasterApp/SelectItemMasterbyCodeId"
   export const BrandInsert = "/api/BrandApp/InsertBrand";
   export const BrandDelete = "/api/BrandApp/DeleteBrand";
 
+       //CardMasterApp
+        export const InsertCardMaster = "/api/CardMasterApp/InsertCardMaster";
+        export const SelectCardMaster = "/api/CardMasterApp/SelectCardMaster";
+        export const DeleteCardMaster = "/api/CardMasterApp/DeleteCardMaster";
+
+
+                //BankApp
+        //public static string BankMaxNo = "/CashApp/MaxAdjustmentNo";
+        export const BankDateSelect = "/api/BankApp/SelectBankDate";
+        export const BankAllSelect = "/api/BankApp/SelectBankList";
+        export const BankSelect = "/api/BankApp/SelectBank";
+        export const BankInsert = "/api/BankApp/InsertBank";
+        export const BankDelete = "/api/BankApp/DeleteBank";
   //Salesman
   export const SalesManSelect = "/api/SalesManApp/SelectSalesMan"; 
   export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
@@ -74,6 +87,33 @@ export const ItemByCode          = "/api/ItemMasterApp/SelectItemMasterbyCodeId"
   export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
   export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
 
+          //AccountGroupApp
+         export const SelectAccountGroup = "/api/AccountGroupApp/SelectAccountGroup";
+         export const InsertAccountGroup = "/api/AccountGroupApp/InsertAccountGroup";
+         export const DeleteAccountGroup = "/api/AccountGroupApp/DeleteAccountGroup";
+
+
+     //Location
+        export const LocationSelect = "/LocationApp/SelectLocation";
+        export const LocationInsert = "/LocationApp/InsertLocation";
+        export const LocationDelete = "/LocationApp/DeleteLocation";
+       //Supplier
+        export const SupplierSelect = "/api/SupplierApp/SelectSupplier";
+        export const SupplierInsert = "/api/SupplierApp/InsertSupplier";
+        export const SupplierDelete = "/api/SupplierApp/DeleteSupplier";
+        export const SelectSupplierAll = "/api/SupplierApp/SelectSupplierAll";
+        export const SelectSupplierAllSpName = "/api/SupplierApp/SelectSupplierAllSpName";
+        export const SelectSupplierAll_NameOnly = "/api/SupplierApp/SelectSupplierAll_NameOnly";
+        export const CurrentBalance = "/api/SupplierApp/CurrentBalance";
+        export const GetSupplier = "/api/SupplierApp/GetSupplier";
+        export const CurrentBalanceherbal = "/api/SupplierApp/CurrentBalanceherbal";
+ 
+// ─── 14. SHARED POPUP API ENDPOINTS ──────────────────────────────────────────
+//  Used by both SupplierMaster and CustomerMaster popup windows.
+export const AreaSelect         = "/api/AreaApp/SelectArea";
+export const CustomerCardSelect = "/api/CustomerCardTypeApp/SelectCustomerCardType";
+export const BranchSelect       = "/StockTransferApp/SelectCompany";
+
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 //  Single source of truth — every fetch in the app must go through
 //  api() / insertapi() / editPassword() which all call authHeaders().
@@ -84,7 +124,26 @@ export const authHeaders = () => ({
   "Profile":       localStorage.getItem("Profile")    || "Admin",
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
-
+console.log(localStorage.getItem("token"));
+export const loadSalesmanData = async (MComid) => {
+  try {
+    const res = await fetch(
+      mkUrl(SalesManSelect) + `?Comid=${Number(MComid)}`,
+      { method: "POST", headers: authHeaders() }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data)       ? data
+         : Array.isArray(data.data)  ? data.data
+         : Array.isArray(data.Data1) ? data.Data1
+         : [];
+  } catch (e) {
+    console.error("loadSalesmanData error:", e);
+    return [];
+  }
+};
+export const ValNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+export const NullToString = (v) => (v == null ? "" : String(v));
 // ─── 6. URL BUILDER ───────────────────────────────────────────────────────────
 //  All fetch calls must go through mkUrl so BASE_URL is always prepended.
 //  No component should concatenate BASE_URL itself.

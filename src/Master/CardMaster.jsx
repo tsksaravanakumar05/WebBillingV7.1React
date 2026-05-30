@@ -1,647 +1,774 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  CardMaster.jsx  (revised)
+//
+//  Changes from original:
+//   1. EditMode per row (0 = view / 1 = edit) — mirrors DepartmentMaster
+//   2. Edit ✏️ button — same pattern as DepartmentMaster (saved rows only)
+//   3. dirtyIds ref — tracks rows the user actually typed in
+//   4. inputRefs 2-D array (row × col) + CC.handleEnterNext for Enter-key nav
+//   5. Save payload mapped correctly:
+//        Active → 0 / 1 integer
+//        Scharge → parseFloat, trimmed
+//        All string fields trimmed
+//   6. Row-level readOnly / disabled in view mode
+//   7. Table rows use sel / mod / inact CSS classes (MasterPage.css)
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import "./MasterPage.css";
 
-// ─── CSS (inlined from provided file) ───────────────────────────────────────
-import "./MasterPage.css"; // Assumes the CSS file is co-located
 import Topbar from "../components/Topbar";
+import * as CC  from "../components/Common";
+import * as MSG from "../components/Messages";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 const CARD_TYPE_LIST = [
-  { value: "CARD",      label: "CARD" },
-  { value: "UPI",       label: "UPI" },
+  { value: "CARD",      label: "CARD"      },
+  { value: "UPI",       label: "UPI"       },
   { value: "CRMPOINTS", label: "CRMPOINTS" },
 ];
 
-const EMPTY_ROW = () => ({
-  _uid:       crypto.randomUUID(),
-  Id:         0,
-  CardName:   "",
-  CardType:   "",
-  Scharge:    "0.00",
-  BankName:   "",
-  Bankrefid:  0,
-  Active:     true,
-  EditMode:   0,
+// Column order used by CC.handleEnterNext — must match render order
+const ALL_COLUMNS = [
+  { field: "CardName",  label: "Card Name",  width: 160 },
+  { field: "CardType",  label: "Card Type",  width: 140 },
+  { field: "Scharge",   label: "Scharge",    width: 110 },
+  { field: "Bankrefid", label: "Bank Name",  width: 180 },
+  { field: "Active",    label: "Active",     width: 80  },
+];
+
+const TOTAL_COLS = ALL_COLUMNS.length;
+
+// ─── Toggle component (Active column — same as DepartmentMaster) ──────────────
+function Toggle({ value, onChange, inputRef, editMode, onFocus, onKeyDown }) {
+  return (
+    <button
+      ref={inputRef}
+      onClick={() => editMode === 1 && onChange(!value)}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
+      title={value ? "Active" : "Inactive"}
+      style={{
+        width: 32, height: 18, borderRadius: 9, border: "none",
+        cursor:       editMode === 0 ? "default"  : "pointer",
+        background:   value          ? "#16a34a"  : "#cbd5e1",
+        position: "relative", transition: "background 0.18s ease",
+        outline: "none", display: "inline-flex", alignItems: "center",
+        flexShrink: 0, padding: 0,
+        boxShadow: value
+          ? "inset 0 0 0 1px #15803d"
+          : "inset 0 0 0 1px #b0bec5",
+        opacity:       editMode === 0 ? 0.5  : 1,
+        pointerEvents: editMode === 0 ? "none" : "auto",
+      }}
+    >
+      <span style={{
+        position: "absolute", top: 3,
+        left:     value ? 15 : 3,
+        width: 12, height: 12, borderRadius: "50%",
+        background: "#fff",
+        transition: "left 0.18s ease",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+        display: "block",
+      }} />
+    </button>
+  );
+}
+
+// ─── Empty row factory ────────────────────────────────────────────────────────
+const makeNewRow = (prefill = "") => ({
+  _uid:      CC.uid(),
+  Id:        null,
+  CardName:  prefill,
+  CardType:  "",
+  Scharge:   "0.00",
+  BankName:  "",
+  Bankrefid: "",
+  Active:    true,
+  EditMode:  1,          // new rows start in edit mode
 });
 
-// ─── Tiny helpers ─────────────────────────────────────────────────────────────
-const valNum = (v) => parseFloat(v) || 0;
-
-function CheckDuplicateInRows(rows, field, label, excludeUid) {
-  const vals = rows
-    .filter((r) => r._uid !== excludeUid)
-    .map((r) => (r[field] || "").toString().trim().toLowerCase());
-  // returns false if duplicate found
-  return true; // simplified — extend if needed
-}
-
-// ─── Confirm / Alert dialogs (SweetAlert2-compatible API via window) ──────────
-function MsgBox(msg) {
-  // Falls back to native alert when SweetAlert2 is absent
-  if (window.Swal) return window.Swal.fire({ text: msg, icon: "warning" });
-  alert(msg);
-  return Promise.resolve();
-}
-
-function MsgBoxYesNo(msg) {
-  if (window.Swal) {
-    return window.Swal.fire({
-      text: msg,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Yes",
-      cancelButtonText:  "No",
-    });
-  }
-  // Fallback
-  const ok = window.confirm(msg);
-  return Promise.resolve({ isConfirmed: ok });
-}
-
-function NotificationSuccess(msg) {
-  if (window.Swal)
-    window.Swal.fire({ text: msg, icon: "success", timer: 2000, showConfirmButton: false });
-  else alert(msg);
-}
-
-// ─── Request controller (prevents duplicate submissions) ──────────────────────
+// ─── Request-duplicate guard ──────────────────────────────────────────────────
 class RequestController {
   constructor() { this._running = false; }
-  isRunning()  { return this._running; }
-  start()      { this._running = true; }
-  end()        { this._running = false; }
+  isRunning() { return this._running; }
+  start()     { this._running = true;  }
+  end()       { this._running = false; }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// MAIN COMPONENT
+//  MAIN COMPONENT
 // ═════════════════════════════════════════════════════════════════════════════
 export default function CardMaster() {
-  // ── Auth / Session ──────────────────────────────────────────────────────
-  const [permDenied, setPermDenied] = useState(false);
-  const [perms, setPerms] = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
-  const Comid  = localStorage.getItem("Comid")  || "";
-  const MComid = localStorage.getItem("MComid") || "";
-  // MirrorTable is a global in the original; keep it from window or localStorage
-  const MirrorTable = window.MirrorTable ?? localStorage.getItem("MirrorTable") ?? 0;
+  const navigate  = useNavigate();
+  // inputRefs[rowIdx][colIdx] — matches ALL_COLUMNS order
+  const inputRefs = useRef([]);
+  const dirtyIds  = useRef(new Set());
+  const reqCtrl   = useRef(new RequestController());
 
-  // ── Data ────────────────────────────────────────────────────────────────
-  const [rows,     setRows]     = useState([EMPTY_ROW()]);
+  // ── MSG hooks ──────────────────────────────────────────────────────────────
+  const { confirm, ConfirmUI } = MSG.useConfirm();
+  const { toast,   toasts    } = MSG.useToast();
+
+  // ── Permission / authorization state ──────────────────────────────────────
+  const [perm,         setPerm        ] = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  // ── Session ────────────────────────────────────────────────────────────────
+  const [sess] = useState(() => {
+    try {
+      const main0  = (CC.getLocal("Mainsetting") || [{}])[0] || {};
+      const Comid  = CC.getStr("Comid")  || "1";
+      const MComid = CC.getStr("MComid") || Comid;
+      const isCC   = !!main0.CommonCompany;
+      return {
+        Comid:       isCC ? MComid : Comid,
+        MComid,
+        IdComList:   "",
+        MirrorTable: Number(localStorage.getItem("MirrorTableOnline") || "0"),
+      };
+    } catch {
+      return { Comid: "1", MComid: "1", IdComList: "", MirrorTable: 0 };
+    }
+  });
+
+  // ── Component state ────────────────────────────────────────────────────────
+  const [grid,     setGrid    ] = useState([]);
   const [bankList, setBankList] = useState([]);
-  const [loading,  setLoading]  = useState(false);
-  const [flash,    setFlash]    = useState(null); // { type: 'ok'|'err', msg }
+  const [loading,  setLoading ] = useState(false);
+  const [selIdx,   setSelIdx  ] = useState(null);
 
-  // ── Selection / editing ─────────────────────────────────────────────────
-  const [selectedUid, setSelectedUid] = useState(null);
-  const [editingCell, setEditingCell] = useState(null); // { uid, field }
-
-  // ── Refs ─────────────────────────────────────────────────────────────────
-  const reqCtrl  = useRef(new RequestController());
-  const tableRef = useRef(null);
-
-  // ─── Permission check on mount ─────────────────────────────────────────
+  // ── Permission guard ────────────────────────────────────────────────────────
   useEffect(() => {
-    const menulist = JSON.parse(localStorage.getItem("menulist") || "null");
-    if (!menulist) {
-      MsgBox("Session Close Please Login !!!.").then(() => {
-        window.location.href = "/Login/Index";
-      });
+    const menuStr = localStorage.getItem("menulist");
+    if (!menuStr) {
+      alert("Session Close Please Login !!!.");
+      navigate("/Login/Index");
       return;
     }
-    const menudata = menulist.filter((o) => o.PageName === "Card Master");
-    if (!menudata.length) {
-      MsgBox("Page Access Permission Denied !!!");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
-      setPermDenied(true);
+    const menulist = JSON.parse(menuStr);
+    const menudata = menulist.filter(o => o.PageName === "Card Master");
+    if (!menudata.length || menudata[0].View === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => navigate("/Home"), 3000);
       return;
     }
-    if (menudata[0].View === 0) {
-      MsgBox("Page Access Permission Denied !!!");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
-      setPermDenied(true);
-      return;
-    }
-    setPerms({
+    setPerm({
       View:   menudata[0].View,
       Add:    menudata[0].Add,
       Edit:   menudata[0].Edit,
       Delete: menudata[0].Delete,
     });
+    setIsAuthorized(true);
+  }, [navigate]);
 
-    loadBanks();
-    loadModel();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // ── focusRow ───────────────────────────────────────────────────────────────
+  const focusRow = useCallback((idx, colIdx = 0) => {
+    setTimeout(() => inputRefs.current[idx]?.[colIdx]?.focus(), 50);
   }, []);
 
-  // ─── Keyboard shortcuts (F1 = save, Esc = quit) ─────────────────────────
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.keyCode === 112) { // F1
-        e.preventDefault();
-        handleSave();
+  // ── selectRow — same pattern as DepartmentMaster ───────────────────────────
+  const selectRow = useCallback((newIdx) => {
+    setGrid(prev => prev.map((r, i) => {
+      if (i !== newIdx && r.EditMode === 1 && r.Id && !dirtyIds.current.has(r.Id)) {
+        return { ...r, EditMode: 0 };
       }
-      if (e.keyCode === 27) { // Esc
-        e.preventDefault();
-        MsgBoxYesNo("Do You Want To Quit Page?").then((r) => {
-          if (r.isConfirmed) window.location.href = "/Home";
-        });
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows]);
+      return r;
+    }));
+    setSelIdx(newIdx);
+  }, []);
 
-  // ─── Flash auto-clear ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!flash) return;
-    const t = setTimeout(() => setFlash(null), 3500);
-    return () => clearTimeout(t);
-  }, [flash]);
+  // ── rowValidator (required by CC.handleEnterNext) ─────────────────────────
+  const rowValidator = useCallback((row) =>
+    String(row.CardName || "").trim().length > 0 && String(row.CardType || "").trim().length > 0
+  , []);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // API helpers
-  // ═══════════════════════════════════════════════════════════════════════
-  async function loadBanks() {
+  // ── loadBanks ──────────────────────────────────────────────────────────────
+  const loadBanks = useCallback(async () => {
     try {
-      const res  = await fetch("/Bank/SelectBankList", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-        body:    JSON.stringify({ Comid }),
-      });
-      const data = await res.json();
-      if (data?.data) setBankList(data.data);
+      const res = await CC.api(CC.BankAllSelect, null, {}, { Comid: sess.Comid });
+      const list = Array.isArray(res.data)  ? res.data
+                 : Array.isArray(res.Data1) ? res.Data1
+                 : [];
+      setBankList(list);
     } catch (err) {
       console.error("loadBanks:", err);
     }
-  }
+  }, [sess.Comid]);
 
-  async function loadModel() {
+  // ── loadData ───────────────────────────────────────────────────────────────
+  const loadData = useCallback(async () => {
     setLoading(true);
-    try {
-      const res  = await fetch("/CardMaster/SelectCardMaster", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-        body:    JSON.stringify({ Comid }),
-      });
-      const data = await res.json();
-      if (!data.ok) { MsgBox(data.message); return; }
+    const res = await CC.api(CC.SelectCardMaster, null, {}, { Comid: sess.Comid });
+    setLoading(false);
 
-      const loaded = (data.data || []).map((obj) => ({
-        _uid:      crypto.randomUUID(),
-        Id:        obj.Id        ?? 0,
-        CardName:  obj.CardName  ?? "",
-        CardType:  obj.CardType  ?? "",
-        Scharge:   parseFloat(obj.Scharge || 0).toFixed(2),
-        BankName:  obj.BankName  ?? "",
-        Bankrefid: obj.Bankrefid ?? 0,
-        Active:    obj.Active    ?? true,
-        EditMode:  0,
-      }));
-      loaded.push(EMPTY_ROW()); // blank new row at bottom
-      setRows(loaded);
-      setSelectedUid(loaded[loaded.length - 1]._uid);
+    if (res._http404) { toast(`❌ 404 — SelectCardMaster not found`, true); return; }
+    if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); return; }
 
-      // Restore pop value if any
-      const popVal = sessionStorage.getItem("POPValue");
-      if (popVal) {
-        setRows((prev) => {
-          const copy = [...prev];
-          copy[copy.length - 1] = { ...copy[copy.length - 1], CardName: popVal };
-          return copy;
-        });
-      }
-    } catch (err) {
-      MsgBox("Error loading Card Master data.");
-      console.error(err);
-    } finally {
-      setLoading(false);
+    const rawList = Array.isArray(res.data)  ? res.data
+                  : Array.isArray(res.Data1) ? res.Data1
+                  : [];
+
+    const existing = rawList.map(r => ({
+      _uid:      CC.uid(),
+      Id:        r.Id        ?? null,
+      CardName:  r.CardName  ?? "",
+      CardType:  r.CardType  ?? "",
+      Scharge:   parseFloat(r.Scharge  || 0).toFixed(2),
+      BankName:  r.BankName  ?? "",
+      Bankrefid: r.Bankrefid != null ? String(r.Bankrefid) : "",
+      Active:    r.Active === true || r.Active === 1,
+      EditMode:  0,          // saved rows start in view mode
+    }));
+
+    const prefill = sessionStorage.getItem("masterPrefill") || "";
+    const blank   = makeNewRow(prefill);
+    sessionStorage.removeItem("masterPrefill");
+
+    setGrid([...existing, blank]);
+    const newIdx = existing.length;
+    setSelIdx(newIdx);
+    focusRow(newIdx);
+  }, [sess.Comid, toast, focusRow]);
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isAuthorized) {
+      loadBanks();
+      loadData();
     }
-  }
+  }, [isAuthorized, loadBanks, loadData]);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // CRUD operations
-  // ═══════════════════════════════════════════════════════════════════════
-  async function handleSave() {
-    if (!gridEmptyCheck()) return;
+  // ── addRow ─────────────────────────────────────────────────────────────────
+  const addRow = useCallback(() => {
+    setGrid(prev => {
+      const next = [...prev, makeNewRow()];
+      const idx  = next.length - 1;
+      setSelIdx(idx);
+      focusRow(idx, 0);
+      return next;
+    });
+  }, [focusRow]);
 
-    const modified = rows.filter((r) => r.EditMode === 1);
-    if (!modified.length) { MsgBox("No Data Modified, Cannot Update !!!."); return; }
+  // ── updateCell — marks row dirty if it has a saved Id ─────────────────────
+  const updateCell = useCallback((idx, field, value) => {
+    setGrid(prev =>
+      prev.map((r, i) => {
+        if (i !== idx) return r;
+        if (r.Id) dirtyIds.current.add(r.Id);
+        return { ...r, [field]: value, EditMode: 1 };
+      })
+    );
+  }, []);
 
-    if (reqCtrl.current.isRunning()) return;
-    reqCtrl.current.start();
+  // ── enableEdit — pencil button, mirrors DepartmentMaster ──────────────────
+  const enableEdit = useCallback((idx) => {
+    setGrid(prev =>
+      prev.map((r, i) => i === idx ? { ...r, EditMode: 1 } : r)
+    );
+    selectRow(idx);
+    focusRow(idx, 0);
+  }, [focusRow, selectRow]);
 
-    const confirm = await MsgBoxYesNo("Do you Want to Save the Card Details?");
-    if (!confirm.isConfirmed) {
-      addNewRow();
-      reqCtrl.current.end();
-      return;
-    }
+  // ── deleteRow ──────────────────────────────────────────────────────────────
+  const deleteRow = useCallback(async (idx) => {
+    if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; }
+    const row     = grid[idx];
+    const isSaved = row.Id != null;
 
-    setLoading(true);
-    try {
-      const res  = await fetch("/CardMaster/InsertCardMaster", {
-        method:  "POST",
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          Comid,
-          MirrorTable,
-        },
-        body: JSON.stringify(modified),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        NotificationSuccess(data.message);
-        await loadModel();
-      } else {
-        MsgBox(data.message);
-      }
-    } catch (err) {
-      MsgBox("Error saving Card Master data.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-      reqCtrl.current.end();
-    }
-  }
-
-  async function handleDelete(row) {
-    const rowIndex = rows.findIndex((r) => r._uid === row._uid);
-
-    if (row.Id && row.Id !== 0) {
-      const confirm = await MsgBoxYesNo(`Wish to Delete the Record ${row.CardName}?`);
-      if (!confirm.isConfirmed) return;
+    if (isSaved) {
+      const ok = await confirm(`Do you want to delete "${row.CardName}"?`);
+      if (!ok) return;
 
       setLoading(true);
-      try {
-        const res  = await fetch("/CardMaster/DeleteCardMaster", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json; charset=utf-8" },
-          body:    JSON.stringify({ Id: row.Id, Comid, MirrorTable }),
+      const res = await CC.deleteapi(
+        `${CC.DeleteCardMaster}?Id=${row.Id}&Comid=${sess.Comid}&MirrorTable=${sess.MirrorTable}`,
+        null,
+        { Id: row.Id, Comid: sess.Comid, MirrorTable: sess.MirrorTable }
+      );
+      setLoading(false);
+
+      if (res.IsSuccess || res.ok) {
+        toast("✅ " + (res.Message || res.message || "Deleted"));
+        setGrid(prev => {
+          const next = prev.filter((_, i) => i !== idx);
+          const sel  = Math.max(0, next.length - 1);
+          setSelIdx(sel);
+          focusRow(sel);
+          return next.length ? next : [makeNewRow()];
         });
-        const data = await res.json();
-        if (data.ok) {
-          NotificationSuccess(data.message);
-          setRows((prev) => {
-            const next = prev.filter((r) => r._uid !== row._uid);
-            return next.length ? next : [EMPTY_ROW()];
-          });
-        } else {
-          MsgBox(data.message);
-        }
-      } catch (err) {
-        MsgBox("Error deleting record.");
-        console.error(err);
-      } finally {
-        setLoading(false);
+      } else {
+        toast(`❌ ${res.Message || res.message || "Delete failed"}`, true);
       }
     } else {
-      // Unsaved row — just remove locally
-      setRows((prev) => {
-        const next = prev.filter((r) => r._uid !== row._uid);
-        return next.length ? next : [EMPTY_ROW()];
+      setGrid(prev => {
+        const next = prev.filter((_, i) => i !== idx);
+        const sel  = Math.max(0, next.length - 1);
+        setSelIdx(sel);
+        focusRow(sel);
+        return next.length ? next : [makeNewRow()];
       });
     }
-  }
+  }, [grid, sess, perm, focusRow, toast, confirm]);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // Validation helpers
-  // ═══════════════════════════════════════════════════════════════════════
-  function gridEmptyCheck() {
-    // Remove last empty row if truly blank
-    let current = [...rows];
-    const last  = current[current.length - 1];
-    if ((!last.CardName || last.CardName === "") && current.length > 1) {
-      current = current.slice(0, -1);
-      setRows(current);
+  // ── gridemptycheck ─────────────────────────────────────────────────────────
+  const gridemptycheck = useCallback((g) => {
+    let cleaned = [...g];
+
+    // Remove trailing blank new row
+    const last = cleaned[cleaned.length - 1];
+    if (
+      cleaned.length > 1 &&
+      !String(last.CardName || "").trim() &&
+      !last.Id
+    ) {
+      cleaned = cleaned.slice(0, -1);
     }
 
-    for (let i = 0; i < current.length; i++) {
-      const r = current[i];
-      if (r.EditMode !== 1) continue;
-      if (!r.CardName) {
-        MsgBox("Enter All CardName in the Grid !!!.");
-        setSelectedUid(r._uid);
-        setEditingCell({ uid: r._uid, field: "CardName" });
-        return false;
+    for (let i = 0; i < cleaned.length; i++) {
+      if (cleaned[i].EditMode !== 1) continue;
+      if (!String(cleaned[i].CardName || "").trim()) {
+        toast("❌ Enter All CardName in the Grid !!!", true);
+        setSelIdx(i);
+        focusRow(i, 0);
+        return { ok: false, cleaned };
       }
-      if (!r.CardType) {
-        MsgBox("Select All CardType in the Grid !!!.");
-        setSelectedUid(r._uid);
-        setEditingCell({ uid: r._uid, field: "CardType" });
-        return false;
+      if (!String(cleaned[i].CardType || "").trim()) {
+        toast("❌ Select All CardType in the Grid !!!", true);
+        setSelIdx(i);
+        focusRow(i, 1); // colIdx 1 = CardType
+        return { ok: false, cleaned };
       }
     }
-    return true;
-  }
+    return { ok: true, cleaned };
+  }, [focusRow, toast]);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // Row mutations
-  // ═══════════════════════════════════════════════════════════════════════
-  function updateCell(uid, field, value) {
-    setRows((prev) =>
-      prev.map((r) =>
-        r._uid === uid
-          ? { ...r, [field]: value, EditMode: 1 }
-          : r
-      )
+  // ── hasDuplicate ───────────────────────────────────────────────────────────
+  const hasDuplicate = useCallback((g) => {
+    const names = g
+      .filter(r => String(r.CardName || "").trim())
+      .map(r => String(r.CardName).trim().toLowerCase());
+    return new Set(names).size !== names.length;
+  }, []);
+
+  // ── handleSave ─────────────────────────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    const { ok, cleaned } = gridemptycheck(grid);
+    if (!ok) return;
+    setGrid(cleaned);
+
+    let dirty = [];
+    let flag  = 1;
+
+    if (perm.Add === 0 && perm.Edit === 0) {
+      toast("❌ Page Add & Update Permission Denied !!!", true);
+      flag = 0;
+
+    } else if (perm.Add === 1 && perm.Edit === 1) {
+      dirty = cleaned.filter(r => r.EditMode === 1);
+      if (!dirty.length) { toast("⚠️ No Data Modified, Cannot Update !!!", true); flag = 0; }
+
+    } else if (perm.Add === 1 && perm.Edit === 0) {
+      dirty = cleaned.filter(r => r.EditMode === 1 && r.Id == null);
+      if (!dirty.length) {
+        const any = cleaned.filter(r => r.EditMode === 1);
+        toast(any.length ? "❌ Page Edit Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
+        flag = 0;
+      }
+
+    } else if (perm.Edit === 1 && perm.Add === 0) {
+      dirty = cleaned.filter(r => r.EditMode === 1 && r.Id != null);
+      if (!dirty.length) {
+        const any = cleaned.filter(r => r.EditMode === 1);
+        toast(any.length ? "❌ Page Add Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
+        flag = 0;
+      }
+    }
+
+    if (flag === 0) { addRow(); return; }
+    if (hasDuplicate(cleaned)) { toast("❌ Duplicate Card Name found !!!", true); return; }
+    if (reqCtrl.current.isRunning()) return;
+
+    // Smart confirm message
+    const hasNew      = dirty.some(r => r.Id == null || r.Id === 0);
+    const hasExisting = dirty.some(r => r.Id != null && r.Id !== 0);
+    let confirmMsg    = "Do you want to save the Card details?";
+    if (hasExisting && !hasNew) confirmMsg = "Do you want to update the Card details?";
+    if (hasExisting &&  hasNew) confirmMsg = "Do you want to save & update the Card details?";
+
+    const proceed = await confirm(confirmMsg);
+    if (!proceed) { addRow(); return; }
+
+    reqCtrl.current.start();
+    setLoading(true);
+
+    // ── Map to correct payload shape ──────────────────────────────────────────
+    const payload = dirty.map(r => ({
+      Id:        Number(r.Id || 0),
+      CardName:  String(r.CardName  || "").trim(),
+      CardType:  String(r.CardType  || "").trim(),
+      Scharge:   parseFloat(r.Scharge || "0") || 0,
+      BankName:  String(r.BankName  || "").trim(),
+      Bankrefid: Number(r.Bankrefid || 0),
+      Active:    r.Active === true ? 1 : 0,
+      EditMode:  r.EditMode,
+    }));
+
+    const res = await CC.insertapi(
+      CC.InsertCardMaster,
+      payload,
+      {
+        Comid:       String(parseInt(sess.Comid)),
+        MirrorTable: String(sess.MirrorTable),
+        IdComList:   String(sess.IdComList || ""),
+        ApiType:"1",
+      }
     );
-  }
 
-  function addNewRow() {
-    const nr = EMPTY_ROW();
-    setRows((prev) => [...prev, nr]);
-    setSelectedUid(nr._uid);
-    setEditingCell({ uid: nr._uid, field: "CardName" });
-  }
+    setLoading(false);
+    reqCtrl.current.end();
 
-  // ─── On blur of Scharge — format to 2 dp ────────────────────────────────
-  function handleSchargeBlur(uid, value) {
-    updateCell(uid, "Scharge", valNum(value).toFixed(2));
-  }
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
-  // ─── CardName validation on Enter / Tab ──────────────────────────────────
-  function handleCardNameKeyDown(e, uid) {
-    if (e.key !== "Enter") return;
-    const row = rows.find((r) => r._uid === uid);
-    if (!row?.CardName?.trim()) { MsgBox("Enter Card Name!!!."); return; }
-    // Duplicate check
-    const dup = rows.some(
-      (r) => r._uid !== uid && r.CardName?.trim().toLowerCase() === row.CardName.trim().toLowerCase()
-    );
-    if (dup) { MsgBox("Card Name already exists!!!."); return; }
-    advanceFocus(uid, "CardName");
-  }
-
-  function advanceFocus(uid, currentField) {
-    const fieldOrder = ["CardName", "CardType", "Scharge", "Bankrefid", "Active"];
-    const idx = fieldOrder.indexOf(currentField);
-    const nextField = fieldOrder[idx + 1];
-    if (nextField) {
-      setEditingCell({ uid, field: nextField });
+    if (res.IsSuccess || res.ok) {
+      dirtyIds.current.clear();
+      toast("✅ " + (res.Message || res.message || "Saved successfully!"));
+      await loadData();
     } else {
-      // Move to next row's CardName
-      const rowIdx = rows.findIndex((r) => r._uid === uid);
-      if (rowIdx === rows.length - 1) {
-        addNewRow();
-      } else {
-        const next = rows[rowIdx + 1];
-        setSelectedUid(next._uid);
-        setEditingCell({ uid: next._uid, field: "CardName" });
-      }
+      toast(`❌ ${res.Message || res.message || "Save failed"}`, true);
     }
-  }
+  }, [grid, sess, perm, loadData, gridemptycheck, hasDuplicate, addRow, toast, confirm]);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // Render helpers
-  // ═══════════════════════════════════════════════════════════════════════
-  function isEditing(uid, field) {
-    return editingCell?.uid === uid && editingCell?.field === field;
-  }
+  // ── handleEsc ──────────────────────────────────────────────────────────────
+  const handleEsc = useCallback(() => {
+    sessionStorage.removeItem("masterReturnField");
+    sessionStorage.removeItem("masterPrefill");
+    navigate(-1);
+  }, [navigate]);
 
-  function CellText({ uid, field, align = "left", placeholder = "" }) {
-    const row   = rows.find((r) => r._uid === uid);
-    const value = row?.[field] ?? "";
+  // ── Global keyboard shortcuts: F1 = Save | Esc = Back ─────────────────────
+  useEffect(() => {
+    const onKey = e => {
+      if (e.keyCode === 112) { e.preventDefault(); handleSave(); }
+      if (e.keyCode === 27)  { e.preventDefault(); handleEsc();  }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleSave, handleEsc]);
 
-    return isEditing(uid, field) ? (
-      <input
-        autoFocus
-        className="mp-cell-input"
-        style={{ textAlign: align }}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => updateCell(uid, field, e.target.value)}
-        onBlur={() => {
-          if (field === "Scharge") handleSchargeBlur(uid, value);
-          setEditingCell(null);
-        }}
-        onKeyDown={(e) => {
-          if (field === "CardName") handleCardNameKeyDown(e, uid);
-          if (e.key === "Enter") {
-            if (field === "Scharge") handleSchargeBlur(uid, value);
-            advanceFocus(uid, field);
-          }
-          if (e.key === "Tab") { e.preventDefault(); advanceFocus(uid, field); }
-        }}
-      />
-    ) : (
-      <span
-        style={{ display: "block", textAlign: align, minHeight: 20 }}
-        onDoubleClick={() => setEditingCell({ uid, field })}
-      >
-        {value || <span style={{ color: "#bbb" }}>{placeholder}</span>}
-      </span>
-    );
-  }
+  // ── Block render until authorized ─────────────────────────────────────────
+  if (!isAuthorized) return null;
 
-  function CellSelect({ uid, field, options, valueMember, displayMember }) {
-    const row   = rows.find((r) => r._uid === uid);
-    const value = row?.[field] ?? "";
-
-    return (
-      <select
-        className="mp-cell-select"
-        value={value}
-        onChange={(e) => {
-          updateCell(uid, field, e.target.value);
-          // Also update display name for bank
-          if (field === "Bankrefid") {
-            const found = options.find((o) => String(o[valueMember]) === e.target.value);
-            if (found) updateCell(uid, "BankName", found[displayMember]);
-          }
-          advanceFocus(uid, field);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") advanceFocus(uid, field);
-        }}
-      >
-        <option value="">— Select —</option>
-        {options.map((o) => (
-          <option key={o[valueMember]} value={String(o[valueMember])}>
-            {o[displayMember]}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  function CellCheckbox({ uid, field }) {
-    const row   = rows.find((r) => r._uid === uid);
-    const value = row?.[field] ?? false;
-    return (
-      <input
-        type="checkbox"
-        checked={!!value}
-        onChange={(e) => updateCell(uid, field, e.target.checked)}
-        style={{ cursor: "pointer", width: 15, height: 15 }}
-      />
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // RENDER
-  // ═══════════════════════════════════════════════════════════════════════
-  if (permDenied) return null;
- 
+  // ─────────────────────────────────────────────────────────────────────────
+  //  RENDER
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    
     <div className="mp-wrap">
+
+      {ConfirmUI}
       <Topbar />
-      
-      {/* ── LOADER ── */}
+
+      <div className="mp-body">
+
+        {/* ── Toolbar ── */}
+        <div className="mp-toolbar">
+          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
+          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
+          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+          <div className="mp-toolbar-title">Card Master</div>
+        </div>
+
+        {/* ── Grid ── */}
+        <div className="mp-grid-wrap">
+          <table className="mp-tbl">
+            <thead>
+              <tr>
+                <th style={{ width: 50 }}>S.No</th>
+                <th style={{ width: 160 }}>Card Name</th>
+                <th style={{ width: 140 }}>Card Type</th>
+                <th style={{ width: 110, textAlign: "right" }}>Scharge</th>
+                <th style={{ width: 180 }}>Bank Name</th>
+                <th style={{ width: 80,  textAlign: "center" }}>Active</th>
+                {/* Edit + Delete column */}
+                <th style={{ width: 70 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {grid.map((row, idx) => (
+                <tr
+                  key={row._uid}
+                  className={[
+                    selIdx === idx     ? "sel"  : "",
+                    !row.Active        ? "inact" : "",
+                    row.EditMode === 1 ? "mod"   : "",
+                  ].filter(Boolean).join(" ")}
+                  onClick={() => selectRow(idx)}
+                >
+                  {/* S.No */}
+                  <td className="sno">{idx + 1}</td>
+
+                  {/* ── Card Name ── */}
+                  <td>
+                    <input
+                      ref={el => {
+                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                        inputRefs.current[idx][0] = el;
+                      }}
+                      className="mp-cell-input"
+                      value={row.CardName}
+                      maxLength={100}
+                      readOnly={row.EditMode === 0}
+                      onChange={e =>
+                        row.EditMode === 1 &&
+                        CC.applyUppercase(e, val => updateCell(idx, "CardName", val))
+                      }
+                      onKeyDown={e => {
+                        if (row.EditMode === 0) return;
+                        // Duplicate check before advancing
+                        if (e.key === "Enter") {
+                          if (!String(row.CardName || "").trim()) {
+                            e.preventDefault();
+                            toast("❌ Enter Card Name !!!", true);
+                            return;
+                          }
+                          const dup = grid.some(
+                            (r, i) =>
+                              i !== idx &&
+                              r.CardName?.trim().toLowerCase() ===
+                                row.CardName.trim().toLowerCase()
+                          );
+                          if (dup) {
+                            e.preventDefault();
+                            toast("❌ Duplicate Card Name !!!", true);
+                            return;
+                          }
+                        }
+                        CC.handleEnterNext(
+                          e, inputRefs, idx, 0,
+                          TOTAL_COLS, grid.length,
+                          addRow, grid, rowValidator
+                        );
+                      }}
+                      onFocus={() => selectRow(idx)}
+                      style={{
+                        background:   row.EditMode === 0 ? "transparent" : "#fff",
+                        border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
+                        cursor:       row.EditMode === 0 ? "default" : "text",
+                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                        boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
+                        borderRadius: row.EditMode === 1 ? "4px" : "0",
+                        padding:      row.EditMode === 0 ? "0" : undefined,
+                      }}
+                    />
+                  </td>
+
+                  {/* ── Card Type ── */}
+                  <td>
+                    <select
+                      ref={el => {
+                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                        inputRefs.current[idx][1] = el;
+                      }}
+                      className="mp-cell-select"
+                      value={row.CardType}
+                      disabled={row.EditMode === 0}
+                      onChange={e => updateCell(idx, "CardType", e.target.value)}
+                      onKeyDown={e =>
+                        row.EditMode === 1 &&
+                        CC.handleEnterNext(
+                          e, inputRefs, idx, 1,
+                          TOTAL_COLS, grid.length,
+                          addRow, grid, rowValidator
+                        )
+                      }
+                      onFocus={() => selectRow(idx)}
+                      style={{
+                        background: row.EditMode === 0 ? "transparent" : "#fff",
+                        border:     row.EditMode === 0 ? "none" : "1px solid #93c5fd",
+                        cursor:     row.EditMode === 0 ? "default" : "pointer",
+                        color:      row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                      }}
+                    >
+                      <option value="">— Select —</option>
+                      {CARD_TYPE_LIST.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </td>
+
+                  {/* ── Scharge ── */}
+                  <td>
+                    <input
+                      ref={el => {
+                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                        inputRefs.current[idx][2] = el;
+                      }}
+                      className="mp-cell-input"
+                      value={row.Scharge}
+                      readOnly={row.EditMode === 0}
+                      onChange={e =>
+                        row.EditMode === 1 &&
+                        updateCell(idx, "Scharge", e.target.value)
+                      }
+                      onBlur={() => {
+                        if (row.EditMode === 1)
+                          updateCell(idx, "Scharge", (parseFloat(row.Scharge) || 0).toFixed(2));
+                      }}
+                      onKeyDown={e =>
+                        row.EditMode === 1 &&
+                        CC.handleEnterNext(
+                          e, inputRefs, idx, 2,
+                          TOTAL_COLS, grid.length,
+                          addRow, grid, rowValidator
+                        )
+                      }
+                      onFocus={() => selectRow(idx)}
+                      style={{
+                        textAlign:    "right",
+                        background:   row.EditMode === 0 ? "transparent" : "#fff",
+                        border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
+                        cursor:       row.EditMode === 0 ? "default" : "text",
+                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                        boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
+                        borderRadius: row.EditMode === 1 ? "4px" : "0",
+                        padding:      row.EditMode === 0 ? "0" : undefined,
+                      }}
+                    />
+                  </td>
+
+                  {/* ── Bank Name (combo) ── */}
+                  <td>
+                    <select
+                      ref={el => {
+                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                        inputRefs.current[idx][3] = el;
+                      }}
+                      className="mp-cell-select"
+                      value={row.Bankrefid}
+                      disabled={row.EditMode === 0}
+                      onChange={e => {
+                        const val   = e.target.value;
+                        const found = bankList.find(o => String(o.Id) === val);
+                        updateCell(idx, "Bankrefid", val);
+                        if (found) updateCell(idx, "BankName", found.AccountName);
+                      }}
+                      onKeyDown={e =>
+                        row.EditMode === 1 &&
+                        CC.handleEnterNext(
+                          e, inputRefs, idx, 3,
+                          TOTAL_COLS, grid.length,
+                          addRow, grid, rowValidator
+                        )
+                      }
+                      onFocus={() => selectRow(idx)}
+                      style={{
+                        background: row.EditMode === 0 ? "transparent" : "#fff",
+                        border:     row.EditMode === 0 ? "none" : "1px solid #93c5fd",
+                        cursor:     row.EditMode === 0 ? "default" : "pointer",
+                        color:      row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                      }}
+                    >
+                      <option value="">— Select —</option>
+                      {bankList.map(o => (
+                        <option key={o.Id} value={String(o.Id)}>{o.AccountName}</option>
+                      ))}
+                    </select>
+                  </td>
+
+                  {/* ── Active Toggle ── */}
+                  <td style={{ textAlign: "center" }}>
+                    <Toggle
+                      value={!!row.Active}
+                      editMode={row.EditMode}
+                      inputRef={el => {
+                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                        inputRefs.current[idx][4] = el;
+                      }}
+                      onChange={val => row.EditMode === 1 && updateCell(idx, "Active", val)}
+                      onFocus={() => selectRow(idx)}
+                      onKeyDown={e =>
+                        row.EditMode === 1 &&
+                        CC.handleEnterNext(
+                          e, inputRefs, idx, 4,
+                          TOTAL_COLS, grid.length,
+                          addRow, grid, rowValidator
+                        )
+                      }
+                    />
+                  </td>
+
+                  {/* ── Edit + Delete buttons ── */}
+                  <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                    {/* Edit button: only on saved rows in view mode */}
+                    {row.Id && row.EditMode === 0 && (
+                      <button
+                        className="mp-edit-btn"
+                        title="Edit row"
+                        onClick={e => { e.stopPropagation(); enableEdit(idx); }}
+                        style={{
+                          background: "none", border: "none",
+                          cursor: "pointer", fontSize: 16,
+                          padding: "2px 5px", borderRadius: 3,
+                          transition: "background .1s",
+                        }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    {/* Editing indicator: saved row currently in edit mode */}
+                    {row.Id && row.EditMode === 1 && (
+                      <button
+                        className="mp-edit-btn active"
+                        title="Editing…"
+                        style={{
+                          background: "none", border: "none",
+                          cursor: "default", fontSize: 16,
+                          padding: "2px 5px", borderRadius: 3,
+                          color: "#16a34a",
+                        }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    <button
+                      className="mp-del-btn"
+                      title="Delete row"
+                      onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+                    >
+                      🗑
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {grid.length === 0 && !loading && (
+            <div className="mp-empty">No records. Press ➕ to add a card.</div>
+          )}
+        </div>
+
+        {/* ── Keyboard hint bar ── */}
+        <div className="mp-hint">
+          <kbd>Enter</kbd> next cell &nbsp;|&nbsp;
+          <kbd>F1</kbd> save &nbsp;|&nbsp;
+          <kbd>Esc</kbd> back &nbsp;|&nbsp;
+          Click <strong>✏️</strong> to edit a saved row
+        </div>
+      </div>
+
+      {/* ── Loading overlay ── */}
       {loading && (
         <div className="mp-loader-ov">
           <div className="mp-ldr-box">
             <div className="mp-spin" />
-            <div className="mp-ldr-msg">Please wait…</div>
+            <div className="mp-ldr-msg">Processing…</div>
           </div>
         </div>
       )}
 
-      {/* ── HEADER ── */}
-      {/* <header className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">C</div>
-          <div>
-            <div className="mp-title">Card Master</div>
-            <div className="mp-sub">Payment Card Configuration</div>
-          </div>
-        </div>
-        <button className="mp-back" onClick={() => { window.location.href = "/Home"; }}>
-          ← Back
-        </button>
-      </header> */}
-
-      {/* ── BODY ── */}
-      <main className="mp-body">
-        {/* ── TOOLBAR ── */}
-        <div className="mp-toolbar">
-          <button
-            className="mp-btn sv"
-            onClick={handleSave}
-            disabled={loading}
-            title="F1 – Save"
-          >
-            💾 Save (F1)
-          </button>
-          <button
-            className="mp-btn nw"
-            onClick={addNewRow}
-            title="Add new row"
-          >
-            ＋ New Row
-          </button>
-
-          {flash && (
-            <span className={`mp-msg ${flash.type}`}>{flash.msg}</span>
-          )}
-
-
-        <div className="mp-toolbar-title">Card Master</div>
-        </div>
-
-        {/* ── GRID ── */}
-        <div className="mp-grid-wrap" ref={tableRef}>
-          <table className="mp-tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 50  }}>S.No</th>
-                <th style={{ width: 160 }}>Card Name</th>
-                <th style={{ width: 160 }}>Card Type</th>
-                <th style={{ width: 110 }}>Scharge</th>
-                <th style={{ width: 180 }}>Bank Name</th>
-                <th style={{ width: 80  }}>Active</th>
-                <th style={{ width: 60  }}>Del</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => {
-                const isSel  = row._uid === selectedUid;
-                const isMod  = row.EditMode === 1;
-                const isInact = !row.Active;
-                return (
-                  <tr
-                    key={row._uid}
-                    className={[
-                      isSel   ? "sel"   : "",
-                      isInact ? "inact" : "",
-                      isMod   ? "mod"   : "",
-                    ].join(" ")}
-                    onClick={() => setSelectedUid(row._uid)}
-                  >
-                    {/* S.No */}
-                    <td className="sno">{idx + 1}</td>
-
-                    {/* Card Name */}
-                    <td
-                      onDoubleClick={() => setEditingCell({ uid: row._uid, field: "CardName" })}
-                      onClick={() => {
-                        setSelectedUid(row._uid);
-                        if (!editingCell) setEditingCell({ uid: row._uid, field: "CardName" });
-                      }}
-                    >
-                      <CellText uid={row._uid} field="CardName" placeholder="Card name…" />
-                    </td>
-
-                    {/* Card Type */}
-                    <td>
-                      <CellSelect
-                        uid={row._uid}
-                        field="CardType"
-                        options={CARD_TYPE_LIST}
-                        valueMember="value"
-                        displayMember="label"
-                      />
-                    </td>
-
-                    {/* Scharge */}
-                    <td
-                      onDoubleClick={() => setEditingCell({ uid: row._uid, field: "Scharge" })}
-                      onClick={() => setSelectedUid(row._uid)}
-                    >
-                      <CellText uid={row._uid} field="Scharge" align="right" placeholder="0.00" />
-                    </td>
-
-                    {/* Bank Name (combo) */}
-                    <td>
-                      <CellSelect
-                        uid={row._uid}
-                        field="Bankrefid"
-                        options={bankList}
-                        valueMember="Id"
-                        displayMember="AccountName"
-                      />
-                    </td>
-
-                    {/* Active checkbox */}
-                    <td style={{ textAlign: "center" }}>
-                      <CellCheckbox uid={row._uid} field="Active" />
-                    </td>
-
-                    {/* Delete */}
-                    <td style={{ textAlign: "center" }}>
-                      <button
-                        className="mp-del-btn"
-                        title="Delete row (Del)"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(row); }}
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── HINT BAR ── */}
-        <div className="mp-hint">
-          <kbd>F1</kbd> Save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> Quit &nbsp;|&nbsp;
-          <kbd>Enter</kbd> Next cell &nbsp;|&nbsp;
-          <kbd>Del</kbd> Delete row &nbsp;|&nbsp;
-          Double-click a text cell to edit
-        </div>
-      </main>
+      <MSG.ToastList toasts={toasts} />
     </div>
   );
 }

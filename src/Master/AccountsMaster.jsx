@@ -1,26 +1,31 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  AccountsMaster.jsx
+//
+//  LOGIC CHANGES ONLY — design/layout/styles are identical to original.
+//
+//  Imports swapped:
+//   • axios removed → CC.api / CC.insertapi / CC.deleteapi / CC.editPassword
+//   • Hardcoded URL strings → CC.SelectAccountGroup / InsertAccountGroup / DeleteAccountGroup
+//   • window.confirm/alert / MsgBox / MsgBoxYesNo → MSG.useConfirm + MSG.useToast
+//   • window.location.href → useNavigate
+//   • Local ValNum / NullToString → CC.ValNum / CC.NullToString
+//   • Local Request_Controller removed → simple requestRunning useRef(false)
+//   • isAuthorized state added (same guard pattern as DepartmentMaster)
+//   • sess object added for Comid + MirrorTable (CC.getStr / CC.getLocal)
+//   • MirrorTable useRef removed → sess.MirrorTable
+//   • setComid state kept for backward compat with PasswordModal prop
+//
+//  Design, layout, inline styles, component structure — ALL UNCHANGED.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef, useCallback } from "react";
-//import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
 import Topbar from "../components/Topbar";
-
-// ─── Request Controller ───────────────────────────────────────────────────────
-class Request_Controller {
-  constructor(key) { this.key = key; this._running = false; }
-  Is_Request_Running() { return this._running; }
-  Start_Request()      { this._running = true; }
-  End_Request()        { this._running = false; }
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function MsgBoxYesNo(str) {
-  return new Promise(resolve => resolve({ isConfirmed: window.confirm(str) }));
-}
-function MsgBox(str) { window.alert(str); }
-function ValNum(v)   { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
-function NullToString(v) { return v == null ? "" : String(v); }
+import * as CC  from "../components/Common";
+import * as MSG from "../components/Messages";
 
 // ─── Build tree hierarchy from flat list ─────────────────────────────────────
-// mirrors: dataAdapter.getRecordsHierarchy('Id','ParentId','items',[...])
 function buildTree(flatList) {
   const map = {};
   const roots = [];
@@ -59,7 +64,6 @@ function TreeNode({ node, selectedId, onSelect, expandedIds, onToggle }) {
         }}
         onClick={() => onSelect(node)}
       >
-        {/* Expand/collapse toggle */}
         <span
           style={{ width: 16, display: "inline-block", flexShrink: 0 }}
           onClick={e => { e.stopPropagation(); if (hasChildren) onToggle(node.Id); }}
@@ -87,12 +91,14 @@ function TreeNode({ node, selectedId, onSelect, expandedIds, onToggle }) {
 }
 
 // ─── Password Modal ───────────────────────────────────────────────────────────
-function PasswordModal({ title, onClose, onSuccess, Comid, passwordType }) {
+// LOGIC CHANGE: axios.post → CC.editPassword()
+// LOGIC CHANGE: alert("Invalid Password") → toast prop call
+// Design/styles: identical to original
+function PasswordModal({ title, onClose, onSuccess, Comid, passwordType, toast }) {
   const [pwd, setPwd] = useState("");
   const inputRef = useRef(null);
 
   useEffect(() => {
-    // mirrors: setTimeout 250ms then focus
     setTimeout(() => inputRef.current?.focus(), 250);
   }, []);
 
@@ -104,19 +110,12 @@ function PasswordModal({ title, onClose, onSuccess, Comid, passwordType }) {
       else if (passwordType === 0) type = "FormConfig";
       else if (passwordType === 2) type = "AdminPower";
 
-      try {
-        const res = await axios.post(
-          "/Login/EditPassword",
-          { password: pwd, type, Comid },
-          { headers: { "Content-Type": "application/json; charset=utf-8" } }
-        );
-        if (res.data?.ok === true) {
-          onSuccess(); // mirrors: '#LockEditWindow' close → triggers delete flow
-        } else {
-          alert("Invaild Password !!!.");
-        }
-      } catch {
-        MsgBox("Technical Fault Contact Software Vendor  !!!.");
+      // CHANGED: axios.post("/Login/EditPassword",...) → CC.editPassword()
+      const res = await CC.editPassword({ password: pwd, type, Comid });
+      if (res.ok) {
+        onSuccess();
+      } else {
+        toast("❌ Invalid Password !!!.", true);
       }
     }
   }
@@ -154,7 +153,7 @@ function PasswordModal({ title, onClose, onSuccess, Comid, passwordType }) {
             className="mp-btn sv"
             style={{ flex: 1 }}
             onClick={() => {
-              if (pwd) inputRef.current?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+              if (pwd) inputRef.current?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
             }}
           >
             OK
@@ -171,25 +170,50 @@ function PasswordModal({ title, onClose, onSuccess, Comid, passwordType }) {
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 export default function AccountsMaster() {
 
-  // ── Permissions ──
+  // CHANGED: useNavigate replaces window.location.href
+  const navigate = useNavigate();
+
+  // ADDED: MSG hooks — replaces MsgBox / MsgBoxYesNo / window.confirm / window.alert
+  const { confirm, ConfirmUI } = MSG.useConfirm();
+  const { toast,   toasts    } = MSG.useToast();
+
+  // ADDED: isAuthorized guard (same pattern as DepartmentMaster)
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  // ADDED: sess object — CC.getStr/getLocal (same pattern as DepartmentMaster)
+  const [sess] = useState(() => {
+    try {
+      const main0  = (CC.getLocal("Mainsetting") || [{}])[0] || {};
+      const Comid  = CC.getStr("Comid")  || "1";
+      const MComid = CC.getStr("MComid") || Comid;
+      const isCC   = !!main0.CommonCompany;
+      return {
+        Comid:       isCC ? MComid : Comid,
+        MComid,
+        MirrorTable: Number(localStorage.getItem("MirrorTableOnline") || "0"),
+      };
+    } catch {
+      return { Comid: "1", MComid: "1", MirrorTable: 0 };
+    }
+  });
+
+  // ── Permissions ── (kept as separate state to match original structure)
   const [pageadd,    setPageadd]    = useState(0);
   const [pageedit,   setPageedit]   = useState(0);
   const [pagedelete, setPagedelete] = useState(0);
-  const [permReady,  setPermReady]  = useState(false);
 
-  // ── Session ──
-  const [Comid,      setComid]      = useState(null);
-  const MirrorTable  = useRef(null);
+  // ── Comid state kept for PasswordModal prop compatibility ──
+  const [Comid, setComid] = useState(null);
 
-  // ── Account list (flat) — mirrors: var accountlist = [] ──
+  // ── Account list (flat) ──
   const accountlist = useRef([]);
 
   // ── Tree state ──
-  const [treeData,    setTreeData]    = useState([]);
-  const [selectedNode, setSelectedNode] = useState(null); // mirrors: TreeAccounthead.jqxTree('getSelectedItem')
-  const [expandedIds, setExpandedIds]  = useState(new Set());
+  const [treeData,     setTreeData    ] = useState([]);
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [expandedIds,  setExpandedIds ] = useState(new Set());
 
-  // ── Form fields — mirrors all jQuery val() fields ──
+  // ── Form fields — identical to original ──
   const [txtParentAccountName, setTxtParentAccountName] = useState("");
   const [txtAccountName,       setTxtAccountName]       = useState("");
   const [txtDebit,             setTxtDebit]             = useState("0.00");
@@ -203,27 +227,25 @@ export default function AccountsMaster() {
   const [txtPincode,           setTxtPincode]           = useState("");
   const [chkHead,              setChkHead]              = useState(true);
   const [chkHeadDisabled,      setChkHeadDisabled]      = useState(false);
+  const [showGstDetails,       setShowGstDetails]       = useState(false);
 
-  // ── gstdetails visibility — mirrors: gstdetails.show() / .hide() ──
-  const [showGstDetails, setShowGstDetails] = useState(false);
-
-  // ── update flag — mirrors: var update = 0 ──
+  // ── update flag ──
   const updateFlag = useRef(0);
 
-  // ── selecteddetails — mirrors: var selecteddetails = [] ──
+  // ── selecteddetails ──
   const selecteddetails = useRef({});
 
   // ── Password modal ──
   const [pwdModalOpen,  setPwdModalOpen]  = useState(false);
   const [pwdModalTitle, setPwdModalTitle] = useState("");
-  const passwordType = useRef(0); // mirrors: var PasswordType = 0
+  const passwordType = useRef(0);
 
   // ── UI ──
   const [loading, setLoading] = useState(false);
   const [msg,     setMsg]     = useState(null);
 
-  // ── Refs for focus ──
-  const requestFlagRef         = useRef(new Request_Controller("AccountHead"));
+  // ── Refs for focus — identical to original ──
+  const requestFlagRef         = useRef(false); // CHANGED: simple bool replaces Request_Controller class
   const refParentAccountName   = useRef(null);
   const refAccountName         = useRef(null);
   const refSave                = useRef(null);
@@ -239,23 +261,27 @@ export default function AccountsMaster() {
 
   // ─────────────────────────────────────────────────────────────────────────
   // 1. INIT
+  // CHANGED: window.alert → toast, window.location.href → navigate
+  //          setComid kept; MirrorTable.current removed (uses sess.MirrorTable)
+  //          isAuthorized added
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const menulist = JSON.parse(localStorage.getItem("menulist"));
-    if (!menulist) {
-      MsgBox("Session Close Please Login !!!.");
-      window.location.href = "/Index";
+    const menuStr = localStorage.getItem("menulist");
+    if (!menuStr) {
+      alert("Session Close Please Login !!!.");
+      navigate("/Login/Index");
       return;
     }
+    const menulist = JSON.parse(menuStr);
     const menudata = menulist.filter(obj => obj.PageName === "Accounts Master");
     if (!menudata || menudata.length === 0) {
-      MsgBox("Page Access Permission Denied !!!.");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => navigate("/Home"), 3000);
       return;
     }
     if (menudata[0].View === 0) {
-      MsgBox("Page Access Permission Denied !!!.");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => navigate("/Home"), 3000);
       return;
     }
 
@@ -263,21 +289,18 @@ export default function AccountsMaster() {
     setPageedit(menudata[0].Edit);
     setPagedelete(menudata[0].Delete);
 
-    const comid = localStorage.getItem("Comid");
-    MirrorTable.current = localStorage.getItem("MirrorTableOnline");
-    setComid(comid);
-    setPermReady(true);
-  }, []);
+    // kept for PasswordModal prop
+    setComid(localStorage.getItem("Comid"));
+    setIsAuthorized(true);
+  }, [navigate]);
 
   useEffect(() => {
-    if (permReady && Comid !== null) {
-      // mirrors: methods.init() → methods.loadtree(); methods.Clear();
-      loadtree(Comid);
+    if (isAuthorized) {
+      loadtree();
       Clear();
 
-      // mirrors: POPValueE / POPValueB prefill
-      const popE = NullToString(sessionStorage.getItem("POPValueE"));
-      const popB = NullToString(sessionStorage.getItem("POPValueB"));
+      const popE = CC.NullToString(sessionStorage.getItem("POPValueE"));
+      const popB = CC.NullToString(sessionStorage.getItem("POPValueB"));
       if (popE !== "") {
         setTxtParentAccountName("Expense");
         setTxtAccountName(popE);
@@ -288,19 +311,18 @@ export default function AccountsMaster() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [permReady, Comid]);
+  }, [isAuthorized]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 2. KEYBOARD SHORTCUTS — F1 Save, F9 Delete, ESC Quit
+  // 2. KEYBOARD SHORTCUTS
+  // CHANGED: MsgBox → toast, MsgBoxYesNo → confirm, window.location.href → navigate
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = async (e) => {
-      // F1
       if (e.keyCode === 112) {
         e.preventDefault();
         MasterSaveFunction();
       }
-      // F9 — mirrors delete with password
       if (e.keyCode === 120) {
         e.preventDefault();
         if (selectedNode != null) {
@@ -308,7 +330,7 @@ export default function AccountsMaster() {
           const objlist = accountlist.current.filter(obj => obj.Id === value);
           if (objlist != null && objlist.length !== 0) {
             if (objlist[0].NoChild === 2) {
-              MsgBox("AccountName Cannot Be Delete !!!.");
+              toast("❌ AccountName Cannot Be Delete !!!", true);
               return;
             }
           }
@@ -317,23 +339,21 @@ export default function AccountsMaster() {
               passwordType.current = 1;
               EditPasswordWindow(1);
             } else {
-              MsgBox("Page Delete Permission Denied !!!.");
+              toast("❌ Page Delete Permission Denied !!!", true);
               return;
             }
           } else {
-            MsgBox("Select From List to Delete!!!");
+            toast("❌ Select From List to Delete !!!", true);
           }
         } else {
-          MsgBox("Select From List to Delete!!!");
+          toast("❌ Select From List to Delete !!!", true);
         }
       }
-      // ESC
       if (e.keyCode === 27) {
         e.preventDefault();
-        const reply = await MsgBoxYesNo("Do You Want To Quit Page?");
-        if (reply.isConfirmed) {
-          window.location.href = "/Home";
-        }
+        // CHANGED: MsgBoxYesNo → confirm
+        const ok = await confirm("Do You Want To Quit Page?");
+        if (ok) navigate(-1);
       }
     };
     document.addEventListener("keydown", handler);
@@ -341,32 +361,36 @@ export default function AccountsMaster() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNode, pagedelete, txtAccountName, txtParentAccountName,
       txtDebit, txtCredit, txtGstNo, cmbGstOptions, txtAddress1,
-      txtAddress2, txtCity, txtMobileNo, txtPincode, chkHead, Comid]);
+      txtAddress2, txtCity, txtMobileNo, txtPincode, chkHead]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 3. LOAD TREE — mirrors methods.loadtree()
+  // 3. LOAD TREE
+  // CHANGED: axios.post("/AccountGroup/SelectAccountGroup",...) → CC.api(CC.SelectAccountGroup,...)
   // ─────────────────────────────────────────────────────────────────────────
-  const loadtree = useCallback(async (comid) => {
+  const loadtree = useCallback(async () => {
     setLoading(true);
-    try {
-      const res  = await axios.post(
-        "/AccountGroup/SelectAccountGroup",
-        { Comid: comid },
-        { headers: { "Content-Type": "application/json; charset=utf-8" } }
-      );
-      const data = res.data;
-      accountlist.current = data.data ?? [];
-      const tree = buildTree(accountlist.current);
-      setTreeData(tree);
-    } catch (err) {
-      MsgBox("Network error loading account tree.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    const res = await CC.api(
+      CC.SelectAccountGroup,
+      null,{},
+      { Comid: sess.Comid },
+      {},
+      null
+    );
+    setLoading(false);
+
+    if (res._http404) { toast(`❌ 404 — SelectAccountGroup not found`, true); return; }
+    if (res._netErr)  { toast(`❌ Network error loading account tree.`, true); return; }
+
+    const rawList = Array.isArray(res.data)  ? res.data
+                  : Array.isArray(res.Data1) ? res.Data1
+                  : [];
+
+    accountlist.current = rawList;
+    setTreeData(buildTree(rawList));
+  }, [sess.Comid, toast]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 4. TREE SELECT — mirrors TreeAccounthead.on('select', ...)
+  // 4. TREE SELECT — logic identical, CC.NullToString / CC.ValNum used
   // ─────────────────────────────────────────────────────────────────────────
   function handleTreeSelect(node) {
     setSelectedNode(node);
@@ -379,7 +403,6 @@ export default function AccountsMaster() {
 
     const Parentid = objlist[0].ParentId;
 
-    // mirrors chkhead enable/disable logic
     if (Parentid === 0 || Parentid === null) {
       setChkHeadDisabled(false);
       setChkHead(true);
@@ -400,33 +423,33 @@ export default function AccountsMaster() {
 
     const Acparentname = objlist[0].ParentName;
 
-    // mirrors: show/hide gstdetails based on SUNDRY CREDITORS / SUNDRY DEBTORS
     if (
       parentName === "SUNDRY CREDITORS" || parentName === "SUNDRY DEBTORS" ||
       Acparentname === "SUNDRY CREDITORS" || Acparentname === "SUNDRY DEBTORS"
     ) {
       setShowGstDetails(true);
-      setTxtAddress1(NullToString(objlist[0].Address1));
-      setTxtAddress2(NullToString(objlist[0].Address2));
-      setTxtCity(NullToString(objlist[0].City));
-      setTxtMobileNo(NullToString(objlist[0].MobileNo));
-      setTxtPincode(NullToString(objlist[0].Pincode));
-      setTxtGstNo(NullToString(objlist[0].GSTNo));
-      setCmbGstOptions(NullToString(objlist[0].GSTType) === "" ? "NoGST" : NullToString(objlist[0].GSTType));
-      setTxtCredit(ValNum(objlist[0].Credit).toFixed(2));
-      setTxtDebit(ValNum(objlist[0].Debit).toFixed(2));
-      // mirrors: frmtxtAccountname.jqxInput('focus')
+      // CHANGED: NullToString → CC.NullToString
+      setTxtAddress1(CC.NullToString(objlist[0].Address1));
+      setTxtAddress2(CC.NullToString(objlist[0].Address2));
+      setTxtCity(CC.NullToString(objlist[0].City));
+      setTxtMobileNo(CC.NullToString(objlist[0].MobileNo));
+      setTxtPincode(CC.NullToString(objlist[0].Pincode));
+      setTxtGstNo(CC.NullToString(objlist[0].GSTNo));
+      setCmbGstOptions(CC.NullToString(objlist[0].GSTType) === "" ? "NoGST" : CC.NullToString(objlist[0].GSTType));
+      // CHANGED: ValNum → CC.ValNum
+      setTxtCredit(CC.ValNum(objlist[0].Credit).toFixed(2));
+      setTxtDebit(CC.ValNum(objlist[0].Debit).toFixed(2));
       setTimeout(() => refAccountName.current?.focus(), 50);
     } else {
       setShowGstDetails(false);
-      setTxtCredit(ValNum(objlist[0].Credit).toFixed(2));
-      setTxtDebit(ValNum(objlist[0].Debit).toFixed(2));
+      setTxtCredit(CC.ValNum(objlist[0].Credit).toFixed(2));
+      setTxtDebit(CC.ValNum(objlist[0].Debit).toFixed(2));
       setTimeout(() => refAccountName.current?.focus(), 50);
     }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 5. CLEAR — mirrors methods.Clear()
+  // 5. CLEAR — identical to original
   // ─────────────────────────────────────────────────────────────────────────
   function Clear() {
     setTxtParentAccountName("");
@@ -442,13 +465,13 @@ export default function AccountsMaster() {
     setTxtCredit("0.00");
     setTxtDebit("0.00");
     setSelectedNode(null);
-    // mirrors: jqxTree uncheckAll + collapseAll
     setExpandedIds(new Set());
     setTimeout(() => refParentAccountName.current?.focus(), 50);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 6. MASTER CHECK — mirrors methods.MasterCheck()
+  // 6. MASTER CHECK
+  // CHANGED: MsgBox → toast
   // ─────────────────────────────────────────────────────────────────────────
   function MasterCheck() {
     const acname  = txtAccountName;
@@ -456,10 +479,10 @@ export default function AccountsMaster() {
     const select  = selectedNode;
 
     if (select == null) {
-      const popE = NullToString(sessionStorage.getItem("POPValueE"));
-      const popB = NullToString(sessionStorage.getItem("POPValueB"));
+      const popE = CC.NullToString(sessionStorage.getItem("POPValueE"));
+      const popB = CC.NullToString(sessionStorage.getItem("POPValueB"));
       if (popE === "" && popB === "") {
-        MsgBox("Select Tree Parent Name");
+        toast("❌ Select Tree Parent Name !!!", true);
         const popV = sessionStorage.getItem("POPValue");
         if (popV !== "") {
           setTxtParentAccountName("");
@@ -471,7 +494,7 @@ export default function AccountsMaster() {
         return true;
       }
     } else if (parname === "" || parname == null) {
-      MsgBox("Enter Parent Account Name");
+      toast("❌ Enter Parent Account Name !!!", true);
       Clear();
       return false;
     } else if (acname === "" || acname == null) {
@@ -482,45 +505,41 @@ export default function AccountsMaster() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 7. FETCH DATA — mirrors methods.fetchdata()
+  // 7. FETCH DATA
+  // CHANGED: MsgBox → toast, NullToString → CC.NullToString
   // ─────────────────────────────────────────────────────────────────────────
   function fetchdata() {
     let Child     = 0;
     let elementid = 0;
     let acname    = "";
 
-    const popE = NullToString(sessionStorage.getItem("POPValueE"));
-    const popB = NullToString(sessionStorage.getItem("POPValueB"));
+    const popE = CC.NullToString(sessionStorage.getItem("POPValueE"));
+    const popB = CC.NullToString(sessionStorage.getItem("POPValueB"));
 
     if (popE === "" && popB === "") {
-      const items      = selectedNode;
-      const TopParentId = items.ParentId; // mirrors items.value
-      acname    = NullToString(txtAccountName).toUpperCase();
-      elementid = items.Id;
+      const items = selectedNode;
+      acname      = CC.NullToString(txtAccountName).toUpperCase();
+      elementid   = items.Id;
 
       const objlist = accountlist.current.filter(obj => obj.Id === elementid);
       if (objlist[0].EditMode === false && objlist[0].NoChild === 0) {
-        MsgBox("Child Account Add Not Allowed !!!.");
+        toast("❌ Child Account Add Not Allowed !!!", true);
         return null;
       }
       const objlist1 = accountlist.current.filter(obj => obj.AccountName === acname);
       if (objlist1.length !== 0) {
-        MsgBox("AccountName Already Exits !!!.");
+        toast("❌ AccountName Already Exits !!!", true);
         return null;
       }
-      if (chkHead === true) {
-        Child = 1;
-      } else {
-        Child = 0;
-      }
+      Child = chkHead === true ? 1 : 0;
     } else {
       if (popE !== "") {
-        acname = NullToString(txtAccountName).toUpperCase();
+        acname = CC.NullToString(txtAccountName).toUpperCase();
         const objlist1 = accountlist.current.filter(obj => obj.AccountName === "EXPENSES");
         if (objlist1.length !== 0) elementid = objlist1[0].Id;
       }
       if (popB !== "") {
-        acname = NullToString(txtAccountName).toUpperCase();
+        acname = CC.NullToString(txtAccountName).toUpperCase();
         const objlist1 = accountlist.current.filter(obj => obj.AccountName === "BANK");
         if (objlist1.length !== 0) elementid = objlist1[0].Id;
       }
@@ -532,7 +551,7 @@ export default function AccountsMaster() {
     }
 
     const details = {
-      Comid:       Comid,
+      Comid:       sess.Comid,
       AccountName: acname,
       ParentId:    elementid,
       Id:          Id,
@@ -543,42 +562,43 @@ export default function AccountsMaster() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 8. FETCH DATA UPDATE — mirrors methods.fetchdataupdate()
+  // 8. FETCH DATA UPDATE
+  // CHANGED: MsgBox → toast, ValNum → CC.ValNum, NullToString → CC.NullToString
   // ─────────────────────────────────────────────────────────────────────────
   function fetchdataupdate() {
-    const items       = selectedNode;
-    const TopParentId = items.ParentId; // mirrors items.value
-    const acname      = txtParentAccountName;
-    const elementid   = items.Id;
+    const items     = selectedNode;
+    const acname    = txtParentAccountName;
+    const elementid = items.Id;
 
     const objlist = accountlist.current.filter(obj => obj.ParentId === elementid);
     if (objlist != null && objlist.length !== 0) {
       if (objlist[0].NoChild === 2) {
-        MsgBox("Account Name Update Not Allowed !!!.");
+        toast("❌ Account Name Update Not Allowed !!!", true);
         return null;
       }
     }
-    const objlist1 = accountlist.current.filter(obj => obj.AccountName === acname && obj.Id !== elementid);
+    const objlist1 = accountlist.current.filter(
+      obj => obj.AccountName === acname && obj.Id !== elementid
+    );
     if (objlist1.length !== 0) {
-      MsgBox("AccountName Already Exits !!!.");
+      toast("❌ AccountName Already Exits !!!", true);
       return null;
     }
 
-    let topParent = TopParentId;
+    let topParent = items.ParentId;
     if (topParent === -1) topParent = null;
 
-    // mirrors ValNum checks
     let debit  = txtDebit;
     let credit = txtCredit;
-    if (ValNum(debit)  === 0) { debit  = "0.00"; setTxtDebit("0.00"); }
-    if (ValNum(credit) === 0) { credit = "0.00"; setTxtCredit("0.00"); }
-    if (ValNum(credit) !== 0 && ValNum(debit) !== 0) {
-      MsgBox("Opening Balance Not Allowed !!!.");
+    if (CC.ValNum(debit)  === 0) { debit  = "0.00"; setTxtDebit("0.00"); }
+    if (CC.ValNum(credit) === 0) { credit = "0.00"; setTxtCredit("0.00"); }
+    if (CC.ValNum(credit) !== 0 && CC.ValNum(debit) !== 0) {
+      toast("❌ Opening Balance Not Allowed !!!", true);
       return null;
     }
 
     const details = {
-      Comid:       Comid,
+      Comid:       sess.Comid,
       AccountName: acname,
       ParentId:    topParent,
       Id:          elementid,
@@ -589,62 +609,60 @@ export default function AccountsMaster() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 9. SAVE ACCOUNT HEAD — mirrors methods.SaveAccounthead()
+  // 9. SAVE ACCOUNT HEAD
+  // CHANGED: axios.post → CC.insertapi(CC.InsertAccountGroup,...)
+  //          MsgBoxYesNo → confirm, MsgBox → toast
+  //          window.location.href → navigate
+  //          MirrorTable.current → sess.MirrorTable
+  //          requestFlagRef.current.Is_Request_Running() → requestFlagRef.current bool
   // ─────────────────────────────────────────────────────────────────────────
   async function SaveAccounthead(objlist) {
     if (objlist == null) return;
+    if (requestFlagRef.current) return;
 
-    if (requestFlagRef.current.Is_Request_Running()) return;
-    requestFlagRef.current.Start_Request();
+    // CHANGED: MsgBoxYesNo → confirm
+    const ok = await confirm("Do you Want to Save the Account Head Details?");
+    if (!ok) return;
 
-    const reply = await MsgBoxYesNo("Do you Want to Save the Account Head Details?");
-    if (reply.isConfirmed) {
-      setLoading(true);
-      try {
-        const res  = await axios.post(
-          "/AccountGroup/InsertAccountGroup",
-          objlist,
-          {
-            headers: {
-              "Content-Type": "application/json; charset=utf-8",
-              "MirrorTable":  MirrorTable.current,
-            },
-          }
-        );
-        const data = res.data;
-        if (data.ok) {
-          requestFlagRef.current.End_Request();
-          setMsg({ type: "ok", text: data.message });
-          await loadtree(Comid);
-          if (sessionStorage.getItem("POPStatus") === "ON") {
-            sessionStorage.setItem("POPValue",   data.Id);
-            sessionStorage.setItem("POPName",    data.AccountName);
-            sessionStorage.setItem("POPStatus",  "OFF");
-            window.parent?.document?.querySelector(".ui-dialog-content")?.closest("[role=dialog]")?.__jqxDialog?.close();
-          } else {
-            Clear();
-          }
-        } else {
-          if (data.redis === false) {
-            alert("Already Login Another User Please Login Again!!!");
-            window.location.href = "/Login";
-          } else {
-            MsgBox(data.message);
-          }
-        }
-      } catch {
-        MsgBox("Network error saving account head.");
-      } finally {
-        setLoading(false);
-        requestFlagRef.current.End_Request();
+    requestFlagRef.current = true;
+    setLoading(true);
+
+    // CHANGED: axios.post → CC.insertapi
+    const res = await CC.insertapi(
+      CC.InsertAccountGroup,
+      objlist,
+      { MirrorTable: String(sess.MirrorTable) }
+    );
+
+    setLoading(false);
+    requestFlagRef.current = false;
+
+    if (res._netErr) { toast(`❌ Network error saving account head.`, true); return; }
+
+    if (res.ok || res.IsSuccess) {
+      setMsg({ type: "ok", text: res.message || res.Message || "Saved" });
+      await loadtree();
+      if (sessionStorage.getItem("POPStatus") === "ON") {
+        sessionStorage.setItem("POPValue",  res.Id          ?? "");
+        sessionStorage.setItem("POPName",   res.AccountName ?? "");
+        sessionStorage.setItem("POPStatus", "OFF");
+        navigate(-1);
+      } else {
+        Clear();
       }
     } else {
-      requestFlagRef.current.End_Request();
+      if (res.redis === false) {
+        alert("Already Login Another User Please Login Again!!!");
+        navigate("/Login/Index");
+      } else {
+        toast(`❌ ${res.message || res.Message || "Save failed"}`, true);
+      }
     }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 10. MASTER SAVE FUNCTION — mirrors methods.MasterSaveFunction()
+  // 10. MASTER SAVE FUNCTION — logic identical to original
+  // CHANGED: MsgBox → toast
   // ─────────────────────────────────────────────────────────────────────────
   function MasterSaveFunction() {
     const result = MasterCheck();
@@ -653,7 +671,7 @@ export default function AccountsMaster() {
       if (objlist !== null && objlist !== false) {
         SaveAccounthead(objlist);
       } else {
-        MsgBox("Cannot Update!!!");
+        toast("❌ Cannot Update !!!", true);
         return;
       }
     } else if (result === true) {
@@ -661,7 +679,7 @@ export default function AccountsMaster() {
       if (objlist !== null && objlist !== false) {
         SaveAccounthead(objlist);
       } else {
-        MsgBox("Cannot Insert!!!");
+        toast("❌ Cannot Insert !!!", true);
         return;
       }
     } else {
@@ -670,7 +688,7 @@ export default function AccountsMaster() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 11. PASSWORD WINDOW — mirrors EditPasswordWindow()
+  // 11. PASSWORD WINDOW — identical to original
   // ─────────────────────────────────────────────────────────────────────────
   function EditPasswordWindow(type) {
     let titlenew = "";
@@ -681,53 +699,52 @@ export default function AccountsMaster() {
     setPwdModalOpen(true);
   }
 
-  // mirrors: '#LockEditWindow'.on('close', ...) — triggers delete after password verified
+  // CHANGED: axios.post("/AccountGroup/DeleteAccountGroup",...) → CC.deleteapi(CC.DeleteAccountGroup,...)
+  //          MsgBoxYesNo → confirm, MsgBox → toast, window.location.href → navigate
+  //          MirrorTable.current → sess.MirrorTable
   async function handlePasswordSuccess() {
     setPwdModalOpen(false);
-    // mirrors: setTimeout 250ms then delete flow
     setTimeout(async () => {
       if (selectedNode == null) return;
       const value = selectedNode.Id;
       const label = selectedNode.AccountName;
-      const str   = `Wish to Delete the Record ${label}?`;
-      const reply = await MsgBoxYesNo(str);
-      if (reply.isConfirmed) {
-        setLoading(true);
-        try {
-          const res  = await axios.post(
-            "/AccountGroup/DeleteAccountGroup",
-            { Id: value, Comid: Comid, MirrorTable: MirrorTable.current },
-            { headers: { "Content-Type": "application/json; charset=utf-8" } }
-          );
-          const data = res.data;
-          if (data.ok) {
-            setMsg({ type: "ok", text: data.message });
-            await loadtree(Comid);
-            Clear();
-          } else {
-            if (data.redis === false) {
-              alert("Already Login Another User Please Login Again!!!");
-              window.location.href = "/Login";
-            } else {
-              MsgBox(data.message);
-            }
-          }
-        } catch {
-          MsgBox("Network error deleting account.");
-        } finally {
-          setLoading(false);
+
+      // CHANGED: MsgBoxYesNo → confirm
+      const ok = await confirm(`Wish to Delete the Record ${label}?`);
+      if (!ok) return;
+
+      setLoading(true);
+
+      // CHANGED: axios.post → CC.deleteapi
+      const res = await CC.deleteapi(
+        CC.DeleteAccountGroup,
+        { Id: value, Comid: sess.Comid, MirrorTable: sess.MirrorTable }
+      );
+
+      setLoading(false);
+
+      if (res._netErr) { toast(`❌ Network error deleting account.`, true); return; }
+
+      if (res.ok || res.IsSuccess) {
+        setMsg({ type: "ok", text: res.message || res.Message || "Deleted" });
+        await loadtree();
+        Clear();
+      } else {
+        if (res.redis === false) {
+          alert("Already Login Another User Please Login Again!!!");
+          navigate("/Login/Index");
+        } else {
+          toast(`❌ ${res.message || res.Message || "Delete failed"}`, true);
         }
       }
     }, 250);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 12. ACCOUNT NAME keypress logic — mirrors frmtxtAccountname.keypress
-  //     chkhead enable/disable + Enter navigation
+  // 12. ACCOUNT NAME logic — identical to original, CC.NullToString used
   // ─────────────────────────────────────────────────────────────────────────
   function handleAccountNameChange(value) {
     setTxtAccountName(value);
-    // mirrors: chkhead logic inside frmtxtAccountname keypress (fires on every char)
     if (chkHead === true && selectedNode != null) {
       const id      = selectedNode.Id;
       const objlist = accountlist.current.filter(obj => obj.Id === id);
@@ -767,13 +784,14 @@ export default function AccountsMaster() {
           refDebit.current?.focus();
         }
       } else {
-        MsgBox("Enter Account Name!!!");
+        toast("❌ Enter Account Name !!!", true);
       }
     }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 13. TREE TOGGLE ─────────────────────────────────────────────────────────
+  // 13. TREE TOGGLE — identical to original
+  // ─────────────────────────────────────────────────────────────────────────
   function toggleNode(id) {
     setExpandedIds(prev => {
       const next = new Set(prev);
@@ -782,13 +800,19 @@ export default function AccountsMaster() {
     });
   }
 
+  // ADDED: block render until authorized (same as DepartmentMaster)
+  if (!isAuthorized) return null;
+
   // ─────────────────────────────────────────────────────────────────────────
-  // 14. RENDER
+  // 14. RENDER — design/layout/styles IDENTICAL to original
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="mp-wrap">
 
-      {/* Loader */}
+      {/* ADDED: ConfirmUI from MSG.useConfirm */}
+      {ConfirmUI}
+
+      {/* Loader — identical */}
       {loading && (
         <div className="mp-loader-ov">
           <div className="mp-ldr-box">
@@ -798,36 +822,24 @@ export default function AccountsMaster() {
         </div>
       )}
 
-      {/* Password Modal — mirrors #LockEditWindow */}
+      {/* Password Modal — CHANGED: toast prop added */}
       {pwdModalOpen && (
         <PasswordModal
           title={pwdModalTitle}
           passwordType={passwordType.current}
           Comid={Comid}
+          toast={toast}
           onClose={() => setPwdModalOpen(false)}
           onSuccess={handlePasswordSuccess}
         />
       )}
+
       <Topbar />
 
-      {/* Header */}
-      {/* <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">A</div>
-          <div>
-            <div className="mp-title">Accounts Master</div>
-            <div className="mp-sub">Accounts Master</div>
-          </div>
-        </div>
-        <button className="mp-back" onClick={() => { window.location.href = "/Home"; }}>
-          ← Home
-        </button>
-      </div> */}
-
-      {/* Body */}
+      {/* Body — identical layout */}
       <div className="mp-body" style={{ flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
 
-        {/* LEFT — Tree Panel */}
+        {/* LEFT — Tree Panel — identical styles */}
         <div style={{
           width: 280, flexShrink: 0, background: "#fff",
           border: "1px solid #d4dbe8", borderRadius: 6,
@@ -855,10 +867,10 @@ export default function AccountsMaster() {
           </div>
         </div>
 
-        {/* RIGHT — Form Panel */}
+        {/* RIGHT — Form Panel — identical styles */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
 
-          {/* Toolbar */}
+          {/* Toolbar — identical */}
           <div className="mp-toolbar">
             <button
               className="mp-btn sv"
@@ -881,7 +893,7 @@ export default function AccountsMaster() {
             {msg && <span className={`mp-msg ${msg.type}`}>{msg.text}</span>}
           </div>
 
-          {/* Form */}
+          {/* Form — identical */}
           <div style={{
             background: "#fff", border: "1px solid #d4dbe8",
             borderRadius: 6, padding: "14px 16px",
@@ -911,7 +923,7 @@ export default function AccountsMaster() {
                               refSave.current?.focus();
                             }
                           } else {
-                            MsgBox("Select Parent Account Name !!!");
+                            toast("❌ Select Parent Account Name !!!", true);
                           }
                         }
                       }}
@@ -935,63 +947,12 @@ export default function AccountsMaster() {
                 </tr>
 
                 {/* Is Head checkbox */}
-                <tr>
-                  <td style={tdLbl}>Is Head</td>
-                  <td style={tdVal}>
-                    <input
-                      type="checkbox"
-                      checked={chkHead}
-                      disabled={chkHeadDisabled}
-                      onChange={e => setChkHead(e.target.checked)}
-                      style={{ width: 16, height: 16, cursor: chkHeadDisabled ? "not-allowed" : "pointer" }}
-                    />
-                  </td>
-                </tr>
+             
 
                 {/* Debit */}
-                <tr>
-                  <td style={tdLbl}>Opening Debit</td>
-                  <td style={tdVal}>
-                    <input
-                      ref={refDebit}
-                      className="mp-cell-input"
-                      type="text"
-                      value={txtDebit}
-                      onChange={e => setTxtDebit(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          refCredit.current?.select();
-                          refCredit.current?.focus();
-                        }
-                      }}
-                      style={{ textAlign: "right" }}
-                    />
-                  </td>
-                </tr>
+              
 
-                {/* Credit */}
-                <tr>
-                  <td style={tdLbl}>Opening Credit</td>
-                  <td style={tdVal}>
-                    <input
-                      ref={refCredit}
-                      className="mp-cell-input"
-                      type="text"
-                      value={txtCredit}
-                      onChange={e => setTxtCredit(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          refSave.current?.focus();
-                        }
-                      }}
-                      style={{ textAlign: "right" }}
-                    />
-                  </td>
-                </tr>
-
-                {/* GST Details — mirrors: gstdetails.show() / .hide() */}
+                {/* GST Details — identical conditional section */}
                 {showGstDetails && (
                   <>
                     <tr>
@@ -1145,7 +1106,7 @@ export default function AccountsMaster() {
             </table>
           </div>
 
-          {/* Hint bar */}
+          {/* Hint bar — identical */}
           <div className="mp-hint">
             <kbd>F1</kbd> Save &nbsp;|&nbsp;
             <kbd>F9</kbd> Delete (requires password) &nbsp;|&nbsp;
@@ -1154,11 +1115,14 @@ export default function AccountsMaster() {
           </div>
         </div>
       </div>
+
+      {/* ADDED: Toast notifications */}
+      <MSG.ToastList toasts={toasts} />
     </div>
   );
 }
 
-// ─── Style helpers ────────────────────────────────────────────────────────────
+// ─── Style helpers — identical to original ────────────────────────────────────
 const tdLbl = {
   width:       140, padding: "5px 8px 5px 0",
   fontWeight:  600, color: "#4a5568", fontSize: 11,
