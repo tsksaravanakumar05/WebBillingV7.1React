@@ -51,45 +51,25 @@ export const BrandSelect = "/api/BrandApp/SelectBrand";
 export const BrandInsert = "/api/BrandApp/InsertBrand";
 export const BrandDelete = "/api/BrandApp/DeleteBrand";
 
-// ─── Salesman ─────────────────────────────────────────────────────────────────
-export const SalesManSelect = "/api/SalesManApp/SelectSalesMan";
-export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
-export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";
-
-// ─── Size Master ──────────────────────────────────────────────────────────────
-export const SizeSelect = "/api/SizeMasterApp/SelectSizeMaster";
-export const SizeInsert = "/api/SizeMasterApp/InsertSizeMaster";
-export const SizeDelete = "/api/SizeMasterApp/DeleteSizeMaster";
-
-// ─── Color Master ─────────────────────────────────────────────────────────────
-export const SelectColor = "/api/ColorMasterApp/SelectColorMaster";
-export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
-export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
-
-// ─── Model Master ─────────────────────────────────────────────────────────────
-export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
-export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
-export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
-
-// ─── UOM ──────────────────────────────────────────────────────────────────────
-export const SelectUOM = "/api/UOMApp/SelectUOM";
-export const InsertUOM = "/api/UOMApp/InsertUOM";
-export const DeleteUOM = "/api/UOMApp/DeleteUOM";
-
-// ─── Rate Change ──────────────────────────────────────────────────────────────
-//  Centralised here so RateChange.jsx imports CC.RateChange* names only
-//  and never constructs URL strings itself.
-export const RateChangeUpdate     = "/api/ItemMasterApp/UpdateRateChange";
-export const RateChangeItemSelect = "/api/ItemMasterApp/SelectItemMaster";
-export const RateChangeItemByCode = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
-
-// ─── SubCategory ─────────────────────────────────────────────────────────────
-
-// export const SubCategorySelect      = "/api/CategoryApp/selectSubCategory";
-export const SubCategoryInsert      = "/api/CategoryApp/InsertSubCategory";
-export const SubCategoryDelete      = "/api/CategoryApp/DeleteSubCategory";
-export const SelectDepartment     = "/api/DepartmentApp/SelectDepartment";
-
+  //Salesman
+  export const SalesManSelect = "/api/SalesManApp/SelectSalesMan"; 
+  export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
+  export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";
+ 
+  //SizeMaster
+  export const SizeSelect = "/api/SizeMasterApp/SelectSizeMaster";
+  export const SizeInsert = "/api/SizeMasterApp/InsertSizeMaster";
+  export const SizeDelete = "/api/SizeMasterApp/DeleteSizeMaster";
+ 
+  //ColorMaster
+  export const SelectColor = "/api/ColorMasterApp/SelectColorMaster";
+  export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
+  export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
+ 
+  //ModelMaster
+  export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
+  export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
+  export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
 
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
@@ -99,7 +79,9 @@ export const authHeaders = () => ({
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
 
-// ─── URL BUILDER ──────────────────────────────────────────────────────────────
+// ─── 6. URL BUILDER ───────────────────────────────────────────────────────────
+//  All fetch calls must go through mkUrl so BASE_URL is always prepended.
+//  No component should concatenate BASE_URL itself.
 const mkUrl = (path) => BASE_URL + path;
 
 // ─── 7. SESSION / COMPANY VARIABLES ──────────────────────────────────────────

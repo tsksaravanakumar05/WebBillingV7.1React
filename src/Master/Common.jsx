@@ -107,7 +107,7 @@ export const authHeaders = () => ({
 const mkUrl = (path) => {
   return BASE_URL + path;
 };
-
+export const NullToString = (v) => (v == null ? "" : String(v));
 // ─── 4. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
 /**
  * Call once per page (inside useState initialiser).
@@ -209,6 +209,7 @@ export const insertapi = async (path, body = null, extraHeaders = {}) => {
       },
       body: body != null ? JSON.stringify(body) : null,
     });
+    console.log(body);
     const text = await res.text();
     return JSON.parse(text);
   } catch (err) {
@@ -231,7 +232,7 @@ export function applyUppercase(e, onChange) {
   const end   = el.selectionEnd;
   onChange(el.value.toUpperCase());
   requestAnimationFrame(() => {
-    if (el && document.activeElement === el) {
+    if (el && document.activeElement === el){
       el.setSelectionRange(start, end);
     }
   });

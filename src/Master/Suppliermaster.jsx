@@ -444,13 +444,62 @@ const selectRow = useCallback((idx) => {
       if (saved && Array.isArray(saved)) setColSettings(saved);
     } catch {}
   }, []);
+const saveColSettings = useCallback(async (localSettings) => {
+  setF12Open(false);
+  setLoading(true);
+  const payload = (localSettings ?? colSettings).map(s => ({
+    filename: "Supplier",           // ← "Supplier" not "Cashier"
+    column:   s.field,
+    Visible:  !s.hidden,
+    Width:    s.width,
+    Comid:    Number(MComid),
+  }));
+  try {
+    const res  = await fetch("/Login/VisibleColumns", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body:    JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast("✅ Column settings saved");
+      if (localSettings) setColSettings(localSettings);
+    } else {
+      toast(`❌ ${data.message || "Failed to save"}`, true);
+    }
+  } catch {
+    toast("❌ Error saving column settings", true);
+  } finally {
+    setLoading(false);
+  }
+}, [colSettings, MComid, toast]);
 
-  const saveColSettings = useCallback(() => {
-    try { localStorage.setItem("supplier_colSettings", JSON.stringify(colSettings)); } catch {}
-    setF12Open(false);
-    toast("✅ Column settings saved");
-  }, [colSettings, toast]);
+useEffect(() => {
+  const loadColSettings = async () => {
+    try {
+      const url = `/Content/Appdata/Visible/${MComid}/Supplier.json?t=${Date.now()}`;
+      const res = await fetch(url);
+      if (!res.ok) return;               // no file yet — use defaults
 
+      const serverData = await res.json();
+      if (!Array.isArray(serverData) || !serverData.length) return;
+
+      const merged = ALL_COLUMNS.map(c => {
+        const s = serverData.find(d => d.column === c.field);
+        return {
+          field:  c.field,
+          label:  c.label,
+          hidden: s ? !s.Visible : c.hidden,
+          width:  s ?  s.Width   : c.width,
+        };
+      });
+      setColSettings(merged);
+    } catch {
+      // file doesn't exist yet — silently use defaults
+    }
+  };
+  loadColSettings();
+}, [MComid]);
   // ── Cell renderer ─────────────────────────────────────────────────────────
 function renderCell(row, rowIdx, colDef) {
   const { field, type, maxLen, options } = colDef;
@@ -571,7 +620,7 @@ if (type === "active-select") return (
             </table>
           </div>
           <div style={{ padding:"10px 14px",display:"flex",gap:8,justifyContent:"flex-end",borderTop:"1px solid #e5e7eb" }}>
-            <button onClick={()=>{setColSettings(local);setTimeout(saveColSettings,50);}} style={{ background:"#1a2e4a",color:"#fff",border:"none",borderRadius:4,padding:"6px 18px",fontSize:12,fontWeight:700,cursor:"pointer" }}>💾 Save</button>
+            <button onClick={() => { setColSettings(local); saveColSettings(local); }} style={{ background:"#1a2e4a",color:"#fff",border:"none",borderRadius:4,padding:"6px 18px",fontSize:12,fontWeight:700,cursor:"pointer" }}>💾 Save</button>
             <button onClick={()=>setF12Open(false)} style={{ background:"#fff",color:"#6b7280",border:"1px solid #d1d5db",borderRadius:4,padding:"6px 14px",fontSize:12,cursor:"pointer" }}>Cancel</button>
           </div>
         </div>
