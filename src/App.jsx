@@ -25,6 +25,7 @@ import GroupMaster from "./Master/GroupMaster";
 import SalesManMaster from "./Master/SalesManMaster";
 import CRMPointsMaster from "./Master/CRMPointsMaster";
 import AccountsMaster from "./Master/AccountsMaster";
+import SubCategoryMaster from "./Master/SubCategory";
 
 // UTILS
 import PasswordSetting from "./Utiles/Passwordsetting";
@@ -68,6 +69,7 @@ function App() {
         <Route path="/SalesMan" element={<SalesManMaster />} />
         <Route path="/CRMPoints" element={<CRMPointsMaster />} />
         <Route path="/AccountGroup" element={<AccountsMaster />} />
+        <Route path="/Category/SubCategory" element={<SubCategoryMaster />} />
 
         {/* UTILS */}
         <Route path="/PasswordSetting" element={<PasswordSetting />} />

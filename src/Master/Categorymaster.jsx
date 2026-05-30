@@ -593,7 +593,7 @@ export default function CategoryMaster() {
       <Topbar />
 
       {/* ── Header ── */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">C</div>
           <div>
@@ -602,7 +602,7 @@ export default function CategoryMaster() {
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      </div> */}
 
       <div className="mp-body">
 

@@ -3,10 +3,12 @@
 //  Shared utilities, API helpers, hooks, and UI components
 //  used across all Cashier/Master pages.
 //
-//  CHANGELOG (TransactionPassword migration):
+//  CHANGELOG:
 //  • Added TransactionPassword API endpoint constants
 //  • Added editPassword() centralised helper
 //    → removes all try/catch + fetch boilerplate from TransactionPassword.jsx
+//  • Added RateChange API endpoint constants
+//    → RateChangeSelect, RateChangeUpdate, RateChangeItemSelect, RateChangeItemByCode
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -25,59 +27,71 @@ export const CashierDelete = "/api/CashierApp/DeleteCashier";
 export const SelectCounter = "/api/CashierApp/SelectCounter_local";
 
 // ─── 4. TRANSACTION PASSWORD API ENDPOINT CONSTANTS ──────────────────────────
-//  Centralised here so TransactionPassword.jsx only imports CC.Txn* names
-//  and never constructs URL strings itself.
 export const TxnSelectPassword = "/api/LoginApp/SelectTransactionPassword";
 export const TxnUpdatePassword = "/api/LoginApp/UpdateTransactionPassword";
 export const TxnEditPassword   = "/api/LoginApp/EditPassword";
 
-          //Department
-        export const DepartmentSelect = "/api/DepartmentApp/SelectDepartment";
-         export const DepartmentInsert = "/api/DepartmentApp/InsertDepartment";
-         export const DepartmentDelete = "/api/DepartmentApp/DeleteDepartment";
+// ─── Department ───────────────────────────────────────────────────────────────
+export const DepartmentSelect = "/api/DepartmentApp/SelectDepartment";
+export const DepartmentInsert = "/api/DepartmentApp/InsertDepartment";
+export const DepartmentDelete = "/api/DepartmentApp/DeleteDepartment";
+
 // ─── 5. REPACKING MASTER API ENDPOINT CONSTANTS ───────────────────────────────
-//  Centralised here so RepackingMaster.jsx imports CC.Repacking* names only
-//  and never constructs URL strings itself.
 export const RepackingMaxNo      = "/api/RepackingMasterApp/MaxRepackingNo";
 export const RepackingInsert     = "/api/RepackingMasterApp/InsertRepackingMaster";
 export const RepackingDelete     = "/api/RepackingMasterApp/DeleteRepackingMaster";
 export const RepackingEdit       = "/api/RepackingMasterApp/EditRepackingMaster";
 export const RepackingSelect     = "/api/RepackingMasterApp/SelectRepackingMaster";
-//RepackingItemMaster
-// export const RepackingCombo      = "/api/RepackingMasterApp/SelectRepackingMasterItem";
 export const RepackingCombo      = "/api/RepackingMasterApp/RepackingItemMaster";
 export const ItemByCode          = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
-  export const RepackingEditPwd    = "/api/LoginApp/EditPassword";
- 
- //BrandMaster
-  export const BrandSelect = "/api/BrandApp/SelectBrand";
-  export const BrandInsert = "/api/BrandApp/InsertBrand";
-  export const BrandDelete = "/api/BrandApp/DeleteBrand";
+export const RepackingEditPwd    = "/api/LoginApp/EditPassword";
 
-  //Salesman
-  export const SalesManSelect = "/api/SalesManApp/SelectSalesMan"; 
-  export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
-  export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";
- 
-  //SizeMaster
-  export const SizeSelect = "/api/SizeMasterApp/SelectSizeMaster";
-  export const SizeInsert = "/api/SizeMasterApp/InsertSizeMaster";
-  export const SizeDelete = "/api/SizeMasterApp/DeleteSizeMaster";
- 
-  //ColorMaster
-  export const SelectColor = "/api/ColorMasterApp/SelectColorMaster";
-  export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
-  export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
- 
-  //ModelMaster
-  export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
-  export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
-  export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
+// ─── Brand Master ─────────────────────────────────────────────────────────────
+export const BrandSelect = "/api/BrandApp/SelectBrand";
+export const BrandInsert = "/api/BrandApp/InsertBrand";
+export const BrandDelete = "/api/BrandApp/DeleteBrand";
+
+// ─── Salesman ─────────────────────────────────────────────────────────────────
+export const SalesManSelect = "/api/SalesManApp/SelectSalesMan";
+export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
+export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";
+
+// ─── Size Master ──────────────────────────────────────────────────────────────
+export const SizeSelect = "/api/SizeMasterApp/SelectSizeMaster";
+export const SizeInsert = "/api/SizeMasterApp/InsertSizeMaster";
+export const SizeDelete = "/api/SizeMasterApp/DeleteSizeMaster";
+
+// ─── Color Master ─────────────────────────────────────────────────────────────
+export const SelectColor = "/api/ColorMasterApp/SelectColorMaster";
+export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
+export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
+
+// ─── Model Master ─────────────────────────────────────────────────────────────
+export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
+export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
+export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
+
+// ─── UOM ──────────────────────────────────────────────────────────────────────
+export const SelectUOM = "/api/UOMApp/SelectUOM";
+export const InsertUOM = "/api/UOMApp/InsertUOM";
+export const DeleteUOM = "/api/UOMApp/DeleteUOM";
+
+// ─── Rate Change ──────────────────────────────────────────────────────────────
+//  Centralised here so RateChange.jsx imports CC.RateChange* names only
+//  and never constructs URL strings itself.
+export const RateChangeUpdate     = "/api/ItemMasterApp/UpdateRateChange";
+export const RateChangeItemSelect = "/api/ItemMasterApp/SelectItemMaster";
+export const RateChangeItemByCode = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+
+// ─── SubCategory ─────────────────────────────────────────────────────────────
+
+// export const SubCategorySelect      = "/api/CategoryApp/selectSubCategory";
+export const SubCategoryInsert      = "/api/CategoryApp/InsertSubCategory";
+export const SubCategoryDelete      = "/api/CategoryApp/DeleteSubCategory";
+export const SelectDepartment     = "/api/DepartmentApp/SelectDepartment";
+
 
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
-//  Single source of truth — every fetch in the app must go through
-//  api() / insertapi() / editPassword() which all call authHeaders().
-//  No component should call localStorage.getItem("token") directly.
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
   "Userid":        localStorage.getItem("userid")     || "0",
@@ -85,9 +99,7 @@ export const authHeaders = () => ({
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
 
-// ─── 6. URL BUILDER ───────────────────────────────────────────────────────────
-//  All fetch calls must go through mkUrl so BASE_URL is always prepended.
-//  No component should concatenate BASE_URL itself.
+// ─── URL BUILDER ──────────────────────────────────────────────────────────────
 const mkUrl = (path) => BASE_URL + path;
 
 // ─── 7. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
@@ -148,11 +160,8 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
       body: body !== null ? JSON.stringify(body) : undefined,
     });
 
-    // ── Standard HTTP error handling ─────────────────────────────────────────
-   if (res.status === 406) {
-      
-        return { ok: false, _dualLogin: true };
-      
+    if (res.status === 406) {
+      return { ok: false, _dualLogin: true };
     }
     if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
     if (res.status === 500) {
@@ -230,102 +239,51 @@ export const deleteapi = async (path, body = null, extraHeaders = {}) => {
 /**
  * editPassword()
  * Dedicated helper for the Transaction Password verification modal.
- * Centralises the /api/LoginApp/EditPassword call so TransactionPassword.jsx
- * contains ZERO fetch / auth / BASE_URL logic.
- *
- * @param {object} payload  - { password, type, Comid }
- *   type values: "EditPassword" | "FormConfig" | "AdminPower"
- * @returns {{ ok: boolean, message?: string }}
- *
- * Usage (TransactionPassword.jsx):
- *   const res = await CC.editPassword({ password: pwdValue, type: typeStr, Comid: sess.Comid });
- *   if (res.ok) { ... } else { showError(res.message) }
  */
 export const editPassword = async ({ password, type, Comid }) => {
   try {
     const qs = new URLSearchParams({
       password: String(password),
-      type: String(type),
-      Comid: String(Comid),
+      type:     String(type),
+      Comid:    String(Comid),
     }).toString();
 
-    const res = await fetch(
-      mkUrl(`${TxnEditPassword}?${qs}`),
-      {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-        },
-      }
-    );
+    const res = await fetch(mkUrl(`${TxnEditPassword}?${qs}`), {
+      method: "POST",
+      headers: { ...authHeaders() },
+    });
 
-    // ── HTTP error handling ─────────────────────────────
     if (res.status === 406) {
       alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
+      return { ok: false, _dualLogin: true };
     }
-
-    if (res.status === 404) {
-      return {
-        ok: false,
-        message: "API Not Found",
-      };
-    }
+    if (res.status === 404) return { ok: false, message: "API Not Found" };
 
     const text = await res.text();
-
-    if (!text.trim()) {
-      return {
-        ok: false,
-        message: "Empty response",
-      };
-    }
+    if (!text.trim()) return { ok: false, message: "Empty response" };
 
     try {
       const j = JSON.parse(text);
-
-      if (j.IsSuccess !== undefined && j.ok === undefined)
-        j.ok = j.IsSuccess;
-
-      if (j.Message !== undefined && j.message === undefined)
-        j.message = j.Message;
-
+      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
+      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
       return j;
     } catch {
-      return {
-        ok: false,
-        message: text,
-      };
+      return { ok: false, message: text };
     }
   } catch (err) {
-    return {
-      ok: false,
-      message: err.message,
-    };
+    return { ok: false, message: err.message };
   }
 };
 
 /**
  * repackingEditPassword()
  * Centralised password-verification helper for RepackingMaster.
- * Uses the MVC-style /Login/EditPassword route (no /api/ prefix).
- * Wraps the call so RepackingMaster.jsx has ZERO fetch/auth/BASE_URL logic.
- *
- * @param {object} opts - { password, type, Comid }
- *   type: "EditPassword" | "FormConfig" | "AdminPower"
- * @returns {{ ok: boolean, message?: string }}
- *
- * Usage (RepackingMaster.jsx):
- *   const res = await CC.repackingEditPassword({ password: pwdValue, type: "EditPassword", Comid: sess.Comid });
- *   if (res.ok) { ... } else { alert("Invalid Password !!!."); }
  */
-// export const repackingEditPassword = async ({ password, type, Comid }) => {
-//   return api(TxnEditPassword, null, {}, { password, type, Comid });
-// };
 export const repackingEditPassword = ({ password, type, Comid }) =>
   api(TxnEditPassword, null, {}, { password, type, Comid });
+
 // ─── 9. MISC HELPERS ──────────────────────────────────────────────────────────
+
 /** Generates a unique row key */
 export const uid = () =>
   crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
@@ -345,8 +303,6 @@ export function applyUppercase(e, onChange) {
       el.setSelectionRange(start, end);
     }
   });
-
-  
 }
 
 /**
@@ -361,13 +317,11 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
   let nextRow = curRow;
   let nextCol = curCol + 1;
 
-  // Last column reached
   if (nextCol >= totalCols) {
     const currentRow = grid[curRow];
     const isFilled   = rowValidator(currentRow);
 
     if (!isFilled) {
-      // Row not filled — jump to first empty col in same row
       for (let c = 0; c < totalCols; c++) {
         const el = inputRefs.current[curRow]?.[c];
         if (el && !el.value?.trim()) {
@@ -378,24 +332,20 @@ export function handleEnterNext(e, inputRefs, curRow, curCol, totalCols, totalRo
       return;
     }
 
-    // Row filled — go next row col 0
     nextCol = 0;
     nextRow = curRow + 1;
   }
 
-  // Next row doesn't exist yet — create it then focus
   if (nextRow >= totalRows) {
     onLastCell?.();
     setTimeout(() => { inputRefs.current[nextRow]?.[0]?.focus(); }, 100);
     return;
   }
 
-  // Normal — focus next cell
   setTimeout(() => { inputRefs.current[nextRow]?.[nextCol]?.focus(); }, 30);
 }
 
 // ─── 10. SHARED INLINE STYLES ─────────────────────────────────────────────────
-/** Pop-in animation + active-select styles (injected once per page load) */
 if (typeof document !== "undefined" && !document.getElementById("cmActiveSelStyle")) {
   const s = document.createElement("style");
   s.id = "cmActiveSelStyle";

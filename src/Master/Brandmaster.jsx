@@ -39,7 +39,7 @@ export default function BrandMaster() {
     // 1. Check if session/menu exists
     if (!menuStr) {
       alert("Session Close Please Login !!!.");
-      navigate("/Login/Index");
+      navigate("/");
       return;
     }
 
