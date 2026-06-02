@@ -1699,7 +1699,7 @@ if (!isAuthorized) return null;
       <CC.ToastList toasts={toasts}/>
 
       {ddPop&&<ComboPopup ddPop={ddPop} ddQ={ddQ} setDdQ={setDdQ} ddFilt={ddFilt} ddHilite={ddHilite} setDdHilite={setDdHilite} ddHiliteC={ddHiliteC} selectDd={selectDd} handleDdConfirm={handleDdConfirm} isNewValue={isNewVal} onClose={closeDd}/>}
-      {pw&&<PwModal title={pw.title} comid={sess.Comid} onOk={pw.onOk} onClose={()=>setPw(null)}/>}
+      
 
       {bsrOpen&&(
         <div className="mp-ov" onClick={e=>{if(e.target===e.currentTarget)setBsrOpen(false);}}>

@@ -717,7 +717,7 @@ export default function AccountsMaster() {
 
       // CHANGED: axios.post → CC.deleteapi
       const res = await CC.deleteapi(
-        CC.DeleteAccountGroup,
+        CC.DeleteAccountGroup+`?Id=${value}&Comid=${sess.Comid}&MirrorTable=${sess.MirrorTable}`, null,
         { Id: value, Comid: sess.Comid, MirrorTable: sess.MirrorTable }
       );
 

@@ -9,6 +9,8 @@
 //    → removes all try/catch + fetch boilerplate from TransactionPassword.jsx
 //  • Added RateChange API endpoint constants
 //    → RateChangeSelect, RateChangeUpdate, RateChangeItemSelect, RateChangeItemByCode
+//  • Added Card, Bank, AccountGroup, Location, Supplier, Area, CustomerCard, Branch constants
+//  • Added loadSalesmanData(), ValNum(), NullToString() helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -37,39 +39,106 @@ export const DepartmentInsert = "/api/DepartmentApp/InsertDepartment";
 export const DepartmentDelete = "/api/DepartmentApp/DeleteDepartment";
 
 // ─── 5. REPACKING MASTER API ENDPOINT CONSTANTS ───────────────────────────────
-export const RepackingMaxNo      = "/api/RepackingMasterApp/MaxRepackingNo";
-export const RepackingInsert     = "/api/RepackingMasterApp/InsertRepackingMaster";
-export const RepackingDelete     = "/api/RepackingMasterApp/DeleteRepackingMaster";
-export const RepackingEdit       = "/api/RepackingMasterApp/EditRepackingMaster";
-export const RepackingSelect     = "/api/RepackingMasterApp/SelectRepackingMaster";
-export const RepackingCombo      = "/api/RepackingMasterApp/RepackingItemMaster";
-export const ItemByCode          = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
-export const RepackingEditPwd    = "/api/LoginApp/EditPassword";
+export const RepackingMaxNo   = "/api/RepackingMasterApp/MaxRepackingNo";
+export const RepackingInsert  = "/api/RepackingMasterApp/InsertRepackingMaster";
+export const RepackingDelete  = "/api/RepackingMasterApp/DeleteRepackingMaster";
+export const RepackingEdit    = "/api/RepackingMasterApp/EditRepackingMaster";
+export const RepackingSelect  = "/api/RepackingMasterApp/SelectRepackingMaster";
+export const RepackingCombo   = "/api/RepackingMasterApp/RepackingItemMaster";
+export const ItemByCode       = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+export const RepackingEditPwd = "/api/LoginApp/EditPassword";
 
 // ─── Brand Master ─────────────────────────────────────────────────────────────
 export const BrandSelect = "/api/BrandApp/SelectBrand";
 export const BrandInsert = "/api/BrandApp/InsertBrand";
 export const BrandDelete = "/api/BrandApp/DeleteBrand";
 
-  //Salesman
-  export const SalesManSelect = "/api/SalesManApp/SelectSalesMan"; 
-  export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
-  export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";
- 
-  //SizeMaster
-  export const SizeSelect = "/api/SizeMasterApp/SelectSizeMaster";
-  export const SizeInsert = "/api/SizeMasterApp/InsertSizeMaster";
-  export const SizeDelete = "/api/SizeMasterApp/DeleteSizeMaster";
- 
-  //ColorMaster
-  export const SelectColor = "/api/ColorMasterApp/SelectColorMaster";
-  export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
-  export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
- 
-  //ModelMaster
-  export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
-  export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
-  export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
+// ─── Card Master ──────────────────────────────────────────────────────────────
+export const InsertCardMaster = "/api/CardMasterApp/InsertCardMaster";
+export const SelectCardMaster = "/api/CardMasterApp/SelectCardMaster";
+export const DeleteCardMaster = "/api/CardMasterApp/DeleteCardMaster";
+
+// ─── Bank ─────────────────────────────────────────────────────────────────────
+export const BankDateSelect = "/api/BankApp/SelectBankDate";
+export const BankAllSelect  = "/api/BankApp/SelectBankList";
+export const BankSelect     = "/api/BankApp/SelectBank";
+export const BankInsert     = "/api/BankApp/InsertBank";
+export const BankDelete     = "/api/BankApp/DeleteBank";
+
+// ─── Salesman ─────────────────────────────────────────────────────────────────
+export const SalesManSelect = "/api/SalesManApp/SelectSalesMan";
+export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
+export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";
+
+// ─── Size Master ──────────────────────────────────────────────────────────────
+export const SizeSelect = "/api/SizeMasterApp/SelectSizeMaster";
+export const SizeInsert = "/api/SizeMasterApp/InsertSizeMaster";
+export const SizeDelete = "/api/SizeMasterApp/DeleteSizeMaster";
+
+// ─── Color Master ─────────────────────────────────────────────────────────────
+export const SelectColor = "/api/ColorMasterApp/SelectColorMaster";
+export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
+export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
+
+// ─── Model Master ─────────────────────────────────────────────────────────────
+export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
+export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
+export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
+
+// ─── UOM ──────────────────────────────────────────────────────────────────────
+export const SelectUOM = "/api/UOMApp/SelectUOM";
+export const InsertUOM = "/api/UOMApp/InsertUOM";
+export const DeleteUOM = "/api/UOMApp/DeleteUOM";
+
+// ─── Account Group ────────────────────────────────────────────────────────────
+export const SelectAccountGroup = "/api/AccountGroupApp/SelectAccountGroup";
+export const InsertAccountGroup = "/api/AccountGroupApp/InsertAccountGroup";
+export const DeleteAccountGroup = "/api/AccountGroupApp/DeleteAccountGroup";
+
+// ─── Location ─────────────────────────────────────────────────────────────────
+export const LocationSelect = "/LocationApp/SelectLocation";
+export const LocationInsert = "/LocationApp/InsertLocation";
+export const LocationDelete = "/LocationApp/DeleteLocation";
+
+// ─── Supplier ─────────────────────────────────────────────────────────────────
+export const SupplierSelect              = "/api/SupplierApp/SelectSupplier";
+export const SupplierInsert              = "/api/SupplierApp/InsertSupplier";
+export const SupplierDelete              = "/api/SupplierApp/DeleteSupplier";
+export const SelectSupplierAll           = "/api/SupplierApp/SelectSupplierAll";
+export const SelectSupplierAllSpName     = "/api/SupplierApp/SelectSupplierAllSpName";
+export const SelectSupplierAll_NameOnly  = "/api/SupplierApp/SelectSupplierAll_NameOnly";
+export const CurrentBalance              = "/api/SupplierApp/CurrentBalance";
+export const GetSupplier                 = "/api/SupplierApp/GetSupplier";
+export const CurrentBalanceherbal        = "/api/SupplierApp/CurrentBalanceherbal";
+
+// ─── SubCategory ─────────────────────────────────────────────────────────────
+export const SubCategoryInsert  = "/api/CategoryApp/InsertSubCategory";
+export const SubCategoryDelete  = "/api/CategoryApp/DeleteSubCategory";
+export const SelectDepartment   = "/api/DepartmentApp/SelectDepartment";
+
+// ─── Rate Change ──────────────────────────────────────────────────────────────
+export const RateChangeUpdate     = "/api/ItemMasterApp/UpdateRateChange";
+export const RateChangeItemSelect = "/api/ItemMasterApp/SelectItemMaster";
+export const RateChangeItemByCode = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+
+// ─── Shared Popup API Endpoints ───────────────────────────────────────────────
+//  Used by both SupplierMaster and CustomerMaster popup windows.
+export const AreaSelect         = "/api/AreaApp/SelectArea";
+export const CustomerCardSelect = "/api/CustomerCardTypeApp/SelectCustomerCardType";
+export const BranchSelect       = "/StockTransferApp/SelectCompany";
+
+//companymaster 
+
+export const ASelectCompanySetting        = "/api/LoginApp/SelectCompanySetting";
+export const UpdateCompanySetting = "/api/LoginApp/UpdateCompanySetting";
+export const ScriptUpdate       = "/api/LoginApp/ScriptUpdate";
+
+//CRMPointsMaster
+export const SelectCRMPoints     = "/api/CRMPointsApp/SelectCRMPoints";
+export const InsertCRMPoints       = "/api/CRMPointsApp/InsertCRMPoints";
+export const DeleteCRMPoints = "/api/CRMPointsApp/DeleteCRMPoints";
+export const SelectCustomerCardType     = "/api/CustomerCardTypeApp/SelectCustomerCardType";
+
 
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
@@ -79,9 +148,7 @@ export const authHeaders = () => ({
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
 
-// ─── 6. URL BUILDER ───────────────────────────────────────────────────────────
-//  All fetch calls must go through mkUrl so BASE_URL is always prepended.
-//  No component should concatenate BASE_URL itself.
+// ─── URL BUILDER ──────────────────────────────────────────────────────────────
 const mkUrl = (path) => BASE_URL + path;
 
 // ─── 7. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
@@ -142,9 +209,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
       body: body !== null ? JSON.stringify(body) : undefined,
     });
 
-    if (res.status === 406) {
-      return { ok: false, _dualLogin: true };
-    }
+    if (res.status === 406) return { ok: false, _dualLogin: true };
     if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
     if (res.status === 500) {
       const t = await res.text();
@@ -221,6 +286,10 @@ export const deleteapi = async (path, body = null, extraHeaders = {}) => {
 /**
  * editPassword()
  * Dedicated helper for the Transaction Password verification modal.
+ *
+ * @param {object} payload  - { password, type, Comid }
+ *   type values: "EditPassword" | "FormConfig" | "AdminPower"
+ * @returns {{ ok: boolean, message?: string }}
  */
 export const editPassword = async ({ password, type, Comid }) => {
   try {
@@ -269,6 +338,37 @@ export const repackingEditPassword = ({ password, type, Comid }) =>
 /** Generates a unique row key */
 export const uid = () =>
   crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
+
+/** Safely parses a float; returns 0 for NaN */
+export const ValNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+
+/** Converts null/undefined to empty string */
+export const NullToString = (v) => (v == null ? "" : String(v));
+
+/**
+ * loadSalesmanData()
+ * Fetches salesman list for a given company.
+ *
+ * @param {string|number} MComid
+ * @returns {Promise<Array>}
+ */
+export const loadSalesmanData = async (MComid) => {
+  try {
+    const res = await fetch(
+      mkUrl(SalesManSelect) + `?Comid=${Number(MComid)}`,
+      { method: "POST", headers: authHeaders() }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data)       ? data
+         : Array.isArray(data.data)  ? data.data
+         : Array.isArray(data.Data1) ? data.Data1
+         : [];
+  } catch (e) {
+    console.error("loadSalesmanData error:", e);
+    return [];
+  }
+};
 
 /**
  * applyUppercase()

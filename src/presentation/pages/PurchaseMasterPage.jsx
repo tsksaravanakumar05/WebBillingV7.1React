@@ -804,7 +804,7 @@ function FocusConfigModal({ type, onClose, onSave }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Page Component
 // ─────────────────────────────────────────────────────────────────────────────
-export function PurchaseMasterPage() {
+export  default function PurchaseMasterPage() {
   // ── Master data
   const [suppliers, setSuppliers] = useState([]);
 
