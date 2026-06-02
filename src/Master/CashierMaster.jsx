@@ -343,7 +343,7 @@ function F12Popup() {
       { Comid: sess.Comid }
     );
     setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
     if (res._http404) { toast(`❌ 404 — ${CC.CashierSelect} not found`, true); }
     if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
 
@@ -377,7 +377,15 @@ function F12Popup() {
    }, [sess.Comid, toast, focusRow]);// eslint-disable-line
 
   useEffect(() => { loadData(); }, [loadData]);
-
+ 
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // ── addRow ──────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
     setGrid(prev => {
@@ -420,7 +428,7 @@ function F12Popup() {
 
       const res = await CC.api(url, null, {},{ Id: Number(row.Id),Comid:Number(sess.Comid),MirrorTable:Number(sess.MirrorTable) });
       setLoading(false);
-
+      if (redirectIfDualLogin(res)) return;
       if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
       if (res.ok) {
@@ -599,7 +607,7 @@ const payload = cleaned
     );
 
     setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.IsSuccess) {

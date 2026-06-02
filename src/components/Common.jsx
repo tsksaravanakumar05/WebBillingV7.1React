@@ -18,6 +18,21 @@ export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 export const BASE_URL = "http://localhost:64215";
 
+
+
+// Item Master API Links
+export const ItemSelect = "/api/ItemMasterApp/SelectItemMaster";
+export const ItemInsert = "/api/ItemMasterApp/InsertItemMaster";
+export const ItemDelete = "/api/ItemMasterApp/DeleteItemMaster";
+export const ItemBarcodeSelect = "/api/ItemMasterApp/SelectBarcodeList";
+export const ItemBarcodeInsert = "/api/ItemMasterApp/InsertItemBarcode";
+export const ItemMaxCode = "/api/ItemMasterApp/MaxProductCode";
+export const ItemBranchRate = "/api/ItemMasterApp/SelectBranchSaleRate";
+export const ItemBranchRateUpdate = "/api/ItemMasterApp/UpdateBranchSaleRate";
+export const ItemGroupCommission = "/api/ItemMasterApp/SelectGroupCommission";
+export const ItemGroupCommissionInsert = "/api/ItemMasterApp/InsertGroupCommission";
+export const VisibleColumnsUrl = "/Login/VisibleColumns";
+export const LoginPasswordUrl = "/api/LoginApp/EditPassword";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
@@ -124,7 +139,7 @@ export const authHeaders = () => ({
   "Profile":       localStorage.getItem("Profile")    || "Admin",
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
-console.log(localStorage.getItem("token"));
+//console.log(localStorage.getItem("token"));
 export const loadSalesmanData = async (MComid) => {
   try {
     const res = await fetch(
@@ -201,6 +216,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
+        "Accept": "application/json",
         ...authHeaders(),
         ...extraHeaders,
       },

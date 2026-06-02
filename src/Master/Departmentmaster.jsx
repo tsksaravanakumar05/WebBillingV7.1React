@@ -81,7 +81,15 @@ export default function DepartmentMaster() {
   // ── Permission / authorization state (mirrors CashierMaster) ───────────────
   const [perm,         setPerm        ] = useState({ View:0, Add:0, Edit:0, Delete:0 });
   const [isAuthorized, setIsAuthorized] = useState(false);
-
+ 
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // ── Permission guard — same useEffect pattern as CashierMaster ─────────────
   useEffect(() => {
     const menuStr = localStorage.getItem("menulist");
@@ -182,7 +190,7 @@ export default function DepartmentMaster() {
       { Comid: sess.Comid }
     );
     setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
     if (res._http404) { toast(`❌ 404 — ${CC.DepartmentSelect} not found`, true); }
     if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
 
@@ -259,7 +267,7 @@ export default function DepartmentMaster() {
         { Id:Number(row.Id), Comid:Number(sess.Comid), MirrorTable:Number(sess.MirrorTable) }
       );
       setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
       if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
       if (res.ok) {
@@ -381,7 +389,7 @@ export default function DepartmentMaster() {
     );
 
     setLoading(false);
-
+   if (redirectIfDualLogin(res)) return;
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.IsSuccess) {

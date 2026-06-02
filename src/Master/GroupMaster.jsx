@@ -123,6 +123,15 @@ export default function GroupMaster() {
     return () => document.head.removeChild(el);
   }, []);
 
+
+  const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // ─────────────────────────────────────────────────────────────────────────
   // 1. INIT — mirrors $(document).ready and methods.init()
   // ─────────────────────────────────────────────────────────────────────────

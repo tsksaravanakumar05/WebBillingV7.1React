@@ -108,7 +108,14 @@ export default function SupplierMaster() {
   // ── Shared hooks from Common.jsx ─────────────────────────────────────────
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast,   toasts    } = CC.useToast();
-
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // ── Session — same pattern as CashierMaster ──────────────────────────────
   const [sess] = useState(() => {
     try {
@@ -174,6 +181,11 @@ const selectRow = useCallback((idx) => {
   const [pickerTarget,  setPickerTarget] = useState(null);
   const [colSettings,   setColSettings]  = useState(() => ALL_COLUMNS.map(c => ({ field:c.field, label:c.label, hidden:c.hidden, width:c.width })));
   const [f12Open,       setF12Open]      = useState(false);
+  const [pw, setPw] = useState(null);
+  const pwOkRef = useRef(null);
+  const [filterSearch, setFilterSearch] = useState("");
+const [filterColumn, setFilterColumn] = useState("AccountName");
+const [activeFilter, setActiveFilter] = useState("all");
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const cellRefs       = useRef({});
@@ -212,44 +224,232 @@ const selectRow = useCallback((idx) => {
       await doLoadData(smList);
     };
     init();
-  }, []); // eslint-disable-line
+  }, []); 
+  const displayGrid = grid.filter(row => {
+  if (activeFilter === "active" && (row.Active === false || row.Active === 0)) return false;
+  return true;
+});// eslint-disable-line
+// ── doExcelDownload (F4) ──────────────────────────────────────────────────────
+const doExcelDownload = useCallback(async () => {
+  setLoading(true);
+  const res = await CC.api(
+    CC.SupplierSelect, null, {},
+    { Comid: Number(Comid), Startindex: -1, PageCount: 99999, AccountType: "SUPPLIER", Keyword: "", Column: "" }
+  );
+  setLoading(false);
+if (redirectIfDualLogin(res)) return;
+  const data = Array.isArray(res?.data)  ? res.data
+             : Array.isArray(res?.Data1) ? res.Data1
+             : grid.filter(r => r.Id);
 
-  // ── doLoadData — plain async, no useCallback, no deps ────────────────────
-  const doLoadData = async (smList) => {
-    const prefill = sessionStorage.getItem("masterPrefill") || "";
-    setLoading(true);
-    const res = await CC.api(CC.SupplierSelect, null, {}, {
-      Comid: Number(Comid), Startindex:-1, PageCount:20,
-      AccountType:"SUPPLIER", Keyword:"", Column:"",
-    });
-    setLoading(false);
-    if (res._http404) { toast("❌ 404 — SelectSupplier not found", true); return; }
-    if (res._netErr)  { toast(`❌ ${res.message}`, true); return; }
+  if (!data?.length) { toast("No records to export", true); return; }
 
-    const rawList = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
-    const currentSM = smList ?? salesmanRef.current ?? [];
+  const exportCols = [
+    { key: "Id",              label: "Id"              },
+    { key: "AccountName",     label: "Supplier Name"   },
+    { key: "Code",            label: "Code"            },
+    { key: "SalesName",       label: "Sales Man"       },
+    { key: "SalemanRefid",    label: "SalesManId"      },
+    { key: "Address1",        label: "Address 1"       },
+    { key: "Address2",        label: "Address 2"       },
+    { key: "City",            label: "City"            },
+    { key: "Pincode",         label: "Pincode"         },
+    { key: "MobileNo",        label: "Mobile No"       },
+    { key: "Phone",           label: "Phone"           },
+    { key: "GSTINNo",         label: "GSTIN No"        },
+    { key: "Email",           label: "Email"           },
+    { key: "CreditBillDays",  label: "Credit Days"     },
+    { key: "CreditBillLimit", label: "Credit Limit"    },
+    { key: "OpeningBalance",  label: "Opening Bal"     },
+    { key: "StateCode",       label: "State Code"      },
+    { key: "StateName",       label: "Place of Supply" },
+    { key: "IGSTBill",        label: "GST Type"        },
+    { key: "Active",          label: "Active"          },
+  ];
 
-    const existing = rawList.map(r => {
-      const smId  = r.SalemanRefid ?? r.SalesmanRefid ?? r.SalesManRefid ?? null;
-      const smObj = currentSM.find(s => Number(s.Id ?? s.id) === Number(smId));
+  const fmt = data.map(o => {
+    const out = {};
+    exportCols.forEach(c => { out[c.label] = o[c.key] ?? ""; });
+    return out;
+  });
+
+  const hdr  = Object.keys(fmt[0]).join(",");
+  const body = fmt.map(r =>
+    Object.values(r).map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
+  ).join("\n");
+
+  const blob = new Blob(["\uFEFF" + hdr + "\n" + body], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = "suppliermaster.csv"; a.click();
+  URL.revokeObjectURL(url);
+  toast("✅ Excel downloaded");
+}, [Comid, grid, toast]);
+
+// ── doExcelUpload (F7) ────────────────────────────────────────────────────────
+const doExcelUpload = useCallback(() => {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".csv,.xlsx";
+  inp.onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    const text = await file.text();
+
+    const parseCSV = raw => {
+      const lines = raw.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) return [];
+      const firstLine = lines[0];
+      const delimiter = firstLine.includes('\t') ? '\t' : ',';
+      const splitLine = line => {
+        if (delimiter === '\t') return line.split('\t').map(v => v.trim());
+        const result = []; let cur = ""; let inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+            else inQ = !inQ;
+          } else if (ch === ',' && !inQ) { result.push(cur.trim()); cur = ""; }
+          else cur += ch;
+        }
+        result.push(cur.trim()); return result;
+      };
+      const hdrs = splitLine(lines[0]);
+      return lines.slice(1).map(line => {
+        const vals = splitLine(line);
+        const obj = {};
+        hdrs.forEach((h, i) => { obj[h.trim()] = (vals[i] || "").trim(); });
+        return obj;
+      });
+    };
+
+    const labelToKey = {
+      "Id":              "Id",
+      "Supplier Name":   "AccountName",
+      "Code":            "Code",
+      "Sales Man":       "SalesName",
+      "SalesManId":      "SalemanRefid",
+      "Address 1":       "Address1",
+      "Address 2":       "Address2",
+      "City":            "City",
+      "Pincode":         "Pincode",
+      "Mobile No":       "MobileNo",
+      "Phone":           "Phone",
+      "GSTIN No":        "GSTINNo",
+      "Email":           "Email",
+      "Credit Days":     "CreditBillDays",
+      "Credit Limit":    "CreditBillLimit",
+      "Opening Bal":     "OpeningBalance",
+      "State Code":      "StateCode",
+      "Place of Supply": "StateName",
+      "GST Type":        "IGSTBill",
+      "Active":          "Active",
+    };
+
+    const records = parseCSV(text).filter(o => o["Supplier Name"] || o["AccountName"]);
+    if (!records.length) { toast("❌ No valid rows found. Check file format.", true); return; }
+
+    const ni = v => parseInt(v)   || 0;
+    const nf = v => parseFloat(v) || 0;
+    const bi = v => (v === "true" || v === "1" || v === true) ? 1 : 0;
+    const s  = v => String(v == null ? "" : v);
+
+    const toSave = records.map(row => {
+      const mapped = {};
+      Object.entries(row).forEach(([h, v]) => {
+        const key = labelToKey[h] || h;
+        mapped[key] = v;
+      });
       return {
-        ...r, _uid: CC.uid(), AccountType: r.AccountType || "SUPPLIER",
-        SalesName:       r.SalesName || r.SaleName || smObj?.SalesManName || smObj?.salesmanname || "",
-        SalemanRefid:    smId,
-        OpeningBalance:  parseFloat(vn(r.OpeningBalance)).toFixed(2),
-        CreditBillLimit: parseFloat(vn(r.CreditBillLimit)).toFixed(2),
-        CreditBillDays:  String(parseInt(vn(r.CreditBillDays)) || 0),
-        Active:   r.Active === 1 || r.Active === true ? 1 : 0,
-        EditMode: 0,
+        Id:              ni(mapped.Id) || null,
+        AccountType:     "SUPPLIER",
+        AccountName:     s(mapped.AccountName).trim(),
+        Code:            s(mapped.Code),
+        SalesName:       s(mapped.SalesName),
+        SalemanRefid:    ni(mapped.SalemanRefid) || null,
+        Address1:        s(mapped.Address1),
+        Address2:        s(mapped.Address2),
+        City:            s(mapped.City),
+        Pincode:         s(mapped.Pincode),
+        MobileNo:        s(mapped.MobileNo),
+        Phone:           s(mapped.Phone),
+        GSTINNo:         s(mapped.GSTINNo),
+        Email:           s(mapped.Email),
+        CreditBillDays:  ni(mapped.CreditBillDays),
+        CreditBillLimit: nf(mapped.CreditBillLimit),
+        OpeningBalance:  nf(mapped.OpeningBalance),
+        StateCode:       s(mapped.StateCode),
+        StateName:       s(mapped.StateName),
+        IGSTBill:        s(mapped.IGSTBill) || "GST",
+        Active:          bi(mapped.Active),
       };
     });
 
-    const blank = makeNewRow(prefill);
-    setGrid([...existing, blank]);
-    setSelIdx(existing.length);
-    focusCell(existing.length, "AccountName");
-    sessionStorage.setItem("masterPrefill", "");
+    const newCount  = toSave.filter(r => !r.Id || r.Id === 0).length;
+    const editCount = toSave.filter(r => r.Id  && r.Id > 0).length;
+
+    const ok = window.confirm(
+      `Upload ${toSave.length} suppliers?\n➕ New: ${newCount}\n✏️ Update: ${editCount}\n\nProceed?`
+    );
+    if (!ok) return;
+
+    setLoading(true);
+    const res = await CC.insertapi(CC.SupplierInsert, toSave, {
+      "Comid":                  String(Comid),
+      "SupplierMulitipleAllow": String(SupplierMulitipleAllow),
+      "AccountTypeNew":         "SUPPLIER",
+      "MirrorTable":            String(MirrorTable),
+      "Tamil":                  "0",
+      "IdComList":              String(IdComList),
+      "ApiType":                "1",
+    });
+    setLoading(false);
+if (redirectIfDualLogin(res)) return;
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+    if (res.ok ?? res.IsSuccess) {
+      toast(`✅ ${res.message || `Uploaded — ${newCount} added, ${editCount} updated`}`);
+      await loadDataRef.current?.();
+    } else {
+      toast(`❌ ${res.message || "Upload failed"}`, true);
+    }
   };
+  inp.click();
+}, [Comid, SupplierMulitipleAllow, MirrorTable, IdComList, toast]);
+  // ── doLoadData — plain async, no useCallback, no deps ────────────────────
+const doLoadData = async (smList, keyword = "", column = "") => {
+  const prefill = sessionStorage.getItem("masterPrefill") || "";
+  setLoading(true);
+  const res = await CC.api(CC.SupplierSelect, null, {}, {
+    Comid: Number(Comid), Startindex: -1, PageCount: 20,
+    AccountType: "SUPPLIER", Keyword: keyword, Column: column,
+  });
+  setLoading(false);
+  if (redirectIfDualLogin(res)) return;
+  if (res._http404) { toast("❌ 404 — SelectSupplier not found", true); return; }
+  if (res._netErr)  { toast(`❌ ${res.message}`, true); return; }
+
+  const rawList = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+  const currentSM = smList ?? salesmanRef.current ?? [];
+
+  const existing = rawList.map(r => {
+    const smId  = r.SalemanRefid ?? r.SalesmanRefid ?? r.SalesManRefid ?? null;
+    const smObj = currentSM.find(s => Number(s.Id ?? s.id) === Number(smId));
+    return {
+      ...r, _uid: CC.uid(), AccountType: r.AccountType || "SUPPLIER",
+      SalesName:       r.SalesName || r.SaleName || smObj?.SalesManName || smObj?.salesmanname || "",
+      SalemanRefid:    smId,
+      OpeningBalance:  parseFloat(vn(r.OpeningBalance)).toFixed(2),
+      CreditBillLimit: parseFloat(vn(r.CreditBillLimit)).toFixed(2),
+      CreditBillDays:  String(parseInt(vn(r.CreditBillDays)) || 0),
+      Active:   r.Active === 1 || r.Active === true ? 1 : 0,
+      EditMode: 0,
+    };
+  });
+
+  const blank = makeNewRow(prefill);
+  setGrid([...existing, blank]);
+  setSelIdx(existing.length);
+  focusCell(existing.length, "AccountName");
+  sessionStorage.setItem("masterPrefill", "");
+};
 
   // Store doLoadData in ref so handleSave can call it without being a dep
   loadDataRef.current = () => doLoadData(salesmanRef.current);
@@ -354,6 +554,7 @@ const selectRow = useCallback((idx) => {
         null, { "IdComList": "" }
       );
       setLoading(false);
+      if (redirectIfDualLogin(res)) return;
       if (res.ok) {
         toast("✅ " + (res.message || "Deleted"));
         setGrid(prev => { const next=prev.filter((_,i)=>i!==idx); const ns=Math.max(0,next.length-1); setSelIdx(ns); focusCell(ns,"AccountName"); return next; });
@@ -404,7 +605,7 @@ const selectRow = useCallback((idx) => {
       "Tamil":"0", "IdComList":String(IdComList), "ApiType":"1",
     });
     setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
     if (res.ok || res.IsSuccess) {
       toast("✅ " + (res.message||"Saved successfully!"));
       const retField = sessionStorage.getItem("masterReturnField");
@@ -424,6 +625,11 @@ const selectRow = useCallback((idx) => {
     if (!window.confirm("Do You Want To Quit Page?")) return;
     navigate("/Home");
   }, [navigate]);
+const handleFilterSearch = useCallback((e) => {
+  if (e.key === "Enter" && filterSearch.trim()) {
+    doLoadData(salesmanRef.current, filterSearch, filterColumn);
+  }
+}, [filterSearch, filterColumn]);
 
   // ── Global keyboard shortcuts ─────────────────────────────────────────────
   useEffect(() => {
@@ -432,6 +638,16 @@ const selectRow = useCallback((idx) => {
       if (e.keyCode===112) { e.preventDefault(); handleSave(); }
       if (e.keyCode===27)  { e.preventDefault(); handleEsc(); }
       if (e.keyCode===123) { e.preventDefault(); setF12Open(true); }
+      if (e.keyCode === 115) { // F4
+  e.preventDefault();
+  pwOkRef.current = doExcelDownload;
+  setPw({ title: "F4 Password" });
+}
+if (e.keyCode === 118) { // F7
+  e.preventDefault();
+  pwOkRef.current = doExcelUpload;
+  setPw({ title: "F7 Password" });
+}
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -590,7 +806,32 @@ if (type === "active-select") return (
       }} />
   );
 }
-
+function PwModal({ title, comid, onOk, onClose }) {
+  const [val, setVal] = useState("");
+  const verify = async () => {
+    if (!val) return;
+    const res = await CC.api(CC.LoginPasswordUrl, null, {}, { password: val, type: "EditPassword", Comid: comid });
+    if (redirectIfDualLogin(res)) return;
+    if (res.ok ?? res.IsSuccess ?? false) { onOk(); onClose(); }
+    else window.alert("Invalid Password !!!");
+  };
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.45)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+      <div style={{ background:"#fff",borderRadius:8,width:280,padding:"20px 24px",boxShadow:"0 8px 32px rgba(0,0,0,0.22)" }}>
+        <div style={{ fontSize:14,fontWeight:700,marginBottom:12,color:"#1f65de" }}>🔐 {title}</div>
+        <input type="password" autoFocus value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => { if (e.key==="Enter") verify(); if (e.key==="Escape") onClose(); }}
+          style={{ width:"100%",padding:"6px 10px",border:"1px solid #c5d8f8",borderRadius:4,fontSize:13,marginBottom:14,outline:"none" }}
+          placeholder="Enter password…" />
+        <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
+          <button className="mp-btn" onClick={onClose}>Cancel</button>
+          <button className="mp-btn sv" onClick={verify}>OK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
   // ── F12 Popup — same style as CashierMaster ───────────────────────────────
   function F12Popup() {
     const [local, setLocal] = useState(colSettings.map(s=>({...s})));
@@ -632,22 +873,54 @@ if (type === "active-select") return (
   return (
     <div className="mp-wrap supplier-page">
       {ConfirmUI}
+      {pw && (
+  <PwModal
+    title={pw.title}
+    comid={Comid}
+    onOk={() => { pwOkRef.current?.(); }}
+    onClose={() => setPw(null)}
+  />
+)}
       <Topbar />
       {loading && <div className="mp-loader-ov"><div className="mp-ldr-box"><div className="mp-spin"/><div className="mp-ldr-msg">Processing…</div></div></div>}
       {f12Open && <F12Popup />}
       {pickerTarget && <SalesmanPicker salesmanList={salesmanList} initialSearch={pickerTarget.currentName} onSelect={onSalesmanSelect} onClose={onSalesmanClose} />}
+<div className="mp-body">
 
-      <div className="mp-body">
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc</button>
-          <div className="mp-toolbar-title">Supplier Master</div>
-          <button className="mp-btn" style={{ background:"#fff",color:"#374151",border:"1px solid #9ca3af",marginLeft:"auto" }} onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
-          {salesmanLoading && <span style={{ fontSize:11,color:"#94a3b8",marginLeft:8 }}>Loading salesman…</span>}
-        </div>
+  {/* ── TOP TOOLBAR: Title + Filter ── */}
+  <div className="mp-toolbar" style={{
+    display: "flex", alignItems: "center",
+    gap: 6, padding: "6px 10px", flexWrap: "wrap",
+  }}>
+    <div style={{ width:1, height:22, background:"#d1d5db", margin:"0 4px" }} />
+    <div className="mp-toolbar-title">Supplier Master</div>
 
-       <div className="mp-grid-wrap" style={{ overflowX:"auto", width:"100%" }}>
+    {/* Search filter — pushed to the right */}
+    <div style={{ display:"flex", gap:4, alignItems:"center", marginLeft:"auto" }}>
+      <select className="mp-cell-select" style={{ width:160, height:28 }}
+        value={filterColumn} onChange={e => setFilterColumn(e.target.value)}>
+        <option value="AccountName">Supplier Name</option>
+        <option value="MobileNo">Mobile No</option>
+        <option value="GSTINNo">GSTIN No</option>
+        <option value="City">City</option>
+        <option value="Code">Code</option>
+      </select>
+      <input className="mp-cell-input" style={{ width:160, height:28 }}
+        placeholder="Search… (Enter)"
+        value={filterSearch}
+        onChange={e => setFilterSearch(e.target.value)}
+        onKeyDown={handleFilterSearch}
+      />
+      <select className="mp-cell-select" style={{ width:110, height:28 }}
+        value={activeFilter} onChange={e => setActiveFilter(e.target.value)}>
+        <option value="all">All</option>
+        <option value="active">Active Only</option>
+      </select>
+    </div>
+  </div>
+
+  {/* ── Grid ── */}
+    <div className="mp-grid-wrap" style={{ overflowX:"auto", width:"100%" }}>
   <table className="mp-tbl" style={{ width:"100%", tableLayout:"fixed", minWidth:visibleColumns.reduce((a,c)=>a+c.width,150)+"px" }}>
         <thead>
   <tr>
@@ -663,7 +936,8 @@ if (type === "active-select") return (
   </tr>
 </thead>
 <tbody>
-  {grid.map((row, rowIdx) => {
+  {displayGrid.map((row, idx) => {
+      const rowIdx = grid.indexOf(row);
     const editMode = row.EditMode ?? 0;
     return (
       <tr key={row._uid}
@@ -724,10 +998,41 @@ if (type === "active-select") return (
           {grid.length===0 && !loading && <div className="mp-empty">No records. Press ➕ to add a supplier.</div>}
         </div>
 
-        <div className="mp-hint">
-          <kbd>Enter</kbd> next cell &nbsp;|&nbsp; <kbd>Enter on Sales Man</kbd> pick salesman &nbsp;|&nbsp; <kbd>Ctrl+Del</kbd> delete &nbsp;|&nbsp; <kbd>F1</kbd> save &nbsp;|&nbsp; <kbd>Esc</kbd> back
-        </div>
-      </div>
+  {/* ── BOTTOM TOOLBAR: All action buttons ── */}
+  <div className="mp-toolbar" style={{
+    display: "flex", alignItems: "center",
+    gap: 6, padding: "6px 10px", flexWrap: "wrap",
+  }}>
+    <button className="mp-btn nw" onClick={addRow} disabled={loading}>➕ Add Row</button>
+    <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
+    <button className="mp-btn ex"
+      onClick={() => { pwOkRef.current = doExcelDownload; setPw({ title:"F4 Password" }); }}>
+      📥 F4 Excel↓
+    </button>
+    <button className="mp-btn ex"
+      onClick={() => { pwOkRef.current = doExcelUpload; setPw({ title:"F7 Password" }); }}>
+      📤 F7 Excel↑
+    </button>
+    <button className="mp-btn"
+      style={{ background:"var(--color-background-secondary)", color:"var(--color-text-primary)", border:"1px solid #9ca3af" }}
+      onClick={() => setF12Open(true)}>
+      ⚙ F12 Columns
+    </button>
+    <button className="mp-btn"
+      onClick={() => doLoadData(salesmanRef.current)}
+      disabled={loading}
+      style={{ background:"#059669", color:"#fff", borderColor:"#059669" }}>
+      🔄 Refresh
+    </button>
+    {salesmanLoading && (
+      <span style={{ fontSize:11, color:"#94a3b8", marginLeft:8 }}>Loading salesman…</span>
+    )}
+    <button className="mp-btn dl" onClick={handleEsc} style={{ marginLeft:"auto" }}>
+      ✕ Esc Cancel
+    </button>
+  </div>
+
+</div>
 
       <CC.ToastList toasts={toasts} />
     </div>

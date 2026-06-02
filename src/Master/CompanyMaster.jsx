@@ -158,6 +158,14 @@ export default function CompanySettings() {
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
   }, []);
 
+  const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // ── Field updater ──────────────────────────────────────────────────────────
   const setField = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -176,6 +184,7 @@ export default function CompanySettings() {
   
     setLoading(false);
   
+if (redirectIfDualLogin(res)) return;
     console.log("API RESPONSE :", res);
   
     if (!res.IsSuccess) {
@@ -368,6 +377,7 @@ export default function CompanySettings() {
     setLoading(false);
     savingRef.current = false;
 
+if (redirectIfDualLogin(res)) return;
     if (res.ok) {
       // jQuery: localStorage.setItem("Companysetting", JSON.stringify(data.data))
       if (res.data) {
@@ -423,6 +433,7 @@ export default function CompanySettings() {
   
       console.log("API RESPONSE =>", res);
   
+if (redirectIfDualLogin(res)) return;
       if (res?.IsSuccess) {
         toast("✅ " + (res.Message || "Script updated"));
       } else {
