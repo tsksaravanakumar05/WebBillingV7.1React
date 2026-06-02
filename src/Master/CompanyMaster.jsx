@@ -189,26 +189,7 @@ export default function CompanySettings() {
   const [loading,   setLoading  ] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
 
-<<<<<<< HEAD
   // ── Field updater ────────────────────────────────────────────────────────────
-=======
-  // ── Toast ──────────────────────────────────────────────────────────────────
-  const toast = useCallback((m, err = false) => {
-    const id = ++toastId.current;
-    setToasts(p => [...p, { id, m, err }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
-  }, []);
-
-  const redirectIfDualLogin = useCallback((res) => {
-  if (res?._dualLogin || res?.redis === false) {
-    alert("Already Login Another User Please Login Again!!!");
-    navigate("/"); // Redirect to your specific login path
-    return true;
-  }
-  return false;
-}, [navigate]);
-  // ── Field updater ──────────────────────────────────────────────────────────
->>>>>>> 0f5f8e8d63a4c8bce84ed7ee288fb9b12b59515b
   const setField = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
   }, []);
@@ -226,12 +207,6 @@ export default function CompanySettings() {
     );
 
     setLoading(false);
-<<<<<<< HEAD
-
-=======
-  
-if (redirectIfDualLogin(res)) return;
->>>>>>> 0f5f8e8d63a4c8bce84ed7ee288fb9b12b59515b
     console.log("API RESPONSE :", res);
 
     // ── dual-login check ──
@@ -422,17 +397,14 @@ if (redirectIfDualLogin(res)) return;
     setLoading(false);
     savingRef.current = false;
 
-<<<<<<< HEAD
     // ── dual-login check ──
     if (redirectIfDualLogin(res)) return;
 
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.IsSuccess || res.ok) {
-=======
 if (redirectIfDualLogin(res)) return;
     if (res.ok) {
->>>>>>> 0f5f8e8d63a4c8bce84ed7ee288fb9b12b59515b
       // jQuery: localStorage.setItem("Companysetting", JSON.stringify(data.data))
       if (res.data || res.Data1) {
         const saved = res.data || res.Data1;
