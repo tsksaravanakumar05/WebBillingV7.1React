@@ -401,9 +401,15 @@ export default function CompanySettings() {
     if (redirectIfDualLogin(res)) return;
 
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+<<<<<<< HEAD
  if (redirectIfDualLogin(res)) return;
    
    
+=======
+
+   
+if (redirectIfDualLogin(res)) return;
+>>>>>>> 72dfbb5df8570c01965c238db92f46b5ab9a2295
     if (res.ok) {
       // jQuery: localStorage.setItem("Companysetting", JSON.stringify(data.data))
       if (res.data || res.Data1) {
