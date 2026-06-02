@@ -22,21 +22,6 @@ export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 export const BASE_URL = "http://localhost:64215";
 
-
-
-// Item Master API Links
-export const ItemSelect = "/api/ItemMasterApp/SelectItemMaster";
-export const ItemInsert = "/api/ItemMasterApp/InsertItemMaster";
-export const ItemDelete = "/api/ItemMasterApp/DeleteItemMaster";
-export const ItemBarcodeSelect = "/api/ItemMasterApp/SelectBarcodeList";
-export const ItemBarcodeInsert = "/api/ItemMasterApp/InsertItemBarcode";
-export const ItemMaxCode = "/api/ItemMasterApp/MaxProductCode";
-export const ItemBranchRate = "/api/ItemMasterApp/SelectBranchSaleRate";
-export const ItemBranchRateUpdate = "/api/ItemMasterApp/UpdateBranchSaleRate";
-export const ItemGroupCommission = "/api/ItemMasterApp/SelectGroupCommission";
-export const ItemGroupCommissionInsert = "/api/ItemMasterApp/InsertGroupCommission";
-export const VisibleColumnsUrl = "/Login/VisibleColumns";
-export const LoginPasswordUrl = "/api/LoginApp/EditPassword";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
@@ -162,34 +147,8 @@ export const authHeaders = () => ({
   "Profile":       localStorage.getItem("Profile")    || "Admin",
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
-<<<<<<< HEAD
 
 // ─── URL BUILDER ──────────────────────────────────────────────────────────────
-=======
-//console.log(localStorage.getItem("token"));
-export const loadSalesmanData = async (MComid) => {
-  try {
-    const res = await fetch(
-      mkUrl(SalesManSelect) + `?Comid=${Number(MComid)}`,
-      { method: "POST", headers: authHeaders() }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data)       ? data
-         : Array.isArray(data.data)  ? data.data
-         : Array.isArray(data.Data1) ? data.Data1
-         : [];
-  } catch (e) {
-    console.error("loadSalesmanData error:", e);
-    return [];
-  }
-};
-export const ValNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-export const NullToString = (v) => (v == null ? "" : String(v));
-// ─── 6. URL BUILDER ───────────────────────────────────────────────────────────
-//  All fetch calls must go through mkUrl so BASE_URL is always prepended.
-//  No component should concatenate BASE_URL itself.
->>>>>>> 0f5f8e8d63a4c8bce84ed7ee288fb9b12b59515b
 const mkUrl = (path) => BASE_URL + path;
 
 // ─── 7. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
@@ -244,7 +203,6 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Accept": "application/json",
         ...authHeaders(),
         ...extraHeaders,
       },
