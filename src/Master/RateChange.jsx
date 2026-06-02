@@ -1,355 +1,203 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  RateChange.jsx
+//  Item Master · Price Update
+//
+//  Architecture follows SupplierMaster.jsx exactly:
+//   • Session / perm  → CC.buildSession()
+//   • Confirm dialog  → CC.useConfirm()
+//   • Toast           → CC.useToast() + CC.ToastList
+//   • API calls       → CC.api() / CC.insertapi() with CC.RateChange* endpoints
+//   • Grid pattern    → EditMode 0/1 toggle, dirtyIds ref, enableEdit()
+//   • F12 column vis  → colSettings stored in localStorage
+//   • Product picker  → inline ProductPickerModal (mirrors SalesmanPicker style)
+//   • Keyboard        → F1 Save · F2 Add Row · Esc Quit · F12 Columns
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import "./MasterPage.css";
 import Topbar from "../components/Topbar";
-/* ─────────────────────────────────────────────────────────────────────────────
-   HELPERS  (identical pattern to BrandMaster)
-───────────────────────────────────────────────────────────────────────────── */
-const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
+import * as CC from "../components/Common";
 
-const authHeaders = () => ({
-  Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-  Userid:        localStorage.getItem("Userid") || localStorage.getItem("userid") || "0",
-  Profile:       localStorage.getItem("Profile")    || "Admin",
-  LoginCheck:    localStorage.getItem("LoginCheck") || "1",
+// ─── Column config ────────────────────────────────────────────────────────────
+// "hidden" controls default visibility (user can toggle via F12).
+// Read-only OLD columns are never togglable — they are always rendered inline
+// next to their editable NEW counterpart (see renderCell).
+const ALL_COLUMNS = [
+  { field: "ProductCode",   label: "Product Code",   type: "string",  maxLen: 100, width: 130, hidden: false, required: true },
+  { field: "ProductName",   label: "Description",    type: "ro",      width: 200, hidden: false },
+  { field: "OldMRP",        label: "MRP (Old)",      type: "ro-num",  width: 90,  hidden: false },
+  { field: "MRP",           label: "MRP (New)",      type: "float",   maxLen: 18, width: 90,  hidden: false },
+  { field: "oldpurRate",    label: "Old Pur.Rate",   type: "ro-num",  width: 105, hidden: false },
+  { field: "PurchaseRate",  label: "New Pur.Rate",   type: "float",   maxLen: 18, width: 105, hidden: false },
+  { field: "oldSaleRate",   label: "Old Sale Rate",  type: "ro-num",  width: 105, hidden: false },
+  { field: "SalesRate",     label: "New Sale Rate",  type: "float",   maxLen: 18, width: 105, hidden: false },
+  { field: "oldWholeSaleRate", label: "Old W.S Rate", type: "ro-num", width: 105, hidden: false },
+  { field: "WholeSaleRate", label: "New W.S Rate",   type: "float",   maxLen: 18, width: 105, hidden: false },
+];
+
+const vn = (v) => parseFloat(v) || 0;
+
+// ─── makeNewRow ───────────────────────────────────────────────────────────────
+const makeNewRow = () => ({
+  _uid:             CC.uid(),
+  EditMode:         1,          // new rows always start editable
+  Id:               null,
+  SchemeRefId:      null,
+  ProductCode:      "",
+  ProductName:      "",
+  OldMRP:           "",
+  oldpurRate:       "",
+  oldSaleRate:      "",
+  oldWholeSaleRate: "",
+  MRP:              "",
+  PurchaseRate:     "",
+  SalesRate:        "",
+  WholeSaleRate:    "",
 });
 
-/** Generic POST helper — mirrors BrandMaster api() exactly */
-const api = async (path, body = null, extraHeaders = {}, queryParams = null) => {
-  try {
-    let fullUrl = mkUrl(path);
-    if (queryParams && typeof queryParams === "object") {
-      const qs = new URLSearchParams(
-        Object.entries(queryParams)
-          .filter(([, v]) => v !== undefined && v !== null)
-          .map(([k, v]) => [k, String(v)])
-      ).toString();
-      if (qs) fullUrl += "?" + qs;
-    }
-    const res = await fetch(fullUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...authHeaders(),
-        ...extraHeaders,
-      },
-      body: body !== null ? JSON.stringify(body) : null,
-    });
-    if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
-    }
-    if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
-    if (res.status === 500) {
-      const t = await res.text();
-      console.error(`500 on ${fullUrl}:`, t.slice(0, 500));
-      return { ok: false, message: "Server error 500 — see console" };
-    }
-    const text = await res.text();
-    if (!text.trim()) return { ok: false, message: "Empty response" };
-    try {
-      const j = JSON.parse(text);
-      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
-      if (j.Data1     !== undefined && j.data    === undefined) j.data    = j.Data1;
-      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
-      return j;
-    } catch {
-      return { ok: false, message: text };
-    }
-  } catch (err) {
-    return { ok: false, _netErr: true, message: err.message };
-  }
-};
+// ─── ProductPickerModal ────────────────────────────────────────────────────────
+// Mirrors SalesmanPicker style / keyboard pattern from SupplierMaster exactly.
+function ProductPickerModal({ Comid, onSelect, onClose }) {
+  const [all,        setAll]       = useState([]);
+  const [search,     setSearch]    = useState("");
+  const [focusedIdx, setFocusedIdx] = useState(0);
+  const [err,        setErr]       = useState("");
+  const searchRef = useRef(null);
+  const listRef   = useRef(null);
 
-const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-const getStr   = (k) => localStorage.getItem(k) || "";
-const uid      = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36));
-const valNum   = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   ROW FACTORY
-───────────────────────────────────────────────────────────────────────────── */
-function makeBlankRow() {
-  return {
-    _uid:             uid(),
-    EditMode:         0,
-    Id:               null,
-    SchemeRefId:      null,
-    ProductCode:      "",
-    ProductName:      "",
-    // Old / read-only (filled from API — mirrors jQuery FillItems)
-    OldMRP:           "",
-    oldpurRate:       "",
-    oldSaleRate:      "",
-    oldWholeSaleRate: "",
-    // New / editable (left blank intentionally — user must enter)
-    MRP:          "",
-    PurchaseRate: "",
-    SalesRate:    "",
-    WholeSaleRate:"",
-  };
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   SUB-COMPONENTS
-───────────────────────────────────────────────────────────────────────────── */
-
-function Loader({ msg = "Please wait…" }) {
-  return (
-    <div className="mp-loader-ov">
-      <div className="mp-ldr-box">
-        <div className="mp-spin" />
-        <div className="mp-ldr-msg">{msg}</div>
-      </div>
-    </div>
-  );
-}
-
-/** Product Picker — mirrors jQuery ProductListP + ItemDescriptionWindow */
-function ProductPickerModal({ onSelect, onClose }) {
-  const [all,    setAll]    = useState([]);
-  const [search, setSearch] = useState("");
-  const [selIdx, setSelIdx] = useState(0);
-  const [err,    setErr]    = useState("");
-  const inputRef = useRef(null);
-
-
-
+  // Load product list on mount
   useEffect(() => {
     let mounted = true;
-  
     (async () => {
-      try {
-        setErr("");
-  
-        const res = await api(
-          "/ItemMaster/SelectItemMaster",
-          null,
-          {},
-          {
-            Comid: Number(localStorage.getItem("Comid")) || 1,
-            Startindex: 0,
-            PageCount: 500,
-            Keyword: "",
-            Column: ""
-          }
-        );
-  
-        console.log(
-          "SelectItemMaster Response =>",
-          res
-        );
-  
-        if (res?._netErr || res?._http404) {
-          setErr(
-            res?.message ||
-            "Failed to load products"
-          );
-          return;
-        }
-  
-        const arr =
-          Array.isArray(res?.Data1)
-            ? res.Data1
-            : Array.isArray(res?.data?.Data1)
-            ? res.data.Data1
-            : Array.isArray(res?.data)
-            ? res.data
-            : [];
-  
-        if (mounted) {
-          setAll(arr);
-        }
-      } catch (ex) {
-        console.error(ex);
-  
-        setErr(
-          ex?.message ||
-          "Unexpected error"
-        );
-      }
+      const res = await CC.api(CC.RateChangeItemSelect, null, {}, {
+        Comid:      Number(Comid) || 1,
+        Startindex: 0,
+        PageCount:  500,
+        Keyword:    "",
+        Column:     "",
+      });
+      if (!mounted) return;
+      if (res._netErr || res._http404) { setErr(res.message || "Failed to load products"); return; }
+      const arr = Array.isArray(res.Data1)      ? res.Data1
+                : Array.isArray(res.data?.Data1) ? res.data.Data1
+                : Array.isArray(res.data)         ? res.data
+                : [];
+      setAll(arr);
     })();
-  
-    const t = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 80);
-  
-    return () => {
-      mounted = false;
-      clearTimeout(t);
-    };
-  }, []);
-  
-  const keyword = search.trim().toLowerCase();
-  
+    const t = setTimeout(() => { searchRef.current?.focus(); }, 80);
+    return () => { mounted = false; clearTimeout(t); };
+  }, [Comid]);
+
+  // Reset focused index when search changes
+  useEffect(() => { setFocusedIdx(0); }, [search]);
+
+  // Scroll focused item into view
+  useEffect(() => {
+    listRef.current?.querySelectorAll(".rc-picker-item")[focusedIdx]?.scrollIntoView({ block: "nearest" });
+  }, [focusedIdx]);
+
+  const keyword  = search.trim().toLowerCase();
   const filtered = keyword
-    ? all.filter((p) => {
-        const name = String(
-          p.ProductName ||
-          p.PName ||
-          ""
-        ).toLowerCase();
-  
-        const code = String(
-          p.ProductCode ||
-          p.Productcode ||
-          p.PCode ||
-          ""
-        ).toLowerCase();
-  
-        return (
-          name.includes(keyword) ||
-          code.includes(keyword)
-        );
+    ? all.filter(p => {
+        const name = String(p.ProductName || "").toLowerCase();
+        const code = String(p.ProductCode || p.Productcode || p.PCode || "").toLowerCase();
+        return name.includes(keyword) || code.includes(keyword);
       })
     : all;
-  
-  // keep selected row safe after filtering
-  useEffect(() => {
-    if (filtered.length === 0) {
-      setSelIdx(0);
-      return;
-    }
-  
-    if (selIdx >= filtered.length) {
-      setSelIdx(filtered.length - 1);
-    }
-  }, [filtered, selIdx]);
-  
-  function selectRow(row) {
-    if (!row) return;
-  
-    onSelect(
-      row.ProductCode ||
-      row.Productcode ||
-      row.PCode ||
-      ""
-    );
-  }
-  
-  function onSearchKeyDown(e) {
+
+  const commit = (item) =>
+    onSelect(item.ProductCode || item.Productcode || item.PCode || "");
+
+  const onSearchKey = (e) => {
+    if (e.key === "Escape")    { e.preventDefault(); onClose(); return; }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-  
-      setSelIdx((i) =>
-        Math.min(
-          i + 1,
-          Math.max(filtered.length - 1, 0)
-        )
-      );
-  
+      if (filtered.length) {
+        listRef.current?.querySelectorAll(".rc-picker-item")[0]?.focus();
+        setFocusedIdx(0);
+      }
       return;
     }
-  
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-  
-      setSelIdx((i) =>
-        Math.max(i - 1, 0)
-      );
-  
-      return;
-    }
-  
     if (e.key === "Enter") {
       e.preventDefault();
-  
-      selectRow(filtered[selIdx]);
-  
+      if (!search.trim()) { onClose(); return; }
+      if (filtered.length) commit(filtered[0]); else onClose();
+    }
+  };
+
+  const onItemKey = (e, item, idx) => {
+    if (e.key === "Escape")    { e.preventDefault(); onClose(); return; }
+    if (e.key === "ArrowUp")   {
+      e.preventDefault();
+      if (idx === 0) { searchRef.current?.focus(); return; }
+      setFocusedIdx(idx - 1);
+      listRef.current?.querySelectorAll(".rc-picker-item")[idx - 1]?.focus();
       return;
     }
-  
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
-  }
-  
-  function onListKeyDown(e) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-  
-      setSelIdx((i) =>
-        Math.min(
-          i + 1,
-          Math.max(filtered.length - 1, 0)
-        )
-      );
-  
+      if (idx < filtered.length - 1) {
+        setFocusedIdx(idx + 1);
+        listRef.current?.querySelectorAll(".rc-picker-item")[idx + 1]?.focus();
+      }
       return;
     }
-  
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-  
-      setSelIdx((i) =>
-        Math.max(i - 1, 0)
-      );
-  
-      return;
-    }
-  
-    if (e.key === "Enter") {
-      e.preventDefault();
-  
-      selectRow(filtered[selIdx]);
-  
-      return;
-    }
-  
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
-  }
+    if (e.key === "Enter") { e.preventDefault(); commit(item); }
+  };
 
   return (
-    <div className="mp-picker-ov">
-      <div
-        className="mp-picker"
-        style={{ width: 700, maxHeight: 500 }}
-        onKeyDown={onListKeyDown}
-      >
-        <header>
-          <h3>Select Product</h3>
-          <button className="mp-picker-close" onClick={onClose}>✕</button>
-        </header>
+    <div className="sm-picker-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="sm-picker-box" style={{ width: 680, maxWidth: "96vw" }}>
+        <div className="sm-picker-hdr">
+          <span>Select Product</span>
+          <button onClick={onClose}>✕</button>
+        </div>
         {err && (
-          <div style={{ padding: "6px 12px", fontSize: 11, color: "#dc2626" }}>
+          <div style={{ padding: "6px 14px", fontSize: 11, color: "#dc2626" }}>
             Load error: {err}
           </div>
         )}
-        <div className="mp-picker-search">
+        <div className="sm-picker-search">
           <input
-            ref={inputRef}
+            ref={searchRef}
+            type="text"
             placeholder="Search by name or code…"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setSelIdx(0); }}
-            onKeyDown={onSearchKeyDown}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={onSearchKey}
           />
         </div>
-        <div className="mp-picker-list">
-          <table className="mp-picker-tbl">
+        {/* Table list — matches SupplierMaster list style but with columns */}
+        <div style={{ overflowY: "auto", maxHeight: 340 }} ref={listRef}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr>
-                <th style={{ width: 120 }}>Code</th>
-                <th>Name</th>
-                <th style={{ width: 120 }}>Landing Cost</th>
-                <th style={{ width: 120 }}>Opening Stock</th>
+              <tr style={{ background: "#1a2e4a", color: "#fff" }}>
+                <th style={{ padding: "6px 10px", textAlign: "left",  width: 120 }}>Code</th>
+                <th style={{ padding: "6px 10px", textAlign: "left" }}>Name</th>
+                <th style={{ padding: "6px 10px", textAlign: "right", width: 110 }}>Landing Cost</th>
+                <th style={{ padding: "6px 10px", textAlign: "right", width: 110 }}>Opening Stock</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p, i) => (
+              {filtered.map((p, idx) => (
                 <tr
-                  key={p.Id || i}
-                  className={i === selIdx ? "psel" : ""}
-                  onMouseEnter={() => setSelIdx(i)}
-                  onClick={() => onSelect(p.ProductCode || p.Productcode)}
+                  key={p.Id ?? idx}
+                  className={`rc-picker-item${focusedIdx === idx ? " focused" : ""}`}
+                  tabIndex={0}
+                  style={{
+                    background:   focusedIdx === idx ? "#e0e7ff" : idx % 2 ? "#f8fafc" : "#fff",
+                    cursor:       "pointer",
+                    borderBottom: "1px solid #eaecf4",
+                  }}
+                  onClick={() => commit(p)}
+                  onMouseEnter={() => setFocusedIdx(idx)}
+                  onKeyDown={e => onItemKey(e, p, idx)}
                 >
-                  <td>{p.ProductCode || p.Productcode}</td>
-                  <td>{p.ProductName}</td>
-                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>{p.LandingCost}</td>
-                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>{p.OpeningStock}</td>
+                  <td style={{ padding: "5px 10px" }}>{p.ProductCode || p.Productcode}</td>
+                  <td style={{ padding: "5px 10px" }}>{p.ProductName}</td>
+                  <td style={{ padding: "5px 10px", textAlign: "right", fontFamily: "monospace" }}>{p.LandingCost}</td>
+                  <td style={{ padding: "5px 10px", textAlign: "right", fontFamily: "monospace" }}>{p.OpeningStock}</td>
                 </tr>
               ))}
               {filtered.length === 0 && (
@@ -367,625 +215,492 @@ function ProductPickerModal({ onSelect, onClose }) {
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   GRID ROW  — tab-order mirrors jQuery GirdNextCell exactly:
-   ProductCode → MRP(new) → PurchaseRate → SalesRate → WholeSaleRate → next row
-───────────────────────────────────────────────────────────────────────────── */
-function GridRow({
-  row, idx, selected, inputRefs,
-  onChange, onProductCodeEnter, onOpenPicker,
-  onRateKeyDown, onRateBlur, onDelete, onClick,
-}) {
-  const ref = (field) => (el) => {
-    if (inputRefs) inputRefs.current[`${idx}_${field}`] = el;
-  };
-
-  const RO = { className: "mp-cell-input", style: { background: "#f5f7fb", color: "#6b7a99", cursor: "default", textAlign: "right", fontFamily: "monospace" }, readOnly: true, tabIndex: -1 };
-  const ED = { className: "mp-cell-input", style: { textAlign: "right", fontFamily: "monospace" } };
-
-  return (
-    <tr
-      className={[selected ? "sel" : "", row.EditMode ? "mod" : ""].filter(Boolean).join(" ")}
-      onClick={onClick}
-    >
-      {/* S.No */}
-      <td className="sno">{idx + 1}</td>
-
-      {/* Product Code */}
-      <td>
-        <input
-          ref={ref("ProductCode")}
-          className="mp-cell-input"
-          value={row.ProductCode}
-          placeholder="Code / F9"
-          autoComplete="off"
-          onChange={(e) => onChange(idx, "ProductCode", e.target.value.toUpperCase())}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); onProductCodeEnter(idx); }
-            if (e.key === "F9" || (e.key === " " && !row.ProductCode.trim())) {
-              e.preventDefault();
-              onOpenPicker(idx);
-            }
-          }}
-        />
-      </td>
-
-      {/* Description — read-only */}
-      <td>
-        <input {...RO} value={row.ProductName} />
-      </td>
-
-      {/* MRP Old — read-only */}
-      <td>
-        <input {...RO} value={row.OldMRP} />
-      </td>
-
-      {/* MRP New — editable */}
-      <td>
-        <input
-          ref={ref("MRP")}
-          {...ED}
-          value={row.MRP}
-          placeholder="0.00"
-          onChange={(e) => onChange(idx, "MRP", e.target.value)}
-          onBlur={() => onRateBlur(idx, "MRP")}
-          onKeyDown={(e) => onRateKeyDown(e, idx, "MRP")}
-        />
-      </td>
-
-      {/* Old Purchase Rate — read-only */}
-      <td>
-        <input {...RO} value={row.oldpurRate} />
-      </td>
-
-      {/* New Purchase Rate — editable */}
-      <td>
-        <input
-          ref={ref("PurchaseRate")}
-          {...ED}
-          value={row.PurchaseRate}
-          placeholder="0.00"
-          onChange={(e) => onChange(idx, "PurchaseRate", e.target.value)}
-          onBlur={() => onRateBlur(idx, "PurchaseRate")}
-          onKeyDown={(e) => onRateKeyDown(e, idx, "PurchaseRate")}
-        />
-      </td>
-
-      {/* Old Sale Rate — read-only */}
-      <td>
-        <input {...RO} value={row.oldSaleRate} />
-      </td>
-
-      {/* New Sale Rate — editable */}
-      <td>
-        <input
-          ref={ref("SalesRate")}
-          {...ED}
-          value={row.SalesRate}
-          placeholder="0.00"
-          onChange={(e) => onChange(idx, "SalesRate", e.target.value)}
-          onBlur={() => onRateBlur(idx, "SalesRate")}
-          onKeyDown={(e) => onRateKeyDown(e, idx, "SalesRate")}
-        />
-      </td>
-
-      {/* Old Wholesale Rate — read-only */}
-      <td>
-        <input {...RO} value={row.oldWholeSaleRate} />
-      </td>
-
-      {/* New Wholesale Rate — editable */}
-      <td>
-        <input
-          ref={ref("WholeSaleRate")}
-          {...ED}
-          value={row.WholeSaleRate}
-          placeholder="0.00"
-          onChange={(e) => onChange(idx, "WholeSaleRate", e.target.value)}
-          onBlur={() => onRateBlur(idx, "WholeSaleRate")}
-          onKeyDown={(e) => onRateKeyDown(e, idx, "WholeSaleRate")}
-        />
-      </td>
-
-      {/* Delete */}
-      <td style={{ textAlign: "center" }}>
-        <button
-          className="mp-del-btn"
-          title="Delete row"
-          onClick={(e) => { e.stopPropagation(); onDelete(idx); }}
-        >
-          🗑
-        </button>
-      </td>
-    </tr>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   MAIN  — RateChange
-───────────────────────────────────────────────────────────────────────────── */
+// ─── RateChange ───────────────────────────────────────────────────────────────
 export default function RateChange() {
+  const navigate = useNavigate();
 
-  /* ── Session (mirrors jQuery document.ready exactly) ── */
+  // ── Shared hooks from Common.jsx (identical to SupplierMaster) ────────────
+  const { confirm, ConfirmUI } = CC.useConfirm();
+  const { toast,   toasts    } = CC.useToast();
+
+  // ── Session — same pattern as SupplierMaster ──────────────────────────────
   const [sess] = useState(() => {
     try {
-      const main0      = (getLocal("Mainsetting") || [{}])[0] || {};
-      const Comid      = getStr("Comid")    || "1";
-      const MComid     = getStr("MComid")   || Comid;
-      const IdComList  = getStr("IdComList") || Comid;
-      const mt         = main0.MirrorTableOnline;
-      const MirrorTable = (mt === true || mt === 1 || mt === "1") ? "1" : "0";
-      const CommonCompany = main0.CommonCompany === true || main0.CommonCompany === "true";
+      const main0       = (CC.getLocal("Mainsetting") || [{}])[0] || {};
+      const Comid       = CC.getStr("Comid")    || "1";
+      const MComid      = CC.getStr("MComid")   || Comid;
+      const IdComList   = CC.getStr("IdComList") || Comid;
+      const MirrorTable = CC.getStr("MirrorTableOnline") || "0";
+      const useMain     = !!main0.CommonCompany || MirrorTable === "1";
+      const menudata    = (CC.getLocal("menulist") || []).filter(o => o.PageName === "Billing-POS");
+      const perm        = menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 };
       return {
-        Comid:       CommonCompany ? MComid : Comid,
+        Comid:      useMain ? MComid : Comid,
         MComid,
         IdComList,
         MirrorTable,
-        menudata:    (getLocal("menulist") || []).filter((o) => o.PageName === "Billing-POS"),
+        perm,
       };
     } catch {
-      return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: "0", menudata: [] };
+      return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: "0", perm: { View: 1, Add: 1, Edit: 1, Delete: 1 } };
     }
   });
+  const { Comid, MComid, IdComList, MirrorTable, perm } = sess;
 
-  const perm = sess.menudata[0] || { View: 1, Add: 1, Edit: 1, Delete: 1 };
+  // ── dirtyIds ref — tracks which existing rows the user has actually modified ──
+  const dirtyIds = useRef(new Set());
 
-  /* ── State ── */
-  const [rows,       setRows]       = useState([makeBlankRow()]);
-  const [selIdx,     setSelIdx]     = useState(0);
-  const [loading,    setLoading]    = useState(false);
-  const [toasts,     setToasts]     = useState([]);
-  const [permDenied, setPermDenied] = useState("");
-  const [showPicker, setShowPicker] = useState(false);
-  const [pickerRow,  setPickerRow]  = useState(null);
+  // ── State ─────────────────────────────────────────────────────────────────
+  const [grid,        setGrid]       = useState([makeNewRow()]);
+  const [loading,     setLoading]    = useState(false);
+  const [selIdx,      setSelIdx]     = useState(0);
+  const [pickerTarget, setPickerTarget] = useState(null); // rowIdx or null
+  const [colSettings, setColSettings] = useState(() =>
+    ALL_COLUMNS.map(c => ({ field: c.field, label: c.label, hidden: c.hidden ?? false, width: c.width }))
+  );
+  const [f12Open,     setF12Open]    = useState(false);
+  const [permDenied,  setPermDenied] = useState("");
 
-  /* ── Refs ── */
-  const inputRefs  = useRef({});
-  const rowsRef    = useRef(rows);
-  const selIdxRef  = useRef(selIdx);
-  const toastId    = useRef(0);
+  // ── Refs ──────────────────────────────────────────────────────────────────
+  const cellRefs   = useRef({});
   const submitting = useRef(false);
 
-  useEffect(() => { rowsRef.current  = rows;   }, [rows]);
-  useEffect(() => { selIdxRef.current = selIdx; }, [selIdx]);
+  // ── Visible columns ───────────────────────────────────────────────────────
+  const visibleColumns = ALL_COLUMNS.filter(c => {
+    const cs = colSettings.find(s => s.field === c.field);
+    return cs ? !cs.hidden : !(c.hidden ?? false);
+  }).map(c => {
+    const cs = colSettings.find(s => s.field === c.field);
+    return { ...c, width: cs?.width ?? c.width };
+  });
 
-  /* ── Toast helper (mirrors BrandMaster) ── */
-  const toast = useCallback((msg, isErr = false) => {
-    const id = ++toastId.current;
-    setToasts((p) => [...p, { id, msg, isErr }]);
-    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4500);
-  }, []);
+  // Editable fields only (for moveNext tab order — skip read-only columns)
+  const editableFields = visibleColumns
+    .filter(c => c.type !== "ro" && c.type !== "ro-num")
+    .map(c => c.field);
 
-  /* ── Focus helper ── */
+  // ── Focus helper ──────────────────────────────────────────────────────────
   const focusCell = useCallback((rowIdx, field) => {
     setTimeout(() => {
-      const el = inputRefs.current[`${rowIdx}_${field}`];
-      if (el) { el.focus(); el.select(); }
-    }, 30);
+      const el = cellRefs.current[`${rowIdx}_${field}`];
+      if (el) { el.focus(); if (el.select) el.select(); }
+    }, 40);
   }, []);
 
-  /* ── Permission / session guard (mirrors jQuery document.ready) ── */
+  // ── Permission / session guard (mirrors jQuery document.ready) ────────────
   useEffect(() => {
-    const menulist = getLocal("menulist");
+    const menulist = CC.getLocal("menulist");
     if (!menulist) {
       alert("Session Close Please Login !!!");
       window.location.href = "/Login/Index";
       return;
     }
-    const menudata = menulist.filter((o) => o.PageName === "Billing-POS");
+    const menudata = menulist.filter(o => o.PageName === "Billing-POS");
     if (!menudata.length || menudata[0].View === 0) {
       setPermDenied("Page Access Permission Denied !!!");
       setTimeout(() => { window.location.href = "/Home"; }, 3000);
       return;
     }
-    // Focus first row on mount
     setTimeout(() => focusCell(0, "ProductCode"), 200);
   }, [focusCell]);
 
-  /* ──────────────────────────────────────────────────────────────────────────
-     addRow  — mirrors jQuery Addrowfunc + addrow
-  ────────────────────────────────────────────────────────────────────────── */
+  // ── F12 column settings — load from server on startup (mirrors CashierMaster) ──
+  useEffect(() => {
+    const loadColSettings = async () => {
+      try {
+        const url = `/Content/Appdata/Visible/${MComid}/RateChange.json?t=${Date.now()}`;
+        const res = await fetch(url);
+        if (!res.ok) return; // No file yet — use defaults
+
+        const serverData = await res.json();
+        if (!Array.isArray(serverData) || serverData.length === 0) return;
+
+        const merged = ALL_COLUMNS.map(c => {
+          const s = serverData.find(d => d.column === c.field);
+          return {
+            field:  c.field,
+            label:  c.label,
+            hidden: s ? !s.Visible : c.hidden ?? false,
+            width:  s ? s.Width    : c.width,
+          };
+        });
+        setColSettings(merged);
+      } catch {
+        // File doesn't exist yet — silently use defaults
+      }
+    };
+    loadColSettings();
+  }, [MComid]);
+
+  // ── Save column settings to server (mirrors CashierMaster saveColSettings) ──
+  const saveColSettings = useCallback(async (localSettings) => {
+    setF12Open(false);
+    setLoading(true);
+    const payload = localSettings.map(s => ({
+      filename: "RateChange",
+      column:   s.field,
+      Visible:  !s.hidden,
+      Width:    s.width,
+      Comid:    Number(MComid),
+    }));
+    try {
+      const res = await fetch("/Login/VisibleColumns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast("✅ Column settings saved. Reload to see changes.");
+        setColSettings(localSettings);
+      } else {
+        toast(`❌ ${data.message || "Failed to save"}`, true);
+      }
+    } catch {
+      toast("❌ Error saving column settings", true);
+    } finally {
+      setLoading(false);
+    }
+  }, [MComid, toast]);
+
+  // ── updateCell — marks row dirty (mirrors SupplierMaster exactly) ─────────
+  const updateCell = useCallback((idx, field, value) => {
+    setGrid(prev => prev.map((r, i) => {
+      if (i === idx) {
+        if (r.Id) dirtyIds.current.add(r.Id);
+        return { ...r, [field]: value, EditMode: 1 };
+      }
+      return r;
+    }));
+  }, []);
+
+  // ── enableEdit — pencil icon click (mirrors SupplierMaster) ──────────────
+  const enableEdit = useCallback((idx) => {
+    setGrid(prev => prev.map((r, i) => {
+      if (i === idx) return { ...r, EditMode: 1 };
+      if (r.EditMode === 1 && r.Id && !dirtyIds.current.has(r.Id))
+        return { ...r, EditMode: 0 };
+      return r;
+    }));
+    setSelIdx(idx);
+    setTimeout(() => focusCell(idx, "ProductCode"), 40);
+  }, [focusCell]);
+
+  // ── selectRow — mirrors SupplierMaster selectRow ──────────────────────────
+  const selectRow = useCallback((idx) => {
+    setGrid(prev => prev.map((r, i) => {
+      if (i !== idx && r.EditMode === 1 && r.Id && !dirtyIds.current.has(r.Id))
+        return { ...r, EditMode: 0 };
+      return r;
+    }));
+    setSelIdx(idx);
+  }, []);
+
+  // ── addRow ────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
-    setRows((prev) => {
-      // Trim trailing blank row if >1 row (mirrors jQuery gridemptycheck during addrow)
-      const last    = prev[prev.length - 1];
-      const cleaned = (prev.length > 1 && !last.ProductCode.trim())
-        ? prev.slice(0, -1)
-        : prev;
-      const next = [...cleaned, makeBlankRow()];
-      const newIdx = next.length - 1;
-      setTimeout(() => {
-        setSelIdx(newIdx);
-        focusCell(newIdx, "ProductCode");
-      }, 30);
+    setGrid(prev => {
+      const next = [...prev, makeNewRow()];
+      const ni   = next.length - 1;
+      setSelIdx(ni);
+      focusCell(ni, "ProductCode");
       return next;
     });
   }, [focusCell]);
 
-  /* ── deleteRow ── */
-  const deleteRow = useCallback((idx) => {
+  // ── deleteRow — same as SupplierMaster (confirm for saved rows) ───────────
+  const deleteRow = useCallback(async (idx) => {
     if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; }
-    setRows((prev) => {
-      if (prev.length === 1) return [makeBlankRow()];
-      const next   = prev.filter((_, i) => i !== idx);
-      const newIdx = Math.min(idx, next.length - 1);
-      setTimeout(() => { setSelIdx(newIdx); focusCell(newIdx, "ProductCode"); }, 30);
-      return next;
+    const row = grid[idx];
+    if (row.Id != null && row.Id !== 0) {
+      const ok = await confirm(`Do you want to delete "${row.ProductName || row.ProductCode || ""}"?`);
+      if (!ok) return;
+      // RateChange has no dedicated delete endpoint — only remove from local grid
+      // (jQuery RateChange also had no server-side delete; it was grid-only)
+      toast("✅ Row removed");
+    }
+    setGrid(prev => {
+      const next = prev.filter((_, i) => i !== idx);
+      const ns   = Math.max(0, Math.min(idx, next.length - 1));
+      setSelIdx(ns);
+      focusCell(ns, "ProductCode");
+      return next.length ? next : [makeNewRow()];
     });
-  }, [perm.Delete, focusCell, toast]);
+  }, [grid, perm, focusCell, toast, confirm]);
 
-  /* ── updateCell ── */
-  const updateCell = useCallback((idx, field, value) => {
-    setRows((prev) =>
-      prev.map((r, i) => (i === idx ? { ...r, [field]: value, EditMode: 1 } : r))
-    );
-  }, []);
+  // ──────────────────────────────────────────────────────────────────────────
+  //  fillItemByCode  — mirrors jQuery FillItemCode
+  //  POST /api/ItemMasterApp/SelectItemMasterbyCodeId
+  // ──────────────────────────────────────────────────────────────────────────
+  const fillItemByCode = useCallback(async (code, rowIdx) => {
+    if (!code || !code.trim()) {
+      setPickerTarget(rowIdx);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await CC.api(CC.RateChangeItemByCode, null, {}, {
+        code:     code.trim(),
+        Comid:    parseInt(MComid, 10) || 0,
+        CComid:   parseInt(Comid, 10)  || 0,
+        Id:       0,
+        Batchwise: 0,
+      });
 
-  /* ──────────────────────────────────────────────────────────────────────────
-     fillItemByCode  — mirrors jQuery FillItemCode exactly
-     POST /ItemMaster/SelectItemMasterbyCodeId
-     body: {"code":"X","Comid":<MComid>,"CComid":<Comid>,"Id":0,"Batchwise":0}
-  ────────────────────────────────────────────────────────────────────────── */
-  const fillItemByCode = useCallback(
-    async (code, rowIdx) => {
-  
-      if (!code || !code.trim()) {
-        setPickerRow(rowIdx);
-        setShowPicker(true);
+      if (res._netErr || res._http404) {
+        toast(`❌ ${res.message || "API Error"}`, true);
+        focusCell(rowIdx, "ProductCode");
         return;
       }
-  
-      setLoading(true);
-  
-      try {
-  
-        const query = {
-          code: code.trim(),
-          Comid: parseInt(sess.MComid, 10) || 0,
-          CComid: parseInt(sess.Comid, 10) || 0,
-          Id: 0,
-          Batchwise: 0,
-        };
-  
-        const res = await api(
-          "/ItemMaster/SelectItemMasterbyCodeId",
-          null,
-          {},
-          query
-        );
-  
-        console.log(
-          "SelectItemMasterbyCodeId =>",
-          res
-        );
-  
-        if (
-          res?._netErr ||
-          res?._http404
-        ) {
-          toast(
-            `❌ ${res?.message || "API Error"}`,
-            true
-          );
-  
-          focusCell(rowIdx, "ProductCode");
-          return;
-        }
-  
-        const arr =
-          Array.isArray(res?.Data1)
-            ? res.Data1
-            : Array.isArray(res?.data?.Data1)
-            ? res.data.Data1
-            : Array.isArray(res?.data)
-            ? res.data
-            : [];
-  
-        if (arr.length === 0) {
-  
-          toast(
-            "❌ Invalid Product Code !!!",
-            true
-          );
-  
-          setRows((prev) =>
-            prev.map((r, i) =>
-              i === rowIdx
-                ? {
-                    ...r,
-                    ProductCode: "",
-                  }
-                : r
-            )
-          );
-  
-          focusCell(
-            rowIdx,
-            "ProductCode"
-          );
-  
-          return;
-        }
-  
-        if (arr.length === 1) {
-  
-          fillItems(arr, rowIdx);
-  
-        } else {
-  
-          setPickerRow(rowIdx);
-          setShowPicker(true);
-        }
-  
-      } catch (err) {
-  
-        console.error(
-          "[fillItemByCode]",
-          err
-        );
-  
-        toast(
-          "❌ Technical Fault. Contact Software Vendor !!!",
-          true
-        );
-  
-        focusCell(
-          rowIdx,
-          "ProductCode"
-        );
-  
-      } finally {
-  
-        setLoading(false);
-      }
-    },
-    [
-      sess,
-      focusCell,
-      toast,
-      fillItems
-    ]
-  );
 
-  /* ──────────────────────────────────────────────────────────────────────────
-     fillItems  — mirrors jQuery FillItems exactly
-     Sets OLD rate fields from API; leaves NEW rate fields blank.
-     After fill: moves focus to MRP (new) column.
-  ────────────────────────────────────────────────────────────────────────── */
-  function fillItems(arr, rowIdx) {
+      const arr = Array.isArray(res.Data1)       ? res.Data1
+                : Array.isArray(res.data?.Data1)  ? res.data.Data1
+                : Array.isArray(res.data)          ? res.data
+                : [];
+
+      if (arr.length === 0) {
+        toast("❌ Invalid Product Code !!!", true);
+        updateCell(rowIdx, "ProductCode", "");
+        focusCell(rowIdx, "ProductCode");
+        return;
+      }
+
+      if (arr.length === 1) {
+        fillItems(arr, rowIdx);
+      } else {
+        // Multiple matches → open picker
+        setPickerTarget(rowIdx);
+      }
+    } catch (err) {
+      console.error("[fillItemByCode]", err);
+      toast("❌ Technical Fault. Contact Software Vendor !!!", true);
+      focusCell(rowIdx, "ProductCode");
+    } finally {
+      setLoading(false);
+    }
+  }, [Comid, MComid, focusCell, toast, updateCell]);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  fillItems  — mirrors jQuery FillItems
+  //  Fills OLD rates from API; leaves NEW rate fields blank for user entry.
+  //  After fill: focus moves to MRP (new).
+  // ──────────────────────────────────────────────────────────────────────────
+  const fillItems = useCallback((arr, rowIdx) => {
     if (!arr || arr.length === 0) {
       toast("❌ Invalid Product Code !!!", true);
       focusCell(rowIdx, "ProductCode");
       return;
     }
     const item = arr[0];
-    setRows((prev) =>
-      prev.map((r, i) =>
-        i === rowIdx
-          ? {
-              ...r,
-              EditMode:         1,
-              Id:               item.Id           ?? null,
-              ProductCode:      item.ProductCode  || item.Productcode || "",
-              ProductName:      item.ProductName  || "",
-              // OLD rates — read-only display
-              OldMRP:           parseFloat(item.MRP          || 0).toFixed(2),
-              oldpurRate:       parseFloat(item.PurchaseRate  || 0).toFixed(2),
-              oldSaleRate:      parseFloat(item.SalesRate     || 0).toFixed(2),
-              oldWholeSaleRate: parseFloat(item.WholeSaleRate || 0).toFixed(2),
-              // NEW rates — intentionally blank (user must type)
-              MRP:          "",
-              PurchaseRate: "",
-              SalesRate:    "",
-              WholeSaleRate:"",
-            }
-          : r
-      )
-    );
-    // jQuery: gridRatechange.jqxGrid('selectcell', rowindex, grdMRP)
-    setTimeout(() => {
-      setSelIdx(rowIdx);
-      focusCell(rowIdx, "MRP");
-    }, 30);
-  }
+    setGrid(prev => prev.map((r, i) =>
+      i === rowIdx
+        ? {
+            ...r,
+            EditMode:         1,
+            Id:               item.Id           ?? null,
+            ProductCode:      item.ProductCode  || item.Productcode || "",
+            ProductName:      item.ProductName  || "",
+            OldMRP:           parseFloat(item.MRP          || 0).toFixed(2),
+            oldpurRate:       parseFloat(item.PurchaseRate  || 0).toFixed(2),
+            oldSaleRate:      parseFloat(item.SalesRate     || 0).toFixed(2),
+            oldWholeSaleRate: parseFloat(item.WholeSaleRate || 0).toFixed(2),
+            // NEW rates — intentionally blank; user must type
+            MRP:          "",
+            PurchaseRate: "",
+            SalesRate:    "",
+            WholeSaleRate:"",
+          }
+        : r
+    ));
+    setTimeout(() => { setSelIdx(rowIdx); focusCell(rowIdx, "MRP"); }, 30);
+  }, [focusCell, toast]);
 
-  /* ── Picker select handler ── */
-  async function onPickerSelect(code) {
-    setShowPicker(false);
-    const idx = pickerRow;
-    setPickerRow(null);
+  // ── Picker select handler ─────────────────────────────────────────────────
+  const onPickerSelect = useCallback(async (code) => {
+    const idx = pickerTarget;
+    setPickerTarget(null);
     if (idx !== null && code) await fillItemByCode(code, idx);
-  }
+  }, [pickerTarget, fillItemByCode]);
 
-  /* ── onProductCodeEnter ── */
-  const onProductCodeEnter = useCallback((idx) => {
-    const code = rowsRef.current[idx]?.ProductCode?.trim();
-    if (!code) { setPickerRow(idx); setShowPicker(true); }
-    else        { fillItemByCode(code, idx); }
-  }, [fillItemByCode]);
+  const onPickerClose = useCallback(() => {
+    const idx = pickerTarget;
+    setPickerTarget(null);
+    if (idx != null) focusCell(idx, "ProductCode");
+  }, [pickerTarget, focusCell]);
 
-  /* ──────────────────────────────────────────────────────────────────────────
-     onRateBlur  — mirrors jQuery cellendedit + toFixed(2) setcellvalue
-  ────────────────────────────────────────────────────────────────────────── */
+  // ── moveNext — mirrors SupplierMaster moveNext (editable fields only) ──────
+  const moveNext = useCallback((rowIdx, field, currentGrid) => {
+    const colIdx   = editableFields.indexOf(field);
+    const rowCount = currentGrid.length;
+    if (colIdx < editableFields.length - 1) {
+      focusCell(rowIdx, editableFields[colIdx + 1]);
+    } else if (rowIdx < rowCount - 1) {
+      setSelIdx(rowIdx + 1);
+      focusCell(rowIdx + 1, "ProductCode");
+    } else {
+      const nr = makeNewRow();
+      setGrid(prev => {
+        const next = [...prev, nr];
+        const ni   = next.length - 1;
+        setSelIdx(ni);
+        focusCell(ni, "ProductCode");
+        return next;
+      });
+    }
+  }, [editableFields, focusCell]);
+
+  // ── onCellKeyDown — mirrors SupplierMaster onCellKeyDown ──────────────────
+  const onCellKeyDown = useCallback((e, rowIdx, field) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const row   = grid[rowIdx];
+      const value = row?.[field];
+
+      // ProductCode Enter → look up item
+      if (field === "ProductCode") {
+        const code = String(value || "").trim();
+        if (!code) { setPickerTarget(rowIdx); return; }
+        fillItemByCode(code, rowIdx);
+        return;
+      }
+
+      // Float fields → toFixed + PurchaseRate > MRP validation
+      if (field === "MRP" || field === "PurchaseRate" || field === "SalesRate" || field === "WholeSaleRate") {
+        const fixed = parseFloat(vn(value)).toFixed(2);
+        updateCell(rowIdx, field, fixed);
+
+        if (field === "PurchaseRate" || field === "MRP") {
+          const pur = vn(field === "PurchaseRate" ? fixed : row.PurchaseRate);
+          const mrp = vn(field === "MRP"          ? fixed : row.MRP);
+          if (mrp > 0 && pur > 0 && pur > mrp) {
+            toast("❌ Purchase Rate is Higher than MRP", true);
+            setTimeout(() => focusCell(rowIdx, "PurchaseRate"), 50);
+            return;
+          }
+        }
+      }
+
+      // F9 / Space on ProductCode → open picker (also handled below)
+      moveNext(rowIdx, field, grid);
+    }
+
+    // F9 → open picker from ProductCode cell
+    if (e.key === "F9" && field === "ProductCode") {
+      e.preventDefault();
+      setPickerTarget(rowIdx);
+    }
+
+    // Ctrl+Del → delete row
+    if (e.key === "Delete" && e.ctrlKey) { e.preventDefault(); deleteRow(rowIdx); }
+  }, [grid, fillItemByCode, updateCell, moveNext, toast, focusCell, deleteRow]);
+
+  // ── onRateBlur — mirrors RateChange original onRateBlur ───────────────────
   const onRateBlur = useCallback((idx, field) => {
-    const raw = rowsRef.current[idx]?.[field] ?? "";
-    const v   = valNum(raw).toFixed(2);
-    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: v } : r)));
-
-    // jQuery validation: if PurchaseRate > MRP → MsgBox
+    const raw = grid[idx]?.[field] ?? "";
+    if (!String(raw).trim()) return;
+    const v = vn(raw).toFixed(2);
+    updateCell(idx, field, v);
     if (field === "PurchaseRate" || field === "MRP") {
-      const row = { ...rowsRef.current[idx], [field]: v };
-      const pur = valNum(row.PurchaseRate);
-      const mrp = valNum(row.MRP);
+      const row = grid[idx];
+      const pur = vn(field === "PurchaseRate" ? v : row.PurchaseRate);
+      const mrp = vn(field === "MRP"          ? v : row.MRP);
       if (mrp > 0 && pur > 0 && pur > mrp) {
         toast("❌ Purchase Rate is Higher than MRP", true);
         setTimeout(() => focusCell(idx, "PurchaseRate"), 50);
       }
     }
-  }, [focusCell, toast]);
+  }, [grid, updateCell, toast, focusCell]);
 
-  /* ──────────────────────────────────────────────────────────────────────────
-     onRateKeyDown  — mirrors jQuery GirdNextCell exactly:
-       MRP          → skip OldPurchaseRate → PurchaseRate
-       PurchaseRate → skip OldSaleRate    → SalesRate
-       SalesRate    → skip OldWholeSale   → WholeSaleRate
-       WholeSaleRate → next row ProductCode (or addRow if last)
-  ────────────────────────────────────────────────────────────────────────── */
-  const onRateKeyDown = useCallback((e, rowIdx, field) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-
-    // Commit toFixed first (mirrors jQuery setcellvalue before GirdNextCell)
-    const raw = rowsRef.current[rowIdx]?.[field] ?? "";
-    const v   = valNum(raw).toFixed(2);
-    setRows((prev) => prev.map((r, i) => (i === rowIdx ? { ...r, [field]: v } : r)));
-
-    // Run validation (mirrors jQuery methods.validation())
-    const row  = { ...rowsRef.current[rowIdx], [field]: v };
-    const pur  = valNum(row.PurchaseRate);
-    const mrp  = valNum(row.MRP);
-    if (field !== "WholeSaleRate" && mrp > 0 && pur > 0 && pur > mrp) {
-      toast("❌ Purchase Rate is Higher than MRP", true);
-      focusCell(rowIdx, "PurchaseRate");
-      return;
-    }
-
-    const nextFieldMap = {
-      MRP:          "PurchaseRate",
-      PurchaseRate: "SalesRate",
-      SalesRate:    "WholeSaleRate",
-      WholeSaleRate: null,
-    };
-    const nextField = nextFieldMap[field];
-
-    if (nextField) {
-      focusCell(rowIdx, nextField);
-    } else {
-      // WholeSaleRate Enter → next row ProductCode
-      const currentRows = rowsRef.current;
-      if (rowIdx < currentRows.length - 1) {
-        setSelIdx(rowIdx + 1);
-        focusCell(rowIdx + 1, "ProductCode");
-      } else {
-        addRow();
-      }
-    }
-  }, [focusCell, addRow, toast]);
-
-  /* ──────────────────────────────────────────────────────────────────────────
-     gridemptycheck  — mirrors jQuery methods.gridemptycheck()
-  ────────────────────────────────────────────────────────────────────────── */
-  const gridemptycheck = useCallback((data) => {
-    // Remove trailing blank row if >1
-    let cleaned = [...data];
-    if (cleaned.length > 1 && !String(cleaned[cleaned.length - 1].ProductCode || "").trim()) {
+  // ── gridemptycheck — mirrors SupplierMaster gridemptycheck ────────────────
+  const gridemptycheck = useCallback((g) => {
+    let cleaned = [...g];
+    // Remove trailing blank row if >1 (mirrors jQuery gridemptycheck)
+    if (cleaned.length > 1 && !String(cleaned[cleaned.length - 1].ProductCode || "").trim())
       cleaned = cleaned.slice(0, -1);
-    }
     for (let i = 0; i < cleaned.length; i++) {
       if (cleaned[i].EditMode === 1 && !String(cleaned[i].ProductCode || "").trim()) {
-        toast("❌ Enter All code in the Grid !!!", true);
+        toast("❌ Enter All Product Code in the Grid !!!", true);
         setSelIdx(i);
         focusCell(i, "ProductCode");
-        return { ok: false, cleaned };
+        return { ok: false, cleanedGrid: cleaned };
       }
     }
-    return { ok: true, cleaned };
+    return { ok: true, cleanedGrid: cleaned };
   }, [focusCell, toast]);
 
   const hasDuplicateCodes = (data) => {
-    const codes = data.map((r) => (r.ProductCode || "").trim().toUpperCase()).filter(Boolean);
+    const codes = data.map(r => String(r.ProductCode || "").trim().toUpperCase()).filter(Boolean);
     return codes.length !== new Set(codes).size;
   };
-  const hasDuplicateIds = (data) => {
-    const ids = data.filter((r) => r.Id != null).map((r) => r.Id);
-    return ids.length !== new Set(ids).size;
-  };
 
-  /* ──────────────────────────────────────────────────────────────────────────
-     handleSave  — mirrors jQuery F1 handler exactly
-     Headers: Comid, MirrorTable, IdComList
-  ────────────────────────────────────────────────────────────────────────── */
+  // ── handleSave — mirrors SupplierMaster handleSave pattern exactly ─────────
   const handleSave = useCallback(async () => {
     if (submitting.current) return;
 
-    const { Add: pageadd, Edit: pageedit } = perm;
+    const { ok: emptyOk, cleanedGrid } = gridemptycheck(grid);
+    if (!emptyOk) return;
+    setGrid(cleanedGrid);
 
-    // jQuery: if (pageadd == 0 && pageedit == 0) → deny
-    if (!pageadd && !pageedit) {
-      toast("❌ Page Add & Update Permission Denied !!!", true);
-      return;
-    }
+    let dirty = [], flag = 1;
 
-    const { ok, cleaned } = gridemptycheck(rowsRef.current);
-    if (!ok) return;
-    setRows(cleaned);
-
-    let getdata = [];
-    let flag    = 1;
-
-    if (pageadd === 1 && pageedit === 1) {
-      getdata = cleaned.filter((r) => r.EditMode === 1);
-      if (!getdata.length) { toast("❌ No Data Modified, Cannot Update !!!", true); flag = 0; }
-    } else if (pageadd === 1 && pageedit === 0) {
-      getdata = cleaned.filter((r) => r.EditMode === 1 && r.Id == null);
-      if (!getdata.length) {
-        const any = cleaned.filter((r) => r.EditMode === 1);
-        toast(any.length ? "❌ Page Edit Permission Denied !!!" : "❌ No Data Modified, Cannot Update !!!", true);
+    if (perm.Add === 0 && perm.Edit === 0) {
+      toast("❌ Page Add & Update Permission Denied !!!", true); flag = 0;
+    } else if (perm.Add === 1 && perm.Edit === 1) {
+      dirty = cleanedGrid.filter(r => r.EditMode === 1);
+      if (!dirty.length) { toast("⚠️ No Data Modified !!!", true); flag = 0; }
+    } else if (perm.Add === 1 && perm.Edit === 0) {
+      dirty = cleanedGrid.filter(r => r.EditMode === 1 && r.Id == null);
+      if (!dirty.length) {
+        const any = cleanedGrid.filter(r => r.EditMode === 1);
+        toast(any.length ? "❌ Page Edit Permission Denied !!!" : "⚠️ No Data Modified !!!", true);
         flag = 0;
       }
-    } else if (pageedit === 1 && pageadd === 0) {
-      getdata = cleaned.filter((r) => r.EditMode === 1 && r.Id != null);
-      if (!getdata.length) {
-        const any = cleaned.filter((r) => r.EditMode === 1);
-        toast(any.length ? "❌ Page Add Permission Denied !!!" : "❌ No Data Modified, Cannot Update !!!", true);
+    } else if (perm.Edit === 1 && perm.Add === 0) {
+      dirty = cleanedGrid.filter(r => r.EditMode === 1 && r.Id != null);
+      if (!dirty.length) {
+        const any = cleanedGrid.filter(r => r.EditMode === 1);
+        toast(any.length ? "❌ Page Add Permission Denied !!!" : "⚠️ No Data Modified !!!", true);
         flag = 0;
       }
     }
 
     if (flag === 0) { addRow(); return; }
 
-    // jQuery: CheckDuplicate
-    if (hasDuplicateCodes(cleaned)) { toast("❌ Duplicate Product Codes found !!!", true); return; }
-    if (hasDuplicateIds(cleaned))   { toast("❌ Duplicate Product IDs found !!!", true);   return; }
+    if (hasDuplicateCodes(cleanedGrid)) { toast("❌ Duplicate Product Codes found !!!", true); return; }
+    if (!dirty.length) { toast("❌ No Update Data !!!", true); return; }
 
-    if (getdata.length === 0) { toast("❌ No Update Data !!!", true); return; }
+    const hasNew      = dirty.some(r => !r.Id || r.Id === 0);
+    const hasExisting = dirty.some(r => r.Id && r.Id !== 0);
+    let msg = "Do you want to update the Rate Change details?";
+    if (hasNew && !hasExisting) msg = "Do you want to save the Rate Change details?";
+    if (hasNew && hasExisting)  msg = "Do you want to save & update the Rate Change details?";
 
-    // jQuery: MsgBoxYesNo('Do you Want to Update RateChange Details?')
-    if (!window.confirm("Do you Want to Update RateChange Details?")) {
-      addRow();
-      return;
-    }
+    const proceed = await confirm(msg);
+    if (!proceed) { addRow(); return; }
+
+    // Strip React-internal _uid; keep all other fields for backend
+    const payload = dirty.map(({ _uid, ...rest }) => rest);
 
     submitting.current = true;
     setLoading(true);
 
     try {
-      // Strip React-internal _uid; keep all other fields for backend
-      const payload = getdata.map(({ _uid, ...rest }) => rest);
-
-      console.group("[RateChange] UpdateRateChange");
-      console.log("URL:", "/ItemMaster/UpdateRateChange");
-      console.log("Headers:", { Comid: sess.Comid, MirrorTable: sess.MirrorTable, IdComList: sess.IdComList });
-      console.log("Payload:", payload);
-      console.groupEnd();
-
-      const res = await api(
-        "/ItemMaster/UpdateRateChange",
+      const res = await CC.api(
+        CC.RateChangeUpdate,
         payload,
         {
-          Comid:       String(sess.Comid),
-          MirrorTable: String(sess.MirrorTable),
-          IdComList:   String(sess.IdComList),
+          Comid:       String(Comid),
+          MirrorTable: String(MirrorTable),
+          IdComList:   String(IdComList),
         }
       );
 
       if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
-      if (res.ok) {
-        // jQuery: NotificationSuccess(data.message); methods.loadRateChangeDetails();
+      if (res.ok || res.IsSuccess) {
         toast("✅ " + (res.message || "Rate Change Updated Successfully."));
-        // Reset grid — mirrors jQuery methods.loadRateChangeDetails() (clears and adds blank row)
-        setRows([makeBlankRow()]);
+        dirtyIds.current.clear();
+        // Reset grid — mirrors jQuery methods.loadRateChangeDetails()
+        setGrid([makeNewRow()]);
         setSelIdx(0);
         setTimeout(() => focusCell(0, "ProductCode"), 80);
       } else {
@@ -999,43 +714,166 @@ export default function RateChange() {
       setLoading(false);
       submitting.current = false;
     }
-  }, [perm, sess, gridemptycheck, addRow, focusCell, toast]);
+  }, [grid, Comid, MirrorTable, IdComList, perm, gridemptycheck, addRow, focusCell, toast, confirm]);
 
-  /* ──────────────────────────────────────────────────────────────────────────
-     Global keyboard handler — F1 / F2 / Del / Escape
-     Mirrors jQuery $(document).on('keydown', ...)
-  ────────────────────────────────────────────────────────────────────────── */
+  // ── handleEsc — mirrors SupplierMaster handleEsc ──────────────────────────
+  const handleEsc = useCallback(async () => {
+    const ok = await confirm("Do You Want To Quit Page?");
+    if (ok) navigate("/Home");
+  }, [confirm, navigate]);
+
+  // ── Global keyboard shortcuts (mirrors SupplierMaster pattern) ────────────
   useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.keyCode === 112) { // F1 → Save
-        e.preventDefault();
-        handleSave();
-      }
-      if (e.keyCode === 113) { // F2 → New Row
-        e.preventDefault();
-        addRow();
-      }
-      if (e.keyCode === 46) { // Del — mirrors jQuery key === 46
-        const tag = document.activeElement?.tagName;
-        if (tag !== "INPUT" && tag !== "TEXTAREA") {
-          deleteRow(selIdxRef.current);
-        }
-      }
-      if (e.keyCode === 27) { // Escape → Confirm quit
-        e.preventDefault();
-        const str = "Do You Want To Quit Page?";
-        if (window.confirm(str)) {
-          window.location.href = "/Login/Home";
-        }
-      }
+    const onKey = e => {
+      if (pickerTarget != null || f12Open) return;
+      if (e.keyCode === 112) { e.preventDefault(); handleSave(); }   // F1
+      if (e.keyCode === 113) { e.preventDefault(); addRow(); }        // F2
+      if (e.keyCode === 123) { e.preventDefault(); setF12Open(true); }// F12
+      if (e.keyCode === 27)  { e.preventDefault(); handleEsc(); }     // Esc
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleSave, addRow, deleteRow]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleSave, addRow, handleEsc, f12Open, pickerTarget]);
 
-  /* ─────────────────────────────────────────────────────────────────────────
-     RENDER
-  ───────────────────────────────────────────────────────────────────────── */
+  // ── Cell renderer — mirrors SupplierMaster renderCell pattern ─────────────
+  function renderCell(row, rowIdx, colDef) {
+    const { field, type, maxLen } = colDef;
+    const value    = row[field] ?? "";
+    const refKey   = `${rowIdx}_${field}`;
+    const editMode = row.EditMode ?? 0;
+
+    // Read-only text column (ProductName)
+    if (type === "ro") return (
+      <input
+        className="mp-cell-input"
+        readOnly
+        tabIndex={-1}
+        value={String(value)}
+        style={{ background: "#f5f7fb", color: "#6b7a99", cursor: "default" }}
+      />
+    );
+
+    // Read-only numeric column (old rates)
+    if (type === "ro-num") return (
+      <input
+        className="mp-cell-input"
+        readOnly
+        tabIndex={-1}
+        value={String(value)}
+        style={{
+          background: "#f5f7fb", color: "#6b7a99",
+          cursor: "default", textAlign: "right", fontFamily: "monospace",
+        }}
+      />
+    );
+
+    // Shared cell style matching SupplierMaster editMode pattern
+    const cellStyle = {
+      background:   editMode === 0 ? "transparent" : "#fff",
+      border:       editMode === 0 ? "none"        : "1px solid #93c5fd",
+      cursor:       editMode === 0 ? "default"     : "text",
+      color:        editMode === 0 ? "inherit"     : "#1e293b",
+      boxShadow:    editMode === 0 ? "none"        : "0 0 0 2px rgba(59,130,246,0.15)",
+      borderRadius: editMode === 1 ? "4px"         : "0",
+      padding:      editMode === 0 ? "2px 4px"     : undefined,
+    };
+
+    const common = {
+      ref:     el => { if (el) cellRefs.current[refKey] = el; else delete cellRefs.current[refKey]; },
+      onFocus: () => setSelIdx(rowIdx),
+      onKeyDown: e => editMode === 1 && onCellKeyDown(e, rowIdx, field),
+    };
+
+    // Float / numeric editable
+    if (type === "float") return (
+      <input
+        {...common}
+        className="mp-cell-input"
+        type="text"
+        maxLength={maxLen || 18}
+        value={String(value)}
+        readOnly={editMode === 0}
+        style={{ ...cellStyle, textAlign: "right", fontFamily: "monospace" }}
+        placeholder={editMode === 1 ? "0.00" : ""}
+        onChange={e => editMode === 1 && updateCell(rowIdx, field, e.target.value)}
+        onBlur={() => editMode === 1 && onRateBlur(rowIdx, field)}
+      />
+    );
+
+    // ProductCode — string, uppercase, F9/Space opens picker
+    return (
+      <input
+        {...common}
+        className="mp-cell-input"
+        type="text"
+        maxLength={maxLen || 100}
+        value={String(value)}
+        readOnly={editMode === 0}
+        placeholder={editMode === 1 ? "Code / F9" : ""}
+        autoComplete="off"
+        style={cellStyle}
+        onChange={e => editMode === 1 && CC.applyUppercase(e, val => updateCell(rowIdx, field, val))}
+        onKeyDown={e => {
+          if (editMode === 0) return;
+          // Space on empty ProductCode → open picker
+          if (e.key === " " && !String(value).trim()) { e.preventDefault(); setPickerTarget(rowIdx); return; }
+          onCellKeyDown(e, rowIdx, field);
+        }}
+      />
+    );
+  }
+
+  // ── F12 Popup — identical to SupplierMaster F12Popup ─────────────────────
+  function F12Popup() {
+    const [local, setLocal] = useState(colSettings.map(s => ({ ...s })));
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(10,20,40,.5)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ background: "#fff", borderRadius: 8, width: 450, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 16px 48px rgba(0,0,0,.3)", overflow: "hidden" }}>
+          <div style={{ background: "#1a2e4a", color: "#fff", padding: "10px 16px", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>⚙ Column Settings (F12)</span>
+            <button style={{ background: "none", border: "none", color: "#fff", fontSize: 17, cursor: "pointer" }} onClick={() => setF12Open(false)}>✕</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              <thead>
+                <tr>{["Column", "Visible", "Width (px)"].map(h =>
+                  <th key={h} style={{ background: "#1a2e4a", color: "#fff", padding: "6px 10px", fontSize: 11, fontWeight: 600, textAlign: "left" }}>{h}</th>
+                )}</tr>
+              </thead>
+              <tbody>
+                {local.map(s => (
+                  <tr key={s.field}>
+                    <td style={{ padding: "5px 10px", fontSize: 12, borderBottom: "1px solid #eaecf4" }}>{s.label}</td>
+                    <td style={{ padding: "5px 10px", textAlign: "center", borderBottom: "1px solid #eaecf4" }}>
+                      <input type="checkbox" checked={!s.hidden}
+                        onChange={() => setLocal(p => p.map(x => x.field === s.field ? { ...x, hidden: !x.hidden } : x))} />
+                    </td>
+                    <td style={{ padding: "5px 10px", borderBottom: "1px solid #eaecf4" }}>
+                      <input type="number" min="40" max="500" value={s.width}
+                        style={{ width: 70, border: "1px solid #d4dbe8", borderRadius: 3, padding: "2px 6px", fontSize: 12, textAlign: "right" }}
+                        onChange={e => setLocal(p => p.map(x => x.field === s.field ? { ...x, width: parseInt(e.target.value) || x.width } : x))} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ padding: "10px 14px", display: "flex", gap: 8, justifyContent: "flex-end", borderTop: "1px solid #e5e7eb" }}>
+            <button onClick={() => saveColSettings(local)}
+              style={{ background: "#1a2e4a", color: "#fff", border: "none", borderRadius: 4, padding: "6px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              💾 Save
+            </button>
+            <button onClick={() => setF12Open(false)}
+              style={{ background: "#fff", color: "#6b7280", border: "1px solid #d1d5db", borderRadius: 4, padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Permission denied screen ───────────────────────────────────────────────
   if (permDenied) {
     return (
       <div className="mp-wrap" style={{ alignItems: "center", justifyContent: "center" }}>
@@ -1046,121 +884,176 @@ export default function RateChange() {
     );
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
-      {/* ── Overlays ── */}
-      {loading && <Loader />}
-      {showPicker && (
-        <ProductPickerModal
-          onSelect={onPickerSelect}
-          onClose={() => { setShowPicker(false); setPickerRow(null); }}
-        />
-      )}
+    <div className="mp-wrap supplier-page">
+      {ConfirmUI}
       <Topbar />
 
-      {/* ── Header ── */}
-      {/* <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">₹</div>
-          <div>
-            <div className="mp-title">Rate Change</div>
-            <div className="mp-sub">Item Master · Price Update</div>
+      {/* Loader overlay */}
+      {loading && (
+        <div className="mp-loader-ov">
+          <div className="mp-ldr-box">
+            <div className="mp-spin" />
+            <div className="mp-ldr-msg">Processing…</div>
           </div>
         </div>
-        <button className="mp-back" onClick={() => (window.location.href = "/Home")}>
-          ← Back
-        </button>
-      </div> */}
+      )}
 
-      {/* ── Body ── */}
-      <div className="mp-body" style={{ maxWidth: "100%" }}>
+      {/* F12 Column settings */}
+      {f12Open && <F12Popup />}
 
-        {/* ── Toolbar ── */}
+      {/* Product picker modal */}
+      {pickerTarget != null && (
+        <ProductPickerModal
+          Comid={Comid}
+          onSelect={onPickerSelect}
+          onClose={onPickerClose}
+        />
+      )}
+
+      <div className="mp-body">
+
+        {/* ── Toolbar — mirrors SupplierMaster toolbar ── */}
         <div className="mp-toolbar">
-          <button
-            className="mp-btn sv"
-            disabled={loading || submitting.current}
-            onClick={handleSave}
-          >
+          <button className="mp-btn sv" onClick={handleSave} disabled={loading || submitting.current}>
             💾 F1 Save
           </button>
           <button className="mp-btn nw" onClick={addRow} disabled={loading}>
-            ➕ F2 New Row
+            ➕ F2 Add Row
           </button>
-          <button className="mp-btn dl" onClick={() => {
-            if (window.confirm("Do You Want To Quit Page?")) {
-              window.location.href = "/Login/Home";
-            }
-          }}>
-            ✕ Esc Quit
+          <button className="mp-btn dl" onClick={handleEsc}>
+            ✕ Esc
           </button>
-
           <div className="mp-toolbar-title">Rate Change</div>
+          <button
+            className="mp-btn"
+            style={{ background: "#fff", color: "#374151", border: "1px solid #9ca3af", marginLeft: "auto" }}
+            onClick={() => setF12Open(true)}
+          >
+            ⚙ F12 Columns
+          </button>
         </div>
 
-        {/* ── Grid ── */}
-        <div className="mp-grid-wrap" style={{ overflowX: "auto" }}>
-          <table className="mp-tbl" style={{ minWidth: 1160, tableLayout: "fixed" }}>
+        {/* ── Grid — mirrors SupplierMaster grid pattern exactly ── */}
+        <div className="mp-grid-wrap" style={{ overflowX: "auto", width: "100%" }}>
+          <table
+            className="mp-tbl"
+            style={{
+              width: "100%",
+              tableLayout: "fixed",
+              minWidth: visibleColumns.reduce((a, c) => a + c.width, 150) + "px",
+            }}
+          >
             <thead>
               <tr>
-                <th style={{ width: 46 }}>#</th>
-                <th style={{ width: 130 }}>Product Code</th>
-                <th style={{ width: 200 }}>Description</th>
-                <th style={{ width: 90,  textAlign: "right" }}>MRP (Old)</th>
-                <th style={{ width: 90,  textAlign: "right" }}>MRP (New)</th>
-                <th style={{ width: 105, textAlign: "right" }}>Old Pur.Rate</th>
-                <th style={{ width: 105, textAlign: "right" }}>New Pur.Rate</th>
-                <th style={{ width: 105, textAlign: "right" }}>Old Sale Rate</th>
-                <th style={{ width: 105, textAlign: "right" }}>New Sale Rate</th>
-                <th style={{ width: 105, textAlign: "right" }}>Old W.S Rate</th>
-                <th style={{ width: 105, textAlign: "right" }}>New W.S Rate</th>
-                <th style={{ width: 44 }}></th>
+                <th style={{ width: 45 }}>S.No</th>
+                <th style={{ width: 44 }}></th>{/* edit icon column */}
+                {visibleColumns.map(c => (
+                  <th
+                    key={c.field}
+                    style={{
+                      width: c.width,
+                      minWidth: c.width,
+                      textAlign: (c.type === "float" || c.type === "ro-num") ? "right" : undefined,
+                    }}
+                  >
+                    {c.label}
+                  </th>
+                ))}
+                <th style={{ width: 44 }}></th>{/* delete button */}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => (
-                <GridRow
-                  key={row._uid}
-                  row={row}
-                  idx={idx}
-                  selected={selIdx === idx}
-                  inputRefs={inputRefs}
-                  onClick={() => { setSelIdx(idx); focusCell(idx, "ProductCode"); }}
-                  onChange={updateCell}
-                  onProductCodeEnter={onProductCodeEnter}
-                  onOpenPicker={(i) => { setPickerRow(i); setShowPicker(true); }}
-                  onRateKeyDown={onRateKeyDown}
-                  onRateBlur={onRateBlur}
-                  onDelete={deleteRow}
-                />
-              ))}
+              {grid.map((row, rowIdx) => {
+                const editMode = row.EditMode ?? 0;
+                return (
+                  <tr
+                    key={row._uid}
+                    className={[
+                      selIdx === rowIdx ? "sel" : "",
+                      editMode === 1    ? "mod" : "",
+                    ].filter(Boolean).join(" ")}
+                    onClick={() => selectRow(rowIdx)}
+                  >
+                    <td className="sno">{rowIdx + 1}</td>
+
+                    {/* ── Edit icon cell — mirrors SupplierMaster ── */}
+                    <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                      {row.Id && editMode === 0 && (
+                        <button
+                          className="mp-edit-btn"
+                          title="Edit row"
+                          onClick={e => { e.stopPropagation(); enableEdit(rowIdx); }}
+                        >
+                          ✏️
+                        </button>
+                      )}
+                      {row.Id && editMode === 1 && (
+                        <button
+                          className="mp-edit-btn active"
+                          title="Editing…"
+                          style={{ color: "#16a34a", cursor: "default" }}
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </td>
+
+                    {visibleColumns.map(colDef => (
+                      <td
+                        key={colDef.field}
+                        style={{
+                          padding: "2px 4px",
+                          textAlign: (colDef.type === "float" || colDef.type === "ro-num") ? "right" : undefined,
+                        }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          selectRow(rowIdx);
+                          if (editMode === 1) {
+                            setTimeout(() => {
+                              const el = cellRefs.current[`${rowIdx}_${colDef.field}`];
+                              if (el) { el.focus(); el.select?.(); }
+                            }, 20);
+                          }
+                        }}
+                      >
+                        {renderCell(row, rowIdx, colDef)}
+                      </td>
+                    ))}
+
+                    <td style={{ textAlign: "center", padding: "2px 4px" }}>
+                      <button
+                        className="mp-del-btn"
+                        onClick={e => { e.stopPropagation(); deleteRow(rowIdx); }}
+                      >
+                        🗑
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-          {rows.length === 0 && !loading && (
-            <div className="mp-empty" style={{ padding: 20, textAlign: "center", color: "#8b99b5" }}>
-              No rows. Press ➕ to add.
-            </div>
+
+          {grid.length === 0 && !loading && (
+            <div className="mp-empty">No records. Press ➕ to add a row.</div>
           )}
         </div>
 
         {/* ── Hint bar ── */}
         <div className="mp-hint">
-          <kbd>F1</kbd> Save &nbsp;|&nbsp;
-          <kbd>F2</kbd> New Row &nbsp;|&nbsp;
-          <kbd>Esc</kbd> Quit &nbsp;|&nbsp;
-          <kbd>Enter</kbd> Next field &nbsp;|&nbsp;
-          <kbd>F9</kbd> / <kbd>Space</kbd> Browse Products
+          <kbd>Enter</kbd> next cell &nbsp;|&nbsp;
+          <kbd>F9</kbd> / <kbd>Space</kbd> browse products &nbsp;|&nbsp;
+          <kbd>Ctrl+Del</kbd> delete &nbsp;|&nbsp;
+          <kbd>F1</kbd> save &nbsp;|&nbsp;
+          <kbd>F2</kbd> add row &nbsp;|&nbsp;
+          <kbd>F12</kbd> columns &nbsp;|&nbsp;
+          <kbd>Esc</kbd> quit
         </div>
       </div>
 
-      {/* ── Toasts ── */}
-      <div className="toasts">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast${t.isErr ? " err" : ""}`}>
-            {t.msg}
-          </div>
-        ))}
-      </div>
+      <CC.ToastList toasts={toasts} />
     </div>
   );
 }

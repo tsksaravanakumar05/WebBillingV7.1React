@@ -1,20 +1,21 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  UomMaster.jsx
+//  SubCategory.jsx
 //
 //  Imports:
 //   • CC.*  from Common.jsx   — API helpers, session, uid, applyUppercase, etc.
 //   • MSG.* from Messages.jsx — useConfirm, useToast, ToastList
 //
-//  Features mirrored from SalesManMaster / DepartmentMaster:
+//  Features:
 //   • Permission guard via useEffect + isAuthorized state (View=0 → redirect)
 //   • EditMode per row (0 = view / 1 = edit)
 //   • Edit ✏️ button — shows only on saved rows; click → enableEdit()
-//   • dirtyIds ref — tracks rows actually typed in (avoids flipping saved rows
-//     to edit mode on a mere click)
+//   • dirtyIds ref — tracks rows actually typed in
 //   • selectRow() — exits edit mode on other rows if not dirty
 //   • Toggle component for Active column
+//   • Department lookup popup (Enter/click on DepartmentName)
+//   • Category combo for filtering sub-categories
 //   • View, Add, Edit, Delete permission denied logic
-//   • Dual-login guard — any 406 / res.redis===false → navigate("/")
+//   • Dual-login guard — any 406 / res.redis===false → navigate("/Login/Index")
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -63,13 +64,13 @@ function Toggle({ value, onChange, onKeyDown, inputRef, editMode, onFocus }) {
 
 // ─── Column config ────────────────────────────────────────────────────────────
 const ALL_COLUMNS = [
-  { field: "UOMName",      label: "UOM Name",      width: 220 },
-  { field: "DecimalValue", label: "Decimal Value",  width: 160 },
-  { field: "Active",       label: "Active",         width: 80  },
+  { field: "DepartmentName", label: "Department Name", width: 250 },
+  { field: "Cat_GST",        label: "GST (%)",         width: 120 },
+  { field: "Active",         label: "Active",          width: 80  },
 ];
 
-// ─── UomMaster ────────────────────────────────────────────────────────────────
-export default function UomMaster() {
+// ─── SubCategoryMaster ────────────────────────────────────────────────────────
+export default function SubCategoryMaster() {
   const navigate  = useNavigate();
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());
@@ -83,8 +84,6 @@ export default function UomMaster() {
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   // ── Dual-login guard helper ────────────────────────────────────────────────
-  //  Triggers on: HTTP 406 (CC.api → ok:false, _dualLogin:true)
-  //  OR res.redis === false (insertapi path).
   const redirectIfDualLogin = useCallback((res) => {
     if (res?._dualLogin || res?.redis === false) {
       alert("Already Login Another User Please Login Again!!!");
@@ -105,7 +104,7 @@ export default function UomMaster() {
     }
 
     const menulist = JSON.parse(menuStr);
-    const menudata = menulist.filter(obj => obj.PageName === "UOM Master");
+    const menudata = menulist.filter(obj => obj.PageName === "Category");
 
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
@@ -131,16 +130,28 @@ export default function UomMaster() {
   // ── Session ────────────────────────────────────────────────────────────────
   const [sess] = useState(() => {
     try {
-      return CC.buildSession("UOM Master");
+      return CC.buildSession("Category");
     } catch {
       return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: "0", menudata: [] };
     }
   });
 
-  // ── Component state ────────────────────────────────────────────────────────
+  // ── Category combo state ───────────────────────────────────────────────────
+  const [categoryList,  setCategoryList ] = useState([]);
+  const [selectedCatId, setSelectedCatId] = useState(0);
+
+  // ── Component state ───────────────────────────────────────────────────────
   const [grid,    setGrid   ] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selIdx,  setSelIdx ] = useState(null);
+
+  // ── Department popup state ─────────────────────────────────────────────────
+  const [deptOpen,   setDeptOpen  ] = useState(false);
+  const [deptRows,   setDeptRows  ] = useState([]);
+  const [deptSearch, setDeptSearch] = useState("");
+  const [deptSelIdx, setDeptSelIdx] = useState(null);
+  const deptTarget    = useRef(null);
+  const deptSearchRef = useRef(null);
 
   // ── focusRow ───────────────────────────────────────────────────────────────
   const focusRow = useCallback((idx, colIdx = 0) => {
@@ -148,8 +159,6 @@ export default function UomMaster() {
   }, []);
 
   // ── selectRow ─────────────────────────────────────────────────────────────
-  //  When clicking a different row, exit edit mode on any previously-edited
-  //  saved row that the user never actually typed in (not dirty).
   const selectRow = useCallback((newIdx) => {
     setGrid(prev => prev.map((r, i) => {
       if (i !== newIdx && r.EditMode === 1 && r.Id && !dirtyIds.current.has(r.Id)) {
@@ -162,61 +171,52 @@ export default function UomMaster() {
 
   // ── makeNewRow ─────────────────────────────────────────────────────────────
   const makeNewRow = (prefill = "") => ({
-    Id:           null,
-    UOMName:      prefill,
-    DecimalValue: 0,
-    Active:       true,
-    EditMode:     1,
-    _uid:         CC.uid(),
+    Id:             null,
+    DepartmentName: prefill,
+    DepartmentId:   null,
+    Cat_GST:        "0.00",
+    Active:         true,
+    EditMode:       1,
+    _uid:           CC.uid(),
   });
 
   // ── rowValidator ──────────────────────────────────────────────────────────
   const rowValidator = useCallback((row) =>
-    String(row.UOMName || "").trim().length > 0
+    String(row.DepartmentName || "").trim().length > 0
   , []);
 
-  // ── loadData ───────────────────────────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    const prefill = sessionStorage.getItem("masterPrefill") || "";
-    setLoading(true);
-
+  // ── loadCategoryCombo ─────────────────────────────────────────────────────
+  const loadCategoryCombo = useCallback(async () => {
     const res = await CC.api(
-      CC.SelectUOM,
+      "/api/CategoryApp/SelectCategory",
       null,
       {},
       { Comid: sess.Comid }
     );
-    setLoading(false);
-
-    // ── dual-login check ──
     if (redirectIfDualLogin(res)) return;
+    if (res.ok && Array.isArray(res.data) && res.data.length) {
+      setCategoryList(res.data.map(c => ({ ...c, _uid: CC.uid() })));
+    } else {
+      setCategoryList([]);
+    }
+  }, [sess.Comid, redirectIfDualLogin]);
 
-    if (res._http404) { toast(`❌ 404 — ${CC.SelectUOM} not found`, true); }
-    if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
-
-    const rawList = Array.isArray(res.data)  ? res.data
-                  : Array.isArray(res.Data1) ? res.Data1
-                  : Array.isArray(res)       ? res
-                  : [];
-
-    const existing = rawList.map(r => ({
-      ...r,
-      Id:           Number(r.Id ?? 0),
-      UOMName:      String(r.UOMName ?? ""),
-      DecimalValue: parseInt(r.DecimalValue, 10) || 0,
-      Active:       r.Active === true || r.Active === 1,
-      EditMode:     0,
-      _uid:         CC.uid(),
-    }));
-
-    const blank = makeNewRow(prefill);
-    setGrid([...existing, blank]);
-    setSelIdx(existing.length);
-    focusRow(existing.length);
+  // ── loadData ───────────────────────────────────────────────────────────────
+  const loadData = useCallback((cid = selectedCatId) => { // eslint-disable-line
+    const prefill = sessionStorage.getItem("masterPrefill") || "";
+    const blank   = makeNewRow(prefill);
+    setGrid([blank]);
+    setSelIdx(0);
+    focusRow(0);
     sessionStorage.removeItem("masterPrefill");
-  }, [sess.Comid, toast, focusRow, redirectIfDualLogin]); // eslint-disable-line
+  }, [focusRow]); // eslint-disable-line
 
-  useEffect(() => { loadData(); }, [loadData]);
+  // ── Initial load ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isAuthorized) return;
+    loadCategoryCombo();
+    loadData(0);
+  }, [isAuthorized]); // eslint-disable-line
 
   // ── addRow ─────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
@@ -259,19 +259,18 @@ export default function UomMaster() {
     const isSaved = row.Id != null && row.Id !== 0;
 
     if (isSaved) {
-      const ok = await confirm(`Do you want to delete "${row.UOMName}"?`);
+      const ok = await confirm(`Do you want to delete "${row.DepartmentName}"?`);
       if (!ok) return;
 
       setLoading(true);
       const res = await CC.api(
-        CC.DeleteUOM,
+        CC.SubCategoryDelete,
         null,
         { "IdComList": String(sess.IdComList) },
-        { Id: Number(row.Id), Comid: Number(sess.Comid), MirrorTable: Number(sess.MirrorTable) }
+        { Id: Number(row.Id), Comid: Number(sess.Comid) }
       );
       setLoading(false);
 
-      // ── dual-login check ──
       if (redirectIfDualLogin(res)) return;
 
       if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
@@ -303,18 +302,17 @@ export default function UomMaster() {
   const gridemptycheck = useCallback((g) => {
     let cleaned = [...g];
 
-    // Strip trailing blank row before validation
     if (cleaned.length > 1) {
       const last = cleaned[cleaned.length - 1];
-      if (!String(last.UOMName || "").trim()) {
+      if (!String(last.DepartmentName || "").trim()) {
         cleaned = cleaned.slice(0, -1);
       }
     }
 
     for (let i = 0; i < cleaned.length; i++) {
       if (cleaned[i].EditMode === 1) {
-        if (!String(cleaned[i].UOMName || "").trim()) {
-          toast("❌ Enter All UOM Name in the Grid !!!", true);
+        if (!String(cleaned[i].DepartmentName || "").trim()) {
+          toast("❌ Enter All Department Name in the Grid !!!", true);
           setSelIdx(i);
           focusRow(i, 0);
           return { ok: false, cleaned };
@@ -325,15 +323,20 @@ export default function UomMaster() {
   }, [focusRow, toast]);
 
   // ── hasDuplicate ───────────────────────────────────────────────────────────
-  const hasDuplicate = useCallback((g) => {
+  const hasDuplicate = useCallback((g, field) => {
     const vals = g
-      .filter(r => String(r.UOMName || "").trim())
-      .map(r => String(r.UOMName).trim().toLowerCase());
+      .filter(r => String(r[field] || "").trim())
+      .map(r => String(r[field]).trim().toLowerCase());
     return new Set(vals).size !== vals.length;
   }, []);
 
   // ── handleSave ─────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
+    if (selectedCatId === 0) {
+      toast("❌ Select Category !!!", true);
+      return;
+    }
+
     const { ok, cleaned } = gridemptycheck(grid);
     if (!ok) return;
     setGrid(cleaned);
@@ -368,23 +371,15 @@ export default function UomMaster() {
 
     if (flag === 0) { addRow(); return; }
 
-    if (hasDuplicate(cleaned)) {
-      toast("❌ Duplicate UOM Name found !!!", true); return;
+    if (hasDuplicate(cleaned, "DepartmentName")) {
+      toast("❌ Duplicate Department Name found !!!", true); return;
     }
 
-    // ── Decimal value guard ────────────────────────────────────────────────
-    const badDec = dirty.find(r => {
-      const d = parseInt(r.DecimalValue, 10);
-      return d === 1 || d > 3;
-    });
-    if (badDec) { toast("❌ Decimal Value must be 0, 2 or 3.", true); return; }
-
-    // ── Determine save / update confirm message ────────────────────────────
     const hasNew      = dirty.some(r => r.Id == null || r.Id === 0);
     const hasExisting = dirty.some(r => r.Id != null && r.Id !== 0);
-    let confirmMsg    = "Do you want to save the UOM details?";
-    if (hasExisting && !hasNew) confirmMsg = "Do you want to update the UOM details?";
-    if (hasExisting &&  hasNew) confirmMsg = "Do you want to save & update the UOM details?";
+    let confirmMsg    = "Do you want to save the SubCategory details?";
+    if (hasExisting && !hasNew) confirmMsg = "Do you want to update the SubCategory details?";
+    if (hasExisting &&  hasNew) confirmMsg = "Do you want to save & update the SubCategory details?";
 
     const proceed = await confirm(confirmMsg);
     if (!proceed) { addRow(); return; }
@@ -392,18 +387,20 @@ export default function UomMaster() {
     setLoading(true);
 
     const payload = dirty.map(r => ({
-      Id:           Number(r.Id || 0),
-      UOMName:      String(r.UOMName || "").trim(),
-      DecimalValue: parseInt(r.DecimalValue, 10) || 0,
-      Active:       r.Active === true ? 1 : 0,
-      EditMode:     r.EditMode,
+      Id:             Number(r.Id || 0),
+      DepartmentName: String(r.DepartmentName || "").trim(),
+      DepartmentId:   r.DepartmentId != null ? Number(r.DepartmentId) : null,
+      Cat_GST:        Number(r.Cat_GST || 0),
+      Active:         r.Active === true ? 1 : 0,
+      EditMode:       r.EditMode,
     }));
 
     const res = await CC.insertapi(
-      CC.InsertUOM,
+      CC.SubCategoryInsert,
       payload,
       {
         Comid:       String(parseInt(sess.Comid)),
+        cid:         String(selectedCatId),
         MirrorTable: String(sess.MirrorTable),
         IdComList:   String(sess.IdComList),
         ApiType:     "1",
@@ -412,7 +409,6 @@ export default function UomMaster() {
 
     setLoading(false);
 
-    // ── dual-login check (insertapi returns res.redis===false on 406) ──
     if (redirectIfDualLogin(res)) return;
 
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
@@ -424,16 +420,16 @@ export default function UomMaster() {
       const retField = sessionStorage.getItem("masterReturnField");
       if (retField) {
         sessionStorage.setItem("masterReturnValue", String(res.Data2 ?? res.Id ?? ""));
-        sessionStorage.setItem("masterReturnName",  dirty[0]?.UOMName || "");
+        sessionStorage.setItem("masterReturnName",  dirty[0]?.DepartmentName || "");
         sessionStorage.removeItem("masterReturnField");
         setTimeout(() => navigate(-1), 800);
       } else {
-        await loadData();
+        loadData(selectedCatId);
       }
     } else {
       toast(`❌ ${res.message || "Save failed"}`, true);
     }
-  }, [grid, sess, perm, navigate, loadData, gridemptycheck, hasDuplicate, addRow, toast, confirm, redirectIfDualLogin]);
+  }, [grid, sess, perm, selectedCatId, navigate, loadData, gridemptycheck, hasDuplicate, addRow, toast, confirm, redirectIfDualLogin]);
 
   // ── handleEsc ──────────────────────────────────────────────────────────────
   const handleEsc = useCallback(() => {
@@ -445,12 +441,103 @@ export default function UomMaster() {
   // ── Global keyboard shortcuts ──────────────────────────────────────────────
   useEffect(() => {
     const onKey = e => {
+      if (deptOpen) {
+        if (e.keyCode === 27) { e.preventDefault(); setDeptOpen(false); }
+        return;
+      }
       if (e.keyCode === 112) { e.preventDefault(); handleSave(); }
       if (e.keyCode === 27)  { e.preventDefault(); handleEsc();  }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleSave, handleEsc]);
+  }, [handleSave, handleEsc, deptOpen]);
+
+  // ── Department popup ───────────────────────────────────────────────────────
+  const loadDepartmentData = useCallback(async () => {
+    setLoading(true);
+    const res = await CC.api(
+      CC.SelectDepartment,
+      null,
+      {},
+      { Comid: Number(sess.Comid) }
+    );
+    setLoading(false);
+
+    if (redirectIfDualLogin(res)) return;
+
+    if (res.ok && Array.isArray(res.data) && res.data.length) {
+      setDeptRows(res.data.map(d => ({ ...d, _uid: CC.uid() })));
+    } else {
+      setDeptRows([]);
+    }
+  }, [sess.Comid, redirectIfDualLogin]);
+
+  const openDeptPopup = useCallback(async (idx) => {
+    deptTarget.current = idx;
+    const currentName = grid[idx]?.DepartmentName ?? "";
+    setDeptSearch(currentName);
+    setDeptSelIdx(null);
+    await loadDepartmentData();
+    setDeptOpen(true);
+    setTimeout(() => deptSearchRef.current?.focus(), 200);
+  }, [grid, loadDepartmentData]);
+
+  const filteredDeptRows = deptRows.filter(d =>
+    d.DepartmentName.toLowerCase().includes(deptSearch.toLowerCase())
+  );
+
+  const selectDeptItem = useCallback((deptRow) => {
+    const idx = deptTarget.current;
+    setGrid(prev =>
+      prev.map((r, i) =>
+        i === idx
+          ? { ...r, DepartmentName: deptRow.DepartmentName, DepartmentId: deptRow.Id, EditMode: 1 }
+          : r
+      )
+    );
+    if (grid[idx]?.Id) dirtyIds.current.add(grid[idx].Id);
+    setDeptOpen(false);
+    setDeptSearch("");
+    // Move to GST column (col index 1) after department selection
+    setTimeout(() => focusRow(idx, 1), 80);
+  }, [grid, focusRow]);
+
+  const handleDeptSearchKeyDown = useCallback((e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (filteredDeptRows.length > 0) {
+        setDeptSelIdx(0);
+        setTimeout(() => { document.querySelectorAll(".grp-list-item")[0]?.focus(); }, 30);
+      }
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const target = deptSelIdx != null ? filteredDeptRows[deptSelIdx] : filteredDeptRows[0];
+      if (target) selectDeptItem(target);
+    }
+    if (e.key === "Escape") setDeptOpen(false);
+  }, [filteredDeptRows, deptSelIdx, selectDeptItem]);
+
+  const handleDeptListKeyDown = useCallback((e, deptRow, listIdx) => {
+    if (e.key === "Enter") { e.preventDefault(); selectDeptItem(deptRow); }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (listIdx < filteredDeptRows.length - 1) {
+        setDeptSelIdx(listIdx + 1);
+        document.querySelectorAll(".grp-list-item")[listIdx + 1]?.focus();
+      }
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (listIdx > 0) {
+        setDeptSelIdx(listIdx - 1);
+        document.querySelectorAll(".grp-list-item")[listIdx - 1]?.focus();
+      } else {
+        deptSearchRef.current?.focus();
+      }
+    }
+    if (e.key === "Escape") setDeptOpen(false);
+  }, [filteredDeptRows, selectDeptItem]);
 
   // ── Row-level keyboard navigation ─────────────────────────────────────────
   const onCellKeyDown = useCallback((e, idx, colIdx, field) => {
@@ -458,9 +545,14 @@ export default function UomMaster() {
       e.preventDefault();
       const row = grid[idx];
 
-      if (field === "UOMName") {
-        if (!String(row?.UOMName || "").trim()) { toast("❌ Enter UOM Name !!!", true); return; }
-        if (hasDuplicate(grid))                 { toast("❌ Duplicate UOM Name found !!!", true); return; }
+      if (field === "DepartmentName") {
+        openDeptPopup(idx);
+        return;
+      }
+
+      if (field === "Cat_GST") {
+        const gstVal = parseFloat(row?.Cat_GST || 0).toFixed(2);
+        updateCell(idx, "Cat_GST", gstVal);
       }
 
       if (field === "Active") {
@@ -479,10 +571,16 @@ export default function UomMaster() {
     if (e.key === "Delete" && e.ctrlKey) {
       e.preventDefault(); deleteRow(idx);
     }
-    if (e.key === "Delete" && !e.ctrlKey && !String(grid[idx]?.UOMName || "").trim()) {
+    if (e.key === "Delete" && !e.ctrlKey && !String(grid[idx]?.DepartmentName || "").trim()) {
       e.preventDefault(); deleteRow(idx);
     }
-  }, [grid, hasDuplicate, addRow, focusRow, deleteRow, toast, rowValidator]);
+  }, [grid, addRow, focusRow, deleteRow, updateCell, openDeptPopup, rowValidator]);
+
+  // ── validate numeric fields ────────────────────────────────────────────────
+  const validateInput = (field, value) => {
+    if (field === "Cat_GST") return /^-?\d{0,15}(\.\d{0,2})?$/.test(value);
+    return true;
+  };
 
   // ── Block render until authorized ─────────────────────────────────────────
   if (!isAuthorized) return null;
@@ -495,6 +593,50 @@ export default function UomMaster() {
 
       <Topbar />
 
+      {/* ── Department Lookup Popup ── */}
+      {deptOpen && (
+        <div className="grp-overlay" onClick={() => setDeptOpen(false)}>
+          <div className="grp-window" onClick={e => e.stopPropagation()}>
+            <div className="grp-win-hdr">
+              <span>Select Department</span>
+              <button onClick={() => setDeptOpen(false)}>✕</button>
+            </div>
+            <div className="grp-win-body">
+              <input
+                ref={deptSearchRef}
+                className="grp-search"
+                placeholder="Search department…"
+                value={deptSearch}
+                onChange={e => CC.applyUppercase(e, val => setDeptSearch(val))}
+                onKeyDown={handleDeptSearchKeyDown}
+              />
+              <div className="grp-list">
+                {filteredDeptRows.length === 0 && (
+                  <div className="grp-list-item" style={{ color: "#aaa", cursor: "default" }}>
+                    No departments found
+                  </div>
+                )}
+                {filteredDeptRows.map((d, listIdx) => (
+                  <div
+                    key={d._uid}
+                    className={`grp-list-item${deptSelIdx === listIdx ? " sel" : ""}`}
+                    tabIndex={0}
+                    onClick={() => selectDeptItem(d)}
+                    onKeyDown={e => handleDeptListKeyDown(e, d, listIdx)}
+                    onFocus={() => setDeptSelIdx(listIdx)}
+                  >
+                    {d.DepartmentName}
+                  </div>
+                ))}
+              </div>
+              <div className="grp-hint">
+                ↑↓ Navigate &nbsp;|&nbsp; Enter Select &nbsp;|&nbsp; Esc Close
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mp-body">
 
         {/* ── Toolbar ── */}
@@ -502,7 +644,29 @@ export default function UomMaster() {
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-          <div className="mp-toolbar-title">UOM Master</div>
+          <div className="mp-toolbar-title">Sub Category Master</div>
+        </div>
+
+        {/* ── Category Filter ── */}
+        <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #e2e8f0" }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Category:</label>
+          <select
+            style={{
+              height: 30, padding: "0 8px", borderRadius: 6, border: "1px solid #cbd5e1",
+              fontSize: 13, minWidth: 220, background: "#fff", color: "#1e293b",
+            }}
+            value={selectedCatId}
+            onChange={e => {
+              const cid = Number(e.target.value);
+              setSelectedCatId(cid);
+              loadData(cid);
+            }}
+          >
+            <option value={0}>-- Select Category --</option>
+            {categoryList.map(c => (
+              <option key={c._uid} value={c.Id}>{c.CategoryName ?? c.Name ?? c.CatName ?? c.Id}</option>
+            ))}
+          </select>
         </div>
 
         {/* ── Grid ── */}
@@ -517,7 +681,8 @@ export default function UomMaster() {
                     style={{
                       width:    c.width,
                       minWidth: c.width,
-                      textAlign: c.field === "Active" ? "center" : undefined,
+                      textAlign: (c.field === "Active" || c.field === "Cat_GST")
+                        ? "center" : undefined,
                     }}
                   >
                     {c.label}
@@ -543,10 +708,10 @@ export default function UomMaster() {
                     <td
                       key={col.field}
                       style={{
-                        textAlign: col.field === "Active" ? "center" : undefined,
+                        textAlign: (col.field === "Active" || col.field === "Cat_GST")
+                          ? "center" : undefined,
                       }}
                     >
-
                       {/* ── Active Toggle ── */}
                       {col.field === "Active" && (
                         <Toggle
@@ -567,36 +732,51 @@ export default function UomMaster() {
                         />
                       )}
 
-                      {/* ── Decimal Value — typed input (0, 2, 3 only) ── */}
-                      {col.field === "DecimalValue" && (
+                      {/* ── DepartmentName — read-only popup trigger ── */}
+                      {col.field === "DepartmentName" && (
                         <input
                           ref={el => {
                             if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
                             inputRefs.current[idx][colIdx] = el;
                           }}
                           className="mp-cell-input"
-                          value={row.DecimalValue ?? 0}
-                          maxLength={1}
+                          value={row.DepartmentName || ""}
+                          readOnly
+                          placeholder="Click / Enter to select…"
+                          onFocus={() => selectRow(idx)}
+                          onClick={() => row.EditMode === 1 && openDeptPopup(idx)}
+                          onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)}
+                          style={{
+                            background:   row.EditMode === 0 ? "transparent" : "#fff",
+                            border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
+                            cursor:       row.EditMode === 0 ? "default" : "pointer",
+                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                            boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
+                            borderRadius: row.EditMode === 1 ? "4px" : "0",
+                            padding:      row.EditMode === 0 ? "0" : undefined,
+                          }}
+                        />
+                      )}
+
+                      {/* ── Cat_GST — numeric ── */}
+                      {col.field === "Cat_GST" && (
+                        <input
+                          ref={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][colIdx] = el;
+                          }}
+                          className="mp-cell-input"
+                          value={row.Cat_GST ?? ""}
                           readOnly={row.EditMode === 0}
                           onChange={e => {
                             if (row.EditMode !== 1) return;
-                            const val = e.target.value;
-                            // Allow only 0, 2, 3 — reject everything else silently
-                            if (val === "" || val === "0" || val === "2" || val === "3") {
-                              updateCell(idx, "DecimalValue", val === "" ? "" : parseInt(val, 10));
-                            }
-                          }}
-                          onBlur={e => {
-                            // On leave: if empty or invalid, default back to 0
-                            const val = parseInt(e.target.value, 10);
-                            if (isNaN(val) || (val !== 0 && val !== 2 && val !== 3)) {
-                              updateCell(idx, "DecimalValue", 0);
-                            }
+                            if (!validateInput("Cat_GST", e.target.value)) return;
+                            updateCell(idx, "Cat_GST", e.target.value);
                           }}
                           onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)}
                           onFocus={() => selectRow(idx)}
                           style={{
-                            textAlign:    "center",
+                            textAlign:    "right",
                             background:   row.EditMode === 0 ? "transparent" : "#fff",
                             border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
                             cursor:       row.EditMode === 0 ? "default" : "text",
@@ -607,38 +787,6 @@ export default function UomMaster() {
                           }}
                         />
                       )}
-
-                      {/* ── UOM Name — uppercase text ── */}
-                      {col.field === "UOMName" && (
-                        <input
-                          ref={el => {
-                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                            inputRefs.current[idx][colIdx] = el;
-                          }}
-                          className="mp-cell-input"
-                          value={row.UOMName || ""}
-                          maxLength={50}
-                          readOnly={row.EditMode === 0}
-                          onChange={e =>
-                            row.EditMode === 1 &&
-                            CC.applyUppercase(e, val => updateCell(idx, col.field, val))
-                          }
-                          onKeyDown={e =>
-                            row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)
-                          }
-                          onFocus={() => selectRow(idx)}
-                          style={{
-                            background:   row.EditMode === 0 ? "transparent" : "#fff",
-                            border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                            cursor:       row.EditMode === 0 ? "default" : "text",
-                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                            boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                            borderRadius: row.EditMode === 1 ? "4px" : "0",
-                            padding:      row.EditMode === 0 ? "0" : undefined,
-                          }}
-                        />
-                      )}
-
                     </td>
                   ))}
 
@@ -675,7 +823,7 @@ export default function UomMaster() {
           </table>
 
           {grid.length === 0 && !loading && (
-            <div className="mp-empty">No records. Press ➕ to add a UOM.</div>
+            <div className="mp-empty">No records. Press ➕ to add a sub category.</div>
           )}
         </div>
 
@@ -684,7 +832,8 @@ export default function UomMaster() {
           <kbd>Enter</kbd> next cell &nbsp;|&nbsp;
           <kbd>Ctrl+Delete</kbd> delete row &nbsp;|&nbsp;
           <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> back
+          <kbd>Esc</kbd> back &nbsp;|&nbsp;
+          Click <strong>Department Name</strong> to pick department
         </div>
       </div>
 
