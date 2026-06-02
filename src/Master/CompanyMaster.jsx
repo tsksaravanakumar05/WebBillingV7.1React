@@ -401,9 +401,9 @@ export default function CompanySettings() {
     if (redirectIfDualLogin(res)) return;
 
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
-
-    if (res.IsSuccess || res.ok) {
-if (redirectIfDualLogin(res)) return;
+ if (redirectIfDualLogin(res)) return;
+   
+   
     if (res.ok) {
       // jQuery: localStorage.setItem("Companysetting", JSON.stringify(data.data))
       if (res.data || res.Data1) {
@@ -451,7 +451,6 @@ if (redirectIfDualLogin(res)) return;
       );
 
       console.log("API RESPONSE =>", res);
-<<<<<<< HEAD
 
       // ── dual-login check ──
       if (redirectIfDualLogin(res)) return;
@@ -460,12 +459,6 @@ if (redirectIfDualLogin(res)) return;
 
       if (res?.IsSuccess || res?.ok) {
         toast("✅ " + (res.message || res.Message || "Script updated"));
-=======
-  
-if (redirectIfDualLogin(res)) return;
-      if (res?.IsSuccess) {
-        toast("✅ " + (res.Message || "Script updated"));
->>>>>>> 0f5f8e8d63a4c8bce84ed7ee288fb9b12b59515b
       } else {
         toast(`❌ ${res?.message || res?.Message || "Script update failed"}`, true);
       }
