@@ -207,10 +207,6 @@ export default function CompanySettings() {
     );
 
     setLoading(false);
-<<<<<<< HEAD
-
-=======
->>>>>>> ca7eef8b4433bf88e12d63d6785bf43f83f20bc1
     console.log("API RESPONSE :", res);
 
     // ── dual-login check ──
@@ -406,12 +402,9 @@ export default function CompanySettings() {
 
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
-    if (res.IsSuccess || res.ok) {
-<<<<<<< HEAD
-=======
+   
 if (redirectIfDualLogin(res)) return;
     if (res.ok) {
->>>>>>> ca7eef8b4433bf88e12d63d6785bf43f83f20bc1
       // jQuery: localStorage.setItem("Companysetting", JSON.stringify(data.data))
       if (res.data || res.Data1) {
         const saved = res.data || res.Data1;

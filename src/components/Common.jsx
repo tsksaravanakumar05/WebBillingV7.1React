@@ -78,10 +78,6 @@ export const authHeaders = () => ({
   "Profile":       localStorage.getItem("Profile")    || "Admin",
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
-<<<<<<< HEAD
-
-// ─── URL BUILDER ──────────────────────────────────────────────────────────────
-=======
 //console.log(localStorage.getItem("token"));
 export const loadSalesmanData = async (MComid) => {
   try {
@@ -106,7 +102,6 @@ export const NullToString = (v) => (v == null ? "" : String(v));
 // ─── 6. URL BUILDER ───────────────────────────────────────────────────────────
 //  All fetch calls must go through mkUrl so BASE_URL is always prepended.
 //  No component should concatenate BASE_URL itself.
->>>>>>> ca7eef8b4433bf88e12d63d6785bf43f83f20bc1
 const mkUrl = (path) => BASE_URL + path;
 
 // ─── 7. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
