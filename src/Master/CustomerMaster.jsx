@@ -236,7 +236,8 @@ export default function CustomerMaster() {
   const inputRefs = useRef({});    // keyed `${rowIdx}-${colField}`
   const dirtyIds  = useRef(new Set());
   const gridRef   = useRef([]);
-
+  const [pw,setPw]=useState(null);
+    const pwOkRef = useRef(null);
   // ── MSG hooks ──────────────────────────────────────────────────────────────
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast,   toasts    } = MSG.useToast();
@@ -327,46 +328,11 @@ export default function CustomerMaster() {
   const focusCell = useCallback((rowIdx, colField) => {
     setTimeout(() => inputRefs.current[`${rowIdx}-${colField}`]?.focus(), 50);
   }, []);
-
-  // ── selectRow ─────────────────────────────────────────────────────────────
-  const selectRow = useCallback((newIdx) => {
-    setGrid(prev => prev.map((r, i) => {
-      if (i !== newIdx && r[grdEditMode] === 1 && r[grdId] && !dirtyIds.current.has(r[grdId])) {
-        return { ...r, [grdEditMode]: 0 };
-      }
-      return r;
-    }));
-    setSelIdx(newIdx);
-  }, []);
-const [colSettings, setColSettings] = useState(() => {
-  try {
-    const saved = JSON.parse(localStorage.getItem("customer_colSettings") || "null");
-    if (saved && Array.isArray(saved)) return saved;
-  } catch {}
-  return ALL_COLUMNS.map(c => ({ field: c.field, label: c.label, hidden: c.hidden, width: c.width }));
-});
-const [f12Open, setF12Open] = useState(false);
-
-const visibleColumns = ALL_COLUMNS.filter(c => {
-  if (c.field === grdCustomerNameTamil && !sess.CustomerNameTamil) return false;
-  const cs = colSettings.find(s => s.field === c.field);
-  return cs ? !cs.hidden : !c.hidden;
-}).map(c => {
-  const cs = colSettings.find(s => s.field === c.field);
-  return { ...c, width: cs?.width ?? c.width };
-});
-const saveColSettings = useCallback((localSettings) => {
-  try { localStorage.setItem("customer_colSettings", JSON.stringify(localSettings)); } catch {}
-  setColSettings(localSettings);
-  setF12Open(false);
-  toast("✅ Column settings saved");
-}, [toast]);
-  // ── loadCounter ───────────────────────────────────────────────────────────
   const loadCounter = useCallback(async (Startindex, PageCount, Keyword = "", Column = "", loadstatus) => {
     setLoading(true);
     const res = await CC.api(CC.SupplierSelect, null, {}, {
          Comid: Number(sess.Comid), Startindex:-1, PageCount:20,
-         AccountType:"CUSTOMER", Keyword:"", Column:"",
+         AccountType:"CUSTOMER", Keyword:Keyword, Column:Column,
        });
     setLoading(false);
 
@@ -413,6 +379,281 @@ const saveColSettings = useCallback((localSettings) => {
     setSelIdx(full.length - 1);
     setTimeout(() => focusCell(full.length - 1, grdSupplierName), 100);
   }, [sess, toast, focusCell, redirectIfDualLogin]);
+  // ── doExcelUpload (F7) ────────────────────────────────────────────────────────
+const doExcelUpload = useCallback(() => {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".csv,.xlsx";
+  inp.onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    const text = await file.text();
+
+    // Parse CSV
+ // Replace this inside doExcelUpload in CustomerMaster.jsx
+
+const parseCSV = raw => {
+  const lines = raw.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return [];
+
+  // ── Auto-detect delimiter (tab vs comma) ──
+  const firstLine = lines[0];
+  const delimiter = firstLine.includes('\t') ? '\t' : ',';
+
+  const splitLine = line => {
+    // For tab-separated, just split directly (no quoted field complexity)
+    if (delimiter === '\t') return line.split('\t').map(v => v.trim());
+
+    // For comma-separated, handle quoted fields
+    const result = []; let cur = ""; let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (ch === ',' && !inQ) { result.push(cur.trim()); cur = ""; }
+      else cur += ch;
+    }
+    result.push(cur.trim()); return result;
+  };
+
+  const hdrs = splitLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = splitLine(line);
+    const obj = {};
+    hdrs.forEach((h, i) => { obj[h.trim()] = (vals[i] || "").trim(); });
+    return obj;
+  });
+};
+
+    // Label → field key map  (matches download headers exactly)
+    const labelToKey = {
+      "Id":               grdId,
+      "Customer Name":    grdSupplierName,
+      "Tamil Name":       grdCustomerNameTamil,
+      "Code":             grdCode,
+      "Area":             grdArea,
+      "AreaId":           grdAreaId,
+      "Sales Man":        grdSalesMan,
+      "SalesManId":       grdSalesManId,
+      "Branch":           grdBranchName,
+      "BranchId":         grdBranchCompanyRefid,
+      "Address 1":        grdAddress1,
+      "Address 2":        grdAddress2,
+      "City":             grdCity,
+      "Pincode":          grdPincode,
+      "Mobile No":        grdMobileNo,
+      "Phone":            grdPhone,
+      "GSTIN No":         grdGSTINNo,
+      "Email":            grdEmail,
+      "Credit Days":      grdCreditBillDays,
+      "Credit Limit":     grdCreditBillLimit,
+      "Opening Bal":      grdOpeningBalance,
+      "CRM No":           grdCRMNo,
+      "CRM Point":        grdCRMPoint,
+      "CRM Value":        grdCRMValue,
+      "Card Type":        grdcustomercardtype,
+      "CardTypeId":       grdcustomercardtypeId,
+      "State Code":       grdPANNo,
+      "PAN No":           grdPANNo1,
+      "Place of Supply":  grdPlaceofSupply,
+      "GST Type":         grdIGSTBill,
+      "Contact Person":   grdContactPersonName,
+      "Designation":      grdDesignation,
+      "Active":           grdActive,
+    };
+
+    const records = parseCSV(text).filter(o => o["Customer Name"] || o[grdSupplierName]);
+    if (!records.length) { toast("❌ No valid rows found. Check file format.", true); return; }
+
+    const ni = v => parseInt(v)    || 0;
+    const nf = v => parseFloat(v)  || 0;
+    const bi = v => (v === "true" || v === "1" || v === true) ? 1 : 0;
+    const s  = v => String(v == null ? "" : v);
+
+    const toSave = records.map(row => {
+      // map CSV label headers → field keys
+      const mapped = {};
+      Object.entries(row).forEach(([h, v]) => {
+        const key = labelToKey[h] || h;
+        mapped[key] = v;
+      });
+      return {
+        Id:                   ni(mapped[grdId]) || null,
+        AccountType:          "CUSTOMER",
+        [grdSupplierName]:    s(mapped[grdSupplierName]).trim(),
+        [grdCustomerNameTamil]: s(mapped[grdCustomerNameTamil]),
+        [grdCode]:            s(mapped[grdCode]),
+        [grdArea]:            s(mapped[grdArea]),
+        [grdAreaId]:          ni(mapped[grdAreaId]) || null,
+        [grdSalesMan]:        s(mapped[grdSalesMan]),
+        [grdSalesManId]:      ni(mapped[grdSalesManId]) || null,
+        [grdBranchName]:      s(mapped[grdBranchName]),
+        [grdBranchCompanyRefid]: ni(mapped[grdBranchCompanyRefid]) || null,
+        [grdAddress1]:        s(mapped[grdAddress1]),
+        [grdAddress2]:        s(mapped[grdAddress2]),
+        [grdCity]:            s(mapped[grdCity]),
+        [grdPincode]:         s(mapped[grdPincode]),
+        [grdMobileNo]:        s(mapped[grdMobileNo]),
+        [grdPhone]:           s(mapped[grdPhone]),
+        [grdGSTINNo]:         s(mapped[grdGSTINNo]),
+        [grdEmail]:           s(mapped[grdEmail]),
+        [grdCreditBillDays]:  ni(mapped[grdCreditBillDays]),
+        [grdCreditBillLimit]: nf(mapped[grdCreditBillLimit]),
+        [grdOpeningBalance]:  nf(mapped[grdOpeningBalance]),
+        [grdCRMNo]:           s(mapped[grdCRMNo]),
+        [grdCRMPoint]:        nf(mapped[grdCRMPoint]),
+        [grdCRMValue]:        nf(mapped[grdCRMValue]),
+        [grdcustomercardtype]:   s(mapped[grdcustomercardtype]),
+        [grdcustomercardtypeId]: ni(mapped[grdcustomercardtypeId]) || null,
+        [grdPANNo]:           s(mapped[grdPANNo]),
+        [grdPANNo1]:          s(mapped[grdPANNo1]),
+        [grdPlaceofSupply]:   s(mapped[grdPlaceofSupply]),
+        [grdIGSTBill]:        s(mapped[grdIGSTBill]) || "GST",
+        [grdContactPersonName]: s(mapped[grdContactPersonName]),
+        [grdDesignation]:     s(mapped[grdDesignation]),
+        Active:               bi(mapped[grdActive]),
+        SalemanRefid:         ni(mapped[grdSalesManId]) || null,
+      };
+    });
+
+    const newCount  = toSave.filter(r => !r.Id || r.Id === 0).length;
+    const editCount = toSave.filter(r => r.Id  && r.Id > 0).length;
+
+    const ok = window.confirm(
+      `Upload ${toSave.length} customers?\n➕ New: ${newCount}\n✏️ Update: ${editCount}\n\nProceed?`
+    );
+    if (!ok) return;
+
+    setLoading(true);
+    const res = await CC.insertapi(CC.SupplierInsert, toSave, {
+      "Comid":                    String(sess.Comid),
+      "SupplierMulitipleAllow":   String(sess.SupplierMulitipleAllow),
+      "AccountTypeNew":           "CUSTOMER",
+      "MirrorTable":              String(sess.MirrorTable),
+      "Tamil":                    "0",
+      "IdComList":                String(sess.IdComList),
+      "ApiType":                  "1",
+    });
+    setLoading(false);
+
+    if (redirectIfDualLogin(res)) return;
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+    if (res.ok ?? res.IsSuccess) {
+      toast(`✅ ${res.message || `Uploaded — ${newCount} added, ${editCount} updated`}`);
+      await loadCounter(-1, sess.pagecount, "", "", 1);
+    } else {
+      toast(`❌ ${res.message || "Upload failed"}`, true);
+    }
+  };
+  inp.click();
+}, [sess, toast, loadCounter]);
+// ── doExcelDownload (F4) ──────────────────────────────────────────────────────
+const doExcelDownload = useCallback(async () => {
+  setLoading(true);
+  const res = await CC.api(
+    CC.SupplierSelect, null, {},
+    {
+      Comid: Number(sess.Comid), Startindex: -1, PageCount: 99999,
+      AccountType: "CUSTOMER", Keyword: "", Column: "",
+    }
+  );
+  setLoading(false);
+
+  const data = Array.isArray(res?.data)  ? res.data
+             : Array.isArray(res?.Data1) ? res.Data1
+             : grid.filter(r => r[grdId]);
+
+  if (!data?.length) { toast("No records to export", true); return; }
+
+  // Columns to export
+  const exportCols = [
+    { key: grdId,                 label: "Id"              },
+    { key: grdSupplierName,       label: "Customer Name"   },
+    { key: grdCustomerNameTamil,  label: "Tamil Name"      },
+    { key: grdCode,               label: "Code"            },
+    { key: grdArea,               label: "Area"            },
+    { key: grdAreaId,             label: "AreaId"          },
+    { key: grdSalesMan,           label: "Sales Man"       },
+    { key: grdSalesManId,         label: "SalesManId"      },
+    { key: grdBranchName,         label: "Branch"          },
+    { key: grdBranchCompanyRefid, label: "BranchId"        },
+    { key: grdAddress1,           label: "Address 1"       },
+    { key: grdAddress2,           label: "Address 2"       },
+    { key: grdCity,               label: "City"            },
+    { key: grdPincode,            label: "Pincode"         },
+    { key: grdMobileNo,           label: "Mobile No"       },
+    { key: grdPhone,              label: "Phone"           },
+    { key: grdGSTINNo,            label: "GSTIN No"        },
+    { key: grdEmail,              label: "Email"           },
+    { key: grdCreditBillDays,     label: "Credit Days"     },
+    { key: grdCreditBillLimit,    label: "Credit Limit"    },
+    { key: grdOpeningBalance,     label: "Opening Bal"     },
+    { key: grdCRMNo,              label: "CRM No"          },
+    { key: grdCRMPoint,           label: "CRM Point"       },
+    { key: grdCRMValue,           label: "CRM Value"       },
+    { key: grdcustomercardtype,   label: "Card Type"       },
+    { key: grdcustomercardtypeId, label: "CardTypeId"      },
+    { key: grdPANNo,              label: "State Code"      },
+    { key: grdPANNo1,             label: "PAN No"          },
+    { key: grdPlaceofSupply,      label: "Place of Supply" },
+    { key: grdIGSTBill,           label: "GST Type"        },
+    { key: grdContactPersonName,  label: "Contact Person"  },
+    { key: grdDesignation,        label: "Designation"     },
+    { key: grdActive,             label: "Active"          },
+  ];
+
+  const fmt = data.map(o => {
+    const out = {};
+    exportCols.forEach(c => { out[c.label] = o[c.key] ?? ""; });
+    return out;
+  });
+
+  const hdr  = Object.keys(fmt[0]).join(",");
+  const body = fmt.map(r =>
+    Object.values(r).map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
+  ).join("\n");
+
+  const blob = new Blob(["\uFEFF" + hdr + "\n" + body], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = "customermaster.csv"; a.click();
+  URL.revokeObjectURL(url);
+  toast("✅ Excel downloaded");
+}, [sess.Comid, grid, toast]);
+  // ── selectRow ─────────────────────────────────────────────────────────────
+  const selectRow = useCallback((newIdx) => {
+    setGrid(prev => prev.map((r, i) => {
+      if (i !== newIdx && r[grdEditMode] === 1 && r[grdId] && !dirtyIds.current.has(r[grdId])) {
+        return { ...r, [grdEditMode]: 0 };
+      }
+      return r;
+    }));
+    setSelIdx(newIdx);
+  }, []);
+const [colSettings, setColSettings] = useState(() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem("customer_colSettings") || "null");
+    if (saved && Array.isArray(saved)) return saved;
+  } catch {}
+  return ALL_COLUMNS.map(c => ({ field: c.field, label: c.label, hidden: c.hidden, width: c.width }));
+});
+const [f12Open, setF12Open] = useState(false);
+
+const visibleColumns = ALL_COLUMNS.filter(c => {
+  if (c.field === grdCustomerNameTamil && !sess.CustomerNameTamil) return false;
+  const cs = colSettings.find(s => s.field === c.field);
+  return cs ? !cs.hidden : !c.hidden;
+}).map(c => {
+  const cs = colSettings.find(s => s.field === c.field);
+  return { ...c, width: cs?.width ?? c.width };
+});
+const saveColSettings = useCallback((localSettings) => {
+  try { localStorage.setItem("customer_colSettings", JSON.stringify(localSettings)); } catch {}
+  setColSettings(localSettings);
+  setF12Open(false);
+  toast("✅ Column settings saved");
+}, [toast]);
+  // ── loadCounter ───────────────────────────────────────────────────────────
+  
 
   useEffect(() => { loadCounter(-1, sess.pagecount, "", "", 1); }, []); // eslint-disable-line
 
@@ -856,6 +1097,16 @@ const vn = v => parseFloat(v) || 0;
     const onKey = (e) => {
       if (anyPopup()) return;
       if (e.keyCode === 112) { e.preventDefault(); handleSave(); }   // F1
+      if (e.keyCode === 115) { // F4
+  e.preventDefault();
+  pwOkRef.current = doExcelDownload;
+  setPw({ title: "F4 Password" });
+}
+if (e.keyCode === 118) { // F7
+  e.preventDefault();
+  pwOkRef.current = doExcelUpload;
+  setPw({ title: "F7 Password" });
+}
       // inside the onKey handler, add:
       if (e.keyCode === 123) { e.preventDefault(); setF12Open(true); }  // F12
       if (e.keyCode === 113) { e.preventDefault(); loadCounter(-1, sess.pagecount, "Active", "Active", 1); } // F2
@@ -881,6 +1132,31 @@ const vn = v => parseFloat(v) || 0;
     if (activeFilter === "active" && row[grdActive] === false) return false;
     return true;
   });
+  function PwModal({ title, comid, onOk, onClose }) {
+  const [val, setVal] = useState("");
+  const verify = async () => {
+    if (!val) return;
+    const res = await CC.api(CC.LoginPasswordUrl, null, {}, { password:val, type:"EditPassword", Comid:comid });
+    if (res.ok ?? res.IsSuccess ?? false) { onOk(); onClose(); }
+    else window.alert("Invalid Password !!!");
+  };
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.45)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+      <div style={{ background:"#fff",borderRadius:8,width:280,padding:"20px 24px",boxShadow:"0 8px 32px rgba(0,0,0,0.22)" }}>
+        <div style={{ fontSize:14,fontWeight:700,marginBottom:12,color:"#1f65de" }}>🔐 {title}</div>
+        <input type="password" autoFocus value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => { if(e.key==="Enter") verify(); if(e.key==="Escape") onClose(); }}
+          style={{ width:"100%",padding:"6px 10px",border:"1px solid #c5d8f8",borderRadius:4,fontSize:13,marginBottom:14,outline:"none" }}
+          placeholder="Enter password…" />
+        <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
+          <button className="mp-btn" onClick={onClose}>Cancel</button>
+          <button className="mp-btn sv" onClick={verify}>OK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
    function F12Popup() {
   const [local, setLocal] = useState(colSettings.map(s => ({ ...s })));
   return (
@@ -940,6 +1216,14 @@ const vn = v => parseFloat(v) || 0;
   return (
     <div className="mp-wrap supplier-page">
       {ConfirmUI}
+      {pw && (
+  <PwModal
+    title={pw.title}
+    comid={sess.Comid}
+    onOk={() => { pwOkRef.current?.(); }}
+    onClose={() => setPw(null)}
+  />
+)}
       {f12Open && <F12Popup />}
       <Topbar />
 
@@ -1012,7 +1296,7 @@ const vn = v => parseFloat(v) || 0;
         {/* ── Toolbar ── */}
         {/* ── TOP TOOLBAR: Save + F12 + Title + Filter ── */}
 <div className="mp-toolbar" style={{
-  borderBottom: "2px solid #1a2e4a",
+ 
   display: "flex", alignItems: "center",
   gap: 6, padding: "6px 10px", flexWrap: "wrap",
 }}>
@@ -1133,12 +1417,21 @@ const vn = v => parseFloat(v) || 0;
 </div>
 {/* ── BOTTOM TOOLBAR: Action buttons ── */}
 <div className="mp-toolbar" style={{
-  borderTop: "2px solid #1a2e4a",
+ 
   display: "flex", alignItems: "center",
   gap: 6, padding: "6px 10px", flexWrap: "wrap",
 }}>
   <button className="mp-btn nw" onClick={addRow} disabled={loading}>➕ Add Row</button>
     <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
+    <button className="mp-btn ex"
+  onClick={() => { pwOkRef.current = doExcelDownload; setPw({ title:"F4 Password" }); }}>
+  📥 F4 Excel↓
+</button>
+
+<button className="mp-btn ex"
+  onClick={() => { pwOkRef.current = doExcelUpload; setPw({ title:"F7 Password" }); }}>
+  📤 F7 Excel↑
+</button>
   <button className="mp-btn"
     style={{ background: "var(--color-background-secondary)", color: "var(--color-text-primary)", border: "1px solid #9ca3af" }}
     onClick={() => setF12Open(true)}>

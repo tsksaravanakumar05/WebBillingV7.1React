@@ -206,6 +206,8 @@ const applyChange = (prev, colKey, value) => {
   // ── DMAmt / DMPer ──
   if (colKey === "DMAmt") { const M = vn(u.MRP), DA = vn(fv); u.DMPer = M > 0 ? f2(ro(DA / M * 100)) : 0; }
   if (colKey === "DMPer") { const M = vn(u.MRP), DP = vn(fv); u.DMAmt = f2(ro(M * DP / 100)); }
+    if (colKey === "DMAmt") { const M = vn(u.MRP), DA = vn(fv); u.DMPer = M > 0 ? f2(ro(DA / M * 100)) : 0; }
+  if (colKey === "DMPer") { const M = vn(u.MRP), DP = vn(fv); u.DMAmt = f2(ro(M * DP / 100)); }
 
   return u;
 };
@@ -605,6 +607,15 @@ const saveBarcodes = useCallback(async () => {
   const rowRefs   = useRef([]);
   const draftOk   = useRef(false);
 
+  // Add this helper function
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   useEffect(() => {
     if (!adminOpen) return;
     const h = e => { if (adminRef.current && !adminRef.current.contains(e.target)) setAdminOpen(false); };
@@ -670,7 +681,7 @@ const saveBarcodes = useCallback(async () => {
       const code = d!==0 ? p+String(mc).padStart(d,"0") : (p===""?String(mc):p+String(mc));
       return { ...r, ProductCode:code, _dirty:true };
     } catch { return r; }
-  }, [sess]);
+  }, [sess,redirectIfDualLogin]);
 
   const resetEntry = useCallback(async () => {
     let r=mkEmpty(); r=await autoGenCode(r);
@@ -694,7 +705,7 @@ const saveBarcodes = useCallback(async () => {
         return s ? { ...col, visible:s.Visible===true, width:Number(s.Width)||col.width } : col;
       }));
     } catch {}
-  }, [sess.Comid]);
+  }, [sess.Comid,redirectIfDualLogin]);
 
   const saveColCfg = useCallback(async newCols => {
     setF12Open(false); setLoading(true);
@@ -706,7 +717,7 @@ const saveBarcodes = useCallback(async () => {
       else toast(`❌ ${data.message||"Failed"}`, true);
     } catch { toast("❌ Error saving columns", true); }
     finally { setLoading(false); }
-  }, [sess.Comid, toast, loadColCfg]);
+  }, [sess.Comid, toast, loadColCfg,redirectIfDualLogin]);
 
   const loadDropdowns = useCallback(async () => {
     const [br,ca,de,su,uo,lo] = await Promise.all([
@@ -717,7 +728,9 @@ const saveBarcodes = useCallback(async () => {
       CC.api(CC.UOMSelect,         null,{},{Comid:sess.Comid}),
       CC.api(CC.LocationSelect,    null,{},{Comid:sess.Comid}),
     ]);
+    if (redirectIfDualLogin(br)) return;
     const pick = r => r.data||r.Data1||[];
+
     const nBL=!br._netErr?pick(br):brandL, nCL=!ca._netErr?pick(ca):catL, nDL=!de._netErr?pick(de):deptL;
     const nSL=!su._netErr?pick(su):supL,   nUL=!uo._netErr?pick(uo):uomL, nLL=!lo._netErr?pick(lo):locL;
     if(!br._netErr)setBrandL(nBL); if(!ca._netErr)setCatL(nCL);
@@ -732,13 +745,14 @@ const saveBarcodes = useCallback(async () => {
       LocationMaster:{list:nLL,idKey:"Id",nameKey:"LocationName",fId:"LocationMasterId",fName:"LocationMaster"},
     };
   // eslint-disable-next-line
-  },[sess.Comid]);
+  },[sess.Comid,redirectIfDualLogin]);
 // ── Auto edit-mode when filter results in exactly 1 row ──────────────
 
   const loadItems = useCallback(async (kw="",col="",isInit=false) => {
     setLoading(true); setLdMsg("Loading Item Master...");
     const res = await CC.api(CC.ItemSelect, null, {"Download":"0"}, { Comid:sess.Comid,Startindex:0,PageCount:99999,Keyword:kw,Column:col,webtype:1 });
     setLoading(false);
+     if (redirectIfDualLogin(res)) return;
     if(res._http404){toast(`❌ 404: ${res.message}`,true);return;}
     if(res._netErr) {toast(`❌ ${res.message}`,true);return;}
     const arr = Array.isArray(res.data)?res.data:Array.isArray(res)?res:[];
@@ -764,7 +778,7 @@ setPage(Math.max(1, Math.ceil(fmt.length / ROWS_PER_PAGE)));
     let list=cfg.list;
     if(colKey==="Department"&&entryRow?.CategoryId){const sub=deptAll.filter(d=>String(d.CategoryRefId)===String(entryRow.CategoryId));if(sub.length)list=sub;}
     setDdPop({...cfg,list,field:colKey}); setDdCtx({rid:entryRow._rid,colKey,isEntry:true}); setDdQ(ns(entryRow?.[cfg.fName])); setDdHilite(0);
-  }, [comboCfg,entryRow,deptAll]);
+  }, [comboCfg,entryRow,deptAll,redirectIfDualLogin]);
 
   const openCombo = useCallback((rid,colKey) => {
     const cfg=comboCfg[colKey]; if(!cfg) return;
@@ -773,7 +787,7 @@ setPage(Math.max(1, Math.ceil(fmt.length / ROWS_PER_PAGE)));
     const row=rows.find(r=>r._rid===rid);
     try{sessionStorage.setItem(ITEM_CURSOR_KEY,JSON.stringify({rid,colKey}));}catch{}
     setDdPop({...cfg,list,field:colKey}); setDdCtx({rid,colKey,isEntry:false}); setDdQ(ns(row?.[cfg.fName])); setDdHilite(0);
-  }, [comboCfg,rows,deptAll]);
+  }, [comboCfg,rows,deptAll,redirectIfDualLogin]);
 
   const ddFilt    = ddPop ? ddPop.list.filter(x=>String(x[ddPop.nameKey]||"").toLowerCase().includes(ddQ.toLowerCase())) : [];
   const isNewVal  = ddPop && ddQ.trim() && !ddPop.list.some(i=>String(i[ddPop.nameKey]||"").toLowerCase()===ddQ.trim().toLowerCase());
@@ -865,10 +879,11 @@ const validateRow = useCallback(async row => {
     setLoading(true);setLdMsg("Deleting...");
     const res=await CC.api(CC.ItemDelete,null,{"IdComList":String(sess.IdComList)},{Id:row.Id,Comid:sess.Comid,MirrorTable:sess.MirrorTable});
     setLoading(false);
+     if (redirectIfDualLogin(res)) return;
     if(res._netErr){toast(`❌ ${res.message}`,true);return;}
     if(res.ok){toast("✅ "+(res.message||"Deleted"));setRows(prev=>prev.filter(r=>r._rid!==rid));if(selRid===rid)setSelRid(null);}
     else toast(`❌ ${res.message||"Delete failed"}`,true);
-  }, [rows,perm,confirm,toast,sess,selRid]);
+  }, [rows,perm,confirm,toast,sess,selRid,redirectIfDualLogin]);
 
   const doSave = useCallback(async () => {
     if (!perm.Add && !perm.Edit) { toast("❌ Page Add & Update Permission Denied !!!", true); return; }
@@ -889,6 +904,7 @@ const validateRow = useCallback(async row => {
     const payload = toSave.map(buildPayload);
     const res = await CC.insertapi(CC.ItemInsert, payload, hdrs);
     setLoading(false);
+     if (redirectIfDualLogin(res)) return;
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
     if (res.ok ?? res.IsSuccess) {
       dirtyIds.current.clear();
@@ -902,7 +918,7 @@ const validateRow = useCallback(async row => {
         setRows(prev => prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r));
       }
     } else { toast(`❌ ${res.message || "Save failed"}`, true); }
-  }, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry]);
+  }, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry,redirectIfDualLogin]);
 
   const entryRowIndex = rows.length;
   const doExcelUpload = useCallback(() => {
@@ -1029,7 +1045,7 @@ const validateRow = useCallback(async row => {
     }
   };
   inp.click();
-}, [sess, toast, loadItems]);
+}, [sess, toast, loadItems,redirectIfDualLogin]);
 const doExcelDownload = useCallback(async () => {
   setLoading(true); setLdMsg("Preparing Excel...");
   const res = await CC.api(
@@ -1038,6 +1054,7 @@ const doExcelDownload = useCallback(async () => {
     { Comid: sess.Comid, Startindex: 0, PageCount: 99999, Keyword: "", Column: "" }
   );
   setLoading(false);
+   if (redirectIfDualLogin(res)) return;
   const data1 = (res.data || res.Data1 || rows.filter(r => r.Id));
   if (!data1?.length) { toast("No records to export", true); return; }
 
@@ -1067,33 +1084,33 @@ const fmt = data1.map((o) => {
   toast("✅ Excel downloaded");
 }, [sess.Comid, rows, toast]);
 const handleEntryKeyDown = useCallback((e, colKey) => {
-  if (e.key === "Enter") {
-    // ── MultiMRP check ──────────────────────────────────────
+  const colIdx = editableKeys.indexOf(colKey);
+
+  if (e.key === "ArrowRight") {
+    e.preventDefault();
+    if (colIdx < editableKeys.length - 1) focusEntry(editableKeys[colIdx + 1]);
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    if (colIdx > 0) focusEntry(editableKeys[colIdx - 1]);
+  } else if (e.key === "Enter") {
+    // Keep your existing multi-mrp logic here
     if (colKey === "ProductCode" && sess.MulipleMRP) {
       e.preventDefault();
       handleMultiMRP(colKey, entryRowRef.current?.ProductCode).then(handled => {
         if (!handled) {
-          // normal Enter navigation
-          const colIdx = editableKeys.indexOf(colKey);
-          const proxyRefs = { current: [] };
-          proxyRefs.current[0] = {};
+          const proxyRefs = { current: [{}] };
           editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k]; });
           CC.handleEnterNext(e, proxyRefs, 0, colIdx, editableKeys.length, 1, doSave, [entryRowRef.current], rowValidator);
         }
       });
       return;
     }
-    // ── normal Enter ─────────────────────────────────────────
-    const colIdx = editableKeys.indexOf(colKey);
-    const proxyRefs = { current: [] };
-    proxyRefs.current[0] = {};
+    const proxyRefs = { current: [{}] };
     editableKeys.forEach((k, i) => { proxyRefs.current[0][i] = entryRefs.current[k]; });
     CC.handleEnterNext(e, proxyRefs, 0, colIdx, editableKeys.length, 1, doSave, [entryRow], rowValidator);
-    return;
   }
-  // ... rest of Tab/Arrow handlers unchanged
 // eslint-disable-next-line
-}, [editableKeys, focusEntry, focusCell, entryRow, rowValidator, doSave, entryRowIndex, sess, handleMultiMRP]);
+}, [editableKeys, focusEntry, doSave, entryRow, sess, handleMultiMRP, rowValidator,redirectIfDualLogin]);
 
   const filteredRows = rows.filter(r => {
     for(const[k,v]of Object.entries(colFilters)){if(!v?.trim())continue;if(!String(r[k]??"").toLowerCase().includes(v.trim().toLowerCase()))return false;}
@@ -1116,19 +1133,46 @@ const handleEntryKeyDown = useCallback((e, colKey) => {
     const s=new Set([1,totPages]); for(let i=Math.max(1,page-3);i<=Math.min(totPages,page+3);i++)s.add(i); return Array.from(s).sort((a,b)=>a-b);
   })();
 
-  const handleCellKeyDown = useCallback((e, rid, colKey) => {
-    if (e.key === "Enter") {
-      const rowIdx = pagedRows.findIndex(r => r._rid === rid);
-      const colIdx = editableKeys.indexOf(colKey);
-      CC.handleEnterNext(e, { current:rowRefs.current }, rowIdx, colIdx, editableKeys.length, pagedRows.length, () => { focusEntry(editableKeys[0]); }, pagedRows, rowValidator);
-      return;
+const handleCellKeyDown = useCallback((e, rid, colKey) => {
+  const rowIdx = pagedRows.findIndex(r => r._rid === rid);
+  const colIdx = editableKeys.indexOf(colKey);
+
+  // 1. RIGHT ARROW: Next column, or first column of next row
+  if (e.key === "ArrowRight") {
+    e.preventDefault();
+    if (colIdx < editableKeys.length - 1) {
+      focusCell(rid, editableKeys[colIdx + 1]);
+    } else if (rowIdx < pagedRows.length - 1) {
+      focusCell(pagedRows[rowIdx + 1]._rid, editableKeys[0]);
     }
-    if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); const i=editableKeys.indexOf(colKey); if(i<editableKeys.length-1) focusCell(rid,editableKeys[i+1]); return; }
-    if (e.key === "Tab" && e.shiftKey)  { e.preventDefault(); const i=editableKeys.indexOf(colKey); if(i>0) focusCell(rid,editableKeys[i-1]); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); const ri=pagedRows.findIndex(r=>r._rid===rid); if(ri<pagedRows.length-1) focusCell(pagedRows[ri+1]._rid,colKey); return; }
-    if (e.key === "ArrowUp")   { e.preventDefault(); const ri=pagedRows.findIndex(r=>r._rid===rid); if(ri>0) focusCell(pagedRows[ri-1]._rid,colKey); else focusEntry(colKey); return; }
-  // eslint-disable-next-line
-  }, [editableKeys,focusCell,focusEntry,pagedRows,rowValidator]);
+  }
+
+  // 2. LEFT ARROW: Previous column, or last column of previous row
+  if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    if (colIdx > 0) {
+      console.log("Moving from row:", rid, "to:", pagedRows[rowIdx - 1]._rid);
+      focusCell(rid, editableKeys[colIdx - 1]);
+    } else if (rowIdx > 0) {
+      console.log("Moving from row:", rid, "to:", pagedRows[rowIdx - 1]._rid);
+      focusCell(pagedRows[rowIdx - 1]._rid, editableKeys[editableKeys.length - 1]);
+    }
+  }
+
+  // 3. Keep other navigation (Enter, Tab, Up/Down)
+  if (e.key === "Enter") {
+    e.preventDefault();
+    CC.handleEnterNext(e, { current: rowRefs.current }, rowIdx, colIdx, editableKeys.length, pagedRows.length, () => focusEntry(editableKeys[0]), pagedRows, rowValidator);
+  } else if (e.key === "ArrowDown" && rowIdx < pagedRows.length - 1) {
+    e.preventDefault();
+    focusCell(pagedRows[rowIdx + 1]._rid, colKey);
+  } else if (e.key === "ArrowUp" && rowIdx > 0) {
+    e.preventDefault();
+    focusCell(pagedRows[rowIdx - 1]._rid, colKey);
+  }
+
+// eslint-disable-next-line
+}, [editableKeys, focusCell, focusEntry, pagedRows, rowValidator]);
 
   const anyOpen = f12Open||ddPop||bsrOpen||gcOpen||tnOpen||pw||adminOpen;
   useEffect(() => {

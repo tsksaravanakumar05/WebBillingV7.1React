@@ -87,10 +87,17 @@ export default function ColorMaster() {
 
     if (!menuStr) {
       alert("Session Close Please Login !!!.");
-      navigate("/Login/Index");
+      navigate("/");
       return;
     }
-
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
     const menulist = JSON.parse(menuStr);
     const menudata = menulist.filter(obj => obj.PageName === "Item Master");
 
@@ -182,7 +189,7 @@ export default function ColorMaster() {
       {},
       { Comid: sess.Comid }
     );
-
+if (redirectIfDualLogin(res)) return;
     setLoading(false);
 
     if (res._http404) { toast(`❌ 404 — ${CC.SelectColor} not found`, true); }
@@ -272,6 +279,7 @@ export default function ColorMaster() {
       );
 
       setLoading(false);
+      if (redirectIfDualLogin(res)) return;
       if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
       if (res.ok) {
@@ -399,7 +407,7 @@ export default function ColorMaster() {
     );
 
     setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.IsSuccess || res.ok) {

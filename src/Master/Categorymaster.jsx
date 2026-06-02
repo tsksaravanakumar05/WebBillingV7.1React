@@ -88,7 +88,15 @@ export default function CategoryMaster() {
     { field: "Cat_Name", label: "Category Name", width: 300, hidden: false },
     { field: "Active",   label: "Active",         width: 80,  hidden: false },
   ];
-
+ 
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // ── Column settings state (F12) ─────────────────────────────────────────────
   const [colSettings, setColSettings] = useState(() =>
     ALL_COLUMNS.map(c => ({ field: c.field, label: c.label, hidden: c.hidden, width: c.width }))
@@ -320,7 +328,7 @@ export default function CategoryMaster() {
       { Comid: sess.Comid }
     );
     setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
     if (res._http404) { toast(`❌ 404 — ${CC.CategorySelect} not found`, true); }
     if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
 
@@ -389,7 +397,7 @@ export default function CategoryMaster() {
         { Id: Number(row.Id), Comid: Number(sess.Comid), MirrorTable: Number(sess.MirrorTable) }
       );
       setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
       if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
       if (res.ok) {
@@ -522,7 +530,7 @@ export default function CategoryMaster() {
     );
 
     setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.IsSuccess) {

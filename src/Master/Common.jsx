@@ -157,6 +157,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
+        "Accept": "application/json",
         ...authHeaders(),
         ...extraHeaders,
       },
@@ -166,7 +167,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
 
     // ── standard HTTP error handling ──
     if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
+     
         return { ok: false, _dualLogin: true };
       
     }

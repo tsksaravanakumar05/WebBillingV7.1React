@@ -31,7 +31,15 @@ export default function BrandMaster() {
   // Store permissions in state so the rest of your component can use them
   const [perm,         setPerm        ] = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
   const [isAuthorized, setIsAuthorized] = useState(false);
-
+ 
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // Permission guard — redirect if no menu entry or View === 0
   useEffect(() => {
     const menuStr = localStorage.getItem("menulist");
@@ -299,7 +307,7 @@ export default function BrandMaster() {
     );
 
     setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
     if (res._http404) { toast(`❌ 404 — ${CC.BrandSelect} not found`, true); }
     if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
 
@@ -378,7 +386,7 @@ export default function BrandMaster() {
       );
 
       setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
       if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
       if (res.ok || res.IsSuccess) {
@@ -501,7 +509,7 @@ export default function BrandMaster() {
     );
 
     setLoading(false);
-
+    if (redirectIfDualLogin(res)) return;
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.IsSuccess) {

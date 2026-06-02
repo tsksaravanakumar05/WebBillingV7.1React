@@ -188,6 +188,7 @@ export default function CardMaster() {
   const loadBanks = useCallback(async () => {
     try {
       const res = await CC.api(CC.BankAllSelect, null, {}, { Comid: sess.Comid });
+      if (redirectIfDualLogin(res)) return;
       const list = Array.isArray(res.data)  ? res.data
                  : Array.isArray(res.Data1) ? res.Data1
                  : [];
@@ -202,7 +203,7 @@ export default function CardMaster() {
     setLoading(true);
     const res = await CC.api(CC.SelectCardMaster, null, {}, { Comid: sess.Comid });
     setLoading(false);
-
+    if (redirectIfDualLogin(res)) return;
     if (res._http404) { toast(`❌ 404 — SelectCardMaster not found`, true); return; }
     if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); return; }
 
@@ -239,7 +240,15 @@ export default function CardMaster() {
       loadData();
     }
   }, [isAuthorized, loadBanks, loadData]);
-
+ 
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // ── addRow ─────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
     setGrid(prev => {
@@ -288,7 +297,7 @@ export default function CardMaster() {
         { Id: row.Id, Comid: sess.Comid, MirrorTable: sess.MirrorTable }
       );
       setLoading(false);
-
+if (redirectIfDualLogin(res)) return;
       if (res.IsSuccess || res.ok) {
         toast("✅ " + (res.Message || res.message || "Deleted"));
         setGrid(prev => {
@@ -427,6 +436,7 @@ export default function CardMaster() {
     );
 
     setLoading(false);
+    if (redirectIfDualLogin(res)) return;
     reqCtrl.current.end();
 
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }

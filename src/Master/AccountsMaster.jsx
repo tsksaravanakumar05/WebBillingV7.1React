@@ -293,7 +293,14 @@ export default function AccountsMaster() {
     setComid(localStorage.getItem("Comid"));
     setIsAuthorized(true);
   }, [navigate]);
-
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   useEffect(() => {
     if (isAuthorized) {
       loadtree();
@@ -378,6 +385,7 @@ export default function AccountsMaster() {
     );
     setLoading(false);
 
+if (redirectIfDualLogin(res)) return;
     if (res._http404) { toast(`❌ 404 — SelectAccountGroup not found`, true); return; }
     if (res._netErr)  { toast(`❌ Network error loading account tree.`, true); return; }
 
@@ -637,6 +645,7 @@ export default function AccountsMaster() {
     setLoading(false);
     requestFlagRef.current = false;
 
+if (redirectIfDualLogin(res)) return;
     if (res._netErr) { toast(`❌ Network error saving account head.`, true); return; }
 
     if (res.ok || res.IsSuccess) {
@@ -723,6 +732,7 @@ export default function AccountsMaster() {
 
       setLoading(false);
 
+if (redirectIfDualLogin(res)) return;
       if (res._netErr) { toast(`❌ Network error deleting account.`, true); return; }
 
       if (res.ok || res.IsSuccess) {
