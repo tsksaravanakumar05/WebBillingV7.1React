@@ -26,6 +26,11 @@ export const CashierInsert = "/api/CashierApp/InsertCashier";
 export const CashierDelete = "/api/CashierApp/DeleteCashier";
 export const SelectCounter = "/api/CashierApp/SelectCounter_local";
 
+
+// Add these to section 5 (or the relevant API section) in Common.jsx
+export const ASelectCompanySetting = "/api/loginApp/SelectCompanySetting";
+export const UpdateCompanySetting  = "/api/loginApp/UpdateCompanySetting";
+export const ScriptUpdate          = "/api/loginApp/UpdateScript"; // Assuming this exists based on your code
 // ─── 4. TRANSACTION PASSWORD API ENDPOINT CONSTANTS ──────────────────────────
 export const TxnSelectPassword = "/api/LoginApp/SelectTransactionPassword";
 export const TxnUpdatePassword = "/api/LoginApp/UpdateTransactionPassword";
@@ -57,19 +62,60 @@ export const BrandDelete = "/api/BrandApp/DeleteBrand";
   export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";
  
   //SizeMaster
+
   export const SizeSelect = "/api/SizeMasterApp/SelectSizeMaster";
   export const SizeInsert = "/api/SizeMasterApp/InsertSizeMaster";
   export const SizeDelete = "/api/SizeMasterApp/DeleteSizeMaster";
  
-  //ColorMaster
-  export const SelectColor = "/api/ColorMasterApp/SelectColorMaster";
-  export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
-  export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
+// ─── Color Master ─────────────────────────────────────────────────────────────
+export const SelectColor = "/api/ColorMasterApp/SelectColorMaster";
+export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
+export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
+
+// ─── Model Master ─────────────────────────────────────────────────────────────
+export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
+export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
+export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
+
+  // ─── Rate Change ──────────────────────────────────────────────────────────────
+export const RateChangeUpdate     = "/api/ItemMasterApp/UpdateRateChange";
+export const RateChangeItemSelect = "/api/ItemMasterApp/SelectItemMaster";
+export const RateChangeItemByCode = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+
+//  Used by both SupplierMaster and CustomerMaster popup windows.
+export const AreaSelect         = "/api/AreaApp/SelectArea";
+export const CustomerCardSelect = "/api/CustomerCardTypeApp/SelectCustomerCardType";
+export const BranchSelect       = "/StockTransferApp/SelectCompany";
+// ─── Card Master ──────────────────────────────────────────────────────────────
+export const InsertCardMaster = "/api/CardMasterApp/InsertCardMaster";
+export const SelectCardMaster = "/api/CardMasterApp/SelectCardMaster";
+export const DeleteCardMaster = "/api/CardMasterApp/DeleteCardMaster";
  
-  //ModelMaster
-  export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
-  export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
-  export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
+// ─── UOM ──────────────────────────────────────────────────────────────────────
+export const SelectUOM = "/api/UOMApp/SelectUOM";
+export const InsertUOM = "/api/UOMApp/InsertUOM";
+export const DeleteUOM = "/api/UOMApp/DeleteUOM";
+// ─── CUSTOMER / SUPPLIER ─────────────────────────────────────────────────────
+export const GetSupplierAll       = "/api/SupplierApp/SelectSupplierAll_v7";   // AccountType=CUSTOMER or SUPPLIER
+export const GetSupplier          = "/api/SupplierApp/SelectSupplierAll_v7";
+export const CurrentBalance       = "/api/SupplierApp/CurrentBalance";
+export const SelectCustomerSaleRate = "/api/SupplierApp/InsertCustomerSaleRate"; // CustomerwiseSaleRate
+
+
+//purchases
+
+  export const MaxPurchaseNo = "/api/PurchaseApp/MaxPurchaseNo";
+  export const SupplierList = "/api/SupplierApp/SelectSupplierAll";
+  export const SupplierById = "/api/SupplierApp/SupplierById";
+  export const GetProductListV7 = "/api/ItemMasterApp/GetProductListV7";
+  export const InsertPurchase = "/api/PurchaseApp/InsertPurchase";
+  export const EditPurchase = "/api/PurchaseApp/EditPurchase";
+  export const EditPassword = "/api/loginApp/EditPassword";
+  export const DeletePurchase = "/api/PurchaseApp/DeletePurchase";
+  export const PurchaseList = "/api/PurchaseApp/PurchaseList";
+  export const SelectPurchase = "/api/PurchaseApp/SelectPurchase";
+  export const FocusColumns = "/api/loginApp/FocusColumns";
+
 
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
@@ -110,6 +156,26 @@ const mkUrl = (path) => BASE_URL + path;
  * @param {string} pageName  - must match the PageName stored in "menulist"
  * @returns {{ Comid, MComid, IdComList, MirrorTable, menudata }}
  */
+// export const buildSession = (pageName) => {
+//   try {
+//     const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
+//     const Comid       = getStr("Comid")    || "1";
+//     const MComid      = getStr("MComid")   || Comid;
+//     const IdComList   = getStr("IdComList") || Comid;
+//     const MirrorTable = getStr("MirrorTableOnline") || "0";
+//     return {
+//       Comid:    main0.CommonCompany ? MComid : Comid,
+//       MComid,
+//       IdComList,
+//       MirrorTable,
+//       menudata: (getLocal("menulist") || []).filter(o => o.PageName === pageName),
+//     };
+//   } catch {
+//     return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: "0", menudata: [] };
+//   }
+// };
+
+// ─── 8. API HELPERS ───────────────────────────────────────────────────────────
 export const buildSession = (pageName) => {
   try {
     const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
@@ -123,14 +189,27 @@ export const buildSession = (pageName) => {
       IdComList,
       MirrorTable,
       menudata: (getLocal("menulist") || []).filter(o => o.PageName === pageName),
+
+      // ── Purchase-specific settings from Mainsetting ──
+      batchstockstatus:       String(main0.batchstockstatus       ?? 0),
+   
+      ItemMasterRateUpdate:   String(main0.ItemMasterRateUpdate   ?? false),
+      Commoncompany:          String(main0.CommonCompany          ?? false),
+      CommoncompanyDiffStock: String(main0.CommonCompanyDiffStock ?? false),
+      SupplierMulitipleAllow: String(main0.SupplierMulitipleAllow ?? false),
+      MulipleMRP:             String(main0.MulipleMRP             ?? false),
+      BatchPerfix:            String(main0.BatchPerfix            ?? ""),
+      BatchDigit:             String(main0.BatchNoDigit             ?? 0),
+      LocalDB:                String(main0.LocalDB                ?? 0),
     };
   } catch {
-    return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: "0", menudata: [] };
+    return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: "0", menudata: [],
+             batchstockstatus: "0", ItemMasterRateUpdate: "false",
+             Commoncompany: "false", CommoncompanyDiffStock: "false",
+             SupplierMulitipleAllow: "false", MulipleMRP: "false",
+             BatchPerfix: "", BatchDigit: "0", LocalDB: "0" };
   }
 };
-
-// ─── 8. API HELPERS ───────────────────────────────────────────────────────────
-
 /**
  * api()
  * General-purpose POST (with optional query-string params).
@@ -206,10 +285,30 @@ export const insertapi = async (path, body = null, extraHeaders = {}) => {
       },
       body: body != null ? JSON.stringify(body) : null,
     });
+
+    if (res.status === 406) return { ok: false, _dualLogin: true };
+    if (res.status === 500) {
+      const t = await res.text();
+      // Server returned HTML error page — extract meaningful message
+      const match = t.match(/<i>(.*?)<\/i>/);
+      const msg = match ? match[1] : (t.slice(0, 300));
+      console.error("500 InsertAPI:", msg);
+      return { ok: false, IsSuccess: false, Message: msg, message: msg };
+    }
+
     const text = await res.text();
-    return JSON.parse(text);
+    if (!text.trim()) return { ok: false, IsSuccess: false, Message: "Empty response", message: "Empty response" };
+
+    try {
+      const j = JSON.parse(text);
+      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
+      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
+      return j;
+    } catch {
+      return { ok: false, IsSuccess: false, message: text.slice(0, 300) };
+    }
   } catch (err) {
-    return { ok: false, message: err.message };
+    return { ok: false, _netErr: true, message: err.message };
   }
 };
 

@@ -80,7 +80,14 @@ export default function ColorMaster() {
   // ── Permission / authorization state (mirrors DepartmentMaster) ────────────
   const [perm,         setPerm        ] = useState({ View:0, Add:0, Edit:0, Delete:0 });
   const [isAuthorized, setIsAuthorized] = useState(false);
-
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // ── Permission guard — same useEffect pattern as DepartmentMaster ───────────
   useEffect(() => {
     const menuStr = localStorage.getItem("menulist");
@@ -90,14 +97,7 @@ export default function ColorMaster() {
       navigate("/");
       return;
     }
-const redirectIfDualLogin = useCallback((res) => {
-  if (res?._dualLogin || res?.redis === false) {
-    alert("Already Login Another User Please Login Again!!!");
-    navigate("/"); // Redirect to your specific login path
-    return true;
-  }
-  return false;
-}, [navigate]);
+
     const menulist = JSON.parse(menuStr);
     const menudata = menulist.filter(obj => obj.PageName === "Item Master");
 
@@ -128,7 +128,7 @@ const redirectIfDualLogin = useCallback((res) => {
       const main0     = (CC.getLocal("Mainsetting") || [{}])[0] || {};
       const Comid     = CC.getStr("Comid")    || "1";
       const MComid    = CC.getStr("MComid")   || Comid;
-      const IdComList = CC.getStr("IdComList") || Comid;
+      const IdComList = "";
       const isCC      = !!main0.CommonCompany;
       return {
         Comid:       isCC ? MComid : Comid,
