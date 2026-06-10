@@ -152,10 +152,10 @@ export const SupplierMasterDelete = "/api/SupplierApp/DeleteSupplier";
   export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
   export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
  
-  //ModelMaster
-  export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
-  export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
-  export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
+// ─── Model Master ─────────────────────────────────────────────────────────────
+export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
+export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
+export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
 
   //purchases
 
