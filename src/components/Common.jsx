@@ -51,11 +51,91 @@ export const BrandSelect = "/api/BrandApp/SelectBrand";
 export const BrandInsert = "/api/BrandApp/InsertBrand";
 export const BrandDelete = "/api/BrandApp/DeleteBrand";
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ADD THESE CONSTANTS TO YOUR EXISTING Common.jsx
+//  Place after the existing CashierDelete line
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── SALE API CONSTANTS ───────────────────────────────────────────────────────
+const SaleMaxNo           = "/api/SaleApp/MaxSaleNo";
+const SaleInsertUrl       = "/api/SaleApp/InsertSale";
+const SaleEditUrl         = "/api/SaleApp/EditSale";
+const SaleSelectUrl       = "/api/SaleApp/SelectSaleV7";
+const SaleDeleteUrl       = "/api/SaleApp/DeleteSale";
+const BillHoldSelectUrl   = "/api/SaleApp/BillHoldName";
+const BillHoldInsertUrl   = "/api/SaleApp/BillHold";
+const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
+const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
+const SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+const ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
+const GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
+const SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
+const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
+const CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
+
+const F5SelectUrl         = "/api/SaleApp/SelectSaleV7";
+const VisibleColumnsUrl   = "/Login/VisibleColumns";
+const FocusColumnsUrl     = "/Login/FocusColumns";
+const CurrentBalanceUrl = "/SupplierApp/CurrentBalance";
+const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock"; // adjust to your actual endpoint
+
+// ─── ITEM MASTER (for product search in grid) ────────────────────────────────
+export const SelectItemMasterbyId = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+export const SelectExpDate        = "/api/ItemMasterApp/SelectExpStock";
+
+// ─── CUSTOMER / SUPPLIER ─────────────────────────────────────────────────────
+export const GetSupplierAll       = "/api/SupplierApp/SelectSupplierAll_v7";   // AccountType=CUSTOMER or SUPPLIER
+export const GetSupplier          = "/api/SupplierApp/SelectSupplierAll_v7";
+export const CurrentBalance       = "/api/SupplierApp/CurrentBalance";
+export const SelectCustomerSaleRate = "/api/SupplierApp/InsertCustomerSaleRate"; // CustomerwiseSaleRate
+
+// ─── SALESMAN ────────────────────────────────────────────────────────────────
+export const SalesManSelectV7     = "/api/SalesManApp/SelectSalesMan_V7";
+
+// ─── CARD MASTER (Payment Types) ─────────────────────────────────────────────
+
+export const SelectSaleType       = "/api/SaleApp/SelectSaleType";  // alias
+
+
+// ─── CRM ─────────────────────────────────────────────────────────────────────
+export const CRMBalance           = "/api/SalesReportApp/CRMBalanceReport";
+
+// ─── LOGIN PASSWORD (for F6 Edit / F9 Delete password) ───────────────────────
+export const LoginPasswordUrl     = "/api/LoginApp/EditPassword";
+
+        //BankApp
+        //public static string BankMaxNo = "/CashApp/MaxAdjustmentNo";
+        export const BankDateSelect = "/api/BankApp/SelectBankDate";
+        export const BankAllSelect = "/api/BankApp/SelectBankList";
+        export const BankSelect = "/api/BankApp/SelectBank";
+        export const BankInsert = "/api/BankApp/InsertBank";
+        export const BankDelete = "/api/BankApp/DeleteBank";
+
+        //CardMasterApp
+        export const InsertCardMaster = "/api/CardMasterApp/InsertCardMaster";
+        export const SelectCardMaster = "/api/CardMasterApp/SelectCardMaster";
+        export const DeleteCardMaster = "/api/CardMasterApp/DeleteCardMaster";
+
+        //AccountGroupApp
+        export const SelectAccountGroup = "/api/AccountGroupApp/SelectAccountGroup";
+        export const InsertAccountGroup = "/api/AccountGroupApp/InsertAccountGroup";
+        export const DeleteAccountGroup = "/api/AccountGroupApp/DeleteAccountGroup";
+        //UOM
+        export const UOMSelect = "/api/UOMApp/SelectUOM";
+        export const UOMInsert = "/api/UOMApp/InsertUOM";
+        export const UOMDelete = "/api/UOMApp/DeleteUOM";
   //Salesman
   export const SalesManSelect = "/api/SalesManApp/SelectSalesMan"; 
   export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
   export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";
  
+
+          // ─── Supplier Master API Links ────────────────────────────────────────────────
+export const SupplierMasterSelect = "/api/SupplierApp/SelectSupplier";
+export const SupplierMasterInsert = "/api/SupplierApp/InsertSupplier";
+export const SupplierMasterDelete = "/api/SupplierApp/DeleteSupplier";
+
   //SizeMaster
   export const SizeSelect = "/api/SizeMasterApp/SelectSizeMaster";
   export const SizeInsert = "/api/SizeMasterApp/InsertSizeMaster";
@@ -67,10 +147,15 @@ export const BrandDelete = "/api/BrandApp/DeleteBrand";
   export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
  
   //ModelMaster
-  export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
-  export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
-  export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
+  export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
+  export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
+  export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
 
+  //companymaster 
+
+export const ASelectCompanySetting        = "/api/LoginApp/SelectCompanySetting";
+export const UpdateCompanySetting = "/api/LoginApp/UpdateCompanySetting";
+export const ScriptUpdate       = "/api/LoginApp/ScriptUpdate";
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
@@ -78,7 +163,7 @@ export const authHeaders = () => ({
   "Profile":       localStorage.getItem("Profile")    || "Admin",
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
-//console.log(localStorage.getItem("token"));
+console.log(localStorage.getItem("token"));
 export const loadSalesmanData = async (MComid) => {
   try {
     const res = await fetch(
@@ -153,6 +238,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
     }
 
     const res = await fetch(fullUrl, {
+     
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
@@ -198,6 +284,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
 export const insertapi = async (path, body = null, extraHeaders = {}) => {
   try {
     const res = await fetch(mkUrl(path), {
+   
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",

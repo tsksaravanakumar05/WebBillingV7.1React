@@ -33,7 +33,8 @@ const Login = () => {
     if (!password)            { alert("Please Enter the Password !!!");            return; }
 
     const olduserid = localStorage.getItem("userid") || "";
-
+localStorage.removeItem("lastBillNo");
+localStorage.removeItem("lastBillAmt");
     setLoading(true);
     try {
       // ── Build query string — matches C# primitive parameters ──────────────
@@ -138,6 +139,7 @@ const Login = () => {
           // Companysetting / Mainsetting → JSON arrays, parsed by getLocal()
           localStorage.setItem("Companysetting", JSON.stringify(data.Comdata  ?? []));
           localStorage.setItem("Mainsetting",    JSON.stringify(data.Maindata ?? []));
+          console.log(data.Maindata?? []);
         }
 
         console.log("✅ Login OK | userid:", user.UserId,

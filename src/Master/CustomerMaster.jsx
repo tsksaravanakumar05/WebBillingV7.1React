@@ -25,7 +25,7 @@ import "./MasterPage.css";
 import "./SupplierMaster.css";   // reuse supplier CSS (100% width layout)
 
 import Topbar from "../components/Topbar";
-import * as CC  from "../components/Common";
+import * as CC from "../Master/Common";
 import * as MSG from "../components/Messages";
 
 // ─── Column field-name constants ──────────────────────────────────────────────
