@@ -61,10 +61,7 @@ function Toggle({ value, onChange, onKeyDown, inputRef, editMode, onFocus }) {
     </button>
   );
 }
-//UOM
-        export const UOMSelect = "/api/UOMApp/SelectUOM";
-        export const UOMInsert = "/api/UOMApp/InsertUOM";
-        export const UOMDelete = "/api/UOMApp/DeleteUOM";
+
 // ─── Column config ────────────────────────────────────────────────────────────
 const ALL_COLUMNS = [
   { field: "UOMName",      label: "UOM Name",      width: 220 },
