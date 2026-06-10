@@ -157,6 +157,21 @@ export const SupplierMasterDelete = "/api/SupplierApp/DeleteSupplier";
   export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
   export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
 
+  //purchases
+
+  export const MaxPurchaseNo = "/api/PurchaseApp/MaxPurchaseNo";
+  export const SupplierList = "/api/SupplierApp/SelectSupplierAll";
+  export const SupplierById = "/api/SupplierApp/SupplierById";
+  export const GetProductListV7 = "/api/ItemMasterApp/GetProductListV7";
+  export const InsertPurchase = "/api/PurchaseApp/InsertPurchase";
+  export const EditPurchase = "/api/PurchaseApp/EditPurchase";
+  export const EditPassword = "/api/loginApp/EditPassword";
+  export const DeletePurchase = "/api/PurchaseApp/DeletePurchase";
+  export const PurchaseList = "/api/PurchaseApp/PurchaseList";
+  export const SelectPurchase = "/api/PurchaseApp/SelectPurchase";
+  export const FocusColumns = "/api/loginApp/FocusColumns";
+
+
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,

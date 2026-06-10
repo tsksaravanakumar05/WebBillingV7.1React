@@ -26,12 +26,16 @@ import SalesManMaster from "./Master/SalesManMaster";
 import CRMPointsMaster from "./Master/CRMPointsMaster";
 import AccountsMaster from "./Master/AccountsMaster";
 import SubCategoryMaster from "./Master/SubCategory";
-import PurchaseMasterPage from "./presentation/pages/PurchaseMasterPage";
+import PurchasesMaster from "./Purchases/PurchasesMaster";
 
 // UTILS
 import PasswordSetting from "./Utiles/Passwordsetting";
 import TransactionPassword from "./Utiles/TransactionPassword";
 import Repackingmaster from "./Utiles/Repackingmaster";
+
+import Sales from "./Transaction/SaleBill";
+import Estimate from "./Transaction/EstimateBill";
+import SaleReturn from "./Transaction/SaleReturn";
 
 function App() {
 
@@ -72,11 +76,16 @@ function App() {
         <Route path="/CRMPoints" element={<CRMPointsMaster />} />
         <Route path="/AccountGroup" element={<AccountsMaster />} />
         <Route path="/Category/SubCategory" element={<SubCategoryMaster />} />
-        <Route path="/PurchaseMasterPage" element={<PurchaseMasterPage />} />
+        <Route path="/Purchase" element={<PurchasesMaster />} />
         {/* UTILS */}
         <Route path="/PasswordSetting" element={<PasswordSetting />} />
         <Route path="/TransactionPassword" element={<TransactionPassword />} />
         <Route path="/repackingmaster" element={<Repackingmaster />} />
+
+        <Route path="/SaleReturn" element={<SaleReturn />} />
+         {/* Transaction */}
+        <Route path="/Sale" element={<Sales />} />
+        <Route path="/EstimateBill" element={<Estimate />} />
 
       </Routes>
 
