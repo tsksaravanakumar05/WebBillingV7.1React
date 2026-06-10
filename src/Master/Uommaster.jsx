@@ -23,6 +23,7 @@ import "./MasterPage.css";
 
 import Topbar from "../components/Topbar";
 import * as CC  from "../components/Common";
+import * as CCC  from "../components/Common";
 import * as MSG from "../components/Messages";
 
 // ─── Toggle component (Active column) ────────────────────────────────────────
@@ -60,7 +61,10 @@ function Toggle({ value, onChange, onKeyDown, inputRef, editMode, onFocus }) {
     </button>
   );
 }
-
+//UOM
+        export const UOMSelect = "/api/UOMApp/SelectUOM";
+        export const UOMInsert = "/api/UOMApp/InsertUOM";
+        export const UOMDelete = "/api/UOMApp/DeleteUOM";
 // ─── Column config ────────────────────────────────────────────────────────────
 const ALL_COLUMNS = [
   { field: "UOMName",      label: "UOM Name",      width: 220 },
@@ -181,7 +185,7 @@ export default function UomMaster() {
     setLoading(true);
 
     const res = await CC.api(
-      CC.SelectUOM,
+      "/api/UOMApp/SelectUOM",
       null,
       {},
       { Comid: sess.Comid }
@@ -264,7 +268,7 @@ export default function UomMaster() {
 
       setLoading(true);
       const res = await CC.api(
-        CC.DeleteUOM,
+        "/api/UOMApp/DeleteUOM",
         null,
         { "IdComList": String(sess.IdComList) },
         { Id: Number(row.Id), Comid: Number(sess.Comid), MirrorTable: Number(sess.MirrorTable) }

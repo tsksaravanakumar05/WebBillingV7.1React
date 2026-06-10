@@ -184,6 +184,7 @@ export default function ModelMaster() {
     );
     setLoading(false);
 
+if (redirectIfDualLogin(res)) return;
     if (res._http404) { toast(`❌ 404 — ${CC.SelectModel} not found`, true); }
     if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
 
@@ -261,6 +262,7 @@ export default function ModelMaster() {
       );
       setLoading(false);
 
+if (redirectIfDualLogin(res)) return;
       if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
       if (res.ok) {
@@ -305,7 +307,14 @@ export default function ModelMaster() {
     }
     return { ok:true, cleaned };
   }, [focusRow, toast]);
-
+const redirectIfDualLogin = useCallback((res) => {
+  if (res?._dualLogin || res?.redis === false) {
+    alert("Already Login Another User Please Login Again!!!");
+    navigate("/"); // Redirect to your specific login path
+    return true;
+  }
+  return false;
+}, [navigate]);
   // ── hasDuplicate ───────────────────────────────────────────────────────────
   const hasDuplicate = useCallback((g) => {
     const names = g
@@ -383,8 +392,10 @@ export default function ModelMaster() {
 
     setLoading(false);
 
+if (redirectIfDualLogin(res)) return;
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
+    if (redirectIfDualLogin(res)) return;
     if (res.IsSuccess) {
       dirtyIds.current.clear();
       toast("✅ " + (res.message || "Saved successfully!"));
