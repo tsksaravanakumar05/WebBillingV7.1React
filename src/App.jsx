@@ -36,6 +36,7 @@ import Repackingmaster from "./Utiles/Repackingmaster";
 import Sales from "./Transaction/SaleBill";
 import Estimate from "./Transaction/EstimateBill";
 import SaleReturn from "./Transaction/SaleReturn";
+import PurchaseReturn from "./Transaction/Purchasereturn";
 
 function App() {
 
@@ -86,6 +87,7 @@ function App() {
          {/* Transaction */}
         <Route path="/Sale" element={<Sales />} />
         <Route path="/EstimateBill" element={<Estimate />} />
+        <Route path="/PurchaseReturn" element={<PurchaseReturn/>} />
 
       </Routes>
 

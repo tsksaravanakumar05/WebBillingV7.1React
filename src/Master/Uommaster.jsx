@@ -265,9 +265,9 @@ export default function UomMaster() {
 
       setLoading(true);
       const res = await CC.api(
-        "/api/UOMApp/DeleteUOM",
+        CC.UOMDelete,
         null,
-        { "IdComList": String(sess.IdComList) },
+        { "IdComList": ""},
         { Id: Number(row.Id), Comid: Number(sess.Comid), MirrorTable: Number(sess.MirrorTable) }
       );
       setLoading(false);
@@ -401,12 +401,12 @@ export default function UomMaster() {
     }));
 
     const res = await CC.insertapi(
-      CC.InsertUOM,
+      CC.UOMInsert ,
       payload,
       {
         Comid:       String(parseInt(sess.Comid)),
         MirrorTable: String(sess.MirrorTable),
-        IdComList:   String(sess.IdComList),
+        IdComList:   "",
         ApiType:     "1",
       }
     );

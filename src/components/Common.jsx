@@ -18,7 +18,7 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
-export const BASE_URL = "http://localhost:64215";
+export const BASE_URL = "http://billing.kassapos.co.in";
 
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
@@ -63,27 +63,26 @@ export const BrandDelete = "/api/BrandApp/DeleteBrand";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── SALE API CONSTANTS ───────────────────────────────────────────────────────
-const SaleMaxNo           = "/api/SaleApp/MaxSaleNo";
-const SaleInsertUrl       = "/api/SaleApp/InsertSale";
-const SaleEditUrl         = "/api/SaleApp/EditSale";
-const SaleSelectUrl       = "/api/SaleApp/SelectSaleV7";
-const SaleDeleteUrl       = "/api/SaleApp/DeleteSale";
-const BillHoldSelectUrl   = "/api/SaleApp/BillHoldName";
-const BillHoldInsertUrl   = "/api/SaleApp/BillHold";
-const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
-const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
-const SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
-const ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
-const GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
-const SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
-const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
-const CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
-
-const F5SelectUrl         = "/api/SaleApp/SelectSaleV7";
-const VisibleColumnsUrl   = "/Login/VisibleColumns";
-const FocusColumnsUrl     = "/Login/FocusColumns";
-const CurrentBalanceUrl = "/SupplierApp/CurrentBalance";
-const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock"; // adjust to your actual endpoint
+export const SaleMaxNo           = "/api/SaleApp/MaxSaleNo";
+export const SaleInsertUrl       = "/api/SaleApp/InsertSale";
+export const SaleEditUrl         = "/api/SaleApp/EditSale";
+export const SaleSelectUrl       = "/api/SaleApp/SelectSaleV7";
+export const SaleDeleteUrl       = "/api/SaleApp/DeleteSale";
+export const BillHoldSelectUrl   = "/api/SaleApp/BillHoldName";
+export const BillHoldInsertUrl   = "/api/SaleApp/BillHold";
+export const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
+export const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
+export const SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+export const ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
+export const GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
+export const SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
+export const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
+export const CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
+export const F5SelectUrl         = "/api/SaleApp/SelectSaleV7";
+export const VisibleColumnsUrl   = "/Login/VisibleColumns";
+export const FocusColumnsUrl     = "/Login/FocusColumns";
+export const CurrentBalanceUrl   = "/SupplierApp/CurrentBalance";
+export const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock";
 
 // ─── ITEM MASTER (for product search in grid) ────────────────────────────────
 export const SelectItemMasterbyId = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
@@ -170,6 +169,24 @@ export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
   export const PurchaseList = "/api/PurchaseApp/PurchaseList";
   export const SelectPurchase = "/api/PurchaseApp/SelectPurchase";
   export const FocusColumns = "/api/loginApp/FocusColumns";
+
+
+// ─── PurchaseReturn API endpoints ────────────────────────────────────────────
+export const PR_MaxNo        = "/api/PurchaseReturnApp/MaxPurchaseReturnNo";
+export const PR_Insert       = "/api/PurchaseReturnApp/InsertPurchaseReturn";
+export const PR_Edit         = "/api/PurchaseReturnApp/EditPurchaseReturn";
+export const PR_Delete       = "/api/PurchaseReturnApp/DeletePurchaseReturn";
+export const PR_LoadPM       = "/api/PurchaseReturnApp/PurchaseReturnLoadPM";
+export const PR_LoadPD       = "/api/PurchaseReturnApp/PurchaseReturnLoadPD";
+export const PR_F5View       = "/api/PurchaseReturnApp/SelectPurchaseReturnV7";
+export const PR_PrintView    = "/api/PurchaseReturnApp/PrintView";
+export const PR_EditPassword = "/api/loginApp/EditPassword";
+export const PR_VisibleCols  = "/api/loginApp/VisibleColumns";
+export const PR_FocusCols    = "/api/loginApp/FocusColumns";
+export const PR_SupplierAll  = "/api/SupplierApp/SelectSupplierAll";
+export const PR_CurBalance   = "/api/SupplierApp/CurrentBalance";
+export const PR_ItemByCode   = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+export const PR_ProductList  = "/api/ItemMasterApp/GetProductListV7";
 
 
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
