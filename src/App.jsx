@@ -27,7 +27,7 @@ import CRMPointsMaster from "./Master/CRMPointsMaster";
 import AccountsMaster from "./Master/AccountsMaster";
 import SubCategoryMaster from "./Master/SubCategory";
 import PurchaseMasterPage from "./presentation/pages/PurchaseMasterPage";
-import Sales from "./Transaction/SaleBill";
+
 import Estimate from "./Transaction/EstimateBill";
 import SaleReturn from "./Transaction/SaleReturn";
 import PurchasesMaster from "./Purchases/PurchasesMaster";
@@ -38,8 +38,8 @@ import TransactionPassword from "./Utiles/TransactionPassword";
 import Repackingmaster from "./Utiles/Repackingmaster";
 
 import Sales from "./Transaction/SaleBill";
-import Estimate from "./Transaction/EstimateBill";
-import SaleReturn from "./Transaction/SaleReturn";
+
+
 import PurchaseReturn from "./Transaction/Purchasereturn";
 import Supplierpayment from "./Transaction/Supplierpayment";
 
@@ -85,11 +85,11 @@ function App() {
         <Route path="/PurchaseMasterPage" element={<PurchaseMasterPage />} />
        
          {/* Transaction */}
-                 <Route path="/Sale" element={<Sales />} />
-                 <Route path="/EstimateBill" element={<Estimate />} />
+              
+              
                  <Route path="/purchase" element={<PurchasesMaster />} />
                  <Route path="/purchase" element={<PurchasesMaster />} />
-                 <Route path="/SaleReturn" element={<SaleReturn />} />
+                
                   <Route path="/CustomerReceipt" element={<CustomerReceipt />} />
         <Route path="/Purchase" element={<PurchasesMaster />} />
         {/* UTILS */}
