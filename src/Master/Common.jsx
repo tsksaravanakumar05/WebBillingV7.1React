@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
-export const BASE_URL = "http://localhost:64215";
+export const BASE_URL = "https://billing.kassapos.co.in/";
 // Cashier API Links
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
