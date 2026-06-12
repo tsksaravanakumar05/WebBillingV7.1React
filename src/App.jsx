@@ -45,8 +45,7 @@ import Repackingmaster from "./Utiles/Repackingmaster";
 import Sales from "./Transaction/SaleBill";
 
 
-import PurchaseReturn from "./Transaction/Purchasereturn";
-import Supplierpayment from "./Transaction/Supplierpayment";
+
 
 function App() {
 
