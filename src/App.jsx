@@ -36,6 +36,7 @@ import PurchasesMaster from "./Purchases/PurchasesMaster";
 import CustomerReceipt from "./Transaction/Customerreceipt";
 import PurchaseReturn from "./Transaction/Purchasereturn";
 import Supplierpayment from "./Transaction/Supplierpayment";
+import StockInward from "./Transaction/Stockinward";
 
 // UTILS
 import PasswordSetting from "./Utiles/Passwordsetting";
@@ -103,6 +104,7 @@ function App() {
         <Route path="/Purchase" element={<PurchasesMaster />} />
         <Route path="/PurchaseReturn" element={<PurchaseReturn />} />
         <Route path="/Supplierpayment" element={<Supplierpayment />} />
+        <Route path="/StockInward" element={<StockInward />} />
 
       </Routes>
 

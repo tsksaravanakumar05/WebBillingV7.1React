@@ -3,6 +3,7 @@ import "../index.css";
 import { useNavigate } from "react-router-dom";
 import Image from "../assets/image.png";
 import Logo from "../assets/logo.png";
+import Logo from "../assets/logo.png";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 // ─────────────────────────────────────────────────────────────────────────────
