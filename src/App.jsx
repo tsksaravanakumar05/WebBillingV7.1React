@@ -84,27 +84,22 @@ function App() {
         <Route path="/Category/SubCategory" element={<SubCategoryMaster />} />
         <Route path="/PurchaseMasterPage" element={<PurchaseMasterPage />} />
        
-         {/* Transaction */}
-                 <Route path="/Sale" element={<Sales />} />
-                 <Route path="/EstimateBill" element={<Estimate />} />
-                 <Route path="/purchase" element={<PurchasesMaster />} />
-                 
-                 <Route path="/SaleReturn" element={<SaleReturn />} />
-                  <Route path="/CustomerReceipt" element={<CustomerReceipt />} />
-        <Route path="/Purchase" element={<PurchasesMaster />} />
+
         {/* UTILS */}
         <Route path="/PasswordSetting" element={<PasswordSetting />} />
         <Route path="/TransactionPassword" element={<TransactionPassword />} />
         <Route path="/repackingmaster" element={<Repackingmaster />} />
 
+        {/* Transaction */}
+        <Route path="/Sale" element={<Sales />} />
+        <Route path="/EstimateBill" element={<Estimate />} />
+        <Route path="/purchase" element={<PurchasesMaster />} />
         <Route path="/SaleReturn" element={<SaleReturn />} />
-         {/* Transaction */}
-        
-        
-        <Route path="/PurchaseReturn" element={<PurchaseReturn/>} />
-        <Route path="/Supplierpayment" element={<Supplierpayment/>} />
+        <Route path="/CustomerReceipt" element={<CustomerReceipt />} />
+        <Route path="/Purchase" element={<PurchasesMaster />} />
         <Route path="/PurchaseReturn" element={<PurchaseReturn />} />
-<Route path="/Supplierpayment" element={<Supplierpayment />} />
+        <Route path="/Supplierpayment" element={<Supplierpayment />} />
+
       </Routes>
 
       </HashRouter>
