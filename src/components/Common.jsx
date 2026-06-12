@@ -62,28 +62,28 @@ export const BrandDelete = "/api/BrandApp/DeleteBrand";
 //  Place after the existing CashierDelete line
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ─── SALE API CONSTANTS ───────────────────────────────────────────────────────
-const SaleMaxNo           = "/api/SaleApp/MaxSaleNo";
-const SaleInsertUrl       = "/api/SaleApp/InsertSale";
-const SaleEditUrl         = "/api/SaleApp/EditSale";
-const SaleSelectUrl       = "/api/SaleApp/SelectSaleV7";
-const SaleDeleteUrl       = "/api/SaleApp/DeleteSale";
-const BillHoldSelectUrl   = "/api/SaleApp/BillHoldName";
-const BillHoldInsertUrl   = "/api/SaleApp/BillHold";
-const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
-const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
-const SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
-const ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
-const GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
-const SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
-const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
-const CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
+// // ─── SALE API CONSTANTS ───────────────────────────────────────────────────────
+// const SaleMaxNo           = "/api/SaleApp/MaxSaleNo";
+// const SaleInsertUrl       = "/api/SaleApp/InsertSale";
+// const SaleEditUrl         = "/api/SaleApp/EditSale";
+// const SaleSelectUrl       = "/api/SaleApp/SelectSaleV7";
+// const SaleDeleteUrl       = "/api/SaleApp/DeleteSale";
+// const BillHoldSelectUrl   = "/api/SaleApp/BillHoldName";
+// const BillHoldInsertUrl   = "/api/SaleApp/BillHold";
+// const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
+// const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
+// const SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+// const ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
+// const GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
+// const SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
+// const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
+// const CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
 
-const F5SelectUrl         = "/api/SaleApp/SelectSaleV7";
-const VisibleColumnsUrl   = "/Login/VisibleColumns";
-const FocusColumnsUrl     = "/Login/FocusColumns";
-const CurrentBalanceUrl = "/SupplierApp/CurrentBalance";
-const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock"; // adjust to your actual endpoint
+// const F5SelectUrl         = "/api/SaleApp/SelectSaleV7";
+// const VisibleColumnsUrl   = "/Login/VisibleColumns";
+// const FocusColumnsUrl     = "/Login/FocusColumns";
+// const CurrentBalanceUrl = "/SupplierApp/CurrentBalance";
+// const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock"; // adjust to your actual endpoint
 
 // ─── ITEM MASTER (for product search in grid) ────────────────────────────────
 export const SelectItemMasterbyId = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
