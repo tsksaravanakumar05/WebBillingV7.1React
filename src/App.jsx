@@ -28,10 +28,15 @@ import AccountsMaster from "./Master/AccountsMaster";
 import SubCategoryMaster from "./Master/SubCategory";
 import PurchaseMasterPage from "./presentation/pages/PurchaseMasterPage";
 
+// TRANSACTIONS
+
 import Estimate from "./Transaction/EstimateBill";
 import SaleReturn from "./Transaction/SaleReturn";
 import PurchasesMaster from "./Purchases/PurchasesMaster";
 import CustomerReceipt from "./Transaction/Customerreceipt";
+import PurchaseReturn from "./Transaction/Purchasereturn";
+import Supplierpayment from "./Transaction/Supplierpayment";
+
 // UTILS
 import PasswordSetting from "./Utiles/Passwordsetting";
 import TransactionPassword from "./Utiles/TransactionPassword";
@@ -84,25 +89,22 @@ function App() {
         <Route path="/Category/SubCategory" element={<SubCategoryMaster />} />
         <Route path="/PurchaseMasterPage" element={<PurchaseMasterPage />} />
        
-         {/* Transaction */}
-              
-              
-                 <Route path="/purchase" element={<PurchasesMaster />} />
-                 <Route path="/purchase" element={<PurchasesMaster />} />
-                
-                  <Route path="/CustomerReceipt" element={<CustomerReceipt />} />
-        <Route path="/Purchase" element={<PurchasesMaster />} />
+
         {/* UTILS */}
         <Route path="/PasswordSetting" element={<PasswordSetting />} />
         <Route path="/TransactionPassword" element={<TransactionPassword />} />
         <Route path="/repackingmaster" element={<Repackingmaster />} />
 
-        <Route path="/SaleReturn" element={<SaleReturn />} />
-         {/* Transaction */}
+        {/* Transaction */}
         <Route path="/Sale" element={<Sales />} />
         <Route path="/EstimateBill" element={<Estimate />} />
-        <Route path="/PurchaseReturn" element={<PurchaseReturn/>} />
-        <Route path="/Supplierpayment" element={<Supplierpayment/>} />
+        <Route path="/purchase" element={<PurchasesMaster />} />
+        <Route path="/SaleReturn" element={<SaleReturn />} />
+        <Route path="/CustomerReceipt" element={<CustomerReceipt />} />
+        <Route path="/Purchase" element={<PurchasesMaster />} />
+        <Route path="/PurchaseReturn" element={<PurchaseReturn />} />
+        <Route path="/Supplierpayment" element={<Supplierpayment />} />
+
       </Routes>
 
       </HashRouter>
