@@ -18,7 +18,7 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
-export const BASE_URL = "http://localhost:64215";
+export const BASE_URL = "http://billing.kassapos.co.in";
 
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
@@ -62,7 +62,28 @@ export const BrandDelete = "/api/BrandApp/DeleteBrand";
 //  Place after the existing CashierDelete line
 // ─────────────────────────────────────────────────────────────────────────────
 
-// adjust to your actual endpoint
+// ─── SALE API CONSTANTS ───────────────────────────────────────────────────────
+const SaleMaxNo           = "/api/SaleApp/MaxSaleNo";
+const SaleInsertUrl       = "/api/SaleApp/InsertSale";
+const SaleEditUrl         = "/api/SaleApp/EditSale";
+const SaleSelectUrl       = "/api/SaleApp/SelectSaleV7";
+const SaleDeleteUrl       = "/api/SaleApp/DeleteSale";
+const BillHoldSelectUrl   = "/api/SaleApp/BillHoldName";
+const BillHoldInsertUrl   = "/api/SaleApp/BillHold";
+const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
+const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
+const SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+const ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
+const GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
+const SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
+const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
+const CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
+
+const F5SelectUrl         = "/api/SaleApp/SelectSaleV7";
+const VisibleColumnsUrl   = "/Login/VisibleColumns";
+const FocusColumnsUrl     = "/Login/FocusColumns";
+const CurrentBalanceUrl = "/SupplierApp/CurrentBalance";
+const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock"; // adjust to your actual endpoint
 
 // ─── ITEM MASTER (for product search in grid) ────────────────────────────────
 export const SelectItemMasterbyId = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
@@ -155,35 +176,10 @@ export const SupplierMasterDelete = "/api/SupplierApp/DeleteSupplier";
   export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
  
   //ModelMaster
-  export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
-  export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
-  export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
+  export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
+  export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
+  export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
 
-  export const SelectCustomerReceiptDate = "/api/CustomerReceiptApp/SelectCustomerReceiptDate";
-export const InsertCustomerReceipt     = "/api/CustomerReceiptApp/InsertCustomerReceipt";
-export const DeleteCustomerReceipt     = "/api/CustomerReceiptApp/DeleteCustomerReceipt";
-export const SelectCustomerReceiptF5   = "/api/CustomerReceiptApp/SelectCustomerReceipt";
- 
-// ─── Pending Bills (Bill-wise payment distribution window) ───────────────────
-export const CustomerPendingReport     = "/api/SalesReportApp/CustomerPendingReport";
- 
-// ─── Print View (Ctrl+V in F5 window) ────────────────────────────────────────
-export const PrintViewUrl              = "/api/ReceiptApp/PrintView";
- 
-// ─── Report Viewer base path (shared by all report pages) ────────────────────
-export const ReportViewerBase          = "../Reports/ReportViewer.aspx";
-
-   export const MaxPurchaseNo = "/api/PurchaseApp/MaxPurchaseNo";
-  export const SupplierList = "/api/SupplierApp/SelectSupplierAll";
-  export const SupplierById = "/api/SupplierApp/SupplierById";
-  export const GetProductListV7 = "/api/ItemMasterApp/GetProductListV7";
-  export const InsertPurchase = "/api/PurchaseApp/InsertPurchase";
-  export const EditPurchase = "/api/PurchaseApp/EditPurchase";
-  export const EditPassword = "/api/loginApp/EditPassword";
-  export const DeletePurchase = "/api/PurchaseApp/DeletePurchase";
-  export const PurchaseList = "/api/PurchaseApp/PurchaseList";
-  export const SelectPurchase = "/api/PurchaseApp/SelectPurchase";
-  export const FocusColumns = "/api/loginApp/FocusColumns";
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,

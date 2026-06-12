@@ -37,6 +37,11 @@ import PasswordSetting from "./Utiles/Passwordsetting";
 import TransactionPassword from "./Utiles/TransactionPassword";
 import Repackingmaster from "./Utiles/Repackingmaster";
 
+import Sales from "./Transaction/SaleBill";
+import Estimate from "./Transaction/EstimateBill";
+import SaleReturn from "./Transaction/SaleReturn";
+import PurchaseReturn from "./Transaction/Purchasereturn";
+
 function App() {
 
   return (
@@ -85,10 +90,17 @@ function App() {
                  <Route path="/purchase" element={<PurchasesMaster />} />
                  <Route path="/SaleReturn" element={<SaleReturn />} />
                   <Route path="/CustomerReceipt" element={<CustomerReceipt />} />
+        <Route path="/Purchase" element={<PurchasesMaster />} />
         {/* UTILS */}
         <Route path="/PasswordSetting" element={<PasswordSetting />} />
         <Route path="/TransactionPassword" element={<TransactionPassword />} />
         <Route path="/repackingmaster" element={<Repackingmaster />} />
+
+        <Route path="/SaleReturn" element={<SaleReturn />} />
+         {/* Transaction */}
+        <Route path="/Sale" element={<Sales />} />
+        <Route path="/EstimateBill" element={<Estimate />} />
+        <Route path="/PurchaseReturn" element={<PurchaseReturn/>} />
 
       </Routes>
 

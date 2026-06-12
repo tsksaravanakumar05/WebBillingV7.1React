@@ -61,10 +61,7 @@ function Toggle({ value, onChange, onKeyDown, inputRef, editMode, onFocus }) {
     </button>
   );
 }
-//UOM
-        export const UOMSelect = "/api/UOMApp/SelectUOM";
-        export const UOMInsert = "/api/UOMApp/InsertUOM";
-        export const UOMDelete = "/api/UOMApp/DeleteUOM";
+
 // ─── Column config ────────────────────────────────────────────────────────────
 const ALL_COLUMNS = [
   { field: "UOMName",      label: "UOM Name",      width: 220 },
@@ -268,9 +265,9 @@ export default function UomMaster() {
 
       setLoading(true);
       const res = await CC.api(
-        "/api/UOMApp/DeleteUOM",
+        CC.UOMDelete,
         null,
-        { "IdComList": String(sess.IdComList) },
+        { "IdComList": ""},
         { Id: Number(row.Id), Comid: Number(sess.Comid), MirrorTable: Number(sess.MirrorTable) }
       );
       setLoading(false);
@@ -409,7 +406,7 @@ export default function UomMaster() {
       {
         Comid:       String(parseInt(sess.Comid)),
         MirrorTable: String(sess.MirrorTable),
-        IdComList:   String(sess.IdComList),
+        IdComList:   "",
         ApiType:     "1",
       }
     );
