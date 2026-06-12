@@ -696,7 +696,7 @@ const redirectIfDualLogin = useCallback((res) => {
 
   const loadColCfg = useCallback(async () => {
     try {
-      const res = await fetch(`/Content/Appdata/Visible/${sess.Comid}/Itemmaster.json?v=${Date.now()}`, { headers:CC.authHeaders() });
+      const res = await fetch(CC.BASE_URL`/Content/Appdata/Visible/${sess.Comid}/Itemmaster.json?v=${Date.now()}`, { headers:CC.authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data)) return;
