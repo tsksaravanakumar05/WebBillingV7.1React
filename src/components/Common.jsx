@@ -18,7 +18,7 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
-export const BASE_URL = "http://billing.kassapos.co.in";
+export const BASE_URL = "http://localhost:64215";
 
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
@@ -175,11 +175,58 @@ export const SupplierMasterDelete = "/api/SupplierApp/DeleteSupplier";
   export const InsertColor = "/api/ColorMasterApp/InsertColorMaster";
   export const DeleteColor = "/api/ColorMasterApp/DeleteColorMaster";
  
-  //ModelMaster
-  export const SelectModel = "/api/ColorMasterApp/SelectColorMaster";
-  export const InsertModel = "/api/ColorMasterApp/InsertColorMaster";
-  export const DeleteModel = "/api/ColorMasterApp/DeleteColorMaster";
+// ─── Model Master ─────────────────────────────────────────────────────────────
+export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
+export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
+export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
 
+  //purchases
+
+  export const MaxPurchaseNo = "/api/PurchaseApp/MaxPurchaseNo";
+  export const SupplierList = "/api/SupplierApp/SelectSupplierAll";
+  export const SupplierById = "/api/SupplierApp/SupplierById";
+  export const GetProductListV7 = "/api/ItemMasterApp/GetProductListV7";
+  export const InsertPurchase = "/api/PurchaseApp/InsertPurchase";
+  export const EditPurchase = "/api/PurchaseApp/EditPurchase";
+  export const EditPassword = "/api/loginApp/EditPassword";
+  export const DeletePurchase = "/api/PurchaseApp/DeletePurchase";
+  export const PurchaseList = "/api/PurchaseApp/PurchaseList";
+  export const SelectPurchase = "/api/PurchaseApp/SelectPurchase";
+  export const FocusColumns = "/api/loginApp/FocusColumns";
+
+
+// ─── PurchaseReturn API endpoints ────────────────────────────────────────────
+export const PR_MaxNo        = "/api/PurchaseReturnApp/MaxPurchaseReturnNo";
+export const PR_Insert       = "/api/PurchaseReturnApp/InsertPurchaseReturn";
+export const PR_Edit         = "/api/PurchaseReturnApp/EditPurchaseReturn";
+export const PR_Delete       = "/api/PurchaseReturnApp/DeletePurchaseReturn";
+export const PR_LoadPM       = "/api/PurchaseReturnApp/PurchaseReturnLoadPM";
+export const PR_LoadPD       = "/api/PurchaseReturnApp/PurchaseReturnLoadPD";
+export const PR_F5View       = "/api/PurchaseReturnApp/SelectPurchaseReturnV7";
+export const PR_PrintView    = "/api/PurchaseReturnApp/PrintView";
+export const PR_EditPassword = "/api/loginApp/EditPassword";
+export const PR_VisibleCols  = "/api/loginApp/VisibleColumns";
+export const PR_FocusCols    = "/api/loginApp/FocusColumns";
+export const PR_SupplierAll  = "/api/SupplierApp/SelectSupplierAll";
+export const PR_CurBalance   = "/api/SupplierApp/CurrentBalance";
+export const PR_ItemByCode   = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+export const PR_ProductList  = "/api/ItemMasterApp/GetProductListV7";
+
+
+// ─── Supplier Payment API endpoints ──────────────────────────────────────────
+export const SelectSupplierPaymentDate = "/api/SupplierPaymentApp/SelectSupplierPaymentDate";
+export const InsertSupplierPayment     = "/api/SupplierPaymentApp/InsertSupplierPayment";
+export const DeleteSupplierPayment     = "/api/SupplierPaymentApp/DeleteSupplierPayment";
+export const SelectSupplierPaymentF5   = "/api/SupplierPaymentApp/SelectSupplierPayment";
+export const SupplierPendingReport     = "/api/PurchaseReportApp/SupplierPendingReport";
+ 
+// ─── Report viewer base path (add once if not already present) ───────────────
+//  Used by openVoucherPrint() in SupplierPayment.jsx and CustomerReceipt.jsx
+export const ReportViewerBase = "../Reports/ReportViewer.aspx";
+ 
+// ─── PrintView URL (add once if not already present) ─────────────────────────
+//  Used by doPrintView() in SupplierPayment.jsx and CustomerReceipt.jsx
+export const PrintViewUrl = "/api/PaymentApp/PrintView";
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
