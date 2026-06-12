@@ -404,7 +404,7 @@ export default function UomMaster() {
     }));
 
     const res = await CC.insertapi(
-      CC.InsertUOM,
+      CC.UOMInsert,
       payload,
       {
         Comid:       String(parseInt(sess.Comid)),

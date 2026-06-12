@@ -1,7 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  SaleReturn.jsx  —  React Sale Return Form
-//  Design mirrors SaleBill.jsx exactly
-//  Uses Common.jsx api(), insertapi(), useConfirm(), useToast(), authHeaders()
+//  Header redesigned to match original UI image exactly:
+//    Left panel  → Sale Return Details (ReturnNo, ReturnDate, ReturnType dropdown)
+//    Middle panel→ Customer Details (Customer, MobileNo+CRM, CRM Value+CurrentBal+Stock)
+//    Right panel → Rs. amount, SalesMan dropdown, Cashier input
+//  Bottom totals → Gross Amt, Disc%, Disc Amt | GST Amt, CESS Amt, Coinage | Others(+), Others(-), Net Total
+//  Removed: radio buttons, Original Bill No search bar
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, {
@@ -24,14 +28,14 @@ const SelectItemByCodeUrl    = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
 const ProductListUrl         = "/api/ItemMasterApp/GetProductListV7";
 const GetCustomerUrl         = "/api/SupplierApp/SelectSupplierAll";
 const SalesManSelectUrl      = "/api/SalesManApp/SelectSalesMan_V7";
-const SelectCardMasterUrl    = "/api/SaleApp/SelectSaleType";
 const LoginPasswordUrl       = "/api/LoginApp/EditPassword";
 const VisibleColumnsUrl      = "/Login/VisibleColumns";
+const SelectSaleBillUrl      = "/api/SaleReturnApp/SelectSaleBillForReturn";
+const CRMBalanceUrl          = "/api/SalesReportApp/CRMBalanceReport";
+const CurrentBalanceUrl      = "/api/SupplierApp/CurrentBalance";
 const FocusColumnsUrl        = "/Login/FocusColumns";
-const SelectSaleBillUrl      = "/api/SaleReturnApp/SelectSaleBillForReturn"; // get original bill
-const SelectExpiryByIdUrl    = "/api/ItemMasterApp/SelectExpStock";
 
-const BASE_URL = "http://localhost:64215";
+
 
 // ─── SALE RETURN GRID COLUMNS ─────────────────────────────────────────────────
 const SR_COLUMNS = [
@@ -58,6 +62,14 @@ const DEFAULT_COL_SETTINGS = SR_COLUMNS.map(c => ({
   width:   c.width,
   visible: !c.hidden,
 }));
+
+// ─── RETURN TYPE OPTIONS ──────────────────────────────────────────────────────
+const RETURN_TYPES = [
+  { value: "CASH",   label: "CASH" },
+  { value: "CREDIT", label: "CREDIT" },
+  { value: "CRN",    label: "CRN" },
+  { value: "DBN",    label: "DBN" },
+];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const vn    = v => parseFloat(v) || 0;
@@ -119,6 +131,7 @@ const mkRow = () => ({
   CTAmount: 0, STAmount: 0, Amount: 0, UOM: "", HSNCode: "",
   StockQty: 0, BatchRefid: null, WithoutTaxRate: 0,
   Remarks: "", Bat_No: "", SaleRefId: 0,
+ 
 });
 
 const fmtRow = obj => ({
@@ -138,14 +151,8 @@ const fmtRow = obj => ({
   LandingCost:     f2(vn(obj.Landingcost || obj.LandingCost)),
 });
 
-// ─── RETURN TYPE OPTIONS ──────────────────────────────────────────────────────
-const RETURN_TYPES = [
-  { value: "CREDIT", label: "Credit Note" },
-  { value: "CASH", label: "Debit Note"  },
-];
-
-// ─── COMBOBOX (same as SaleBill) ──────────────────────────────────────────────
-function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, inputRef: extRef }) {
+// ─── COMBOBOX ─────────────────────────────────────────────────────────────────
+function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, inputRef: extRef, disabled }) {
   const [q, setQ]           = useState("");
   const [open, setOpen]     = useState(false);
   const [hilite, setHilite] = useState(0);
@@ -155,7 +162,6 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
   const ref = extRef || inpRef;
 
   const selectedLabel = options.find(o => String(o.value) === String(value))?.label || "";
-
   const filtered = options.filter(o =>
     o.label.toUpperCase().includes(q.toUpperCase())
   ).slice(0, 150);
@@ -175,7 +181,7 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
     return () => document.removeEventListener("mousedown", handler);
   }, [selectedLabel]);
 
-  const selectOption = (opt) => {
+  const selectOption = opt => {
     onChange(String(opt.value));
     setQ(opt.label.toUpperCase());
     setOpen(false);
@@ -200,12 +206,13 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
         value={open ? q : selectedLabel.toUpperCase()}
         placeholder={placeholder}
         autoComplete="off"
+        disabled={disabled}
         onFocus={() => { setQ(selectedLabel); setOpen(true); setHilite(0); }}
         onChange={e => { setQ(e.target.value.toUpperCase()); setOpen(true); }}
         onKeyDown={handleKeyDown}
-        style={{ width: "100%", cursor: "text" }}
+        style={{ width: "100%", cursor: disabled ? "not-allowed" : "text" }}
       />
-      {open && filtered.length > 0 && (
+      {open && !disabled && filtered.length > 0 && (
         <div ref={listRef} style={{
           position: "absolute", top: "100%", left: 0, right: 0,
           background: "#fff", border: "1px solid #c5d8f8",
@@ -360,12 +367,12 @@ function F5ViewModal({ rows, onEdit, onDelete, onClose, fromDate, toDate, onSear
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ color: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
-                <th style={{ background:"var( --clr-primary-dark)",padding: "6px 10px", textAlign: "left" }}>Return No</th>
-                <th style={{ background:"var( --clr-primary-dark)",padding: "6px 10px", textAlign: "left" }}>Return Date</th>
-                <th style={{ background:"var( --clr-primary-dark)",padding: "6px 10px", textAlign: "left" }}>Customer</th>
-                <th style={{ background:"var( --clr-primary-dark)",padding: "6px 10px", textAlign: "left" }}>Type</th>
-                <th style={{ background:"var( --clr-primary-dark)",padding: "6px 10px", textAlign: "right" }}>Net Amt</th>
-                <th style={{ background:"var( --clr-primary-dark)",padding: "6px 10px", textAlign: "center" }}>Actions</th>
+                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "left" }}>Return No</th>
+                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "left" }}>Return Date</th>
+                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "left" }}>Customer</th>
+                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "left" }}>Type</th>
+                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "right" }}>Net Amt</th>
+                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "center" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -378,19 +385,21 @@ function F5ViewModal({ rows, onEdit, onDelete, onClose, fromDate, toDate, onSear
                   borderBottom: "1px solid #eaecf4",
                 }}>
                   <td style={{ padding: "5px 10px", fontWeight: 700 }}>
-                    {r.SaleReturnNoDisplay || r.SaleReturnNo || r.SaleNo}
+                    {r.SaleReturnNoDisplay || r.SaleReturnNo || r.SaleNo || r.BillNo || "—"}
                   </td>
-                  <td style={{ padding: "5px 10px" }}>{String(r.ReturnDate || r.SaleDate || "").slice(0, 10)}</td>
-                  <td style={{ padding: "5px 10px" }}>{r.CustomerName}</td>
+                  <td style={{ padding: "5px 10px" }}>{String(r.ReturnDate || r.BillDate || r.SaleDate || "").slice(0, 10)}</td>
+                  <td style={{ padding: "5px 10px" }}>{r.CustomerName || r.AccountName || ""}</td>
                   <td style={{ padding: "5px 10px" }}>
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
-                      background: r.LorryNo === "CRN" ? "#fef2f2" : "#fefce8",
-                      color:      r.LorryNo === "CRN" ? "#dc2626"  : "#ca8a04",
-                    }}>{r.LorryNo === "CRN" ? "Credit Note" : "Debit Note"}</span>
+                      background: (r.LorryNo === "CRN" || r.SaleType === "CRN") ? "#fef2f2" : "#fefce8",
+                      color:      (r.LorryNo === "CRN" || r.SaleType === "CRN") ? "#dc2626"  : "#ca8a04",
+                    }}>
+                      {(r.LorryNo === "CRN" || r.SaleType === "CRN") ? "Credit Note" : "Debit Note"}
+                    </span>
                   </td>
                   <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700 }}>
-                    ₹{f2(vn(r.NetAmt || r.NetAmount)).toFixed(2)}
+                    ₹{f2(vn(r.NetAmt || r.NetAmount || r.Netamt)).toFixed(2)}
                   </td>
                   <td style={{ padding: "5px 10px", textAlign: "center" }}>
                     <button onClick={() => onEdit(r.Id)} style={{
@@ -432,14 +441,15 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
       Width: parseInt(c.width) || 100,
     }));
     try {
-      const res  = await fetch(CC.BASE_URL + VisibleColumnsUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() },
-        body: JSON.stringify(payload),
-      });
+           const res  = await fetch(VisibleColumnsUrl, {
+               method: "POST",
+               headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() },
+               body: JSON.stringify(payload),
+             });
+            
       const data = await res.json();
-      if (data.ok) { toast?.("✅ Column settings saved"); onSave(local); }
-      else { toast?.("⚠️ Saved locally"); onSave(local); }
+     if (data.ok) { toast?.("✅ Column settings saved"); onSave(local); }
+else { toast?.("⚠️ " + (data.message || "Saved locally"), false); onSave(local); }
     } catch { onSave(local); }
   };
 
@@ -455,7 +465,7 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
             <thead>
               <tr>
                 {["Column", "Visible", "Width (px)"].map(h => (
-                  <th key={h} style={{  color: "#fff", padding: "6px 10px", textAlign: "left", fontWeight: 600, position: "sticky", top: 0, zIndex: 2 }}>{h}</th>
+                  <th key={h} style={{ color: "#fff", padding: "6px 10px", textAlign: "left", fontWeight: 600, position: "sticky", top: 0, zIndex: 2,background:"#1a2e4a" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -485,6 +495,26 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
   );
 }
 
+// ─── INLINE INPUT STYLE ───────────────────────────────────────────────────────
+const fieldInput = {
+  height: 24,
+  border: "1px solid #b8ccee",
+  borderRadius: 3,
+  padding: "0 6px",
+  fontSize: 12,
+  outline: "none",
+  background: "#fff",
+  color: "#1a2e4a",
+};
+
+const fieldLabel = {
+  fontSize: 12,
+  fontWeight: 600,
+  color: "#4a5568",
+  minWidth: 80,
+  flexShrink: 0,
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -492,16 +522,17 @@ export default function SaleReturn() {
   const navigate               = useNavigate();
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
-
+const [focusCols, setFocusCols] = useState([]);
+const focusColsRef              = useRef([]);
+const [ctrlGOpen, setCtrlGOpen] = useState(false);
   // ── Column Settings ──────────────────────────────────────────────────────
   const [colSettings, setColSettings] = useState(DEFAULT_COL_SETTINGS);
   const [f12Open,     setF12Open]     = useState(false);
-
   const visCols = colSettings.filter(c => c.visible);
 
   const loadColCfg = useCallback(async (comid) => {
     try {
-      const url = `${CC.BASE_URL}/Content/Appdata/Visible/${comid}/SaleReturn.json?v=${Date.now()}`;
+      const url = `Content/Appdata/Visible/${comid}/SaleReturn.json?v=${Date.now()}`;
       const res = await fetch(url, { headers: CC.authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
@@ -518,9 +549,9 @@ export default function SaleReturn() {
     try {
       const main0 = (CC.getLocal("Mainsetting")    || [{}])[0] || {};
       const com0  = (CC.getLocal("Companysetting") || [{}])[0] || {};
-      const Comid = CC.getStr("Comid")  || "1";
+      const Comid  = CC.getStr("Comid")  || "1";
       const MComid = CC.getStr("MComid") || Comid;
-      const isCC  = !!main0.CommonCompany;
+      const isCC   = !!main0.CommonCompany;
       return {
         Comid:        isCC ? MComid : Comid,
         MComid,
@@ -529,6 +560,7 @@ export default function SaleReturn() {
         BillNoDigit:  com0.NumberDigit || 0,
         CashId:       CC.getStr("CustomerCashid") || "0",
         CashierId:    CC.getStr("CashierRefid")   || "0",
+        CashierName:  CC.getStr("CashierName")    || "",
         CommonCompany: isCC,
         DayClose:     !!main0.DayClose,
         BillFormatName: com0.SaleBillFormat || "Default",
@@ -537,8 +569,8 @@ export default function SaleReturn() {
       return {
         Comid: "1", MComid: "1",
         BillNoType: "Daily Reset On Company", BillNoPrefix: "", BillNoDigit: 0,
-        CashId: "0", CashierId: "0", CommonCompany: false, DayClose: false,
-        BillFormatName: "Default",
+        CashId: "0", CashierId: "0", CashierName: "",
+        CommonCompany: false, DayClose: false, BillFormatName: "Default",
       };
     }
   });
@@ -554,17 +586,25 @@ export default function SaleReturn() {
   const [returnDate, setReturnDate] = useState(today());
   const [custId,     setCustId]     = useState("");
   const [custMobile, setCustMobile] = useState("");
+  const [smId,       setSmId]       = useState("");
+  const [cashier,    setCashier]    = useState("");
+  const [crmNo,      setCrmNo]      = useState("");
+  const [crmValue,   setCrmValue]   = useState("0.00");
+  const [curBal,     setCurBal]     = useState("0.00");
+  const [stockLbl,   setStockLbl]   = useState("0.00");
   const [remarks,    setRemarks]    = useState("");
-  const [returnType, setReturnType] = useState("CREDIT"); // CRN = Credit Note, DBN = Debit Note
+  const [returnType, setReturnType] = useState("CASH");
   const [editId,     setEditId]     = useState(0);
-  const [origBillNo, setOrigBillNo] = useState(""); // original sale bill no for return
 
   const [rows,       setRows]       = useState([mkRow()]);
   const [selRid,     setSelRid]     = useState(null);
   const [totals,     setTotals]     = useState({
     GrossAmt: 0, DiscAmt: 0, GSTAmt: 0, CESSAmt: 0, NetAmt: 0,
   });
+  const [discPer,    setDiscPer]    = useState("");
+  const [otherPlus,  setOtherPlus]  = useState("");
   const [otherMinus, setOtherMinus] = useState("");
+  const [coinage,    setCoinage]    = useState("");
   const [gstSplit,   setGstSplit]   = useState([]);
 
   const [loading,    setLoading]    = useState(false);
@@ -580,15 +620,33 @@ export default function SaleReturn() {
   const [f5Open,     setF5Open]     = useState(false);
   const [f5Rows,     setF5Rows]     = useState([]);
 
-  const [billSearchOpen, setBillSearchOpen] = useState(false);
-  const [billSearchNo,   setBillSearchNo]   = useState("");
-
   const rowsRef  = useRef(rows);
   const cellRefs = useRef({});
   const custRef  = useRef(null);
   const remarksRef = useRef(null);
 
   useEffect(() => { rowsRef.current = rows; }, [rows]);
+useEffect(() => { focusColsRef.current = focusCols; }, [focusCols]);
+
+const loadFocusCols = useCallback(async (mcomid) => {
+  try {
+    const url = `/Content/Appdata/Visible/${mcomid}/SaleReturnFocus.json?v=${Date.now()}`;
+    const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
+    if (!res.ok) return;
+    const saved = await res.json();
+    if (!Array.isArray(saved)) return;
+    const ordered = saved
+      .filter(s => s.Focus === true)
+      .sort((a, b) => (a.Index ?? 99) - (b.Index ?? 99))
+      .map(s => s.column);
+    focusColsRef.current = ordered;
+    setFocusCols(ordered);
+  } catch {}
+}, []);
+  // init cashier from session
+  useEffect(() => {
+    setCashier(sess.CashierName || localStorage.getItem("CashierName") || "");
+  }, [sess]);
 
   const regCell = (rid, key, el) => {
     if (!cellRefs.current[rid]) cellRefs.current[rid] = {};
@@ -609,7 +667,6 @@ export default function SaleReturn() {
       return;
     }
     const menulist = JSON.parse(menuStr);
-    // Adjust PageName to match your menu setup
     const menudata = menulist.filter(o =>
       o.PageName === "Sale Return" || o.PageName === "SaleReturn" || o.PageName === "Billing-SaleReturn"
     );
@@ -640,7 +697,7 @@ export default function SaleReturn() {
     if (!isAuthorized) return;
     (async () => {
       setLoading(true); setLdMsg("Loading...");
-      await Promise.all([loadDropdowns(), loadReturnNo(), loadColCfg(sess.Comid)]);
+    await Promise.all([loadDropdowns(), loadReturnNo(), loadColCfg(sess.Comid), loadFocusCols(sess.MComid)]);
       setLoading(false);
     })();
   // eslint-disable-next-line
@@ -672,9 +729,207 @@ export default function SaleReturn() {
     setSalesmen (Array.isArray(pick(smRes))   ? pick(smRes)   : []);
   // eslint-disable-next-line
   }, [sess]);
+// ─── CTRL+G COLUMN REORDER / FOCUS POPUP ─────────────────────────────────────
+function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }) {
+  const [items, setItems]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const url = `/Content/Appdata/Visible/${mcomid}/SaleReturnFocus.json?v=${Date.now()}`;
+        const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
+        let saved = [];
+        if (res.ok) { try { saved = await res.json(); } catch {} }
+
+        const base = colSettings
+          .filter(c => c.visible)
+          .map((c, i) => {
+            const sv = Array.isArray(saved) ? saved.find(s => s.column === c.key) : null;
+            return {
+              key:   c.key,
+              label: c.label,
+              focus: sv ? sv.Focus === true : true,
+              index: sv ? (sv.Index ?? i) : i,
+            };
+          });
+        base.sort((a, b) => a.index - b.index);
+        setItems(base);
+      } catch {
+        setItems(colSettings.filter(c => c.visible).map((c, i) => ({
+          key: c.key, label: c.label, focus: true, index: i,
+        })));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [colSettings, mcomid]);
+
+  const toggleFocus = key =>
+    setItems(prev => prev.map(it => it.key === key ? { ...it, focus: !it.focus } : it));
+
+  const onDragStart = (e, idx) => { setDragIdx(idx); e.dataTransfer.effectAllowed = "move"; };
+  const onDragOver  = (e, idx) => { e.preventDefault(); setOverIdx(idx); };
+  const onDrop      = (e, idx) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) { setDragIdx(null); setOverIdx(null); return; }
+    setItems(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIdx, 1);
+      next.splice(idx, 0, moved);
+      return next.map((it, i) => ({ ...it, index: i }));
+    });
+    setDragIdx(null); setOverIdx(null);
+  };
+
+  const handleSave = async () => {
+    const payload = items.map((it, i) => ({
+      filename: "SaleReturnFocus",   // ← SaleReturn specific
+      column:   it.key,
+      Index:    i,
+      Focus:    it.focus,
+      Comid:    parseInt(comid) || 1,
+    }));
+    try {
+      const res = await fetch(FocusColumnsUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) { toast?.("✅ Focus/Reorder saved."); onSaved?.(); onClose(); }
+      else { toast?.("⚠️ " + (data.message || "Save failed")); onClose(); }
+    } catch (err) {
+      toast?.("⚠️ Save failed: " + err.message);
+    }
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(10,20,40,.45)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8700,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 10, width: 420, maxHeight: "80vh",
+        display: "flex", flexDirection: "column", overflow: "hidden",
+        boxShadow: "0 16px 48px rgba(31,101,222,.22)", border: "1px solid #d0ddf5",
+      }}>
+        <div style={{
+          background: "linear-gradient(135deg,#1b3a8f 0%,#1f65de 100%)",
+          padding: "10px 14px", display: "flex", alignItems: "center",
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", flex: 1 }}>
+            ⚡ Ctrl+G — Column Focus & Reorder
+          </span>
+          <button onClick={onClose} style={{
+            background: "rgba(255,255,255,.15)", border: "none", color: "#fff",
+            width: 22, height: 22, borderRadius: "50%", cursor: "pointer", fontSize: 11,
+          }}>✕</button>
+        </div>
+        <div style={{
+          background: "#f0f7ff", borderBottom: "1px solid #dde6f5",
+          padding: "6px 12px", fontSize: 10.5, color: "#4a5568",
+        }}>
+          🖱 <strong>Drag rows</strong> to reorder &nbsp;|&nbsp;
+          ☑ <strong>Check</strong> to enable focus navigation
+        </div>
+        <div style={{ overflowY: "auto", flex: 1, padding: "6px 0" }}>
+          {loading
+            ? <div style={{ textAlign: "center", padding: 20, color: "#94a3b8", fontSize: 12 }}>Loading...</div>
+            : items.map((it, idx) => (
+              <div
+                key={it.key}
+                draggable
+                onDragStart={e => onDragStart(e, idx)}
+                onDragOver={e => onDragOver(e, idx)}
+                onDrop={e => onDrop(e, idx)}
+                onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "6px 14px", cursor: "grab",
+                  background: overIdx === idx ? "#deeafb" : dragIdx === idx ? "#e8f0fe" : idx % 2 === 0 ? "#fff" : "#fafbff",
+                  borderBottom: "1px solid #f0f4fc",
+                  borderLeft: overIdx === idx ? "3px solid #1f65de" : "3px solid transparent",
+                  transition: "background .07s",
+                  userSelect: "none",
+                }}
+              >
+                <span style={{ color: "#94a3b8", fontSize: 14, cursor: "grab" }}>⠿</span>
+                <span style={{
+                  width: 22, height: 22, borderRadius: 4,
+                  background: "#f0f4fc", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: 11, color: "#6b7a99", fontWeight: 700,
+                  flexShrink: 0,
+                }}>{idx + 1}</span>
+                <span style={{ flex: 1, fontSize: 12, color: "#1a2e4a", fontWeight: 500 }}>
+                  {it.label}
+                </span>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!it.focus}
+                    onChange={() => toggleFocus(it.key)} style={{ display: "none" }} />
+                  <div style={{
+                    width: 34, height: 18, borderRadius: 9,
+                    background: it.focus ? "#1f65de" : "#d0d8ea",
+                    position: "relative", cursor: "pointer", transition: "background .2s",
+                  }}>
+                    <div style={{
+                      width: 14, height: 14, borderRadius: "50%", background: "#fff",
+                      position: "absolute", top: 2,
+                      left: it.focus ? 18 : 2, transition: "left .2s",
+                      boxShadow: "0 1px 3px rgba(0,0,0,.2)",
+                    }} />
+                  </div>
+                </label>
+              </div>
+            ))
+          }
+        </div>
+        <div style={{
+          display: "flex", gap: 8, justifyContent: "flex-end",
+          padding: "10px 14px", borderTop: "1px solid #eaecf4", background: "#f8faff",
+        }}>
+          <button onClick={onClose} style={{
+            padding: "6px 16px", borderRadius: 4, border: "1px solid #c5d8f8",
+            background: "#fff", color: "#1a2e4a", fontSize: 12, cursor: "pointer",
+          }}>Cancel</button>
+          <button onClick={handleSave} style={{
+            padding: "6px 16px", borderRadius: 4, border: "none",
+            background: "#1f65de", color: "#fff", fontSize: 12,
+            cursor: "pointer", fontWeight: 700,
+          }}>💾 Save & Apply</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+  // ── Customer change → load CRM + Balance ─────────────────────────────────
+  const handleCustomerChange = useCallback(async (cid) => {
+    setCustId(cid);
+    const found = customers.find(c => String(c.Id) === cid);
+    setCustMobile(found?.MobileNo || "");
+    if (!cid) { setCrmValue("0.00"); setCurBal("0.00"); setStockLbl("0.00"); return; }
+
+    const [crmRes, balRes] = await Promise.all([
+      CC.api(CRMBalanceUrl, null, {}, { Id: cid, Fromdate: returnDate, Comid: sess.Comid, MComid: sess.MComid }),
+      CC.api(CurrentBalanceUrl, null, {}, { Id: cid, MComid: sess.MComid, TillDate: returnDate, Comid: sess.Comid, AccountType: "CUSTOMER" }),
+    ]);
+
+    if (!crmRes._netErr && (crmRes.ok ?? crmRes.IsSuccess)) {
+      const arr = Array.isArray(crmRes.data) ? crmRes.data : [];
+      setCrmValue(arr.length > 0 ? f2(vn(arr[0].Value)).toFixed(2) : "0.00");
+    }
+    if (balRes && !balRes._netErr) {
+      const bal = parseFloat(balRes.Data1 ?? balRes.data ?? 0);
+      setCurBal(isNaN(bal) ? "0.00" : f2(bal).toFixed(2));
+    } else {
+      setCurBal("0.00");
+    }
+  }, [sess, returnDate, customers]);
 
   // ── Totals recalc ─────────────────────────────────────────────────────────
-  const recalcTotals = useCallback((rowsArr, oMinus) => {
+  const recalcTotals = useCallback((rowsArr, dPer, oPlus, oMinus, coin) => {
     let grossAmt = 0, gstAmt = 0, cessAmt = 0, discAmt = 0;
     const gstMap = {};
 
@@ -693,19 +948,25 @@ export default function SaleReturn() {
       gstMap[key].STAmount += vn(calc.STAmount);
     });
 
-    const netAmt = f2(grossAmt + gstAmt + cessAmt - discAmt - vn(oMinus));
+    // apply bill discount % on top
+    const billDisc = vn(dPer) > 0 ? f2(grossAmt * (vn(dPer) / 100)) : 0;
+    const totalDisc = f2(discAmt + billDisc);
+    const netAmt = f2(grossAmt + gstAmt + cessAmt + vn(oPlus) - totalDisc - vn(oMinus) + vn(coin));
+
     setGstSplit(Object.values(gstMap).filter(g => g.TaxAmt > 0));
     setTotals({
-      GrossAmt: f2(grossAmt), DiscAmt: f2(discAmt),
+      GrossAmt: f2(grossAmt), DiscAmt: totalDisc,
       GSTAmt: f2(gstAmt), CESSAmt: f2(cessAmt), NetAmt: netAmt,
     });
     return netAmt;
   }, []);
 
-  useEffect(() => { recalcTotals(rows, otherMinus); }, [rows, otherMinus, recalcTotals]);
+  useEffect(() => {
+    recalcTotals(rows, discPer, otherPlus, otherMinus, coinage);
+  }, [rows, discPer, otherPlus, otherMinus, coinage, recalcTotals]);
 
   // ── Fill item into row ────────────────────────────────────────────────────
-  const fillItemIntoRow = useCallback((rid, item) => {
+const fillItemIntoRow = useCallback((rid, item) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
       const newRow = {
@@ -725,14 +986,28 @@ export default function SaleReturn() {
         ReturnQty:       item.UOMDecimal === 0 ? "1" : "",
         _dirty: true,
       };
+      setStockLbl(vn(item.Stock).toFixed(0));
       return newRow;
     }));
     setProdPopup(null);
+
     setTimeout(() => {
-      const el = cellRefs.current[rid]?.["ReturnQty"];
+      // ✅ FIX: focusColsRef-ல் உள்ள first column-க்கு போ
+      // ProductCode தவிர முதல் column எது என்று பார்க்கும்
+      const editableCols = SR_COLUMNS
+        .filter(c => !c.readOnly && c.key !== "ProductCode")
+        .map(c => c.key);
+
+      const firstFocusCol =
+        focusColsRef.current.length > 0
+          ? focusColsRef.current.find(k => k !== "ProductCode" && editableCols.includes(k))
+          : "ReturnQty"; // ← default fallback
+
+      const targetCol = firstFocusCol || "ReturnQty";
+      const el = cellRefs.current[rid]?.[targetCol];
       if (el) { el.focus(); el.select?.(); }
     }, 50);
-  }, []);
+}, []); // focusColsRef is a ref — no dependency needed
 
   // ── Fetch product by code ─────────────────────────────────────────────────
   const fetchProductByCode = useCallback(async (rid, code) => {
@@ -779,14 +1054,26 @@ export default function SaleReturn() {
   }, []);
 
   // ── Cell keydown ──────────────────────────────────────────────────────────
-  const handleCellKeyDown = useCallback((e, rid, colKey) => {
+const handleCellKeyDown = useCallback((e, rid, colKey) => {
+
     const editableCols = visCols
       .map(vc => SR_COLUMNS.find(c => c.key === vc.key))
       .filter(Boolean)
       .filter(cd => !cd.readOnly)
       .map(cd => cd.key);
 
-    const COLS   = ["ProductCode", ...editableCols.filter(k => k !== "ProductCode")];
+    // ✅ focusColsRef.current — always latest value (ref, not state)
+    // ✅ Focus=true items only — already filtered in loadFocusCols
+    const COLS =
+      focusColsRef.current.length > 0
+        ? [
+            "ProductCode",
+            ...focusColsRef.current.filter(
+              k => k !== "ProductCode" && editableCols.includes(k)
+            ),
+          ]
+        : ["ProductCode", ...editableCols.filter(k => k !== "ProductCode")];
+
     const colIdx = COLS.indexOf(colKey);
     const rowIdx = rowsRef.current.findIndex(r => r._rid === rid);
 
@@ -847,7 +1134,7 @@ export default function SaleReturn() {
       e.preventDefault(); loadProductsForPopup(rid);
     }
   // eslint-disable-next-line
-  }, [visCols, fetchProductByCode, loadProductsForPopup]);
+  }, [visCols, fetchProductByCode, loadProductsForPopup, focusCols]); // ✅ focusCols added
 
   // ── Delete row ────────────────────────────────────────────────────────────
   const doDeleteRow = useCallback(async (rid) => {
@@ -858,48 +1145,15 @@ export default function SaleReturn() {
       return next.length === 0 ? [mkRow()] : next;
     });
   }, [confirm]);
+
   const username = localStorage.getItem("username") || "";
-  // ── Load original sale bill for return ────────────────────────────────────
-  const loadOriginalBill = useCallback(async () => {
-    if (!billSearchNo.trim()) { toast("❌ Enter Bill No to search", true); return; }
-    setLoading(true); setLdMsg("Loading bill...");
-    const res = await CC.api(SelectSaleBillUrl, null, {}, {
-      BillNo: billSearchNo.trim(), Comid: sess.Comid,
-    });
-    setLoading(false);
-    if (redirectIfDualLogin(res)) return;
-
-    const arr = Array.isArray(res.data) ? res.data
-              : Array.isArray(res.Data1) ? res.Data1 : [];
-
-    if (arr.length === 0) { toast("❌ Bill not found", true); return; }
-
-    // Fill customer
-    const master = arr[0];
-    if (master.CustomerRefId) {
-      setCustId(ns(master.CustomerRefId));
-      const found = customers.find(c => String(c.Id) === ns(master.CustomerRefId));
-      setCustMobile(found?.MobileNo || "");
-    }
-
-    // Fill items from original bill (set return qty to 0 — user fills)
-    const details = master.SaleDetails || arr;
-    const loadedRows = details.map(d => calcReturnRow(fmtRow({
-      ...mkRow(), ...d, _rid: genRid(),
-      ReturnQty: "",   // user enters how much to return
-      SaleRefId: master.Id || 0,
-    })));
-    setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
-    toast("✅ Bill loaded — enter return quantities");
-    setBillSearchOpen(false);
-  // eslint-disable-next-line
-  }, [billSearchNo, sess, customers]);
 
   // ── Clear form ────────────────────────────────────────────────────────────
   const clearForm = useCallback(async () => {
     setEditId(0);
-    setCustId(""); setCustMobile(""); setRemarks("");
-    setOrigBillNo(""); setBillSearchNo(""); setOtherMinus("");
+    setCustId(""); setCustMobile(""); setSmId(""); setRemarks("");
+    setCrmNo(""); setCrmValue("0.00"); setCurBal("0.00"); setStockLbl("0.00");
+    setDiscPer(""); setOtherPlus(""); setOtherMinus(""); setCoinage("");
     setRows([mkRow()]);
     setSelRid(null);
     await loadReturnNo();
@@ -912,7 +1166,7 @@ export default function SaleReturn() {
   // ── Save ──────────────────────────────────────────────────────────────────
   const doSave = useCallback(async () => {
     if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
-    if (!custId) { toast("❌ Select a Customer", true); return; }
+    if (!custId&&returnType!="CASH") { toast("❌ Select a Customer", true); return; }
     const vRows = rows.filter(r => r.ProductRefId && vn(r.ReturnQty) > 0);
     if (vRows.length === 0) { toast("❌ Add at least one return item", true); return; }
 
@@ -953,11 +1207,15 @@ export default function SaleReturn() {
       Id:               editId,
       CustomerRefId:    custId ? parseInt(custId) : parseInt(sess.CashId),
       CompanyRefId:     parseInt(sess.Comid),
-      SaleReturnNoDisplay: returnNo,
-      SaleDate:       returnDate,
+      SaleNoDisplay:    returnNo,
+      SaleNo:           returnNo,
+      SaleDate:         returnDate,
       SaleType:         returnType,
-      LorryNo:          returnType, // CRN or DBN
+      LorryNo:          returnType,
       OtherssubAmt:     vn(otherMinus),
+      OthersplusAmt:    vn(otherPlus),
+      disper:           vn(discPer),
+      Coinage:          vn(coinage),
       Grossamt:         totals.GrossAmt,
       taxamount:        totals.GSTAmt,
       CESSAmount:       totals.CESSAmt,
@@ -965,6 +1223,7 @@ export default function SaleReturn() {
       NetAmount:        totals.NetAmt,
       Remarks:          remarks,
       CashierRefId:     parseInt(sess.CashierId) || 0,
+      salesmanRefId:    smId ? parseInt(smId) : null,
       DeleteStatus:     true,
       CustomerName:     custObj?.AccountName || "",
       Address1:         custObj?.Address1    || "",
@@ -973,10 +1232,10 @@ export default function SaleReturn() {
       PhoneNo:          custObj?.MobileNo    || "",
       TinNo:            custObj?.GSTINNo     || "",
       IGSTBill:         custObj?.IGSTBill    || "GST",
-      Modified_By: username,
+      Modified_By:      username,
       ModifiedStatus:   editId > 0 ? 1 : 0,
       Modified_Date:    returnDate,
-      SaleReturnDetails: returndetails,
+      SaleDetails: returndetails,
     }];
 
     const headers = {
@@ -986,7 +1245,7 @@ export default function SaleReturn() {
       "BillPerfix": sess.BillNoPrefix,
       "BillDigit":  String(sess.BillNoDigit),
       "DayClose":   sess.DayClose ? "1" : "0",
-      "MirrorTable": "0", "LocalDB": "2",
+      "MirrorTable": "0", "LocalDB": "0",
     };
 
     const res = await CC.insertapi(SaleReturnInsertUrl, payload, headers);
@@ -1006,29 +1265,55 @@ export default function SaleReturn() {
     }
   // eslint-disable-next-line
   }, [perm, confirm, clearForm, sess, totals, rows, custId, remarks,
-      returnNo, returnDate, editId, otherMinus, customers, returnType]);
+      returnNo, returnDate, editId, otherMinus, otherPlus, discPer, coinage,
+      customers, returnType, smId]);
 
   // ── Delete return ─────────────────────────────────────────────────────────
-  const doDeleteReturn = useCallback(async () => {
+const doDeleteReturn = useCallback(async () => {
     if (!editId) { toast("No return to delete", true); return; }
     if (!perm.Delete) { toast("❌ Delete Permission Denied", true); return; }
     const ok = await confirm("Do you want to Cancel this Return?");
     if (!ok) return;
     setLoading(true);
-    const headers = {
-      Comid:    String(sess.Comid),
-      Cid:      String(sess.CashierId),
-      DayClose: sess.DayClose ? "1" : "0",
-      SaleDate: returnDate,
-      Id:       String(editId),
+
+    // Body = List<StockDetailsModel> built from current rows
+    const body = rows
+      .filter(r => r.ProductRefId && vn(r.ReturnQty) > 0)
+      .map(r => ({
+        ProductRefid:  r.ProductRefId,
+        Batchid:       r.BatchRefid || 0,
+        RealQty:       vn(r.ReturnQty),
+        Qty:           vn(r.ReturnQty),
+        MfDate:        "",
+        ExpDate:       "",
+        SerialNoStatus: 0,
+        AdjustType:    0,
+        PDRefid:       r.SRDId || null,
+        ItemQty:       vn(r.ReturnQty),
+        Bags:          0,
+      }));
+
+    const extraHeaders = {
+      Comid:       String(sess.Comid),
+      Id:          String(editId),
+      Date:        returnDate,
+      DayClose:    sess.DayClose ? "1" : "0",
+      MirrorTable: "0",
+      Updateid:    "0",
+      LocalDB:     "2",
     };
-    const res = await CC.api(SaleReturnDeleteUrl, [], headers, null);
+
+    const res = await CC.api(SaleReturnDeleteUrl, body, extraHeaders, null);
+
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
-    if (res.ok ?? res.IsSuccess) { toast("✅ Return Deleted Successfully"); await clearForm(); }
-    else toast("❌ " + (res.message || res.Message || "Delete Failed"), true);
-  // eslint-disable-next-line
-  }, [editId, perm, confirm, sess, clearForm, returnDate]);
+    if (res.ok ?? res.IsSuccess) {
+      toast("✅ Return Deleted Successfully");
+      await clearForm();
+    } else {
+      toast("❌ " + (res.message || res.Message || "Delete Failed"), true);
+    }
+  }, [editId, perm, confirm, sess, clearForm, returnDate, rows]);
 
   // ── F5 view ───────────────────────────────────────────────────────────────
   const openF5 = useCallback(async (from = returnDate, to = returnDate) => {
@@ -1039,10 +1324,32 @@ export default function SaleReturn() {
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
-    const dataNode = Array.isArray(res?.Data) ? res.Data[0]
-                   : Array.isArray(res?.data) ? res.data[0] : {};
-    const master   = dataNode?.salereturnmaster || dataNode?.salemaster || [];
-    setF5Rows(Array.isArray(master) ? master : []);
+
+    let master = [];
+    if (Array.isArray(res?.Data)) {
+      const node = res.Data[0];
+      master = node?.salereturnmaster || node?.SaleReturnMaster
+            || node?.salemaster       || node?.SaleMaster
+            || res.Data || [];
+    } else if (Array.isArray(res?.data)) {
+      const node = res.data[0];
+      master = node?.salereturnmaster || node?.SaleReturnMaster
+            || node?.salemaster       || node?.SaleMaster
+            || res.data || [];
+    } else if (Array.isArray(res)) {
+      master = res;
+    }
+
+    const normalized = master.map(r => ({
+      ...r,
+      SaleReturnNoDisplay: r.SaleReturnNoDisplay || r.SaleReturnNo || r.SaleNo || r.BillNo || "—",
+      ReturnDate:   r.ReturnDate  || r.BillDate  || r.SaleDate || "",
+      CustomerName: r.CustomerName || r.AccountName || "",
+      NetAmt:       r.NetAmt || r.NetAmount || r.Netamt || 0,
+      LorryNo:      r.LorryNo || r.SaleType || "CRN",
+    }));
+
+    setF5Rows(Array.isArray(normalized) ? normalized : []);
     setF5Open(true);
   }, [sess, returnDate, perm, redirectIfDualLogin]);
 
@@ -1052,7 +1359,7 @@ export default function SaleReturn() {
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading return...");
     const res = await CC.api(SaleReturnEditUrl, null, {}, {
-      Id: id, Comid: sess.Comid, CId: 0,
+      Id: id, SaleReturnNo:0,Comid: sess.Comid,
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
@@ -1066,34 +1373,77 @@ export default function SaleReturn() {
     setEditId(master.Id || id);
     setReturnNo(ns(master.SaleReturnNoDisplay || master.SaleReturnNo));
     setReturnDate(String(master.ReturnDate || "").slice(0, 10) || today());
-    setReturnType(master.LorryNo || "CRN");
+    setReturnType(master.LorryNo || master.SaleType || "CASH");
     setCustId(ns(master.CustomerRefId));
     const found = customers.find(c => String(c.Id) === ns(master.CustomerRefId));
     setCustMobile(found?.MobileNo || "");
+    setSmId(ns(master.salesmanRefId || ""));
     setRemarks(ns(master.Remarks));
     setOtherMinus(ns(master.OtherssubAmt || ""));
+    setOtherPlus(ns(master.OthersplusAmt || ""));
+    setDiscPer(ns(master.disper || ""));
+    setCoinage(ns(master.Coinage || ""));
     const loadedRows = details.map(r => calcReturnRow(fmtRow({ ...mkRow(), ...r, _rid: genRid() })));
     setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
   // eslint-disable-next-line
   }, [sess, perm, customers]);
 
-  const handleF5Delete = useCallback((id, billNo) => {
+const handleF5Delete = useCallback((id, billNo) => {
     pwOkRef.current = async () => {
       const ok = await confirm(`Cancel Return "${billNo}"?`);
       if (!ok) return;
-      setLoading(true);
-      const headers = {
-        Comid: String(sess.Comid), Cid: String(sess.CashierId),
-        DayClose: sess.DayClose ? "1" : "0", SaleDate: returnDate, Id: String(id),
+      setLoading(true); setLdMsg("Loading return details...");
+
+      // First fetch the return details to build StockDetailsModel body
+      const editRes = await CC.api(SaleReturnEditUrl, null, {}, {
+      Id: id, SaleReturnNo:0,Comid: sess.Comid,
+      });
+
+      if (!editRes || !(editRes.ok ?? editRes.IsSuccess)) {
+        setLoading(false);
+        toast("❌ Failed to load return details", true);
+        return;
+      }
+
+      const data    = Array.isArray(editRes.Data) ? editRes.Data[0] : editRes.data;
+      const master  = Array.isArray(data) ? data[0] : data;
+      const details = master?.SaleReturnDetails || master?.SaleDetails || [];
+
+      // Build List<StockDetailsModel> from fetched details
+      const body = details
+        .filter(r => vn(r.ItemQty || r.ReturnQty) > 0)
+        .map(r => ({
+          ProductRefid:   r.ProductRefId  || r.ProductRefid  || 0,
+          Batchid:        r.BatchRefid    || r.Batchid        || 0,
+          RealQty:        vn(r.ItemQty    || r.ReturnQty),
+          Qty:            vn(r.ItemQty    || r.ReturnQty),
+          MfDate:         "",
+          ExpDate:        "",
+          SerialNoStatus: 0,
+          AdjustType:     0,
+          PDRefid:        r.SRDId         || r.PDRefid        || null,
+          ItemQty:        vn(r.ItemQty    || r.ReturnQty),
+          Bags:           0,
+        }));
+
+      const extraHeaders = {
+        Comid:       String(sess.Comid),
+        Id:          String(id),
+        Date:        returnDate,
+        DayClose:    sess.DayClose ? "1" : "0",
+        MirrorTable: "0",
+        Updateid:    "0",
+        LocalDB:     "2",
       };
-      const res = await CC.api(SaleReturnDeleteUrl, [], headers, null);
+
+      const res = await CC.api(SaleReturnDeleteUrl, body, extraHeaders, null);
       setLoading(false);
       if (redirectIfDualLogin(res)) return;
       if (res.ok ?? res.IsSuccess) {
         toast("✅ Return Deleted");
         await openF5();
       } else {
-        toast("❌ " + (res.message || "Delete Failed"), true);
+        toast("❌ " + (res.message || res.Message || "Delete Failed"), true);
       }
     };
     setPw({ title: "Delete Password" });
@@ -1102,8 +1452,10 @@ export default function SaleReturn() {
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = e => {
-      if (prodPopup || f5Open || pw || f12Open || billSearchOpen) return;
-      if (e.key === "F2")  { e.preventDefault(); doSave(); }
+      if (prodPopup || f5Open || pw || f12Open || ctrlGOpen) return;
+      if (e.key === "F1")  { e.preventDefault(); doSave(); }
+      if (e.ctrlKey && e.key === "g") { e.preventDefault(); setCtrlGOpen(true); }
+      if (e.key === "F3")  { e.preventDefault(); openF5(); }   // F3=Edit per image toolbar
       if (e.key === "F5")  { e.preventDefault(); openF5(); }
       if (e.key === "F9")  { e.preventDefault(); if (!editId) return; pwOkRef.current = doDeleteReturn; setPw({ title: "F9 Delete Password" }); }
       if (e.key === "F10") { e.preventDefault(); confirm("Do You Want To Clear?").then(ok => ok && clearForm()); }
@@ -1113,8 +1465,7 @@ export default function SaleReturn() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line
-  }, [prodPopup, f5Open, pw, f12Open, billSearchOpen,
-      doSave, openF5, doDeleteReturn, clearForm, editId]);
+  }, [prodPopup, f5Open, pw, f12Open, doSave, openF5, doDeleteReturn, clearForm, editId]);
 
   if (!isAuthorized) return null;
 
@@ -1123,117 +1474,191 @@ export default function SaleReturn() {
     "TaxAmt","CESSAmount","DiscountAmt","CESSPer",
   ]);
 
+  // ─── shared panel style ────────────────────────────────────────────────────
+  const panelStyle = {
+    border: "1px solid #c8d8ee",
+    borderRadius: 4,
+    background: "#fff",
+    padding: "8px 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  };
+
+  const panelTitle = {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#4a5568",
+    borderBottom: "1px solid #e2e8f0",
+    paddingBottom: 4,
+    marginBottom: 2,
+  };
+
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div className="sb-wrap">
       {ConfirmUI}
-
+      {ctrlGOpen && (
+  <CtrlGFocusPopup
+    colSettings={colSettings}
+    comid={sess.Comid}
+    mcomid={sess.MComid}
+    toast={toast}
+    onSaved={() => loadFocusCols(sess.MComid)}
+    onClose={() => setCtrlGOpen(false)}
+  />
+)}
       <Topbar />
 
       <div className="sb-body">
 
-        {/* ── HEADER PANEL ── */}
-        <div className="sb-header-panel" >
+        {/* ══════════════════════════════════════════════════════════════════
+            HEADER — 3 panel layout matching the image exactly
+        ══════════════════════════════════════════════════════════════════ */}
+        <div style={{
+          display: "flex",
+          gap: 10,
+          padding: "8px 10px",
+          background: "#f5f8fd",
+          borderBottom: "1px solid #d0ddf5",
+          alignItems: "stretch",
+        }}>
 
-          {/* Action Buttons */}
-          <div className="sb-action-btns">
-            <button className="sb-action-btn" onClick={doSave} title="F2 Save Return"
-             >
-              <span className="btn-icon">💾</span><span>F2</span>
-            </button>
-            <button className="sb-action-btn" onClick={() => { if (!editId) return; pwOkRef.current = doDeleteReturn; setPw({ title: "F9 Delete" }); }}
-              title="F9 Delete" >
-              <span className="btn-icon">🗑</span><span>F9</span>
-            </button>
-            <button className="sb-action-btn" onClick={clearForm} title="F10 Clear">
-              <span className="btn-icon">🔄</span><span>F10</span>
-            </button>
-            <button className="sb-action-btn" onClick={() => setF12Open(true)} title="F12 Columns">
-              <span className="btn-icon">⚙</span><span>F12</span>
-            </button>
-          </div>
+          {/* ── LEFT PANEL: Sale Return Details ── */}
+          <div style={{ ...panelStyle, minWidth: 220, flexShrink: 0 }}>
+            <div style={panelTitle}>Sale Return Details</div>
 
-          <div className="sb-divider" />
-
-          {/* Center Fields */}
-          <div className="sb-fields-center">
-
-            {/* Return Type + Bill Search */}
-            <div className="sb-field-row">
-              <span className="sb-field-lbl">Return Type</span>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                {RETURN_TYPES.map(rt => (
-                  <label key={rt.value} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                    <input type="radio" name="returnType" value={rt.value}
-                      checked={returnType === rt.value}
-                      onChange={() => setReturnType(rt.value)}
-                     
-                    />
-                    <span style={{ color: returnType === rt.value ? "var(--clr-primary)" : "#4a5568" }}>{rt.label}</span>
-                  </label>
-                ))}
-              </div>
-              <span className="sb-field-lbl-sm" style={{ marginLeft: 16 }}>Bill No</span>
+            {/* ReturnNo */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <label style={{ ...fieldLabel, minWidth: 78 }}>ReturnNo</label>
               <input
-                value={billSearchNo}
-                onChange={e => setBillSearchNo(e.target.value.toUpperCase())}
-                onKeyDown={e => { if (e.key === "Enter") loadOriginalBill(); }}
-                placeholder="Original Bill No..."
-                style={{ height: 26, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 8px", fontSize: 12, width: 130, outline: "none" }}
+                style={{ ...fieldInput, flex: 1 }}
+                value={returnNo}
+                onChange={e => setReturnNo(e.target.value)}
+                readOnly
               />
-              <button onClick={loadOriginalBill}
-                style={{ height: 26, padding: "0 10px", background: " #1f65de", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
-                🔍 Load
-              </button>
             </div>
 
-            {/* Customer Row */}
-            <div className="sb-field-row">
-              <span className="sb-field-lbl">Customer</span>
+            {/* ReturnDate */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <label style={{ ...fieldLabel, minWidth: 78 }}>ReturnDate</label>
+              <input
+                type="date"
+                style={{ ...fieldInput, flex: 1 }}
+                value={returnDate}
+                onChange={e => setReturnDate(e.target.value)}
+              />
+            </div>
+
+            {/* ReturnType — simple dropdown */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <label style={{ ...fieldLabel, minWidth: 78 }}>ReturnType</label>
+              <select
+                style={{ ...fieldInput, flex: 1 }}
+                value={returnType}
+                onChange={e => setReturnType(e.target.value)}
+              >
+                {RETURN_TYPES.map(rt => (
+                  <option key={rt.value} value={rt.value}>{rt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {editId > 0 && (
+              <div style={{ fontSize: 10, color: "#1f65de", fontWeight: 700 }}>✏️ EDIT MODE</div>
+            )}
+          </div>
+
+          {/* ── MIDDLE PANEL: Customer Details ── */}
+          <div style={{ ...panelStyle, flex: 1 }}>
+            <div style={panelTitle}>Customer Details</div>
+
+            {/* Customer */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <label style={fieldLabel}>Customer</label>
               <ComboBox
                 inputRef={custRef}
                 options={[{ value: "", label: "" }, ...customers.map(c => ({ value: String(c.Id), label: c.AccountName }))]}
                 value={custId}
-                onChange={v => { setCustId(v); const f = customers.find(c => String(c.Id) === v); setCustMobile(f?.MobileNo || ""); }}
-                onEnterKey={() => { const fr = rowsRef.current[0]; if (fr) cellRefs.current[fr._rid]?.["ProductCode"]?.focus(); }}
-                placeholder="-- Select Customer --"
+                onChange={handleCustomerChange}
+                onEnterKey={() => {
+                  const fr = rowsRef.current[0];
+                  if (fr) cellRefs.current[fr._rid]?.["ProductCode"]?.focus();
+                }}
+                placeholder="Select CustomerName"
               />
-              {custMobile && (
-                <>
-                  <span className="sb-field-lbl-sm" style={{ marginLeft: 8 }}>Mobile</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#1f65de", background: "#e8f0fe", borderRadius: 4, padding: "1px 8px", border: "1px solid #c5d8f8" }}>
-                    {custMobile}
-                  </span>
-                </>
-              )}
             </div>
 
+            {/* MobileNo + CRM */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <label style={fieldLabel}>MobileNo</label>
+              {/* Mobile as a simple read-only combobox-like select */}
+              <div style={{ flex: 1, position: "relative" }}>
+                <input
+                  style={{ ...fieldInput, width: "100%" }}
+                  value={custMobile}
+                  readOnly
+                  placeholder="Select MobileNo"
+                />
+              </div>
+              <label style={{ ...fieldLabel, minWidth: 36, marginLeft: 8 }}>CRM</label>
+              <div style={{ flex: 1, position: "relative" }}>
+                <input
+                  style={{ ...fieldInput, width: "100%" }}
+                  value={crmNo}
+                  onChange={e => setCrmNo(e.target.value)}
+                  placeholder="Select CRMNO"
+                />
+              </div>
+            </div>
+
+            {/* CRM Value + CurrentBal + Stock */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#4a5568" }}>CRM Value</label>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a", minWidth: 48 }}>{crmValue}</span>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#4a5568" }}>CurrentBal</label>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a", minWidth: 48 }}>{curBal}</span>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#4a5568" }}>Stock</label>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#dc2626", minWidth: 48 }}>{stockLbl}</span>
+            </div>
           </div>
 
-          <div className="sb-divider" />
+          {/* ── RIGHT PANEL: Amount + SalesMan + Cashier ── */}
+          <div style={{ ...panelStyle, minWidth: 240, flexShrink: 0, alignItems: "stretch" }}>
+            {/* Net Amount — large green */}
+            <div style={{ textAlign: "center", fontSize: 22, fontWeight: 800, color: "#16a34a", letterSpacing: 0.5, paddingBottom: 4 }}>
+              Rs.{totals.NetAmt.toFixed(2)}
+            </div>
 
-          {/* Bill Info */}
-          <div className="sb-bill-info">
-            <div style={{ fontSize: 20, fontWeight: 800, color: " #1f65de", letterSpacing: 0.5 }}>
-              ₹{totals.NetAmt.toFixed(2)}
+            {/* SalesMan */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <label style={{ ...fieldLabel, minWidth: 58 }}>SalesMan</label>
+              <ComboBox
+                options={[{ value: "", label: "Select SalesMan" }, ...salesmen.map(s => ({ value: String(s.Id), label: s.SalesManName }))]}
+                value={smId}
+                onChange={setSmId}
+                placeholder="Select SalesMan"
+              />
             </div>
-            <div className="sb-bill-row">
-              <label>Return No</label>
-              <span style={{ color: " #1f65de" }}>{returnNo || "—"}</span>
+
+            {/* Cashier */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <label style={{ ...fieldLabel, minWidth: 58 }}>Cashier</label>
+              <input
+                style={{ ...fieldInput, flex: 1 }}
+                value={cashier}
+                onChange={e => setCashier(e.target.value)}
+                placeholder="Cashier"
+              />
             </div>
-            <div className="sb-bill-row">
-              <label>Return Date</label>
-              <input type="date" className="sb-date-input" value={returnDate} onChange={e => setReturnDate(e.target.value)} />
-            </div>
-            {editId > 0 && <div style={{ fontSize: 10, color: " #1f65de", fontWeight: 700 }}>✏️ EDIT MODE</div>}
           </div>
         </div>
 
-        {/* ── MAIN CONTENT ── */}
-        <div className="sb-content">
-
-          {/* ── RETURN GRID ── */}
-          <div className="sb-grid-wrap">
+        {/* ══════════════════════════════════════════════════════════════════
+            GRID
+        ══════════════════════════════════════════════════════════════════ */}
+        <div className="sb-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div className="sb-grid-wrap" style={{ flex: 1 }}>
             <div className="sb-grid-scroll">
               <table className="sb-tbl">
                 <thead>
@@ -1243,7 +1668,6 @@ export default function SaleReturn() {
                       <th key={c.key} style={{
                         width: c.width, minWidth: c.width,
                         textAlign: RIGHT_KEYS.has(c.key) ? "right" : undefined,
-                       
                       }}>{c.label}</th>
                     ))}
                     <th style={{ width: 36 }}></th>
@@ -1269,7 +1693,7 @@ export default function SaleReturn() {
                             {isRO && col.key !== "ProductName" ? (
                               <span className="sb-cell-calc" style={{
                                 display: "block", padding: "0 4px",
-                                color: isAmt ? " #1f65de" : undefined,
+                                color: isAmt ? "#1f65de" : undefined,
                                 fontWeight: isAmt ? 700 : undefined,
                               }}>
                                 {isFloat && val ? f2(val).toFixed(2) : ns(val)}
@@ -1332,126 +1756,180 @@ export default function SaleReturn() {
               </table>
             </div>
           </div>
+        </div>
 
-          {/* ── SIDE PANEL ── */}
-          <div className="sb-payment-panel">
+        {/* ══════════════════════════════════════════════════════════════════
+            BOTTOM SECTION — GST split left + Totals grid (matches image)
+        ══════════════════════════════════════════════════════════════════ */}
+        <div style={{
+          display: "flex",
+          gap: 0,
+          borderTop: "1px solid #d0ddf5",
+          background: "#f8fafd",
+          flexShrink: 0,
+        }}>
 
-            {/* Remarks + Other Deduction */}
-            <div style={{ background: "#fff", border: "1px solid #c5d8f8", borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
-              <div style={{  color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px" }}>
-                📝 Return Details
-              </div>
-              <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "#4a5568", minWidth: 70 }}>Others(-)</label>
-                  <input className="sb-pay-input" type="number" step="0.01"
-                    value={otherMinus} onChange={e => setOtherMinus(e.target.value)} placeholder="0.00"
-                    style={{ width: "100%", border: "1px solid #c5d8f8", borderRadius: 3 }} />
+          {/* ── GST SPLIT TABLE (left) ── */}
+          <div style={{
+            minWidth: 340, maxWidth: 360,
+            borderRight: "1px solid #d0ddf5",
+            display: "flex", flexDirection: "column",
+          }}>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "80px 1fr 1fr 1fr",
+              background: "#e8edf7",
+              borderBottom: "1px solid #d0ddf5",
+              padding: "4px 8px",
+              fontSize: 11, fontWeight: 700, color: "#4a5568",
+            }}>
+              <span>GST %</span>
+              <span style={{ textAlign: "right" }}>GST Amt</span>
+              <span style={{ textAlign: "right" }}>CGST Amt</span>
+              <span style={{ textAlign: "right" }}>SGST Amt</span>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", maxHeight: 100 }}>
+              {gstSplit.length === 0
+                ? <div style={{ textAlign: "center", color: "#94a3b8", padding: "12px 8px", fontSize: 11 }}>No data to display</div>
+                : gstSplit.map((g, i) => (
+                  <div key={i} style={{
+                    display: "grid",
+                    gridTemplateColumns: "80px 1fr 1fr 1fr",
+                    padding: "3px 8px",
+                    fontSize: 11,
+                    background: i % 2 === 0 ? "#fff" : "#f5f8fd",
+                    borderBottom: "1px solid #edf0f7",
+                  }}>
+                    <span style={{ color: "#4a5568" }}>{g.TaxPercent}%</span>
+                    <span style={{ textAlign: "right", color: "#1a2e4a" }}>{f2(g.TaxAmt).toFixed(2)}</span>
+                    <span style={{ textAlign: "right", color: "#1a2e4a" }}>{f2(g.CTAmount).toFixed(2)}</span>
+                    <span style={{ textAlign: "right", color: "#1a2e4a" }}>{f2(g.STAmount).toFixed(2)}</span>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+
+          {/* ── TOTALS GRID (right, 3×3 matching image) ── */}
+          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", fontSize: 12 }}>
+
+            {/* Col 1 */}
+            <div style={{ borderRight: "1px solid #d0ddf5", display: "flex", flexDirection: "column" }}>
+              {[
+                { label: "Gross Amt",  value: totals.GrossAmt.toFixed(2), readOnly: true },
+                { label: "Disc(%)",    value: discPer, onChange: setDiscPer, type: "number" },
+                { label: "Disc Amt",   value: totals.DiscAmt.toFixed(2), readOnly: true },
+              ].map((item, i) => (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "4px 10px", borderBottom: "1px solid #edf0f7", gap: 6,
+                }}>
+                  <span style={{ color: "#4a5568", fontWeight: 600 }}>{item.label}</span>
+                  {item.readOnly
+                    ? <span style={{ fontWeight: 700, color: "#1a2e4a", minWidth: 80, textAlign: "right" }}>{item.value}</span>
+                    : <input
+                        type={item.type || "text"}
+                        step="0.01"
+                        value={item.value}
+                        onChange={e => item.onChange(e.target.value)}
+                        style={{ ...fieldInput, width: 90, textAlign: "right" }}
+                        placeholder="0.00"
+                      />
+                  }
                 </div>
-                <input
-                  className="sb-remarks-input"
-                  placeholder="Remarks..."
-                  ref={remarksRef}
-                  value={remarks}
-                  onChange={e => setRemarks(e.target.value.toUpperCase())}
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); doSave(); } }}
-                  style={{ borderColor: " #c5d8f8" }}
-                />
-              </div>
+              ))}
             </div>
 
-            {/* Totals */}
-            <div className="sb-totals" style={{ border: "1px solid var(--clr-primary-light)" }}>
-              <div className="sb-total-row"><label>Gross Amt</label><span>{totals.GrossAmt.toFixed(2)}</span></div>
-              <div className="sb-total-row"><label>Disc Amt</label><span>{totals.DiscAmt.toFixed(2)}</span></div>
-              <div className="sb-total-row"><label>GST Amt</label><span>{totals.GSTAmt.toFixed(2)}</span></div>
-              <div className="sb-total-row"><label>CESS Amt</label><span>{totals.CESSAmt.toFixed(2)}</span></div>
-              <div className="sb-total-sep" />
-              <div className="sb-total-row net">
-                <label style={{ color: " #1f65de" }}>Return Total</label>
-                <span style={{ color: " #1f65de" }}>₹{totals.NetAmt.toFixed(2)}</span>
-              </div>
+            {/* Col 2 */}
+            <div style={{ borderRight: "1px solid #d0ddf5", display: "flex", flexDirection: "column" }}>
+              {[
+                { label: "GST Amt",  value: totals.GSTAmt.toFixed(2),  readOnly: true },
+                { label: "CESS Amt", value: totals.CESSAmt.toFixed(2), readOnly: true },
+                { label: "Coinage",  value: coinage, onChange: setCoinage, type: "number" },
+              ].map((item, i) => (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "4px 10px", borderBottom: "1px solid #edf0f7", gap: 6,
+                }}>
+                  <span style={{ color: "#4a5568", fontWeight: 600 }}>{item.label}</span>
+                  {item.readOnly
+                    ? <span style={{ fontWeight: 700, color: "#1a2e4a", minWidth: 80, textAlign: "right" }}>{item.value}</span>
+                    : <input
+                        type={item.type || "text"}
+                        step="0.01"
+                        value={item.value}
+                        onChange={e => item.onChange(e.target.value)}
+                        style={{ ...fieldInput, width: 90, textAlign: "right" }}
+                        placeholder="0.00"
+                      />
+                  }
+                </div>
+              ))}
             </div>
 
-            {/* GST Split */}
-            {gstSplit.length > 0 && (
-              <div style={{ background: "var(--clr-primary-dark)", border: "1px solid var(--clr-primary-light)", borderRadius: 6, overflow: "hidden", flexShrink: 0, maxHeight: 72, display: "flex", flexDirection: "column" }}>
-                <div style={{  color: "#fff", fontSize: 10.5, fontWeight: 700, padding: "3px 10px", flexShrink: 0 }}>
-                  GST Split
+            {/* Col 3 */}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {[
+                { label: "Others(+)", value: otherPlus,  onChange: setOtherPlus,  type: "number" },
+                { label: "Others(-)", value: otherMinus, onChange: setOtherMinus, type: "number" },
+                { label: "Net Total", value: totals.NetAmt.toFixed(2), readOnly: true, bold: true },
+              ].map((item, i) => (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "4px 10px", borderBottom: "1px solid #edf0f7", gap: 6,
+                }}>
+                  <span style={{ color: item.bold ? "#1a2e4a" : "#4a5568", fontWeight: item.bold ? 700 : 600 }}>{item.label}</span>
+                  {item.readOnly
+                    ? <span style={{ fontWeight: 800, color: "#1a2e4a", minWidth: 80, textAlign: "right", fontSize: item.bold ? 14 : 12 }}>{item.value}</span>
+                    : <input
+                        type={item.type || "text"}
+                        step="0.01"
+                        value={item.value}
+                        onChange={e => item.onChange(e.target.value)}
+                        style={{ ...fieldInput, width: 90, textAlign: "right" }}
+                        placeholder="0.00"
+                      />
+                  }
                 </div>
-                <div style={{ overflowY: "auto", flex: 1 }}>
-                  <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11 }}>
-                    <thead>
-                      <tr>
-                        {["GST%", "GST Amt", "CGST", "SGST"].map(h => (
-                          <th key={h} style={{ background: "#1b3a8f", color: "#fff", fontSize: 9.5, padding: "2px 6px", border: "1px solid rgba(255,255,255,.15)", textAlign: "right", position: "sticky", top: 0 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {gstSplit.map((g, i) => (
-                        <tr key={i} style={{ background:"#fff"}}>
-                          <td style={{ padding: "2px 6px", border: "1px solid var(--clr-primary-light)", textAlign: "center", fontSize: 10.5 }}>{g.TaxPercent}%</td>
-                          <td style={{ padding: "2px 6px", border: "1px solid var(--clr-primary-light)", textAlign: "right", fontSize: 10.5 }}>{f2(g.TaxAmt).toFixed(2)}</td>
-                          <td style={{ padding: "2px 6px", border: "1px solid var(--clr-primary-light)", textAlign: "right", fontSize: 10.5 }}>{f2(g.CTAmount).toFixed(2)}</td>
-                          <td style={{ padding: "2px 6px", border: "1px solid var(--clr-primary-light)", textAlign: "right", fontSize: 10.5 }}>{f2(g.STAmount).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Bottom Info */}
-            <div style={{ background: "#fff", border: "1px solid var(--clr-primary-light)", borderRadius: 6, padding: "6px 10px", flexShrink: 0, fontSize: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontWeight: 600, color: "#4a5568" }}>Return Qty</span>
-                  <span style={{ background: "#e8f0fe", color: "var(--clr-primary)", fontWeight: 800, fontSize: 13, borderRadius: 4, padding: "1px 10px",border: "1px solid #c5d8f8", }}>
-                    {totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(2)}
-                  </span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontWeight: 600, color: "#4a5568" }}>Items</span>
-                  <span style={{ background: "#e8f0fe",border: "1px solid #c5d8f8", color: "var(--clr-primary)", fontWeight: 800, fontSize: 13, borderRadius: 4, padding: "1px 10px",border: "1px solid #c5d8f8", }}>
-                    {itemCount}
-                  </span>
-                </div>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 600, color: "#4a5568", fontSize: 11 }}>Last Return No</span>
-                <span style={{ fontWeight: 700,  fontSize: 11 }}>{lastReturnNo}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 600, color: "#4a5568", fontSize: 11 }}>Last Return Amt</span>
-                <span style={{ fontWeight: 700,border: "1px solid #c5d8f8", color: "var(--clr-primary)", fontSize: 11 }}>
-                  {lastReturnAmt > 0 ? `₹${lastReturnAmt.toFixed(2)}` : "None"}
-                </span>
-              </div>
+              ))}
             </div>
-
           </div>
         </div>
 
-        {/* ── BOTTOM TOOLBAR ── */}
+        {/* ══════════════════════════════════════════════════════════════════
+            BOTTOM TOOLBAR — matches image: F1-CashBill | F3-Edit | F5-View | F9-Delete | DEL-Delete | ESC-Exit
+        ══════════════════════════════════════════════════════════════════ */}
         <div className="sb-toolbar" style={{ borderLeftColor: "var(--clr-primary)" }}>
           <button className="sb-btn sv" onClick={doSave} disabled={loading}
             style={{ background: "var(--clr-primary)", borderColor: "var(--clr-primary)" }}>
-            💾 F2 Save Return
+            💾 F1 - CashBill
           </button>
-          <button className="sb-btn" onClick={openF5}>📋 F5 View</button>
-          <button className="sb-btn" onClick={() => setF12Open(true)}>⚙ F12 Columns</button>
+          <button className="sb-btn" onClick={openF5}>✏ F3 - Edit</button>
+          <button className="sb-btn" onClick={openF5}>📋 F5 - View</button>
+          <button className="sb-btn" onClick={() => setF12Open(true)}>⚙ F12</button>
           <button className="sb-btn" onClick={clearForm} disabled={loading}>🔄 F10 Clear</button>
+          <button className="sb-btn" onClick={() => setCtrlGOpen(true)} title="Ctrl+G Column Focus/Reorder">
+  ⚡ Ctrl+G
+</button>
           {editId > 0 && (
             <button className="sb-btn dl"
               onClick={() => { pwOkRef.current = doDeleteReturn; setPw({ title: "F9 Delete Password" }); }}
-              disabled={loading}>🗑 F9 Delete</button>
+              disabled={loading}>🗑 F9 - Delete</button>
           )}
-          <button className="sb-btn dl" onClick={() => navigate(-1)}>✕ Esc Exit</button>
+          <button className="sb-btn dl"
+            onClick={() => { if (!editId) return; pwOkRef.current = doDeleteReturn; setPw({ title: "DEL Delete" }); }}>
+            🗑 DEL - Delete
+          </button>
+          <button className="sb-btn dl" onClick={() => navigate(-1)}>✕ ESC - Exit</button>
           {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
+          {/* right-side info */}
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
+            <span>Return Qty: <b style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(2)}</b></span>
+            <span>Items: <b style={{ color: "#1a2e4a" }}>{itemCount}</b></span>
+            <span>Last: <b style={{ color: "#1f65de" }}>{lastReturnNo}</b></span>
+            {lastReturnAmt > 0 && <span>Amt: <b style={{ color: "#16a34a" }}>₹{lastReturnAmt.toFixed(2)}</b></span>}
+          </span>
         </div>
-
       </div>
 
       {/* ── LOADING OVERLAY ── */}

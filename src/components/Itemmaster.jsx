@@ -711,7 +711,7 @@ const redirectIfDualLogin = useCallback((res) => {
     setF12Open(false); setLoading(true);
     const payload = newCols.map(c => ({ Comid:parseInt(sess.Comid), filename:"Itemmaster", column:c.key, Visible:c.visible===true, Width:parseInt(c.width||120) }));
     try {
-      const res = await fetch(CC.VisibleColumnsUrl, { method:"POST", headers:{"Content-Type":"application/json; charset=utf-8",...CC.authHeaders()}, body:JSON.stringify(payload) });
+      const res = await fetch(CC.BASE_URL+CC.VisibleColumnsUrl, { method:"POST", headers:{"Content-Type":"application/json; charset=utf-8",...CC.authHeaders()}, body:JSON.stringify(payload) });
       const data = await res.json();
       if (data.ok) { toast("✅ Column settings saved."); setCols(newCols); await loadColCfg(); }
       else toast(`❌ ${data.message||"Failed"}`, true);

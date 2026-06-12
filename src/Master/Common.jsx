@@ -28,9 +28,14 @@ export const ItemBranchRate = "/api/ItemMasterApp/SelectBranchSaleRate";
 export const ItemBranchRateUpdate = "/api/ItemMasterApp/UpdateBranchSaleRate";
 export const ItemGroupCommission = "/api/ItemMasterApp/SelectGroupCommission";
 export const ItemGroupCommissionInsert = "/api/ItemMasterApp/InsertGroupCommission";
-export const VisibleColumnsUrl = "/Login/VisibleColumns";
+export const VisibleColumnsUrl = "/api/loginApp/VisibleColumns";
 export const LoginPasswordUrl = "/api/LoginApp/EditPassword";
 
+        export const BankDateSelect = "/api/BankApp/SelectBankDate";
+        export const BankAllSelect = "/api/BankApp/SelectBankList";
+        export const BankSelect = "/api/BankApp/SelectBank";
+        export const BankInsert = "/api/BankApp/InsertBank";
+        export const BankDelete = "/api/BankApp/DeleteBank";
   //Brand
         export const BrandSelect = "/api/BrandApp/SelectBrand";
         export const BrandInsert = "/api/BrandApp/InsertBrand";
@@ -66,6 +71,19 @@ export const LoginPasswordUrl = "/api/LoginApp/EditPassword";
         export const LocationInsert = "/api/LocationApp/InsertLocation";
         export const LocationDelete = "/api/LocationApp/DeleteLocation";
 
+        export const SelectCustomerReceiptDate = "/api/CustomerReceiptApp/SelectCustomerReceiptDate";
+export const InsertCustomerReceipt     = "/api/CustomerReceiptApp/InsertCustomerReceipt";
+export const DeleteCustomerReceipt     = "/api/CustomerReceiptApp/DeleteCustomerReceipt";
+export const SelectCustomerReceiptF5   = "/api/CustomerReceiptApp/SelectCustomerReceipt";
+ export const GetSupplierAll       = "/api/SupplierApp/SelectSupplierAll";
+// ─── Pending Bills (Bill-wise payment distribution window) ───────────────────
+export const CustomerPendingReport     = "/api/SalesReportApp/CustomerPendingReport";
+ 
+// ─── Print View (Ctrl+V in F5 window) ────────────────────────────────────────
+export const PrintViewUrl              = "/api/ReceiptApp/PrintView";
+ 
+// ─── Report Viewer base path (shared by all report pages) ────────────────────
+export const ReportViewerBase          = "../Reports/ReportViewer.aspx";
         // ─── Supplier Master API Links ────────────────────────────────────────────────
 export const SupplierMasterSelect = "/api/SupplierApp/SelectSupplier";
 export const SupplierMasterInsert = "/api/SupplierApp/InsertSupplier";

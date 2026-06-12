@@ -41,7 +41,7 @@ const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock";
 const A4PrintUrl          = "/Sale/A4Print";
 
 const BASE_URL = "http://localhost:64215";
-const mkUrl = (path) => BASE_URL + path;
+
 
 // ─── SALE GRID COLUMN DEFINITIONS ────────────────────────────────────────────
 const SALE_COLUMNS = [
@@ -2098,7 +2098,7 @@ export default function SaleBill() {
     };
 
     try {
-      const res = await fetch(`${BASE_URL}${A4PrintUrl}`, {
+      const res = await fetch(`${CC.BASE_URL}${A4PrintUrl}`, {
        
         method: "POST",
         headers: {

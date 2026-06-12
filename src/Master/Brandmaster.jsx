@@ -381,7 +381,7 @@ if (redirectIfDualLogin(res)) return;
       const res = await CC.api(
         CC.BrandDelete,
         null,
-        { "IdComList": String(sess.IdComList) },
+        { "IdComList": "" },
         { Id: Number(row.Id), Comid: Number(sess.Comid), MirrorTable: Number(sess.MirrorTable) }
       );
 
@@ -504,7 +504,7 @@ if (redirectIfDualLogin(res)) return;
       {
         Comid:       String(sess.Comid),
         MirrorTable: String(sess.MirrorTable),
-        IdComList:   String(sess.IdComList),
+        IdComList:   "",
       }
     );
 
