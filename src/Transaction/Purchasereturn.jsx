@@ -441,6 +441,7 @@ export default function PurchaseReturn() {
   const purchaseTypeRef  = useRef(null);
   const focusCellRef     = useRef(null);   // set below via useCallback
   const handleClearRef   = useRef(null);   // stable ref to handleClear — breaks forward dependency
+  const openF5ViewRef    = useRef(null);   // stable ref to openF5View — breaks circular dep with handleDelete
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  INIT (mirrors jQuery methods.init)
@@ -1322,12 +1323,23 @@ const res = await CC.insertapi(
   const handleEdit = useCallback(async (pid, pNo = 0) => {
     if (perm.Edit === 0) { toast("❌ Page Edit Permission Denied !!!.", true); return; }
     setLoading(true);
-    const res = await CC.api(CC.PR_EditPassword, { Id: Number(pid), PNo: Number(pNo), Comid: Number(sess.Comid) });
+    // ✅ FIXED: use PR_Edit (EditPurchaseReturn), not PR_EditPassword
+    const res = await CC.api(
+      CC.PR_Edit,
+      null,
+      {},
+      {
+        Id: Number(pid),
+        PNo: Number(pNo),
+        Comid: Number(sess.Comid)
+      }
+    );
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     if (!res?.ok) { toast(`❌ ${res?.message || "Load Failed."}`, true); return; }
 
-    const data = res.Data || res.data || [];
+    // ✅ FIXED: jQuery returns data.Data (array), handle both data.Data and data.data
+    const data = res.Data ?? res.data ?? [];
     if (!Array.isArray(data) || data.length === 0) return;
 
     const pm = data[0];
@@ -1411,18 +1423,47 @@ const res = await CC.insertapi(
     if (!ok) return;
 
     setLoading(true);
-    const res = await CC.deleteapi(CC.PR_Delete, realStockList, {
-      Year:         FYear,
-      Comid:        sess.Comid,
-      Id:           String(targetId),
-      MirrorTable:  sess.MirrorTable,
-      UpdateId:     targetUpdateId,
-    });
+
+    // const res = await CC.deleteapi(
+    //   CC.PR_Delete,
+    //   realStockList || [],
+    //   {
+    //     Comid: String(sess.Comid),
+    //     Id: String(targetId),
+    //     MirrorTable: String(sess.MirrorTable || 0),
+    //     Updateid: String(targetUpdateId || ""),
+    //     LocalDB: String(sess.LocalDB || 0),
+    //     Year: String(FYear || ""),
+    //   }
+    // );
+
+    const res = await CC.deleteapi(
+      CC.PR_Delete,
+      realStockList ?? [],
+      {
+        Comid: String(sess.Comid),
+        Id: String(targetId),
+        MirrorTable: String(sess.MirrorTable ?? 0),
+        Updateid: String(targetUpdateId ?? ""),
+        LocalDB: String(sess.LocalDB ?? 0),
+        Year: String(FYear ?? ""),
+        BillMaster: String(sess.BillMaster ?? 0),
+      }
+    );
+    
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
-    if (res?.ok) { toast(`✔ ${res.message || "Deleted Successfully."}`); handleClear(); }
-    else toast(`❌ ${res?.message || "Delete Failed."}`, true);
-  }, [perm.Delete, editId, purchaseNo, updateIdEdit, confirm, realStockList, FYear, sess, redirectIfDualLogin, toast, handleClear]);
+    if (res?.IsSuccess) {
+      toast(`✔ ${res.Message || "Deleted Successfully."}`);
+      handleClear();
+    
+      if (f5Open) {
+        setTimeout(() => openF5ViewRef.current?.(), 300);
+      }
+    } else {
+      toast(`❌ ${res?.Message || "Delete Failed."}`, true);
+    }
+  }, [perm.Delete, editId, purchaseNo, updateIdEdit, confirm, realStockList, FYear, sess, redirectIfDualLogin, toast, handleClear, f5Open]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  F5 VIEW (mirrors jQuery methods.F5View)
@@ -1437,16 +1478,185 @@ const res = await CC.insertapi(
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
-    const master  = Array.isArray(res?.data)  ? res.data  
-                  : Array.isArray(res?.Data1) ? res.Data1 : [];
-    const details = Array.isArray(res?.data2) ? res.data2
-                  : Array.isArray(res?.Data2) ? res.Data2 : [];
+
+    // ── Handle BOTH API response shapes ──────────────────────────────────────
+    // Shape A (jQuery original):  res.Data[0].purchasemaster / purchasedetails
+    // Shape B (V7 flat):          res.data (master)  + res.data2 / res.Data2 (details)
+    let rawMaster  = [];
+    let rawDetails = [];
+
+    const dataArr = res?.Data ?? res?.data ?? [];
+    if (Array.isArray(dataArr) && dataArr.length > 0 && dataArr[0]?.purchasemaster) {
+      // Shape A — nested under Data[0]
+      rawMaster  = Array.isArray(dataArr[0].purchasemaster)  ? dataArr[0].purchasemaster  : [];
+      rawDetails = Array.isArray(dataArr[0].purchasedetails) ? dataArr[0].purchasedetails : [];
+    } else {
+      // Shape B — flat
+      rawMaster  = Array.isArray(res?.data)  ? res.data
+                 : Array.isArray(res?.Data1) ? res.Data1
+                 : Array.isArray(dataArr)    ? dataArr : [];
+      rawDetails = Array.isArray(res?.data2) ? res.data2
+                 : Array.isArray(res?.Data2) ? res.Data2 : [];
+    }
+
+    // Normalize master rows — handle both PascalCase and camelCase API responses
+    // const master = rawMaster.map((r) => ({
+    //   Id:           r.Id           ?? r.id           ?? "",
+    //   PurchaseNo:   r.PurchaseNo   ?? r.purchaseNo   ?? "",
+    //   PurchaseDate: r.PurchaseDate ?? r.purchaseDate ?? "",
+    //   PurchaseType: r.PurchaseType ?? r.purchaseType ?? "",
+    //   SupplierName: r.SupplierName ?? r.supplierName ?? "",
+    //   InvoiceNo:    r.SupplierInvoiceNo ?? r.supplierInvoiceNo ?? r.InvoiceNo ?? "",
+    //   NetAmt:       r.NetAmt       ?? r.netAmt       ?? 0,
+    //   Remarks:      r.Remarks      ?? r.remarks      ?? "",
+    //   Created_By:   r.Created_By   ?? r.created_By   ?? r.Modified_By ?? "",
+    //   UpdateId:     r.UpdateId     ?? r.updateId     ?? "",
+    // }));
+
+    const master = rawMaster.map((r) => ({
+      Id: r.Id ?? r.id ?? "",
+    
+      // Backend -> ReturnNo
+      PurchaseNo:
+        r.PurchaseNo ??
+        r.purchaseNo ??
+        r.ReturnNo ??
+        r.returnNo ??
+        "",
+    
+      // Backend -> Date
+      PurchaseDate:
+        r.PurchaseDate ??
+        r.purchaseDate ??
+        r.Date ??
+        r.date ??
+        "",
+    
+      // Backend -> Type
+      PurchaseType:
+        r.PurchaseType ??
+        r.purchaseType ??
+        r.Type ??
+        r.type ??
+        "",
+    
+      // Backend -> SupName
+      SupplierName:
+        r.SupplierName ??
+        r.supplierName ??
+        r.SupName ??
+        r.supName ??
+        "",
+    
+      NetAmt:
+        r.NetAmt ??
+        r.netAmt ??
+        0,
+    
+      InvoiceNo:
+        r.SupplierInvoiceNo ??
+        r.supplierInvoiceNo ??
+        r.InvoiceNo ??
+        "",
+    
+      Remarks:
+        r.Remarks ??
+        r.remarks ??
+        "",
+    
+      Created_By:
+        r.Created_By ??
+        r.created_By ??
+        r.Modified_By ??
+        "",
+    
+      UpdateId:
+        r.UpdateId ??
+        r.updateId ??
+        "",
+    }));
+    // Normalize detail rows — handle both casings + coerce join key to number
+    // const details = rawDetails.map((d) => ({
+    //   PurchaseRefId:   Number(d.PurchaseRefId  ?? d.purchaseRefId  ?? 0),
+    //   ProductCode:     d.ProductCode     ?? d.productCode     ?? "",
+    //   ProductName:     d.ProductName     ?? d.productName     ?? "",
+    //   MRP:             d.MRP             ?? d.mrp             ?? 0,
+    //   PurchaseRate:    d.PurchaseRate    ?? d.purchaseRate    ?? 0,
+    //   ItemQty:         d.ItemQty         ?? d.itemQty         ?? 0,
+    //   TaxPercent:      d.TaxPercent      ?? d.taxPercent      ?? 0,
+    //   TaxAmt:          d.TaxAmt          ?? d.taxAmt          ?? 0,
+    //   DiscountPercent: d.DiscountPercent ?? d.discountPercent ?? 0,
+    //   DiscountAmt:     d.DiscountAmt     ?? d.discountAmt     ?? 0,
+    //   Amount:          d.Amount          ?? d.amount          ?? 0,
+    // }));
+    const details = rawDetails.map((d) => ({
+      PurchaseRefId: Number(
+        d.PurchaseRefId ??
+        d.purchaseRefId ??
+        d.PurchaseReturnRefId ??
+        d.purchaseReturnRefId ??
+        0
+      ),
+    
+      ProductCode:
+        d.ProductCode ??
+        d.productCode ??
+        "",
+    
+      ProductName:
+        d.ProductName ??
+        d.productName ??
+        "",
+    
+      MRP:
+        d.MRP ??
+        d.mrp ??
+        0,
+    
+      PurchaseRate:
+        d.PurchaseRate ??
+        d.purchaseRate ??
+        d.ReturnRate ??
+        d.returnRate ??
+        0,
+    
+      ItemQty:
+        d.ItemQty ??
+        d.itemQty ??
+        0,
+    
+      TaxPercent:
+        d.TaxPercent ??
+        d.taxPercent ??
+        0,
+    
+      TaxAmt:
+        d.TaxAmt ??
+        d.taxAmt ??
+        0,
+    
+      DiscountPercent:
+        d.DiscountPercent ??
+        d.discountPercent ??
+        0,
+    
+      DiscountAmt:
+        d.DiscountAmt ??
+        d.discountAmt ??
+        0,
+    }));
+
     setF5List(master);
     setF5Details(details);
     setF5Open(true);
     setF5ExpandRow(null);
   }, [f5FromDate, f5ToDate, f5SuppId, sess.Comid, redirectIfDualLogin]);
- 
+
+  // Keep ref in sync (used by handleDelete to avoid circular dep)
+  useEffect(() => { openF5ViewRef.current = openF5View; }, [openF5View]);
+
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
   //  CTRL+G — GRID FOCUS COLUMNS (mirrors jQuery Ctrl+G → focuswindow)
@@ -1565,11 +1775,23 @@ const res = await CC.insertapi(
     if (!editPwdValue) return;
     const typeStr = passwordType === 1 ? "EditPassword" : passwordType === 0 ? "FormConfig" : "AdminPower";
     setEditPwdLoading(true);
-    const res = await CC.api(CC.PR_EditPassword, null, {}, {
-      password: editPwdValue,
-      type:     typeStr,
-      Comid:    sess.Comid,
-    });
+    // ✅ FIXED: send as POST body JSON (matches jQuery original), not query params
+    // const res = await CC.api(CC.PR_EditPassword, {
+    //   password: editPwdValue,
+    //   type:     typeStr,
+    //   Comid:    Number(sess.Comid),
+    // });
+
+    const res = await CC.api(
+      CC.PR_EditPassword,
+      null,
+      {},
+      {
+        password: editPwdValue,
+        type: typeStr,
+        Comid: Number(sess.Comid),
+      }
+    );
     setEditPwdLoading(false);
     if (redirectIfDualLogin(res)) return;
     if (res?.ok) {
@@ -2340,8 +2562,11 @@ function MrpPopup({ list, onSelect, onClose }) {
 
 // ── F5ViewPopup (mirrors jQuery F5Viewwindow + gridf5view) ────────────────────
 function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppList,
-                       expandRow, onFromDate, onToDate, onSuppId, onExpand, onSearch, onEdit, onDelete, onClose }) {
+                       suppQuery, expandRow, onFromDate, onToDate, onSuppId, onSuppQuery,
+                       onExpand, onSearch, onEdit, onDelete, onClose }) {
   const [selIdx, setSelIdx] = useState(null);
+  const selectedRow = selIdx !== null ? masterList[selIdx] : null;
+
 
   return (
     <div className="popup-overlay" style={{ zIndex: 1100 }}>
@@ -2371,7 +2596,7 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
             <button className="tbtn tbtn-save" onClick={onSearch}>🔍 View</button>
           </div>
 
-          {/* Master grid */}
+        {/* Master grid */}
           <div className="view-grid-wrap" style={{ maxHeight: "50vh" }}>
             <table className="view-grid">
               <thead>
@@ -2381,13 +2606,16 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
                   <th>Return Date</th>
                   <th>Type</th>
                   <th>Supplier</th>
+                  <th>Invoice No</th>
+                  <th>Remarks</th>
+                  <th>Created By</th>
                   <th className="right">Amount</th>
                   <th style={{ width: 160 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {masterList.length === 0
-                  ? <tr><td colSpan={7} className="no-data">No records found</td></tr>
+                  ? <tr><td colSpan={10} className="no-data">No records found</td></tr>
                   : masterList.map((r, i) => (
                     <React.Fragment key={r.Id}>
                       <tr
@@ -2395,7 +2623,7 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
                         onClick={() => setSelIdx(i)}
                       >
                         <td>
-                          <button className="expand-btn" onClick={() => onExpand(r.Id)}>
+                          <button className="expand-btn" onClick={(e) => { e.stopPropagation(); onExpand(r.Id); }}>
                             {expandRow === r.Id ? "▲" : "▼"}
                           </button>
                         </td>
@@ -2407,15 +2635,18 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
                           </span>
                         </td>
                         <td>{r.SupplierName}</td>
+                        <td>{r.InvoiceNo}</td>
+                        <td>{r.Remarks}</td>
+                        <td>{r.Created_By}</td>
                         <td className="right">{fmt2(r.NetAmt)}</td>
                         <td>
-                          <button className="tbtn-sm edit" onMouseDown={() => onEdit(r)}>✏ Edit</button>
-                          <button className="tbtn-sm delete" onMouseDown={() => onDelete(r)}>🗑 Del</button>
+                          <button className="tbtn-sm edit"   onMouseDown={(e) => { e.stopPropagation(); onEdit(r);   }}>✏ Edit</button>
+                          <button className="tbtn-sm delete" onMouseDown={(e) => { e.stopPropagation(); onDelete(r); }}>🗑 Del</button>
                         </td>
                       </tr>
                       {expandRow === r.Id && (
                         <tr className="nested-detail-row">
-                          <td colSpan={7}>
+                          <td colSpan={10}>
                             <div className="nested-grid-inner">
                               <table>
                                 <thead>
@@ -2424,11 +2655,11 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
                                     <th className="right">MRP</th><th className="right">PurRate</th>
                                     <th className="right">Qty</th><th className="right">GST%</th>
                                     <th className="right">GSTAmt</th><th className="right">Disc%</th>
-                                    <th className="right">DiscAmt</th>
+                                    <th className="right">DiscAmt</th><th className="right">Amount</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {detailList.filter((d) => d.PurchaseRefId === r.Id).map((d, di) => (
+                                  {detailList.filter((d) => Number(d.PurchaseRefId) === Number(r.Id)).map((d, di) => (
                                     <tr key={di}>
                                       <td>{d.ProductCode}</td><td>{d.ProductName}</td>
                                       <td className="right">{fmt2(d.MRP)}</td>
@@ -2438,6 +2669,7 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
                                       <td className="right">{fmt2(d.TaxAmt)}</td>
                                       <td className="right">{fmt2(d.DiscountPercent)}</td>
                                       <td className="right">{fmt2(d.DiscountAmt)}</td>
+                                      <td className="right">{fmt2(d.Amount)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -2453,6 +2685,10 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
           </div>
         </div>
         <div className="popup-footer">
+          <span style={{ flex: 1, fontSize: 13, color: "#555" }}>
+            <b>Records:</b> {masterList.length} &nbsp;|&nbsp;
+            <b>Total: ₹</b>{fmt2(masterList.reduce((s, r) => s + valNum(r.NetAmt), 0))}
+          </span>
           <button className="btn btn-secondary btn-sm" onClick={onClose}>Close (Esc)</button>
         </div>
       </div>
