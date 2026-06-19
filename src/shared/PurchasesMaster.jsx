@@ -299,7 +299,7 @@ const [supplierDDOpen,   setSupplierDDOpen  ] = useState(false);
 const [supplierSelIdx,   setSupplierSelIdx  ] = useState(0);
   // ── Totals ─────────────────────────────────────────────────────────────────
   const [totals, setTotals] = useState(EMPTY_TOTALS);
-const [discPer, setDiscPer] = useState("0.00");
+
   // ── Grid ───────────────────────────────────────────────────────────────────
   const [gridRows,      setGridRows    ] = useState([makeGridRow()]);
   const [selectedCell,  setSelectedCell] = useState({ rowKey: null, colKey: null });
@@ -1751,14 +1751,7 @@ const handleFocusToggle = useCallback((idx, field, val) => {
     setF12Draft(colConfig.map((c) => ({ ...c })));
     setF12Open(true);
   }, [colConfig, selectedCell]);
-const applyBillDiscount = useCallback(() => {
-  const per = CC.vn(discPer);
-  if (!per) return;
-  setRows(prev => prev.map(r => {
-    if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
-    return calcSaleRow({ ...r, DiscountPercent: per, _dirty: true });
-  }));
-}, [discPer]);
+
   // ── handleF12Save — POST to /Login/VisibleColumns then reload ────────────
   // ⚠️  jQuery savewidth posts the Visible flag AS-IS from the grid (which holds
   //     the inverted value loaded earlier). So the JSON always stores the inverse

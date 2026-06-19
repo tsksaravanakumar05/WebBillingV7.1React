@@ -432,26 +432,29 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
   const toggle = key => setLocal(prev => prev.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
   const setWid = (key, w) => setLocal(prev => prev.map(c => c.key === key ? { ...c, width: parseInt(w) || c.width } : c));
 
-  const handleSave = async () => {
-    const payload = local.map(c => ({
-      Comid: parseInt(comid) || 1,
-      filename: "SaleReturn",
-      column: c.key,
-      Visible: c.visible === true,
-      Width: parseInt(c.width) || 100,
-    }));
-    try {
-           const res  = await fetch(VisibleColumnsUrl, {
-               method: "POST",
-               headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() },
-               body: JSON.stringify(payload),
-             });
-            
-      const data = await res.json();
-     if (data.ok) { toast?.("✅ Column settings saved"); onSave(local); }
-else { toast?.("⚠️ " + (data.message || "Saved locally"), false); onSave(local); }
-    } catch { onSave(local); }
-  };
+ const handleSave = async () => {
+  const payload = local.map(c => ({
+    Comid:    parseInt(comid) || 1,
+    filename: "SaleReturn",
+    column:   c.key,
+    Visible:  !c.visible,   // ← invert to match jQuery/Purchase convention
+    Width:    parseInt(c.width) || 100,
+  }));
+
+  try {
+    const res = await CC.insertapi(CC.VisibleColumnsUrl, payload);
+    if (res?.ok || res?.IsSuccess) {
+      toast?.("✅ Column settings saved");
+      onSave(local);
+    } else {
+      toast?.("⚠️ " + (res?.message || "Saved locally"));
+      onSave(local);
+    }
+  } catch (err) {
+    console.error("F12 Save error:", err);
+    onSave(local);
+  }
+};
 
   return (
     <div className="mp-ov">
@@ -530,19 +533,6 @@ const [ctrlGOpen, setCtrlGOpen] = useState(false);
   const [f12Open,     setF12Open]     = useState(false);
   const visCols = colSettings.filter(c => c.visible);
 
-  const loadColCfg = useCallback(async (comid) => {
-    try {
-      const url = `Content/Appdata/Visible/${comid}/SaleReturn.json?v=${Date.now()}`;
-      const res = await fetch(url, { headers: CC.authHeaders() });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!Array.isArray(data)) return;
-      setColSettings(prev => prev.map(col => {
-        const s = data.find(x => x.column === col.key);
-        return s ? { ...col, visible: s.Visible === true, width: Number(s.Width) || col.width } : col;
-      }));
-    } catch {}
-  }, []);
 
   // ── Session ──────────────────────────────────────────────────────────────
   const [sess] = useState(() => {
@@ -574,7 +564,25 @@ const [ctrlGOpen, setCtrlGOpen] = useState(false);
       };
     }
   });
-
+const loadColCfg = useCallback(async (comid) => {
+  try {
+    const url = CC.BASE_URL + `${CC.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=SaleReturn`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...CC.authHeaders() },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+    setColSettings(prev => prev.map(col => {
+      const s = data.find(x => x.column === col.key);
+      if (!s) return col;
+      // ── Invert exactly as jQuery/Purchase does ──
+      const visible = s.Visible === false ? true : false;
+      return { ...col, visible, width: Number(s.Width) || col.width };
+    }));
+  } catch {}
+}, [sess.Comid]);
   // ── State ─────────────────────────────────────────────────────────────────
   const [perm,         setPerm]         = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -630,7 +638,8 @@ useEffect(() => { focusColsRef.current = focusCols; }, [focusCols]);
 
 const loadFocusCols = useCallback(async (mcomid) => {
   try {
-    const url = `/Content/Appdata/Visible/${mcomid}/SaleReturnFocus.json?v=${Date.now()}`;
+  const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=SaleReturnFocus`;
+    //const url = `/Content/Appdata/Visible/${mcomid}/SaleReturnFocus.json?v=${Date.now()}`;
     const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
     if (!res.ok) return;
     const saved = await res.json();
@@ -739,7 +748,8 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
   useEffect(() => {
     (async () => {
       try {
-        const url = `/Content/Appdata/Visible/${mcomid}/SaleReturnFocus.json?v=${Date.now()}`;
+         const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=SaleReturnFocus`;
+       // const url = `/Content/Appdata/Visible/${mcomid}/SaleReturnFocus.json?v=${Date.now()}`;
         const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
         let saved = [];
         if (res.ok) { try { saved = await res.json(); } catch {} }
@@ -1202,7 +1212,23 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
       SaleRefId:       r.SaleRefId || 0,
       remarks:         r.Remarks || "",
     }));
-
+ const stockDetails = editId > 0
+      ? vRows
+          .filter(r => r._origItemQty && vn(r._origItemQty) > 0)
+          .map(r => ({
+            ProductRefid: r.ProductRefId,
+            Batchid: r._origBatchRefid || 0,
+            RealQty: f2(vn(r._origItemQty)),
+            Qty: 0.0,
+            MfDate: r._origMfgDate ? String(r._origMfgDate).slice(0,10).split("-").reverse().join("/") : "",
+            ExpDate: r._origExpiryDate ? String(r._origExpiryDate).slice(0,10).split("-").reverse().join("/") : "",
+            SerialNoStatus: 0,
+            AdjustType: 0,
+            PDRefid: r._origPDRefid || null,
+            ItemQty: f2(vn(r._origItemQty)),
+            Bags: vn(r._origBags) || 0,
+          }))
+      : [];
     const payload = [{
       Id:               editId,
       CustomerRefId:    custId ? parseInt(custId) : parseInt(sess.CashId),
@@ -1236,8 +1262,9 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
       ModifiedStatus:   editId > 0 ? 1 : 0,
       Modified_Date:    returnDate,
       SaleDetails: returndetails,
+       StockDetails: stockDetails, 
     }];
-
+   
     const headers = {
       "Comid":      String(sess.Comid),
       "cashid":     String(sess.CashId),
@@ -1371,7 +1398,7 @@ const doDeleteReturn = useCallback(async () => {
     const details = master.SaleReturnDetails || master.SaleDetails || [];
 
     setEditId(master.Id || id);
-    setReturnNo(ns(master.SaleReturnNoDisplay || master.SaleReturnNo));
+    setReturnNo(ns(master.SaleNoDisplay || master.SaleNo));
     setReturnDate(String(master.ReturnDate || "").slice(0, 10) || today());
     setReturnType(master.LorryNo || master.SaleType || "CASH");
     setCustId(ns(master.CustomerRefId));
@@ -1383,7 +1410,17 @@ const doDeleteReturn = useCallback(async () => {
     setOtherPlus(ns(master.OthersplusAmt || ""));
     setDiscPer(ns(master.disper || ""));
     setCoinage(ns(master.Coinage || ""));
-    const loadedRows = details.map(r => calcReturnRow(fmtRow({ ...mkRow(), ...r, _rid: genRid() })));
+    const loadedRows = details.map(r => calcReturnRow(fmtRow({
+      ...mkRow(),
+      ...r,
+      _rid: genRid(),
+      _origItemQty:    vn(r.ItemQty || r.ReturnQty),
+      _origBatchRefid: r.BatchRefid || 0,
+      _origMfgDate:    r.MfgDate || "",
+      _origExpiryDate: r.ExpiryDate || "",
+      _origPDRefid:    r.SRDId || r.PDRefid || null,
+      _origBags:       r.Bags || r.Pcs || 0,
+    })));
     setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
   // eslint-disable-next-line
   }, [sess, perm, customers]);
@@ -1634,7 +1671,7 @@ const handleF5Delete = useCallback((id, billNo) => {
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <label style={{ ...fieldLabel, minWidth: 58 }}>SalesMan</label>
               <ComboBox
-                options={[{ value: "", label: "Select SalesMan" }, ...salesmen.map(s => ({ value: String(s.Id), label: s.SalesManName }))]}
+                options={[{ value: "", label: "" }, ...salesmen.map(s => ({ value: String(s.Id), label: s.SalesManName }))]}
                 value={smId}
                 onChange={setSmId}
                 placeholder="Select SalesMan"

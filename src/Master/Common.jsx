@@ -11,7 +11,10 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 export const BASE_URL = "http://localhost:64215";
+<<<<<<< HEAD
 //https://billing.kassapos.co.in
+=======
+>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
 // Cashier API Links
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
@@ -91,7 +94,10 @@ export const SupplierMasterInsert = "/api/SupplierApp/InsertSupplier";
 export const SupplierMasterDelete = "/api/SupplierApp/DeleteSupplier";
 export const SalesManSelect       = "/api/SalesManApp/SelectSalesMan"; 
 
-
+       //CRMPointsApp
+        export const CRMPointsSelect = "/api/CRMPointsApp/SelectCRMPoints";
+        export const CRMPointsInsert = "/api/CRMPointsApp/InsertCRMPoints";
+        export const CRMPointsDelete = "/api/CRMPointsApp/DeleteCRMPoints";
        
         export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
         export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";// ← fix your actual endpoint

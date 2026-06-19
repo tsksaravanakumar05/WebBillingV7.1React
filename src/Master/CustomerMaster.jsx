@@ -328,57 +328,73 @@ export default function CustomerMaster() {
   const focusCell = useCallback((rowIdx, colField) => {
     setTimeout(() => inputRefs.current[`${rowIdx}-${colField}`]?.focus(), 50);
   }, []);
-  const loadCounter = useCallback(async (Startindex, PageCount, Keyword = "", Column = "", loadstatus) => {
-    setLoading(true);
-    const res = await CC.api(CC.SupplierSelect, null, {}, {
-         Comid: Number(sess.Comid), Startindex:-1, PageCount:20,
-         AccountType:"CUSTOMER", Keyword:Keyword, Column:Column,
-       });
-    setLoading(false);
+const loadCounter = useCallback(async (Startindex, PageCount, Keyword = "", Column = "", loadstatus) => {
+  setLoading(true);
 
-    if (redirectIfDualLogin(res)) return;
-    if (res._http404) { toast(`❌ 404 — SelectSupplier not found`, true); return; }
-    if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); return; }
+  // ── StartIndex logic (supplier-ஓட exact match) ──
+  let startIdx;
+  if (Keyword) {
+    startIdx = 0;                          // search → always 0
+  } else if (Startindex === -1) {
+    startIdx = -1;                         // first load → -1
+  } else {
+    startIdx = Startindex;                 // page click → (page-1)*pagecount
+  }
 
-    if (loadstatus === 1) {
-      const count = Number(res?.Count || res?.count || 0);
-      const pc    = count === 0 ? 1 : count;
-      setPagecountnew(pc);
-      if ((Keyword || "") === "") {
-        const newPageLen = Math.ceil(pc / Number(sess.pagecount || 1));
-        setPageLen(newPageLen);
-        setCurPage(newPageLen);
-      } else {
-        setPageLen(1); setCurPage(1);
-      }
+  const res = await CC.api(CC.SupplierSelect, null, {}, {
+    Comid:       Number(sess.Comid),
+    Startindex:  startIdx,                 // ← dynamic now
+    PageCount:   PageCount || sess.pagecount,
+    AccountType: "CUSTOMER",
+    Keyword:     Keyword,
+    Column:      Column,
+  });
+  setLoading(false);
+
+  if (redirectIfDualLogin(res)) return;
+  if (res._http404) { toast(`❌ 404 — SelectSupplier not found`, true); return; }
+  if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); return; }
+
+  if (loadstatus === 1) {
+    const count = Number(res?.Data4 ?? res?.Count ?? res?.count ?? 0);
+    const pc    = count === 0 ? 1 : count;
+    setPagecountnew(pc);
+    if (!Keyword) {
+      const newPageLen = Math.max(1, Math.ceil(pc / Number(sess.pagecount || 20)));
+      setPageLen(newPageLen);
+      setCurPage(Math.ceil(pc / Number(sess.pagecount || 20))); // last page
+    } else {
+      setPageLen(1);
+      setCurPage(1);
     }
+  }
 
-    const rawList = Array.isArray(res?.data)  ? res.data
-                  : Array.isArray(res?.Data1) ? res.Data1
-                  : [];
+  const rawList = Array.isArray(res?.data)  ? res.data
+                : Array.isArray(res?.Data1) ? res.Data1
+                : [];
 
-    const existing = rawList.map(obj => ({
-      ...obj,
-      [grdCreditBillDays]:  String(isNaN(parseFloat(obj[grdCreditBillDays])) ? 0 : parseFloat(obj[grdCreditBillDays])),
-      [grdCreditBillLimit]: Number(obj[grdCreditBillLimit] || 0).toFixed(2),
-      [grdOpeningBalance]:  Number(obj[grdOpeningBalance]  || 0).toFixed(2),
-      [grdCRMPoint]:        Number(obj[grdCRMPoint]        || 0).toFixed(2),
-      [grdCRMValue]:        Number(obj[grdCRMValue]        || 0).toFixed(2),
-      [grdEditMode]:        0,
-      [grdActive]:          obj[grdActive] === true || obj[grdActive] === 1,
-      _uid: CC.uid(),
-    }));
+  const existing = rawList.map(obj => ({
+    ...obj,
+    [grdCreditBillDays]:  String(isNaN(parseFloat(obj[grdCreditBillDays])) ? 0 : parseFloat(obj[grdCreditBillDays])),
+    [grdCreditBillLimit]: Number(obj[grdCreditBillLimit] || 0).toFixed(2),
+    [grdOpeningBalance]:  Number(obj[grdOpeningBalance]  || 0).toFixed(2),
+    [grdCRMPoint]:        Number(obj[grdCRMPoint]        || 0).toFixed(2),
+    [grdCRMValue]:        Number(obj[grdCRMValue]        || 0).toFixed(2),
+    [grdEditMode]:        0,
+    [grdActive]:          obj[grdActive] === true || obj[grdActive] === 1,
+    _uid: CC.uid(),
+  }));
 
-    const prefillName   = sessionStorage.getItem("POPValue")  || "";
-    const prefillMobile = sessionStorage.getItem("POPValue1") || "";
-    const blank         = makeNewRow(prefillName, prefillMobile);
-    const full          = [...existing, blank];
+  const prefillName   = sessionStorage.getItem("POPValue")  || "";
+  const prefillMobile = sessionStorage.getItem("POPValue1") || "";
+  const blank         = makeNewRow(prefillName, prefillMobile);
+  const full          = [...existing, blank];
 
-    gridRef.current = full;
-    setGrid(full);
-    setSelIdx(full.length - 1);
-    setTimeout(() => focusCell(full.length - 1, grdSupplierName), 100);
-  }, [sess, toast, focusCell, redirectIfDualLogin]);
+  gridRef.current = full;
+  setGrid(full);
+  setSelIdx(full.length - 1);
+  setTimeout(() => focusCell(full.length - 1, grdSupplierName), 100);
+}, [sess, toast, focusCell, redirectIfDualLogin]);
   // ── doExcelUpload (F7) ────────────────────────────────────────────────────────
 const doExcelUpload = useCallback(() => {
   const inp = document.createElement("input");
@@ -928,7 +944,7 @@ const vn = v => parseFloat(v) || 0;
     const idx = areaPopup.rowIdx;
     updateCells(idx, { [grdArea]: item.AreaName, [grdAreaId]: item.Id });
     setAreaPopup({ open:false, items:[], rowIdx:null, prefill:"" });
-    focusCell(idx, grdSalesMan);
+    moveNext(areaPopup.rowIdx, grdArea);
   }, [areaPopup.rowIdx, updateCells, focusCell]);
 
   const onSalesManSelect = useCallback((item) => {
@@ -942,7 +958,7 @@ const vn = v => parseFloat(v) || 0;
     const idx = cardPopup.rowIdx;
     updateCells(idx, { [grdcustomercardtype]: item.TypeName, [grdcustomercardtypeId]: item.Id });
     setCardPopup({ open:false, items:[], rowIdx:null, prefill:"" });
-    focusCell(idx, grdActive);
+    moveNext(idx, grdcustomercardtype); 
   }, [cardPopup.rowIdx, updateCells, focusCell]);
 
   const onBranchSelect = useCallback((item) => {
@@ -959,13 +975,9 @@ const vn = v => parseFloat(v) || 0;
   }, [tamilPopup, updateCells, focusCell]);
 
   // ── Column navigation order ────────────────────────────────────────────────
-  const columnNavOrder = [
-    grdSupplierName, grdArea, grdSalesMan,
-    grdAddress1, grdAddress2, grdCity,
-    grdMobileNo, grdGSTINNo,
-    grdCreditBillDays, grdCreditBillLimit, grdOpeningBalance,
-    grdcustomercardtype, grdActive,
-  ];
+const columnNavOrder = visibleColumns
+  .filter(c => c.field !== grdActive)
+  .map(c => c.field);
 
   const moveNext = useCallback((rowIdx, columnname) => {
     const colIdx = columnNavOrder.indexOf(columnname);
@@ -1122,10 +1134,12 @@ if (e.keyCode === 118) { // F7
       areaPopup.open, salesmanPopup.open, cardPopup.open, branchPopup.open, tamilPopup.open]);
 
   // ── Pagination ─────────────────────────────────────────────────────────────
-  const handlePageClick = useCallback((page) => {
-    setCurPage(page);
-    loadCounter((page - 1) * sess.pagecount, sess.pagecount, "", "", 0);
-  }, [sess.pagecount, loadCounter]);
+const handlePageClick = useCallback((page) => {
+  if (page === curPage) return;
+  setCurPage(page);
+  // page1 → 0, page2 → 20, page3 → 40
+  loadCounter((page - 1) * sess.pagecount, sess.pagecount, "", "", 0);
+}, [sess.pagecount, curPage, loadCounter]);
 
   // ── Display grid (active filter) ───────────────────────────────────────────
   const displayGrid = grid.filter(row => {
@@ -1232,7 +1246,10 @@ if (e.keyCode === 118) { // F7
         <PopupWindow title="Select Area" onClose={() => setAreaPopup(p => ({ ...p, open:false }))}>
           <SearchableList items={areaPopup.items} labelField="AreaName" prefill={areaPopup.prefill}
             onChange={onAreaSelect} onClose={() => setAreaPopup(p => ({ ...p, open:false }))}
-            onEnterEmpty={() => { setAreaPopup(p => ({ ...p, open:false })); focusCell(areaPopup.rowIdx, grdSalesMan); }}
+         onEnterEmpty={() => {
+  setAreaPopup(p => ({ ...p, open:false }));
+  moveNext(areaPopup.rowIdx, grdArea);  // <-- use moveNext
+}}
             searchPlaceholder="Search Area…" />
         </PopupWindow>
       )}
@@ -1252,7 +1269,10 @@ if (e.keyCode === 118) { // F7
         <PopupWindow title="Select Card Type" onClose={() => setCardPopup(p => ({ ...p, open:false }))}>
           <SearchableList items={cardPopup.items} labelField="TypeName" prefill={cardPopup.prefill}
             onChange={onCardSelect} onClose={() => setCardPopup(p => ({ ...p, open:false }))}
-            onEnterEmpty={() => { setCardPopup(p => ({ ...p, open:false })); focusCell(cardPopup.rowIdx, grdActive); }}
+           onEnterEmpty={() => {
+  setCardPopup(p => ({ ...p, open:false }));
+  moveNext(cardPopup.rowIdx, grdcustomercardtype);  // <-- use moveNext
+}}
             searchPlaceholder="Search Card Type…" />
         </PopupWindow>
       )}
@@ -1463,7 +1483,25 @@ if (e.keyCode === 118) { // F7
     style={{ background: "#059669", color: "#fff", borderColor: "#059669" }}>
     🔄 Refresh
   </button>
-
+{/* Pagination — bottom toolbar-ல் add பண்ணுங்க */}
+<div style={{ display:"flex", alignItems:"center", gap:4, marginLeft:8 }}>
+  {Array.from({ length: pageLen }, (_, i) => i + 1).map(p => (
+    <button key={p}
+      onClick={() => handlePageClick(p)}
+      className="mp-btn"
+      style={{
+        padding:"3px 9px", fontSize:12, minWidth:28,
+        background: p === curPage ? "#1a2e4a" : "#fff",
+        color:      p === curPage ? "#fff"    : "#1a2e4a",
+        border: "1px solid #1a2e4a",
+      }}>
+      {p}
+    </button>
+  ))}
+  <span style={{ fontSize:11, color:"#64748b", marginLeft:6, fontWeight:600 }}>
+    Record {pagecountnew}
+  </span>
+</div>
   <button className="mp-btn dl" onClick={handleEsc} style={{ marginLeft: "auto" }}>
     ✕ Esc Cancel
   </button>

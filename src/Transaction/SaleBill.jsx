@@ -13,79 +13,13 @@ import "../Master/MasterPage.css";
 import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";
 
-// ─── SALE API CONSTANTS ───────────────────────────────────────────────────────
-const SaleMaxNo           = "/api/SaleApp/MaxSaleNo";
-const SaleInsertUrl       = "/api/SaleApp/InsertSale";
-const SaleEditUrl         = "/api/SaleApp/EditSale";
-const SaleSelectUrl       = "/api/SaleApp/SelectSale";
-const SaleDeleteUrl       = "/api/SaleApp/DeleteSale";
-const BillHoldSelectUrl   = "/api/SaleApp/BillHoldName";
-const BillHoldInsertUrl   = "/api/SaleApp/BillHold";
-const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
-const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
-const SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
-const ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
-const GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
-const SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
-const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
-const CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
-const LoginPasswordUrl    = "/api/LoginApp/EditPassword";
-const F5SelectUrl         = "/api/SaleApp/SelectSale";
-const VisibleColumnsUrl   = "/Login/VisibleColumns";
-const FocusColumnsUrl     = "/Login/FocusColumns";
-const CurrentBalanceUrl   = "/api/SupplierApp/CurrentBalance";
-const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock";
+// ─── EXTRACTED GLOBALS FROM Common.jsx ───────────────────────────────────────
+// (Aliases removed - using CC.* directly)
 
-// ─── CRITICAL FIX: A4Print API — This stores data in Session for ReportViewer ─
-// Mirrors JS: /Sale/A4Print  → used in BillPrint() function
-const A4PrintUrl          = "/Sale/A4Print";
 
 const BASE_URL = "http://localhost:64215";
 
 
-// ─── SALE GRID COLUMN DEFINITIONS ────────────────────────────────────────────
-const SALE_COLUMNS = [
-  { key: "SalesManCode",    label: "SM Code",       width: 140, hidden: true,  type: "smcode" },
-  { key: "ProductCode",     label: "Product Code",  width: 130, hidden: false },
-  { key: "ProductName",     label: "Description",   width: 240, hidden: false, readOnly: true },
-  { key: "MRP",             label: "MRP",           width: 90,  hidden: true,  readOnly: true, type: "float" },
-  { key: "SaleRate",        label: "Sale Rate",     width: 100, hidden: false, type: "float" },
-  { key: "ItemQty",         label: "Qty",           width: 80,  hidden: false, type: "float" },
-  { key: "DiscountPercent", label: "Disc%",         width: 75,  hidden: false, type: "float" },
-  { key: "CDPercent",       label: "CD%",           width: 75,  hidden: true,  type: "float" },
-  { key: "TaxPercent",      label: "GST%",          width: 75,  hidden: false, type: "float" },
-  { key: "CESSPer",         label: "CESS%",         width: 75,  hidden: true,  type: "float" },
-  { key: "TaxAmt",          label: "GST Amt",       width: 90,  hidden: true,  type: "float" },
-  { key: "CESSAmount",      label: "CESS Amt",      width: 90,  hidden: true,  type: "float" },
-  { key: "SPLCESS",         label: "SPL CESS",      width: 80,  hidden: true,  type: "float" },
-  { key: "SPLCESSAmount",   label: "SPL CESS Amt",  width: 100, hidden: true,  type: "float" },
-  { key: "DiscountAmt",     label: "Disc Amt",      width: 90,  hidden: true,  type: "float" },
-  { key: "CDAmount",        label: "CD Amt",        width: 90,  hidden: true,  type: "float" },
-  { key: "LandingCost",     label: "Landing Cost",  width: 100, hidden: true,  type: "float" },
-  { key: "UOM",             label: "UOM",           width: 70,  hidden: true,  readOnly: true },
-  { key: "HSNCode",         label: "HSN Code",      width: 100, hidden: true,  readOnly: true },
-  { key: "Bat_No",          label: "Batch No",      width: 100, hidden: true },
-  { key: "FreeQty",         label: "Free Qty",      width: 80,  hidden: true,  type: "int" },
-  { key: "Remarks",         label: "Remarks",       width: 130, hidden: true },
-  { key: "Amount",          label: "Amount",        width: 100, hidden: false, readOnly: true, type: "float" },
-];
-
-const DEFAULT_COL_SETTINGS = SALE_COLUMNS.map(c => ({
-  key:     c.key,
-  label:   c.label,
-  width:   c.width,
-  visible: !c.hidden,
-}));
-
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-const vn   = v => parseFloat(v) || 0;
-const ro   = v => Math.round(v * 100) / 100;
-const f2   = v => parseFloat(vn(v).toFixed(2));
-const ns   = v => (v == null ? "" : String(v));
-const today = () => new Date().toISOString().slice(0, 10);
-
-let _rid = 2000;
-const genRid = () => ++_rid;
 
 // ─── COMBOBOX ─────────────────────────────────────────────────────────────────
 function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, inputRef: extRef }) {
@@ -196,13 +130,13 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
 
 // ─── SALE ROW CALCULATION ─────────────────────────────────────────────────────
 function calcSaleRow(row) {
-  const qty      = vn(row.ItemQty);
-  const saleRate = vn(row.SaleRate);
-  const gst      = vn(row.TaxPercent);
-  const cess     = vn(row.CESSPer);
-  const splcess  = vn(row.SPLCESS);
-  const discPer  = vn(row.DiscountPercent);
-  const cdPer    = vn(row.CDPercent);
+  const qty      = CC.vn(row.ItemQty);
+  const saleRate = CC.vn(row.SaleRate);
+  const gst      = CC.vn(row.TaxPercent);
+  const cess     = CC.vn(row.CESSPer);
+  const splcess  = CC.vn(row.SPLCESS);
+  const discPer  = CC.vn(row.DiscountPercent);
+  const cdPer    = CC.vn(row.CDPercent);
 
   if (qty === 0 || saleRate === 0) {
     return {
@@ -215,42 +149,44 @@ function calcSaleRow(row) {
   const taxTotal   = gst + cess;
   const withoutTax = taxTotal > 0 ? saleRate / ((taxTotal / 100) + 1) : saleRate;
   const orgRate    = withoutTax * qty;
-  const cdAmt      = ro(orgRate * (cdPer / 100));
+  const cdAmt      = CC.roVal(orgRate * (cdPer / 100));
   const afterCD    = orgRate - cdAmt;
-  const discAmt    = ro(afterCD * (discPer / 100));
+  const discAmt    = CC.roVal(afterCD * (discPer / 100));
   const landingCost = afterCD - discAmt;
-  const ctAmt      = ro(landingCost * ((gst / 2) / 100));
-  const stAmt      = ro(landingCost * ((gst / 2) / 100));
-  const cessAmt    = ro(landingCost * (cess / 100));
+  const ctAmt      = CC.roVal(landingCost * ((gst / 2) / 100));
+  const stAmt      = CC.roVal(landingCost * ((gst / 2) / 100));
+  const cessAmt    = CC.roVal(landingCost * (cess / 100));
   const gstAmt     = ctAmt + stAmt;
   const splcessAmt = splcess * qty;
-  const amount     = f2(landingCost + gstAmt + cessAmt + splcessAmt);
+  const amount     = CC.f2(landingCost + gstAmt + cessAmt + splcessAmt);
+  row.StockQtyNew =qty;
 
   return {
     ...row,
-    WithoutTaxRate: f2(withoutTax),
-    OrgRate:        f2(orgRate / qty),
-    CDAmount:       f2(cdAmt),
-    DiscountAmt:    f2(discAmt),
-    LandingCost:    f2(landingCost / qty),
-    TaxAmt:         f2(gstAmt),
-    CTAmount:       f2(ctAmt),
-    STAmount:       f2(stAmt),
-    CESSAmount:     f2(cessAmt),
-    SPLCESSAmount:  f2(splcessAmt),
+    WithoutTaxRate: CC.f2(withoutTax),
+    OrgRate:        CC.f2(orgRate / qty),
+    CDAmount:       CC.f2(cdAmt),
+    DiscountAmt:    CC.f2(discAmt),
+    LandingCost:    CC.f2(landingCost / qty),
+    TaxAmt:         CC.f2(gstAmt),
+    CTAmount:       CC.f2(ctAmt),
+    STAmount:       CC.f2(stAmt),
+    CESSAmount:     CC.f2(cessAmt),
+    SPLCESSAmount:  CC.f2(splcessAmt),
     Amount:         amount,
+    StockQtyNew:    qty,
   };
 }
 
 const mkRow = () => ({
-  _rid: genRid(), _isNew: true, _dirty: false,
+  _rid: CC.genRid(), _isNew: true, _dirty: false,
   SDId: 0, ProductRefId: 0, ProductCode: "", ProductName: "",
   MRP: 0, SaleRate: 0, ItemQty: "", UOMDecimal: 0,
   TaxPercent: 0, TaxAmt: 0, CESSPer: 0, CESSAmount: 0,
   SPLCESS: 0, SPLCESSAmount: 0, DiscountPercent: 0, DiscountAmt: 0,
   CDPercent: 0, CDAmount: 0, LandingCost: 0, OrgRate: 0,
   CTAmount: 0, STAmount: 0, Amount: 0, UOM: "", HSNCode: "",
-  PurchaseRate: 0, StockQty: 0, BatchRefid: null, NegativetStock: false,
+  PurchaseRate: 0, StockQty: 0,StockQtyNew:0, BatchRefid: null, NegativetStock: false,
   SalesRateType: true, WithoutTaxRate: 0, FreeQty: 0, Remarks: "",
   PrinterName: "", NStock: 0, SRDetailsId: 0, Bat_No: "",
   CRMPoints: 0, SalesManCode: 0, SalesManComm: 0,
@@ -258,21 +194,21 @@ const mkRow = () => ({
 
 const fmtRow = obj => ({
   ...obj,
-  _rid: obj._rid || genRid(),
+  _rid: obj._rid || CC.genRid(),
   _isNew: false, _dirty: false,
-  MRP:             f2(vn(obj.MRP)),
-  SaleRate:        f2(vn(obj.SaleRate)),
-  ItemQty:         ns(obj.ItemQty),
-  TaxPercent:      f2(vn(obj.TaxPercent)),
-  _origSaleRate:   f2(vn(obj.SaleRate)),
-  TaxAmt:          f2(vn(obj.TaxAmt)),
-  CESSPer:         f2(vn(obj.CESSPer)),
-  CESSAmount:      f2(vn(obj.CESSAmount)),
-  DiscountPercent: f2(vn(obj.DiscountPercent)),
-  DiscountAmt:     f2(vn(obj.DiscountAmt)),
-  Amount:          f2(vn(obj.Amount)),
-  LandingCost:     f2(vn(obj.Landingcost || obj.LandingCost)),
-  SalesManCode:    vn(obj.SalesManCode || obj.SalesmanRefid || 0),
+  MRP:             CC.f2(CC.vn(obj.MRP)),
+  SaleRate:        CC.f2(CC.vn(obj.SaleRate)),
+  ItemQty:         CC.ns(obj.ItemQty),
+  TaxPercent:      CC.f2(CC.vn(obj.TaxPercent)),
+  _origSaleRate:   CC.f2(CC.vn(obj.SaleRate)),
+  TaxAmt:          CC.f2(CC.vn(obj.TaxAmt)),
+  CESSPer:         CC.f2(CC.vn(obj.CESSPer)),
+  CESSAmount:      CC.f2(CC.vn(obj.CESSAmount)),
+  DiscountPercent: CC.f2(CC.vn(obj.DiscountPercent)),
+  DiscountAmt:     CC.f2(CC.vn(obj.DiscountAmt)),
+  Amount:          CC.f2(CC.vn(obj.Amount)),
+  LandingCost:     CC.f2(CC.vn(obj.Landingcost || obj.LandingCost)),
+  SalesManCode:    CC.vn(obj.SalesManCode || obj.SalesmanRefid || 0),
 });
 
 // ─── PRINT CHOICE DIALOG ──────────────────────────────────────────────────────
@@ -466,10 +402,23 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
   useEffect(() => {
     (async () => {
       try {
-        const url = `/Content/Appdata/Visible/${mcomid}/SaleFocus.json?v=${Date.now()}`;
-        const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
-        let saved = [];
-        if (res.ok) { try { saved = await res.json(); } catch {} }
+         const url = `${CC.GetFocusColumnsUrl}`;
+        //const url = `/Content/Appdata/Visible/${mcomid}/SaleFocus.json?v=${Date.now()}`;
+       const res = await CC.api(
+      url,
+      null,
+      {},
+      { comid:comid, filename: "SaleFocus" }
+    );
+
+    if (!res || res._netErr) return;
+
+    const saved = Array.isArray(res) ? res
+                : Array.isArray(res?.data)  ? res.data
+                : Array.isArray(res?.Data1) ? res.Data1
+                : [];
+        // let saved = [];
+        // if (res.ok) { try { saved = await res.json(); } catch {} }
 
         const base = colSettings
           .filter(c => c.visible)
@@ -484,7 +433,7 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
           });
         base.sort((a, b) => a.index - b.index);
         setItems(base);
-      } catch {
+      } catch (err){
         setItems(colSettings.filter(c => c.visible).map((c, i) => ({
           key: c.key, label: c.label, focus: true, index: i,
         })));
@@ -492,7 +441,7 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
         setLoading(false);
       }
     })();
-  }, [colSettings, mcomid]);
+  }, [colSettings, comid]);
 
   const toggleFocus = key => setItems(prev => prev.map(it => it.key === key ? { ...it, focus: !it.focus } : it));
 
@@ -510,27 +459,30 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
     setDragIdx(null); setOverIdx(null);
   };
 
-  const handleSave = async () => {
-    const payload = items.map((it, i) => ({
-      filename: "SaleFocus",
-      column:   it.key,
-      Index:    i,
-      Focus:    it.focus,
-      Comid:    parseInt(comid) || 1,
-    }));
-    try {
-      const res = await fetch(FocusColumnsUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.ok) { toast?.("✅ Focus/Reorder saved."); onSaved?.(); onClose(); }
-      else { toast?.("⚠️ " + (data.message || "Save failed")); onClose(); }
-    } catch(err) {
-      toast?.("⚠️ Save failed: " + err.message);
+const handleSave = async () => {
+  const payload = items.map((it, i) => ({
+    filename: "SaleFocus",
+    column:   it.key,
+    Index:    i,
+    Focus:    it.focus,
+    Comid:    parseInt(comid) || 1,
+  }));
+
+  try {
+    const res = await CC.insertapi(CC.SO_FocusColumnsUrl, payload);
+
+    if (res?.ok || res?.IsSuccess) {
+      toast?.("✅ Focus/Reorder saved.");
+      onSaved?.();
+      onClose();
+    } else {
+      toast?.("⚠️ " + (res?.message || "Save failed"));
+      onClose();
     }
-  };
+  } catch (err) {
+    toast?.("⚠️ Save failed: " + err.message);
+  }
+};
 
   return (
     <div style={{
@@ -635,25 +587,31 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
   const toggle = key => setLocal(prev => prev.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
   const setWid = (key, w) => setLocal(prev => prev.map(c => c.key === key ? { ...c, width: parseInt(w) || c.width } : c));
 
-  const handleSave = async () => {
-    const payload = local.map(c => ({
-      Comid: parseInt(comid) || 1,
-      filename: "Sale",
-      column: c.key,
-      Visible: c.visible === true,
-      Width: parseInt(c.width) || 100,
-    }));
-    try {
-      const res  = await fetch(VisibleColumnsUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.ok) { toast?.("✅ Column settings saved"); onSave(local); }
-      else { toast?.("⚠️ " + (data.message || "Saved locally"), false); onSave(local); }
-    } catch { onSave(local); }
-  };
+const handleSave = async () => {
+  const payload = local.map(c => ({
+    Comid: parseInt(comid) || 1,
+    filename: "Sale",
+    column: c.key,
+    Visible: c.visible === true,
+    Width: parseInt(c.width) || 100,
+  }));
+
+  try {
+    const res = await CC.insertapi(CC.VisibleColumnsUrl, payload);
+    console.log("F12 save res:", res);
+
+    if (res?.ok || res?.IsSuccess) { 
+      toast?.("✅ Column settings saved"); 
+      onSave(local); 
+    } else { 
+      toast?.("⚠️ " + (res?.message || "Saved locally")); 
+      onSave(local); 
+    }
+  } catch (err) {
+    console.error("F12 Save error:", err);
+    onSave(local);
+  }
+};
 
   return (
     <div className="mp-ov">
@@ -708,7 +666,7 @@ function PwModal({ title, comid, onOk, onClose }) {
   const [val, setVal] = useState("");
   const verify = async () => {
     if (!val) return;
-    const res = await CC.api(LoginPasswordUrl, null, {}, { password: val, type: "EditPassword", Comid: comid });
+    const res = await CC.api(CC.SO_LoginPasswordUrl, null, {}, { password: val, type: "EditPassword", Comid: comid });
     if (res.ok ?? res.IsSuccess ?? false) { onOk(); onClose(); }
     else window.alert("Invalid Password !!!");
   };
@@ -789,8 +747,8 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
               onMouseEnter={() => setHilite(idx)}>
               <span className="sb-prod-code">{p.Prod_Code ? p.Prod_Code : p.ProductCode}</span>
               <span className="sb-prod-name">{p.PName ? p.PName : p.ProductName}</span>
-              <span className="sb-prod-rate">₹{f2(vn(p.SaleRate ? p.SaleRate : p.SalesRate)).toFixed(2)}</span>
-              <span className="sb-prod-stock">{vn(p.Stock).toFixed(0)}</span>
+              <span className="sb-prod-rate">₹{CC.f2(CC.vn(p.SaleRate ? p.SaleRate : p.SalesRate)).toFixed(2)}</span>
+              <span className="sb-prod-stock">{CC.vn(p.Stock).toFixed(0)}</span>
             </div>
           ))
         }
@@ -811,7 +769,7 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
   const [expandedId, setExpandedId] = useState(null);
 
   const getDetails = (masterId) => (details || []).filter(d => String(d.SaleRefId) === String(masterId));
-  const totalAmt   = rows.reduce((s, r) => s + vn(r.NetAmt), 0);
+  const totalAmt   = rows.reduce((s, r) => s + CC.vn(r.NetAmt), 0);
 
   return (
     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -831,7 +789,7 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
           <button className="mp-btn sv" style={{ height: 28, padding: "0 14px", fontSize: 11 }}
             onClick={() => onSearch(from, to)}>🔍 Search</button>
           <span style={{ marginLeft: "auto", fontWeight: 700, fontSize: 15, color: "#16a34a" }}>
-            Total Amt : {f2(totalAmt).toFixed(2)}
+            Total Amt : {CC.f2(totalAmt).toFixed(2)}
           </span>
         </div>
         <div className="mp-modal-body" style={{ flex: 1, overflowY: "auto", padding: 0 }}>
@@ -868,7 +826,7 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
                       <td style={{ padding: "5px 10px" }}>{String(r.BillDate || "").slice(0, 10)}</td>
                       <td style={{ padding: "5px 10px" }}>{r.CustomerName}</td>
                       <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#16a34a" }}>
-                        ₹{f2(vn(r.NetAmt)).toFixed(2)}
+                        ₹{CC.f2(CC.vn(r.NetAmt)).toFixed(2)}
                       </td>
                       <td style={{ padding: "5px 10px" }}>
                         <span style={{
@@ -913,13 +871,13 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
                                     <tr key={di} style={{ background: di % 2 === 0 ? "#fff" : "#f5f9ff" }}>
                                       <td style={{ padding: "3px 8px" }}>{d.ProductCode}</td>
                                       <td style={{ padding: "3px 8px" }}>{d.ProductName}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.MRP)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.SaleRate)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.ItemQty)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.TaxPercent)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.TaxAmt)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.DiscountPercent)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.DiscountAmt)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.MRP)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.SaleRate)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.ItemQty)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.TaxPercent)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.TaxAmt)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.DiscountPercent)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.DiscountAmt)).toFixed(2)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -1099,7 +1057,7 @@ export default function SaleBill() {
   const pendingRateInputRef                   = useRef({});
 
   // ── Column Settings ────────────────────────────────────────────────────────
-  const [colSettings, setColSettings] = useState(DEFAULT_COL_SETTINGS);
+  const [colSettings, setColSettings] = useState(CC.SB_DEFAULT_COL_SETTINGS);
   const [f12Open,     setF12Open]     = useState(false);
   const [ctrlGOpen,   setCtrlGOpen]   = useState(false);
 
@@ -1110,8 +1068,19 @@ export default function SaleBill() {
 
   const loadColCfg = useCallback(async (comid) => {
     try {
-      const url = `/Content/Appdata/Visible/${comid}/Sale.json?v=${Date.now()}`;
-      const res = await fetch(url, { headers: CC.authHeaders() });
+       const url =  CC.BASE_URL + `${CC.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Sale`;
+      //const url = `/Content/Appdata/Visible/${comid}/Sale.json?v=${Date.now()}`;
+     
+        const res = await fetch(
+           url,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...CC.authHeaders(),   // ← same headers your other API calls use
+              },
+            }
+          );
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data)) return;
@@ -1124,21 +1093,7 @@ export default function SaleBill() {
 
   useEffect(() => { focusColsRef.current = focusCols; }, [focusCols]);
 
-  const loadFocusCols = useCallback(async (mcomid) => {
-    try {
-      const url = `/Content/Appdata/Visible/${mcomid}/SaleFocus.json?v=${Date.now()}`;
-      const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
-      if (!res.ok) return;
-      const saved = await res.json();
-      if (!Array.isArray(saved)) return;
-      const ordered = saved
-        .filter(s => s.Focus === true)
-        .sort((a, b) => (a.Index ?? 99) - (b.Index ?? 99))
-        .map(s => s.column);
-      focusColsRef.current = ordered;
-      setFocusCols(ordered);
-    } catch {}
-  }, []);
+
 
   const visCols = colSettings.filter(c => c.visible);
 
@@ -1204,7 +1159,34 @@ export default function SaleBill() {
       };
     }
   });
+const loadFocusCols = useCallback(async (mcomid) => {
+  try {
+     const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=SaleFocus`;
+    const res = await CC.api(
+      url,
+      null,
+      {},
+      { comid: sess.Comid, filename: "SaleFocus" }
+    );
 
+    if (!res || res._netErr) return;
+
+    const saved = Array.isArray(res) ? res
+                : Array.isArray(res?.data)  ? res.data
+                : Array.isArray(res?.Data1) ? res.Data1
+                : [];
+
+    if (!Array.isArray(saved) || saved.length === 0) return;
+
+    const ordered = saved
+      .filter(s => s.Focus === true)
+      .sort((a, b) => (a.Index ?? 99) - (b.Index ?? 99))
+      .map(s => s.column);
+
+    focusColsRef.current = ordered;
+    setFocusCols(ordered);
+  } catch {}
+}, [sess.Comid]);
   const [perm,         setPerm]         = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
   const [isAuthorized, setIsAuthorized] = useState(false);
 
@@ -1213,7 +1195,7 @@ export default function SaleBill() {
   const [cardTypes,  setCardTypes]  = useState([]);
 
   const [billNo,     setBillNo]     = useState("");
-  const [billDate,   setBillDate]   = useState(today());
+  const [billDate,   setBillDate]   = useState(CC.today());
   const [custId,     setCustId]     = useState("");
   const [custMobile, setCustMobile] = useState("");
   const [smId,       setSmId]       = useState("");
@@ -1271,9 +1253,9 @@ export default function SaleBill() {
     else delete cellRefs.current[rid]?.[key];
   };
 
-  const validRows = rows.filter(r => r.ProductRefId && vn(r.ItemQty) > 0);
+  const validRows = rows.filter(r => r.ProductRefId && CC.vn(r.ItemQty) > 0);
   const itemCount = validRows.length;
-  const totalQty  = validRows.reduce((s, r) => s + vn(r.ItemQty), 0);
+  const totalQty  = validRows.reduce((s, r) => s + CC.vn(r.ItemQty), 0);
 
   // ── Permission check ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -1381,9 +1363,9 @@ export default function SaleBill() {
                 }}
               >
                 <span style={{ width: 120, color: "#1f65de", fontWeight: 700 }}>{b.BatchNo || b.Bat_No || "—"}</span>
-                <span style={{ width: 90, textAlign: "right", color: "#475569" }}>₹{f2(vn(b.MRP)).toFixed(2)}</span>
-                <span style={{ width: 90, textAlign: "right", color: "#16a34a", fontWeight: 600 }}>₹{f2(vn(b.SalesRate || b.SaleRate)).toFixed(2)}</span>
-                <span style={{ width: 90, textAlign: "right", color: vn(b.Stock) <= 0 ? "#dc2626" : "#1a2e4a" }}>{vn(b.Stock).toFixed(0)}</span>
+                <span style={{ width: 90, textAlign: "right", color: "#475569" }}>₹{CC.f2(CC.vn(b.MRP)).toFixed(2)}</span>
+                <span style={{ width: 90, textAlign: "right", color: "#16a34a", fontWeight: 600 }}>₹{CC.f2(CC.vn(b.SalesRate || b.SaleRate)).toFixed(2)}</span>
+                <span style={{ width: 90, textAlign: "right", color: CC.vn(b.Stock) <= 0 ? "#dc2626" : "#1a2e4a" }}>{CC.vn(b.Stock).toFixed(0)}</span>
                 <span style={{ width: 100, color: "#8b5cf6", fontSize: 10.5 }}>{b.ExpDate ? String(b.ExpDate).slice(0, 10) : "—"}</span>
                 <span style={{ width: 80, color: "#94a3b8", fontSize: 10.5 }}>{b.MFDate ? String(b.MFDate).slice(0, 10) : "—"}</span>
               </div>
@@ -1460,10 +1442,10 @@ export default function SaleBill() {
                   </span>
                   <span style={{
                     textAlign: "right", fontWeight: 700,
-                    color: vn(item.Stock) <= 0 ? "#dc2626" : "#1a2e4a",
-                    background: idx === hilite ? "transparent" : vn(item.Stock) <= 15 ? "#fed7aa" : "transparent",
+                    color: CC.vn(item.Stock) <= 0 ? "#dc2626" : "#1a2e4a",
+                    background: idx === hilite ? "transparent" : CC.vn(item.Stock) <= 15 ? "#fed7aa" : "transparent",
                     borderRadius: 3, padding: "0 4px",
-                  }}>{vn(item.Stock).toFixed(0)}</span>
+                  }}>{CC.vn(item.Stock).toFixed(0)}</span>
                 </div>
               ))
             }
@@ -1485,23 +1467,23 @@ export default function SaleBill() {
 
   // ── Load Bill No ──────────────────────────────────────────────────────────
   const loadBillNo = useCallback(async () => {
-    const res = await CC.api(SaleMaxNo, null, {}, {
+    const res = await CC.api(CC.SaleMaxNo, null, {}, {
       date: billDate, CId: sess.CashierId, Comid: sess.Comid,
       NumberDigit: sess.BillNoDigit, BillPrefix: sess.BillNoPrefix,
       BillType: sess.BillNoType, Estimate: 0, BM: 0,
     });
     if (redirectIfDualLogin(res)) return;
     const no = res.No || res.data || res.Data1 || "";
-    if (no) setBillNo(ns(no));
+    if (no) setBillNo(CC.ns(no));
   // eslint-disable-next-line
   }, [sess, billDate]);
 
   const loadDropdowns = useCallback(async () => {
     const comidParam = sess.CommonCompany ? sess.MComid : sess.Comid;
     const [custRes, smRes, cardRes] = await Promise.all([
-      CC.api(GetCustomerUrl, null, {}, { Comid: comidParam, AccountType: "CUSTOMER" }),
-      CC.api(SalesManSelectUrl, null, {}, { Comid: comidParam }),
-      CC.api(SelectCardMasterUrl, null, {}, { Comid: sess.Comid }),
+      CC.api(CC.SO_GetCustomerUrl, null, {}, { Comid: comidParam, AccountType: "CUSTOMER" }),
+      CC.api(CC.SO_SalesManSelectUrl, null, {}, { Comid: comidParam }),
+      CC.api(CC.SelectCardMasterUrl, null, {}, { Comid: sess.Comid }),
     ]);
     if (redirectIfDualLogin(custRes)) return;
     const pick = r => r.data || r.Data1 || r || [];
@@ -1511,10 +1493,10 @@ export default function SaleBill() {
     if (cardList.length > 0) {
       setPayRows(cardList.map(c => ({
         CardAccountRefId: c.CardAccountRefId,
-        Saletype: c.Saletype || c.CardType || ns(c.AccountName),
+        Saletype: c.Saletype || c.CardType || CC.ns(c.AccountName),
         CardType: c.CardType || "CASH",
         Amount: "",
-        Scharge: vn(c.Scharge),
+        Scharge: CC.vn(c.Scharge),
         SchargeAmt: 0,
       })));
     } else {
@@ -1533,25 +1515,25 @@ export default function SaleBill() {
     let grossAmt = 0, gstAmt = 0, cessAmt = 0, discAmt = 0, cdAmt = 0;
     const gstMap = {};
     rowsArr.forEach(r => {
-      if (!r.ProductRefId || !vn(r.ItemQty)) return;
+      if (!r.ProductRefId || !CC.vn(r.ItemQty)) return;
       const calc = calcSaleRow(r);
-      grossAmt += vn(calc.OrgRate) * vn(r.ItemQty) || vn(calc.LandingCost) * vn(r.ItemQty);
-      gstAmt   += vn(calc.TaxAmt);
-      cessAmt  += vn(calc.CESSAmount);
-      discAmt  += vn(calc.DiscountAmt);
-      cdAmt    += vn(calc.CDAmount);
-      const key = f2(vn(r.TaxPercent));
+      grossAmt += CC.vn(calc.OrgRate) * CC.vn(r.ItemQty) || CC.vn(calc.LandingCost) * CC.vn(r.ItemQty);
+      gstAmt   += CC.vn(calc.TaxAmt);
+      cessAmt  += CC.vn(calc.CESSAmount);
+      discAmt  += CC.vn(calc.DiscountAmt);
+      cdAmt    += CC.vn(calc.CDAmount);
+      const key = CC.f2(CC.vn(r.TaxPercent));
       if (!gstMap[key]) gstMap[key] = { TaxPercent: key, TaxAmt: 0, CTAmount: 0, STAmount: 0 };
-      gstMap[key].TaxAmt   += vn(calc.TaxAmt);
-      gstMap[key].CTAmount += vn(calc.CTAmount);
-      gstMap[key].STAmount += vn(calc.STAmount);
+      gstMap[key].TaxAmt   += CC.vn(calc.TaxAmt);
+      gstMap[key].CTAmount += CC.vn(calc.CTAmount);
+      gstMap[key].STAmount += CC.vn(calc.STAmount);
     });
-    const netAmt = f2(grossAmt + gstAmt + cessAmt + vn(oPlus) - (discAmt + cdAmt) - vn(oMinus));
+    const netAmt = CC.f2(grossAmt + gstAmt + cessAmt + CC.vn(oPlus) - (discAmt + cdAmt) - CC.vn(oMinus));
     setGstSplit(Object.values(gstMap).filter(g => g.TaxAmt > 0));
     setTotals({
-      GrossAmt: f2(grossAmt), DiscAmt: f2(discAmt + cdAmt),
-      GSTAmt: f2(gstAmt), CESSAmt: f2(cessAmt),
-      OtherPlus: vn(oPlus), OtherMinus: vn(oMinus), Coinage: 0, NetAmt: netAmt,
+      GrossAmt: CC.f2(grossAmt), DiscAmt: CC.f2(discAmt + cdAmt),
+      GSTAmt: CC.f2(gstAmt), CESSAmt: CC.f2(cessAmt),
+      OtherPlus: CC.vn(oPlus), OtherMinus: CC.vn(oMinus), Coinage: 0, NetAmt: netAmt,
     });
     return netAmt;
   }, []);
@@ -1559,8 +1541,8 @@ export default function SaleBill() {
   useEffect(() => { recalcTotals(rows, otherPlus, otherMinus); }, [rows, otherPlus, otherMinus, recalcTotals]);
 
   const payTotals = (() => {
-    const recvd = payRows.reduce((s, r) => s + vn(r.Amount), 0);
-    return { recvd: f2(recvd), toPay: f2(totals.NetAmt - recvd) };
+    const recvd = payRows.reduce((s, r) => s + CC.vn(r.Amount), 0);
+    return { recvd: CC.f2(recvd), toPay: CC.f2(totals.NetAmt - recvd) };
   })();
 
   // ── Customer select ────────────────────────────────────────────────────────
@@ -1571,17 +1553,17 @@ export default function SaleBill() {
     setCustPopup(false);
 
     const [crmRes, balRes] = await Promise.all([
-      CC.api(CRMBalanceUrl, null, {}, { Id: cid, Fromdate: billDate, Comid: sess.Comid, MComid: sess.MComid }),
-      CC.api(CurrentBalanceUrl, null, {}, { Id: cid, MComid: sess.MComid, TillDate: billDate, Comid: sess.Comid, AccountType: "CUSTOMER" }),
+      CC.api(CC.SO_CRMBalanceUrl, null, {}, { Id: cid, Fromdate: billDate, Comid: sess.Comid, MComid: sess.MComid }),
+      CC.api(CC.SO_CurrentBalanceUrl, null, {}, { Id: cid, MComid: sess.MComid, TillDate: billDate, Comid: sess.Comid, AccountType: "CUSTOMER" }),
     ]);
 
     if (!crmRes._netErr && (crmRes.ok ?? crmRes.IsSuccess)) {
       const arr = Array.isArray(crmRes.data) ? crmRes.data : [];
-      setCrmValue(arr.length > 0 ? f2(vn(arr[0].Value)).toFixed(2) : "0.00");
+      setCrmValue(arr.length > 0 ? CC.f2(CC.vn(arr[0].Value)).toFixed(2) : "0.00");
     }
     if (balRes && !balRes._netErr) {
       const bal = parseFloat(balRes.Data1 ?? balRes.data ?? 0);
-      setCurBal(isNaN(bal) ? "0.00" : f2(bal).toFixed(2));
+      setCurBal(isNaN(bal) ? "0.00" : CC.f2(bal).toFixed(2));
     } else {
       setCurBal("0.00");
     }
@@ -1594,17 +1576,17 @@ export default function SaleBill() {
     if (!cid) { setCrmValue("0.00"); setCurBal("0.00"); return; }
 
     const [crmRes, balRes] = await Promise.all([
-      CC.api(CRMBalanceUrl, null, {}, { Id: cid, Fromdate: billDate, Comid: sess.Comid, MComid: sess.MComid }),
-      CC.api(CurrentBalanceUrl, null, {}, { Id: cid, MComid: sess.MComid, TillDate: billDate, Comid: sess.Comid, AccountType: "CUSTOMER" }),
+      CC.api(CC.SO_CRMBalanceUrl, null, {}, { Id: cid, Fromdate: billDate, Comid: sess.Comid, MComid: sess.MComid }),
+      CC.api(CC.SO_CurrentBalanceUrl, null, {}, { Id: cid, MComid: sess.MComid, TillDate: billDate, Comid: sess.Comid, AccountType: "CUSTOMER" }),
     ]);
 
     if (!crmRes._netErr && (crmRes.ok ?? crmRes.IsSuccess)) {
       const arr = Array.isArray(crmRes.data) ? crmRes.data : [];
-      setCrmValue(arr.length > 0 ? f2(vn(arr[0].Value)).toFixed(2) : "0.00");
+      setCrmValue(arr.length > 0 ? CC.f2(CC.vn(arr[0].Value)).toFixed(2) : "0.00");
     }
     if (balRes && !balRes._netErr) {
       const bal = parseFloat(balRes.Data1 ?? balRes.data ?? 0);
-      setCurBal(isNaN(bal) ? "0.00" : f2(bal).toFixed(2));
+      setCurBal(isNaN(bal) ? "0.00" : CC.f2(bal).toFixed(2));
     } else {
       setCurBal("0.00");
     }
@@ -1620,33 +1602,34 @@ export default function SaleBill() {
         ProductCode:     item.Prod_Code ? item.Prod_Code : item.ProductCode,
         ProductName:     sess.Tamil ? (item.PrinterName || item.PName) : item.PName ? item.PName : item.ProductName,
         PrinterName:     item.PrinterName || "",
-        MRP:             f2(vn(item.MRP)),
-        SaleRate:        f2(vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
-        PurchaseRate:    f2(vn(item.PurRate)),
-        _origSaleRate:   f2(vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
-        TaxPercent:      f2(vn(item.GST)),
-        CESSPer:         f2(vn(item.CESS)),
-        SPLCESS:         f2(vn(item.SPLCESS)),
+        MRP:             CC.f2(CC.vn(item.MRP)),
+        SaleRate:        CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
+        PurchaseRate:    CC.f2(CC.vn(item.PurRate)),
+        _origSaleRate:   CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
+        TaxPercent:      CC.f2(CC.vn(item.GST)),
+        CESSPer:         CC.f2(CC.vn(item.CESS)),
+        SPLCESS:         CC.f2(CC.vn(item.SPLCESS)),
         UOM:             item.UOM || "",
         UOMDecimal:      item.UOMDecimal || 0,
         HSNCode:         item.HSNCode || "",
-        StockQty:        vn(item.Stock),
+        StockQty:        CC.vn(item.Stock),
         SalesRateType:   !!item.SaleRateType,
         NegativetStock:  !!item.NegativetStock,
         NStock:          item.Nstock || 0,
-        DiscountPercent: f2(vn(item.SaleDiscountPer)),
-        CRMPoints:       vn(item.CRMPoints),
+        DiscountPercent: CC.f2(CC.vn(item.SaleDiscountPer)),
+        CRMPoints:       CC.vn(item.CRMPoints),
+       StockQtyNew: item.UOMDecimal === 0 ? "1" : "",
         ItemQty:         item.UOMDecimal === 0 ? "1" : "",
         _dirty: true,
       };
-      setStockLbl(vn(item.Stock).toFixed(0));
+      setStockLbl(CC.vn(item.Stock).toFixed(0));
       return newRow;
     }));
     setProdPopup(null);
 
     setTimeout(() => {
       const defaultCols = visCols
-        .map(vc => SALE_COLUMNS.find(c => c.key === vc.key))
+        .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
         .filter(Boolean)
         .filter(cd => !cd.readOnly)
         .map(cd => cd.key);
@@ -1670,7 +1653,7 @@ export default function SaleBill() {
       Comid: sess.MComid, CComid: sess.Comid,
       Id: 0, Batchwise: 1,
     };
-    const res = await CC.api(SelectItemByCodeUrl, null, {}, payload);
+    const res = await CC.api(CC.SO_SelectItemByCodeUrl, null, {}, payload);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data
               : Array.isArray(res.Data1) ? res.Data1 : [];
@@ -1690,7 +1673,7 @@ export default function SaleBill() {
       fillItemIntoRow(rid, arr[0]);
       if (arr[0].ManufactureDate === 1 || arr[0].ExpriyDate === 1) {
         try {
-          const expRes = await CC.api(SelectExpiryByIdUrl, null, {}, { Id: arr[0].Id, Comid: sess.MComid });
+          const expRes = await CC.api(CC.SelectExpiryByIdUrl, null, {}, { Id: arr[0].Id, Comid: sess.MComid });
           const expList = Array.isArray(expRes.data) ? expRes.data
                         : Array.isArray(expRes.Data1) ? expRes.Data1 : [];
           if (expList.length > 0) setExpiryListPopup({ rid, list: expList });
@@ -1711,31 +1694,31 @@ export default function SaleBill() {
         ProductCode:     batchItem.ProductCode,
         ProductName:     sess.Tamil ? (batchItem.PrinterName || batchItem.ProductName) : batchItem.ProductName,
         PrinterName:     batchItem.PrinterName || "",
-        _origSaleRate:   f2(vn(batchItem.SalesRate || batchItem.SaleRate)),
-        MRP:             f2(vn(batchItem.MRP)),
-        SaleRate:        f2(vn(batchItem.SalesRate || batchItem.SaleRate)),
-        PurchaseRate:    f2(vn(batchItem.PurchaseRate)),
-        TaxPercent:      f2(vn(batchItem.GST)),
-        CESSPer:         f2(vn(batchItem.CESS)),
-        SPLCESS:         f2(vn(batchItem.SPLCESS)),
+        _origSaleRate:   CC.f2(CC.vn(batchItem.SalesRate || batchItem.SaleRate)),
+        MRP:             CC.f2(CC.vn(batchItem.MRP)),
+        SaleRate:        CC.f2(CC.vn(batchItem.SalesRate || batchItem.SaleRate)),
+        PurchaseRate:    CC.f2(CC.vn(batchItem.PurchaseRate)),
+        TaxPercent:      CC.f2(CC.vn(batchItem.GST)),
+        CESSPer:         CC.f2(CC.vn(batchItem.CESS)),
+        SPLCESS:         CC.f2(CC.vn(batchItem.SPLCESS)),
         UOM:             batchItem.UOM || "",
         UOMDecimal:      batchItem.UOMDecimal || 0,
         HSNCode:         batchItem.HSNCode || "",
-        StockQty:        vn(batchItem.Stock),
+        StockQty:        CC.vn(batchItem.Stock),
         BatchRefid:      batchItem.Batchid || null,
         Bat_No:          batchItem.BatchNo || "",
-        DiscountPercent: f2(vn(batchItem.SaleDiscountPer)),
+        DiscountPercent: CC.f2(CC.vn(batchItem.SaleDiscountPer)),
         ItemQty:         batchItem.UOMDecimal === 0 ? "1" : "",
         _dirty: true,
       };
-      setStockLbl(vn(batchItem.Stock).toFixed(0));
+      setStockLbl(CC.vn(batchItem.Stock).toFixed(0));
       return newRow;
     }));
     setBatchPopup(null);
 
     if (batchItem.ManufactureDate === 1 || batchItem.ExpriyDate === 1) {
       try {
-        const expRes = await CC.api(SelectExpiryByIdUrl, null, {}, { Id: batchItem.Id, Comid: sess.MComid });
+        const expRes = await CC.api(CC.SelectExpiryByIdUrl, null, {}, { Id: batchItem.Id, Comid: sess.MComid });
         const expList = Array.isArray(expRes.data) ? expRes.data
                       : Array.isArray(expRes.Data1) ? expRes.Data1 : [];
         if (expList.length > 0) setExpiryListPopup({ rid, list: expList });
@@ -1744,7 +1727,7 @@ export default function SaleBill() {
 
     setTimeout(() => {
       const defaultCols = visCols
-        .map(vc => SALE_COLUMNS.find(c => c.key === vc.key))
+        .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
         .filter(Boolean).filter(cd => !cd.readOnly).map(cd => cd.key);
       const COLS = focusColsRef.current.length > 0
         ? focusColsRef.current.filter(k => defaultCols.includes(k))
@@ -1771,8 +1754,8 @@ export default function SaleBill() {
   const handleSaleRateBlur = useCallback((rid) => {
     const row = rowsRef.current.find(r => r._rid === rid);
     if (!row?.SalesRateType) return;
-    const newRate  = f2(vn(row.SaleRate));
-    const origRate = f2(vn(row._origSaleRate ?? row.SaleRate));
+    const newRate  = CC.f2(CC.vn(row.SaleRate));
+    const origRate = CC.f2(CC.vn(row._origSaleRate ?? row.SaleRate));
     if (newRate === origRate) { unlockedRidRef.current = null; return; }
     if (unlockedRidRef.current === rid) {
       setRows(prev => prev.map(r => {
@@ -1803,7 +1786,7 @@ export default function SaleBill() {
   const loadProductsForPopup = useCallback(async (rid) => {
     if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
     setLoading(true); setLdMsg("Loading products...");
-    const res = await CC.api(ProductListUrl, null, {}, { Comid: sess.Comid });
+    const res = await CC.api(CC.SO_ProductListUrl, null, {}, { Comid: sess.Comid });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : Array.isArray(res) ? res : [];
@@ -1815,7 +1798,7 @@ export default function SaleBill() {
   // ── Cell keydown ───────────────────────────────────────────────────────────
   const handleCellKeyDown = useCallback((e, rid, colKey) => {
     const defaultCols = visCols
-      .map(vc => SALE_COLUMNS.find(c => c.key === vc.key))
+      .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
       .filter(Boolean)
       .filter(cd => !cd.readOnly)
       .map(cd => cd.key);
@@ -1839,8 +1822,8 @@ export default function SaleBill() {
     if ((e.key === "Tab" || e.key === "ArrowRight") && colKey === "SaleRate") {
       const curRow = rowsRef.current.find(r => r._rid === rid);
       if (curRow?.SalesRateType) {
-        const newRate  = f2(vn(curRow.SaleRate));
-        const origRate = f2(vn(curRow._origSaleRate ?? curRow.SaleRate));
+        const newRate  = CC.f2(CC.vn(curRow.SaleRate));
+        const origRate = CC.f2(CC.vn(curRow._origSaleRate ?? curRow.SaleRate));
         if (newRate !== origRate) {
           e.preventDefault();
           pendingRateChangeRef.current = { rid, value: newRate, origRate };
@@ -1876,8 +1859,8 @@ export default function SaleBill() {
         focusCell(rid, COLS[colIdx + 1] ?? COLS[0]);
         return;
       }
-      const newRate  = f2(vn(curRow.SaleRate));
-      const origRate = f2(vn(curRow._origSaleRate ?? curRow.SaleRate));
+      const newRate  = CC.f2(CC.vn(curRow.SaleRate));
+      const origRate = CC.f2(CC.vn(curRow._origSaleRate ?? curRow.SaleRate));
       if (newRate === origRate) {
         if (colIdx >= 0 && colIdx < COLS.length - 1) focusCell(rid, COLS[colIdx + 1]);
         return;
@@ -1910,18 +1893,18 @@ export default function SaleBill() {
       e.preventDefault();
       const curRow = rowsRef.current.find(r => r._rid === rid);
       if (!curRow?.ProductRefId) return;
-      const qty = vn(curRow.ItemQty);
+      const qty = CC.vn(curRow.ItemQty);
       if (qty === 0) return;
 
       const duplicate = rowsRef.current.find(r =>
         r._rid !== rid &&
         r.ProductRefId === curRow.ProductRefId &&
-        f2(vn(r.SaleRate)) === f2(vn(curRow.SaleRate)) &&
+        CC.f2(CC.vn(r.SaleRate)) === CC.f2(CC.vn(curRow.SaleRate)) &&
         !r._isFree
       );
 
       if (duplicate) {
-        const mergedQty = f2(vn(duplicate.ItemQty) + qty);
+        const mergedQty = CC.f2(CC.vn(duplicate.ItemQty) + qty);
         setRows(prev => {
           const updated = prev.map(r => {
             if (r._rid !== duplicate._rid) return r;
@@ -2002,10 +1985,10 @@ export default function SaleBill() {
 
   // ── Bill discount ─────────────────────────────────────────────────────────
   const applyBillDiscount = useCallback(() => {
-    const per = vn(discPer);
+    const per = CC.vn(discPer);
     if (!per) return;
     setRows(prev => prev.map(r => {
-      if (!r.ProductRefId || !vn(r.ItemQty)) return r;
+      if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
       return calcSaleRow({ ...r, DiscountPercent: per, _dirty: true });
     }));
   }, [discPer]);
@@ -2098,7 +2081,7 @@ export default function SaleBill() {
     };
 
     try {
-      const res = await fetch(`${CC.BASE_URL}${A4PrintUrl}`, {
+      const res = await fetch(`${CC.BASE_URL}${CC.A4PrintUrl}`, {
        
         method: "POST",
         headers: {
@@ -2158,11 +2141,28 @@ const openReportViewer = useCallback((
   // ── Save ──────────────────────────────────────────────────────────────────
   const doSave = useCallback(async (isCashBill = false) => {
     if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
-    const validRows = rows.filter(r => r.ProductRefId && vn(r.ItemQty) > 0);
-    if (validRows.length === 0) { toast("❌ Add at least one item", true); return; }
+    const validRows = rows.filter(r => r.ProductRefId && CC.vn(r.ItemQty) > 0);
 
-    const totalPay   = payRows.reduce((s, r) => s + vn(r.Amount), 0);
-    const nonCashPay = payRows.filter(r => r.CardType !== "CASH").reduce((s, r) => s + vn(r.Amount), 0);
+    if (validRows.length === 0) { toast("❌ Add at least one item", true); return; }
+const stockDetails = editId > 0
+  ? validRows
+      .filter(r => r._origItemQty && CC.vn(r._origItemQty) > 0)  // edit-ல load ஆன rows மட்டும்
+      .map(r => ({
+        ProductRefid: r.ProductRefId,
+        Batchid: r._origBatchRefid || 0,
+        RealQty: CC.f2(CC.vn(r._origItemQty)),   // old qty-ஐ stock-க்கு add back பண்ண
+        Qty: 0.0,
+        MfDate: r._origMfgDate ? String(r._origMfgDate).slice(0,10).split("-").reverse().join("/") : "",
+        ExpDate: r._origExpiryDate ? String(r._origExpiryDate).slice(0,10).split("-").reverse().join("/") : "",
+        SerialNoStatus: 0,
+        AdjustType: 0,
+        PDRefid: r._origPDRefid || null,
+        ItemQty: CC.f2(CC.vn(r._origItemQty)),
+        Bags: CC.vn(r._origBags) || 0,
+      }))
+  : [];
+    const totalPay   = payRows.reduce((s, r) => s + CC.vn(r.Amount), 0);
+    const nonCashPay = payRows.filter(r => r.CardType !== "CASH").reduce((s, r) => s + CC.vn(r.Amount), 0);
     const cashOnly   = nonCashPay === 0;
 
     let effectivePayRows = payRows;
@@ -2185,26 +2185,26 @@ const openReportViewer = useCallback((
     const saledetails = validRows.map(r => ({
       SDId: r.SDId || 0, ProductRefId: r.ProductRefId, ProductCode: r.ProductCode,
       ProductName: r.ProductName, PrintName: r.PrinterName || r.ProductName,
-      MRP: f2(vn(r.MRP)), SaleRate: f2(vn(r.SaleRate)), ItemQty: f2(vn(r.ItemQty)),
-      Amount: f2(vn(r.Amount)), TaxPercent: f2(vn(r.TaxPercent)), TaxAmt: f2(vn(r.TaxAmt)),
-      CESSPer: f2(vn(r.CESSPer)), CESSAmount: f2(vn(r.CESSAmount)),
-      SPLCESS: f2(vn(r.SPLCESS)), SPLCESSAmount: f2(vn(r.SPLCESSAmount)),
-      DiscountPercent: f2(vn(r.DiscountPercent)), DiscountAmt: f2(vn(r.DiscountAmt)),
-      cdpercent: f2(vn(r.CDPercent)), cdAmount: f2(vn(r.CDAmount)),
-      Landingcost: f2(vn(r.LandingCost)), CTAmount: f2(vn(r.CTAmount)),
-      STAmount: f2(vn(r.STAmount)), PurchaseRate: f2(vn(r.PurchaseRate)),
-      UOM: r.UOM || "", HSNcode: r.HSNCode || "", StockQty: vn(r.StockQty),
+      MRP: CC.f2(CC.vn(r.MRP)), SaleRate: CC.f2(CC.vn(r.SaleRate)), ItemQty: CC.f2(CC.vn(r.ItemQty)),
+      Amount: CC.f2(CC.vn(r.Amount)), TaxPercent: CC.f2(CC.vn(r.TaxPercent)), TaxAmt: CC.f2(CC.vn(r.TaxAmt)),
+      CESSPer: CC.f2(CC.vn(r.CESSPer)), CESSAmount: CC.f2(CC.vn(r.CESSAmount)),
+      SPLCESS: CC.f2(CC.vn(r.SPLCESS)), SPLCESSAmount: CC.f2(CC.vn(r.SPLCESSAmount)),
+      DiscountPercent: CC.f2(CC.vn(r.DiscountPercent)), DiscountAmt: CC.f2(CC.vn(r.DiscountAmt)),
+      cdpercent: CC.f2(CC.vn(r.CDPercent)), cdAmount: CC.f2(CC.vn(r.CDAmount)),
+      Landingcost: CC.f2(CC.vn(r.LandingCost)), CTAmount: CC.f2(CC.vn(r.CTAmount)),
+      STAmount: CC.f2(CC.vn(r.STAmount)), PurchaseRate: CC.f2(CC.vn(r.PurchaseRate)),
+      UOM: r.UOM || "", HSNcode: r.HSNCode || "", StockQty: CC.vn(r.StockQty),StockQtyNew:CC.f2(CC.vn(r.ItemQty)),
       BatchRefid: r.BatchRefid || null,
       SalesmanRefid: r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : null),
       SalesManCode:  r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : 0),
       FreeQty: 0, NOMS: 0, NOMSQty: 0,
-      SaleRate_org: f2(vn(r.OrgRate)), remarks: r.Remarks || "",
+      SaleRate_org: CC.f2(CC.vn(r.OrgRate)), remarks: r.Remarks || "",
       SRDetailsId: r.SRDetailsId || 0, Bat_No: r.Bat_No || "",
     }));
 
-    const payFiltered = effectivePayRows.filter(p => vn(p.Amount) > 0).map(p => ({
+    const payFiltered = effectivePayRows.filter(p => CC.vn(p.Amount) > 0).map(p => ({
       CardAccountRefId: p.CardAccountRefId, Saletype: p.Saletype,
-      CardType: p.CardType, Amount: f2(vn(p.Amount)), SchargeAmt: f2(vn(p.SchargeAmt)),
+      CardType: p.CardType, Amount: CC.f2(CC.vn(p.Amount)), SchargeAmt: CC.f2(CC.vn(p.SchargeAmt)),
       CustomerRefid: custId ? parseInt(custId) : parseInt(sess.CashId),
     }));
 
@@ -2224,10 +2224,10 @@ const openReportViewer = useCallback((
       CustomerRefId: custId ? parseInt(custId) : parseInt(sess.CashId),
       SaleNo: 0, CompanyRefId: parseInt(sess.Comid),
       SaleNoDisplay: billNo, SaleDate: billDate, SaleType: saleType,
-      OthersplusAmt: vn(otherPlus), OtherssubAmt: vn(otherMinus),
+      OthersplusAmt: CC.vn(otherPlus), OtherssubAmt: CC.vn(otherMinus),
       Grossamt: totals.GrossAmt, taxamount: totals.GSTAmt,
       CESSAmount: totals.CESSAmt, SPLCESSAmount: 0,
-      disper: vn(discPer), discamount: totals.DiscAmt,
+      disper: CC.vn(discPer), discamount: totals.DiscAmt,
       NetAmount: totals.NetAmt, coinage: 0, Remarks: remarks,
       CashierRefId: parseInt(sess.CashierId) || 0,
       salesmanRefId: smId ? parseInt(smId) : null,
@@ -2240,7 +2240,7 @@ const openReportViewer = useCallback((
       Credit: hasCredit ? payFiltered.find(p => p.CardType === "CREDIT")?.Amount || 0 : 0,
       Modified_By: username,
       ModifiedStatus: editId > 0 ? 1 : 0, Modified_Date: billDate,
-      SaleDetails: saledetails, SaleAmountDetails: payFiltered, StockDetails: [],
+      SaleDetails: saledetails, SaleAmountDetails: payFiltered, StockDetails:stockDetails,
     }];
 
     const headers = {
@@ -2261,7 +2261,7 @@ const openReportViewer = useCallback((
       "MirrorTable": "0", "LocalDB": "0", "RO": "0",
     };
 
-    const res = await CC.insertapi(SaleInsertUrl, payload, headers);
+    const res = await CC.insertapi(CC.SaleInsertUrl, payload, headers);
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
 
@@ -2299,11 +2299,11 @@ const openReportViewer = useCallback((
     if (!ok) return;
     setLoading(true);
     const stockBody = rows
-      .filter(r => r.ProductRefId && vn(r.ItemQty) > 0)
+      .filter(r => r.ProductRefId && CC.vn(r.ItemQty) > 0)
       .map(r => ({
         ProductRefId: r.ProductRefId, ProductCode: r.ProductCode,
-        ItemQty: f2(vn(r.ItemQty)), SaleRate: f2(vn(r.SaleRate)),
-        Amount: f2(vn(r.Amount)), StockQty: vn(r.StockQty),
+        ItemQty: CC.f2(CC.vn(r.ItemQty)), SaleRate: CC.f2(CC.vn(r.SaleRate)),
+        Amount: CC.f2(CC.vn(r.Amount)), StockQty: CC.vn(r.StockQty),
         BatchRefid: r.BatchRefid || null, Bat_No: r.Bat_No || "",
       }));
     const headers = {
@@ -2313,7 +2313,7 @@ const openReportViewer = useCallback((
       LocalDB: "0", DayClose: sess.DayClose ? "1" : "0",
       SaleDate: billDate, Id: String(editId),
     };
-    const res = await CC.api(SaleDeleteUrl, stockBody, headers, null);
+    const res = await CC.api(CC.SaleDeleteUrl, stockBody, headers, null);
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     if (res.ok ?? res.IsSuccess) { toast("✅ Bill Deleted Successfully"); await clearForm(); }
@@ -2325,7 +2325,7 @@ const openReportViewer = useCallback((
   const openF5 = useCallback(async (from = billDate, to = billDate) => {
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading bills...");
-    const res = await CC.api(F5SelectUrl, null, {}, {
+    const res = await CC.api(CC.F5SelectUrl, null, {}, {
       Comid: sess.Comid, Fromdate: from, Todate: to, Id: 0, Estimate: 0
     });
     setLoading(false);
@@ -2348,7 +2348,7 @@ const openReportViewer = useCallback((
     setF5Open(false);
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading bill...");
-    const res = await CC.api(SaleEditUrl, null, {}, {
+    const res = await CC.api(CC.SaleEditUrl, null, {}, {
       Id: id, SaleNo: 0, Date: billDate, Comid: sess.Comid,
       Cid: 0, Estimate: 0, CustId: 0, Tamil: sess.Tamil ? true : false,
     });
@@ -2360,24 +2360,35 @@ const openReportViewer = useCallback((
     const saledetails = data[0].SaleDetails || [];
     setEditId(data[0].Id || id);
     srdetailsRef.current = data[0].srdetails || [];
-    setBillNo(ns(data[0].SaleNoDisplay || data[0].SaleNo));
-    setBillDate(String(data[0].SaleDate || "").slice(0, 10) || today());
-    const cid = ns(data[0].CustomerRefId);
+    setBillNo(CC.ns(data[0].SaleNoDisplay || data[0].SaleNo));
+    setBillDate(String(data[0].SaleDate || "").slice(0, 10) || CC.today());
+    const cid = CC.ns(data[0].CustomerRefId);
     setCustId(cid);
     const found = customers.find(c => String(c.Id) === cid);
     setCustMobile(found?.MobileNo || "");
-    setSmId(ns(data[0].salesmanRefId || ""));
-    setRemarks(ns(data[0].Remarks));
-    setOtherPlus(ns(data[0].OthersplusAmt || ""));
-    setOtherMinus(ns(data[0].OtherssubAmt || ""));
-    const loadedRows = saledetails.map(r => calcSaleRow(fmtRow({ ...mkRow(), ...r, _rid: genRid() })));
+    setSmId(CC.ns(data[0].salesmanRefId || ""));
+    setRemarks(CC.ns(data[0].Remarks));
+    setOtherPlus(CC.ns(data[0].OthersplusAmt || ""));
+    setOtherMinus(CC.ns(data[0].OtherssubAmt || ""));
+ const loadedRows = saledetails.map(r => calcSaleRow(fmtRow({
+  ...mkRow(),
+  ...r,
+  _rid: CC.genRid(),
+  _origItemQty: CC.vn(r.ItemQty),       // old qty தனியா store
+  _origBatchRefid: r.BatchRefid || 0,
+  _origMfgDate: r.MfgDate || "",
+  _origExpiryDate: r.ExpiryDate || "",
+  _origPDRefid: r.PDRefid || null,
+  _origBags: r.Pcs || 0,
+})));
+setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     const saleAmts = (data[0].SaleAmountDetails || []).length > 0
       ? data[0].SaleAmountDetails
       : f5AmtDetails.filter(a => a != null && String(a.SaleRefId) === String(id));
     setPayRows(pr => pr.map(p => {
       const found = saleAmts.find(a => a.CardAccountRefId === p.CardAccountRefId);
-      return found ? { ...p, Amount: found.Amount > 0 ? f2(found.Amount).toFixed(2) : "" } : { ...p, Amount: "" };
+      return found ? { ...p, Amount: found.Amount > 0 ? CC.f2(found.Amount).toFixed(2) : "" } : { ...p, Amount: "" };
     }));
   // eslint-disable-next-line
   }, [sess, billDate, perm, customers]);
@@ -2387,7 +2398,7 @@ const openReportViewer = useCallback((
       const ok = await confirm(`Do you want to Cancel Bill "${billNo}"?`);
       if (!ok) return;
       setLoading(true); setLdMsg("Deleting...");
-      const editRes = await CC.api(SaleEditUrl, null, {}, {
+      const editRes = await CC.api(CC.SaleEditUrl, null, {}, {
         Id: id, SaleNo: 0, Date: billDate, Comid: sess.Comid,
         Cid: 0, Estimate: 0, CustId: 0, Tamil: false,
       });
@@ -2402,7 +2413,7 @@ const openReportViewer = useCallback((
         LocalDB: "0", DayClose: sess.DayClose ? "1" : "0",
         SaleDate: saleDate, Id: String(id),
       };
-      const res = await CC.api(SaleDeleteUrl, [], headers, null);
+      const res = await CC.api(CC.SaleDeleteUrl, [], headers, null);
       setLoading(false);
       if (redirectIfDualLogin(res)) return;
       if (res.ok ?? res.IsSuccess) {
@@ -2420,16 +2431,16 @@ const openReportViewer = useCallback((
   // ── Bill hold ─────────────────────────────────────────────────────────────
   const doBillHold = useCallback(async () => {
     if (totals.NetAmt <= 0) {
-      const res = await CC.api(BillHoldSelectUrl, null, {}, { Cid: sess.CashierId, Comid: sess.Comid });
+      const res = await CC.api(CC.BillHoldSelectUrl, null, {}, { Cid: sess.CashierId, Comid: sess.Comid });
       if (redirectIfDualLogin(res)) return;
       const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
       setHoldRows(arr); setHoldOpen(true); return;
     }
     const holdName = window.prompt("Enter Bill Hold Name", "");
     if (!holdName?.trim()) return;
-    const saledetails = rows.filter(r => r.ProductRefId && vn(r.ItemQty) > 0);
+    const saledetails = rows.filter(r => r.ProductRefId && CC.vn(r.ItemQty) > 0);
     setLoading(true);
-    const res = await CC.insertapi(BillHoldInsertUrl, saledetails, {
+    const res = await CC.insertapi(CC.BillHoldInsertUrl, saledetails, {
       "Comid": sess.Comid, "Cashierid": sess.CashierId,
       "CustomerRefid": custId || sess.CashId,
       "Holdname": holdName.trim().toUpperCase(),
@@ -2443,14 +2454,14 @@ const openReportViewer = useCallback((
 
   const loadHold = useCallback(async (name) => {
     setHoldOpen(false);
-    const res = await CC.api(BillUnHoldUrl, null, {}, { holdname: name.replace("&", "%26"), Cid: sess.CashierId, Comid: sess.Comid });
+    const res = await CC.api(CC.BillUnHoldUrl, null, {}, { holdname: name.replace("&", "%26"), Cid: sess.CashierId, Comid: sess.Comid });
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
     if (arr.length > 0) {
-      const loaded = arr.map(r => calcSaleRow(fmtRow({ ...mkRow(), ...r, _rid: genRid() })));
+      const loaded = arr.map(r => calcSaleRow(fmtRow({ ...mkRow(), ...r, _rid: CC.genRid() })));
       setRows(loaded); setBillHoldName(name);
       if (arr[0].CustomerRefid) {
-        const cid = ns(arr[0].CustomerRefid);
+        const cid = CC.ns(arr[0].CustomerRefid);
         setCustId(cid);
         const found = customers.find(c => String(c.Id) === cid);
         setCustMobile(found?.MobileNo || "");
@@ -2463,7 +2474,7 @@ const openReportViewer = useCallback((
   const deleteHold = useCallback(async (name) => {
     const ok = await confirm(`Delete hold "${name}"?`);
     if (!ok) return;
-    const res = await CC.api(BillHoldDeleteUrl, null, {}, { holdname: name, Cid: sess.CashierId, Comid: sess.Comid });
+    const res = await CC.api(CC.BillHoldDeleteUrl, null, {}, { holdname: name, Cid: sess.CashierId, Comid: sess.Comid });
     if (res.ok ?? res.IsSuccess) { toast("✅ Deleted"); setHoldOpen(false); }
     else toast("❌ " + (res.message || "Failed"), true);
   }, [sess, confirm, toast]);
@@ -2653,7 +2664,7 @@ onView={() => {
                       onClick={() => setSelRid(row._rid)}>
                       <td className="sb-sno">{idx + 1}</td>
                       {visCols.map(col => {
-                        const m       = SALE_COLUMNS.find(c => c.key === col.key) || {};
+                        const m       = CC.SB_COLUMNS.find(c => c.key === col.key) || {};
                         const val     = row[col.key];
                         const isRight = RIGHT_KEYS.has(col.key);
                         const isRO    = !!m.readOnly;
@@ -2669,13 +2680,13 @@ onView={() => {
                                 color: isAmt ? "#1f65de" : undefined,
                                 fontWeight: isAmt ? 700 : undefined,
                               }}>
-                                {isFloat && val ? f2(val).toFixed(2) : ns(val)}
+                                {isFloat && val ? CC.f2(val).toFixed(2) : CC.ns(val)}
                               </span>
                             ) : col.key === "ProductCode" ? (
                               <input
                                 ref={el => regCell(row._rid, col.key, el)}
                                 className="sb-cell-input"
-                                value={ns(val)}
+                                value={CC.ns(val)}
                                 onChange={e => handleCellChange(row._rid, col.key, e.target.value.toUpperCase())}
                                 onKeyDown={e => handleCellKeyDown(e, row._rid, col.key)}
                                 onFocus={() => setSelRid(row._rid)}
@@ -2686,7 +2697,7 @@ onView={() => {
                               <input
                                 ref={el => regCell(row._rid, col.key, el)}
                                 className="sb-cell-input"
-                                value={ns(val)}
+                                value={CC.ns(val)}
                                 readOnly
                                 style={{ width: "100%", boxSizing: "border-box", background: "transparent", border: "none", cursor: "default", color: "#475569" }}
                                 placeholder="—"
@@ -2720,7 +2731,7 @@ onView={() => {
                               <input
                                 ref={el => regCell(row._rid, col.key, el)}
                                 className="sb-cell-input"
-                                value={ns(val)}
+                                value={CC.ns(val)}
                                 onChange={e => handleCellChange(row._rid, col.key, e.target.value)}
                                 onKeyDown={e => handleCellKeyDown(e, row._rid, col.key)}
                                 onFocus={() => setSelRid(row._rid)}
@@ -2764,8 +2775,8 @@ onView={() => {
                             if (e.key === "Enter") {
                               e.preventDefault();
                               if (i < payRows.length - 1) {
-                                const filled = payRows.slice(0, i + 1).reduce((s, r) => s + vn(r.Amount), 0);
-                                const rem    = f2(totals.NetAmt - filled);
+                                const filled = payRows.slice(0, i + 1).reduce((s, r) => s + CC.vn(r.Amount), 0);
+                                const rem    = CC.f2(totals.NetAmt - filled);
                                 if (rem > 0) {
                                   setPayRows(prev => prev.map((r, j) =>
                                     j === i + 1 ? { ...r, Amount: rem.toFixed(2) } : r
@@ -2848,9 +2859,9 @@ onView={() => {
                       {gstSplit.map((g, i) => (
                         <tr key={i} style={{ background: i % 2 === 0 ? "#f8faff" : "#fff" }}>
                           <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "center", fontSize: 10.5 }}>{g.TaxPercent}%</td>
-                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "right", fontSize: 10.5 }}>{f2(g.TaxAmt).toFixed(2)}</td>
-                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "right", fontSize: 10.5 }}>{f2(g.CTAmount).toFixed(2)}</td>
-                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "right", fontSize: 10.5 }}>{f2(g.STAmount).toFixed(2)}</td>
+                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "right", fontSize: 10.5 }}>{CC.f2(g.TaxAmt).toFixed(2)}</td>
+                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "right", fontSize: 10.5 }}>{CC.f2(g.CTAmount).toFixed(2)}</td>
+                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "right", fontSize: 10.5 }}>{CC.f2(g.STAmount).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -2906,14 +2917,42 @@ onView={() => {
             📋 F8 Estimate
           </button>
           <button className="sb-btn"   onClick={doBillHold}>📌 F4 Bill Hold</button>
-          <button className="sb-btn"   onClick={applyBillDiscount} title="Apply bill-level discount">
-            Disc%:
-            <input style={{ width: 50, border: "1px solid #c5d8f8", borderRadius: 3, fontSize: 11, padding: "1px 4px", marginLeft: 3 }}
-              type="number" step="0.01" value={discPer}
-              onChange={e => setDiscPer(e.target.value)}
-              onClick={e => e.stopPropagation()} />
-            <span style={{ marginLeft: 2 }}>Apply</span>
-          </button>
+        <button
+  className="sb-btn"
+  onClick={() => {
+    const per = CC.vn(discPer);
+    if (!per) { toast("❌ Enter Discount %", true); return; }
+    setRows(prev => prev.map(r => {
+      if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
+      return calcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
+    }));
+    toast(`✅ ${per}% discount applied to all rows`);
+  }}
+  title="Apply bill-level discount to all rows"
+>
+  Disc%:
+  <input
+    style={{ width: 50, border: "1px solid #c5d8f8", borderRadius: 3, fontSize: 11, padding: "1px 4px", marginLeft: 3 }}
+    type="number"
+    step="0.01"
+    value={discPer}
+    onChange={e => setDiscPer(e.target.value)}
+    onClick={e => e.stopPropagation()}
+    onKeyDown={e => {
+      if (e.key === "Enter") {
+        e.stopPropagation();
+        const per = CC.vn(discPer);
+        if (!per) { toast("❌ Enter Discount %", true); return; }
+        setRows(prev => prev.map(r => {
+          if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
+          return calcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
+        }));
+        toast(`✅ ${per}% discount applied to all rows`);
+      }
+    }}
+  />
+  <span style={{ marginLeft: 2 }}>Apply</span>
+</button>
           <button className="sb-btn"   onClick={() => setF12Open(true)}>⚙ F12 Columns</button>
           <button className="sb-btn"   onClick={() => setCtrlGOpen(true)} title="Ctrl+G Column Focus/Reorder">⚡ Ctrl+G</button>
           <button className="sb-btn"   onClick={clearForm} disabled={loading}>🔄 F10 Clear</button>
@@ -2964,11 +3003,11 @@ onView={() => {
                 ExpDate:    item.ExpDate || "",
                 Bat_No:     item.BatchNo || r.Bat_No || "",
                 BatchRefid: item.Batchid || r.BatchRefid || null,
-                StockQty:   vn(item.Stock),
+                StockQty:   CC.vn(item.Stock),
                 _dirty: true,
               }
             ));
-            setStockLbl(vn(item.Stock).toFixed(0));
+            setStockLbl(CC.vn(item.Stock).toFixed(0));
             setExpiryListPopup(null);
             setTimeout(() => {
               const el = cellRefs.current[rid]?.["ItemQty"];

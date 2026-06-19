@@ -16,6 +16,7 @@ function GridIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="curren
 const Topbar = memo(() => {
   const navigate = useNavigate();
   const username = localStorage.getItem("username") || "User";
+  const CompanyName = localStorage.getItem("CompanyName");
   const avatarLetter = username.charAt(0).toUpperCase();
 
   const handleLogout = () => {
@@ -30,7 +31,7 @@ const Topbar = memo(() => {
 
       <div className="kd-topbar-left">
         <span className="kd-logo-mark">K</span>
-        <span className="kd-logo-text">KASSA <strong>BM</strong></span>
+        <span className="kd-logo-text"><strong>{CompanyName}</strong></span>
       </div>
       <div className="kd-topbar-right">
         <button type="button" className="kd-icon-btn" title="Notifications">

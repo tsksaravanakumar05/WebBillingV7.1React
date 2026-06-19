@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Suppliermaster.css";
 import Topbar from "../components/Topbar";
-import * as CC from "../Master/Common"; // ← same Common.jsx
+import * as CC from "../Master/Common"; 
+import * as CC1 from "../components/Common"; // ← same Common.jsx
 
 // ─── Column config ────────────────────────────────────────────────────────────
 const ALL_COLUMNS = [
@@ -104,7 +105,10 @@ function SalesmanPicker({ salesmanList, initialSearch = "", onSelect, onClose })
 // ─── SupplierMaster ───────────────────────────────────────────────────────────
 export default function SupplierMaster() {
   const navigate = useNavigate();
-
+const [pageCountTotal, setPageCountTotal] = useState(0); // total record count (data.Count)
+const [pageLen, setPageLen]               = useState(1); // total pages
+const [curPage, setCurPage]               = useState(1); // current page (1-based)
+const PAGE_SIZE = 20;
   // ── Shared hooks from Common.jsx ─────────────────────────────────────────
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast,   toasts    } = CC.useToast();
@@ -191,7 +195,7 @@ const [activeFilter, setActiveFilter] = useState("all");
   const cellRefs       = useRef({});
   const salesmanRef    = useRef([]);   // ← holds latest salesman list for loadData
   const loadDataRef    = useRef(null); // ← holds latest loadData for handleSave
-
+//test
   // ── Visible columns ──────────────────────────────────────────────────────
   const visibleColumns = ALL_COLUMNS.filter(c => {
     const cs = colSettings.find(s => s.field === c.field);
@@ -200,7 +204,7 @@ const [activeFilter, setActiveFilter] = useState("all");
     const cs = colSettings.find(s => s.field === c.field);
     return { ...c, width: cs?.width ?? c.width };
   });
-  const editableFields = visibleColumns.map(c => c.field);
+const editableFields = visibleColumns.map(c => c.field).filter(f => f !== "Active"&&f!=="IGSTBill");
 
   // ── Focus helper ─────────────────────────────────────────────────────────
   const focusCell = useCallback((rowIdx, field) => {
@@ -211,20 +215,7 @@ const [activeFilter, setActiveFilter] = useState("all");
   }, []);
 
   // ── Init — load salesman THEN suppliers (runs ONCE) ──────────────────────
-  useEffect(() => {
-    const init = async () => {
-      // ── Salesman ──
-      setSalesmanLoading(true);
-      const smList = await CC.loadSalesmanData(MComid); // ← from Common.jsx
-      setSalesmanList(smList);
-      salesmanRef.current = smList;
-      setSalesmanLoading(false);
 
-      // ── Suppliers ──
-      await doLoadData(smList);
-    };
-    init();
-  }, []); 
   const displayGrid = grid.filter(row => {
   if (activeFilter === "active" && (row.Active === false || row.Active === 0)) return false;
   return true;
@@ -413,12 +404,21 @@ if (redirectIfDualLogin(res)) return;
   };
   inp.click();
 }, [Comid, SupplierMulitipleAllow, MirrorTable, IdComList, toast]);
+
   // ── doLoadData — plain async, no useCallback, no deps ────────────────────
-const doLoadData = async (smList, keyword = "", column = "") => {
+const doLoadData = async (smList, keyword = "", column = "", page = 1) => {
   const prefill = sessionStorage.getItem("masterPrefill") || "";
+ let startIndex;
+  if (page === 1 && !keyword) {
+    startIndex = 0;           // ← first load, latest records
+  } else {
+    startIndex = (page - 1) * PAGE_SIZE;  // page1=0, page2=20, page3=40
+  }// legacy: Startindex=-1 first load, else (page*20)
   setLoading(true);
   const res = await CC.api(CC.SupplierSelect, null, {}, {
-    Comid: Number(Comid), Startindex: -1, PageCount: 20,
+    Comid: Number(Comid),
+    Startindex: startIndex,
+    PageCount: PAGE_SIZE,
     AccountType: "SUPPLIER", Keyword: keyword, Column: column,
   });
   setLoading(false);
@@ -444,15 +444,46 @@ const doLoadData = async (smList, keyword = "", column = "") => {
     };
   });
 
+  // ── Page-no-wise count tracking, same as legacy loadCounter ──
+  const count = Number(res.Data4 ?? res.Data4 ?? existing.length) || 0;
+  if (!keyword) {
+    const total = count === 0 ? 1 : count;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    setPageCountTotal(total);
+    setPageLen(totalPages);
+    setCurPage(page);
+  } else {
+    setPageCountTotal(count || 1);
+    setPageLen(1);
+    setCurPage(1);
+  }
+
   const blank = makeNewRow(prefill);
   setGrid([...existing, blank]);
   setSelIdx(existing.length);
   focusCell(existing.length, "AccountName");
   sessionStorage.setItem("masterPrefill", "");
 };
+  useEffect(() => {
+    const init = async () => {
+      // ── Salesman ──
+      setSalesmanLoading(true);
+      const smList = await CC.loadSalesmanData(MComid); // ← from Common.jsx
+      setSalesmanList(smList);
+      salesmanRef.current = smList;
+      setSalesmanLoading(false);
 
+      // ── Suppliers ──
+      await doLoadData(smList, "", "", 1);
+    };
+    init();
+  }, []); 
+const goToPage = useCallback((page) => {
+  if (page < 1 || page > pageLen || page === curPage) return;
+  doLoadData(salesmanRef.current, "", "", page);
+}, [pageLen, curPage]);
   // Store doLoadData in ref so handleSave can call it without being a dep
-  loadDataRef.current = () => doLoadData(salesmanRef.current);
+loadDataRef.current = () => doLoadData(salesmanRef.current, "", "", curPage);
 
   // ── addRow ────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
@@ -475,22 +506,37 @@ const doLoadData = async (smList, keyword = "", column = "") => {
     setPickerTarget({ rowIdx, currentName: grid[rowIdx]?.SalesName || "" });
   }, [grid]);
 
-  const onSalesmanSelect = useCallback(({ SalesManName, Id }) => {
-    if (!pickerTarget) return;
-    const { rowIdx } = pickerTarget;
-    setGrid(prev => prev.map((r,i) => i===rowIdx ? { ...r, SalesName:SalesManName||"", SalemanRefid:Id??null, EditMode:1 } : r));
-    setPickerTarget(null);
-    setTimeout(() => {
-      const colIdx = editableFields.indexOf("SalesName");
-      if (colIdx < editableFields.length-1) focusCell(rowIdx, editableFields[colIdx+1]);
-    }, 60);
-  }, [pickerTarget, editableFields, focusCell]);
+// ── onSalesmanSelect — popup-ல் item select பண்ணினா next cell ──
+const onSalesmanSelect = useCallback(({ SalesManName, Id }) => {
+  if (!pickerTarget) return;
+  const { rowIdx } = pickerTarget;
 
-  const onSalesmanClose = useCallback(() => {
-    const rowIdx = pickerTarget?.rowIdx;
-    setPickerTarget(null);
-    if (rowIdx != null) focusCell(rowIdx, "SalesName");
-  }, [pickerTarget, focusCell]);
+  setGrid(prev => prev.map((r, i) =>
+    i === rowIdx
+      ? { ...r, SalesName: SalesManName || "", SalemanRefid: Id ?? null, EditMode: 1 }
+      : r
+  ));
+  setPickerTarget(null);
+
+  // SalesName next column-க்கு focus
+  setTimeout(() => {
+    const colIdx = editableFields.indexOf("SalesName");
+    if (colIdx >= 0 && colIdx < editableFields.length - 1) {
+      focusCell(rowIdx, editableFields[colIdx + 1]);
+    }
+  }, 60);
+}, [pickerTarget, editableFields, focusCell]);
+
+// ── onSalesmanClose — popup cancel/escape → same SalesName cell-க்கே திரும்பு ──
+const onSalesmanClose = useCallback(() => {
+  const rowIdx = pickerTarget?.rowIdx;
+  setPickerTarget(null);
+
+  // Cancel பண்ணினா SalesName-லயே இரு, next போகாதே
+  if (rowIdx != null) {
+    setTimeout(() => focusCell(rowIdx, "Address1"), 60);
+  }
+}, [pickerTarget, focusCell]);
 
   // ── moveNext ──────────────────────────────────────────────────────────────
   const moveNext = useCallback((rowIdx, field, currentGrid) => {
@@ -507,25 +553,65 @@ const doLoadData = async (smList, keyword = "", column = "") => {
   }, [editableFields, focusCell]);
 
   // ── Cell keydown ──────────────────────────────────────────────────────────
-  const onCellKeyDown = useCallback((e, rowIdx, field) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (field === "SalesName") { openSalesmanPicker(rowIdx); return; }
-      const row = grid[rowIdx], value = row?.[field];
-      if (field === "AccountName") {
-        if (!String(value||"").trim()) { toast("❌ Enter Supplier Name !!!", true); return; }
-        if (!SupplierMulitipleAllow) {
-          const names = grid.filter((_,i)=>i!==rowIdx&&String(grid[i].AccountName||"").trim()).map(r=>String(r.AccountName).trim().toLowerCase());
-          if (names.includes(String(value).trim().toLowerCase())) { toast("❌ Duplicate Supplier Name !!!", true); return; }
-        }
-      }
-      const colDef = ALL_COLUMNS.find(c=>c.field===field);
-      if (colDef?.type==="float") updateCell(rowIdx, field, parseFloat(vn(value)).toFixed(2));
-      if (colDef?.type==="int")   updateCell(rowIdx, field, String(parseInt(vn(value))||0));
-      moveNext(rowIdx, field, grid);
+  // ── onCellKeyDown — replace existing ──────────────────────────────────────────
+const onCellKeyDown = useCallback((e, rowIdx, field) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+
+  // SalesName → open picker, don't advance yet
+  if (field === "SalesName") {
+    openSalesmanPicker(rowIdx);
+    return;
+  }
+
+  const row   = grid[rowIdx];
+  const value = row?.[field];
+
+  // Validate AccountName
+  if (field === "AccountName") {
+    if (!String(value || "").trim()) {
+      toast("❌ Enter Supplier Name !!!", true);
+      return;
     }
-    if (e.key==="Delete" && e.ctrlKey) { e.preventDefault(); deleteRow(rowIdx); }
-  }, [grid, SupplierMulitipleAllow, moveNext, updateCell, toast, openSalesmanPicker]); // eslint-disable-line
+    if (!SupplierMulitipleAllow) {
+      const names = grid
+        .filter((_, i) => i !== rowIdx && String(grid[i].AccountName || "").trim())
+        .map(r => String(r.AccountName).trim().toLowerCase());
+      if (names.includes(String(value).trim().toLowerCase())) {
+        toast("❌ Duplicate Supplier Name !!!", true);
+        return;
+      }
+    }
+  }
+
+  // Format on Enter
+  const colDef = ALL_COLUMNS.find(c => c.field === field);
+  if (colDef?.type === "float") updateCell(rowIdx, field, parseFloat(vn(value)).toFixed(2));
+  if (colDef?.type === "int")   updateCell(rowIdx, field, String(parseInt(vn(value)) || 0));
+
+  // ── handleEnterNext style navigation ──
+  const colIdx   = editableFields.indexOf(field);
+  const rowCount = grid.length;
+
+  if (colIdx < editableFields.length - 1) {
+    // next column in same row
+    focusCell(rowIdx, editableFields[colIdx + 1]);
+  } else if (rowIdx < rowCount - 1) {
+    // first column of next row
+    setSelIdx(rowIdx + 1);
+    focusCell(rowIdx + 1, editableFields[0]);
+  } else {
+    // last cell of last row → add new row
+    const nr = makeNewRow();
+    setGrid(prev => {
+      const next = [...prev, nr];
+      const ni   = next.length - 1;
+      setSelIdx(ni);
+      focusCell(ni, editableFields[0]);
+      return next;
+    });
+  }
+}, [grid, SupplierMulitipleAllow, editableFields, focusCell, updateCell, toast, openSalesmanPicker]);
 
   // ── gridemptycheck ────────────────────────────────────────────────────────
   const gridemptycheck = useCallback((g) => {
@@ -627,7 +713,7 @@ if (redirectIfDualLogin(res)) return;
   }, [navigate]);
 const handleFilterSearch = useCallback((e) => {
   if (e.key === "Enter" && filterSearch.trim()) {
-    doLoadData(salesmanRef.current, filterSearch, filterColumn);
+    doLoadData(salesmanRef.current, filterSearch, filterColumn, 1);
   }
 }, [filterSearch, filterColumn]);
 
@@ -693,7 +779,7 @@ const saveColSettings = useCallback(async (localSettings) => {
 useEffect(() => {
   const loadColSettings = async () => {
     try {
-      const url = `/Content/Appdata/Visible/${MComid}/Supplier.json?t=${Date.now()}`;
+      const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Supplier`;
       const res = await fetch(url);
       if (!res.ok) return;               // no file yet — use defaults
 
@@ -1019,17 +1105,36 @@ function PwModal({ title, comid, onOk, onClose }) {
       ⚙ F12 Columns
     </button>
     <button className="mp-btn"
-      onClick={() => doLoadData(salesmanRef.current)}
+     onClick={() => doLoadData(salesmanRef.current, "", "", curPage)}
       disabled={loading}
       style={{ background:"#059669", color:"#fff", borderColor:"#059669" }}>
       🔄 Refresh
     </button>
+     <div style={{ display:"flex", alignItems:"center", gap:4, marginLeft:8 }}>
+  {Array.from({ length: pageLen }, (_, i) => i + 1).map(p => (
+    <button key={p}
+      onClick={() => goToPage(p)}
+      className="mp-btn"
+      style={{
+        padding:"3px 9px", fontSize:12, minWidth:28,
+        background: p === curPage ? "#1a2e4a" : "#fff",
+        color:      p === curPage ? "#fff"    : "#1a2e4a",
+        border: "1px solid #1a2e4a",
+      }}>
+      {p}
+    </button>
+  ))}
+  <span style={{ fontSize:11, color:"#64748b", marginLeft:6, fontWeight:600 }}>
+    Record {pageCountTotal}
+  </span>
+</div>
     {salesmanLoading && (
       <span style={{ fontSize:11, color:"#94a3b8", marginLeft:8 }}>Loading salesman…</span>
     )}
     <button className="mp-btn dl" onClick={handleEsc} style={{ marginLeft:"auto" }}>
       ✕ Esc Cancel
     </button>
+   
   </div>
 
 </div>

@@ -686,7 +686,8 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
   useEffect(() => {
     (async () => {
       try {
-        const url = `/Content/Appdata/Visible/${mcomid}/EstimateFocus.json?v=${Date.now()}`;
+          const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=EstimateFocus`;
+        //const url = `/Content/Appdata/Visible/${mcomid}/EstimateFocus.json?v=${Date.now()}`;
         const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
         let saved = [];
         if (res.ok) { try { saved = await res.json(); } catch {} }
@@ -885,7 +886,8 @@ export default function EstimateBill() {
   // ── Load column config ────────────────────────────────────────────────────
   const loadColCfg = useCallback(async (comid) => {
     try {
-      const url = `/Content/Appdata/Visible/${comid}/Estimate.json?v=${Date.now()}`;
+            const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Estimate`;
+      //const url = `/Content/Appdata/Visible/${comid}/Estimate.json?v=${Date.now()}`;
       const res = await fetch(url, { headers: CC.authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
@@ -899,7 +901,8 @@ export default function EstimateBill() {
 
   const loadFocusCols = useCallback(async (mcomid) => {
     try {
-      const url = `/Content/Appdata/Visible/${mcomid}/EstimateFocus.json?v=${Date.now()}`;
+       const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=EstimateFocus`;
+     // const url = `/Content/Appdata/Visible/${mcomid}/EstimateFocus.json?v=${Date.now()}`;
       const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
       if (!res.ok) return;
       const saved = await res.json();

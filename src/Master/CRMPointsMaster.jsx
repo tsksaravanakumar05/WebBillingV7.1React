@@ -154,12 +154,12 @@ export default function CRMPointsMaster() {
   const loadData = useCallback(async () => {
     setLoading(true);
 
-    const cardTypesRes = await CC.api(CC.CustomerCardSelect, null, {}, { Comid: sess.Comid });
+    const cardTypesRes = await CC.api(CC.CustomerCardTypeSelect, null, {}, { Comid: sess.Comid });
     const cardTypes = cardTypesRes.IsSuccess || cardTypesRes.ok ? (cardTypesRes.Data1 ?? cardTypesRes.data ?? []) : [];
     setCardTypeList(cardTypes);
 
     const res = await CC.api(
-      CC.SelectCRMPoints,
+      CC.CRMPointsSelect,
       null,
       {},
       { Comid: sess.Comid }
@@ -168,7 +168,7 @@ export default function CRMPointsMaster() {
 
     if (redirectIfDualLogin(res)) return;
 
-    if (res._http404) { toast(`❌ 404 — ${CC.SelectCRMPoints} not found`, true); }
+    if (res._http404) { toast(`❌ 404 — ${CC.CRMPointsSelect} not found`, true); }
     if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
 
     if (res.ok === true || res.IsSuccess === true) {
@@ -255,12 +255,12 @@ export default function CRMPointsMaster() {
 
       setLoading(true);
       const url =
-        `${CC.DeleteCRMPoints}` +
+        `${CC.CRMPointsDelete}` +
         `?Id=${row.Id}` +
         `&Comid=${Number(sess.Comid)}` +
         `&MirrorTable=${Number(sess.MirrorTable)}`;
       
-      const res = await CC.deleteapi(url, null, { IdComList: String(sess.IdComList) });
+      const res = await CC.deleteapi(url, null, { IdComList: "" });
       setLoading(false);
 
       if (redirectIfDualLogin(res)) return;
@@ -372,12 +372,12 @@ export default function CRMPointsMaster() {
     }));
 
     const res = await CC.insertapi(
-      CC.InsertCRMPoints,
+      CC.CRMPointsInsert,
       payload,
       {
         Comid:       String(sess.Comid),
         MirrorTable: String(sess.MirrorTable),
-        IdComList:   String(sess.IdComList),
+        IdComList:   "",
       }
     );
 

@@ -55,7 +55,7 @@ localStorage.removeItem("lastBillAmt");
       if (!res.ok) {
         const txt = await res.text();
         console.error(`[Login] HTTP ${res.status}:`, txt);
-        alert(`Server error (${res.status}) — see console for details.`);
+        alert(`Invalid Username or Password !! Please Check`);
         return;
       }
 

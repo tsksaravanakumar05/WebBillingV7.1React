@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Topbar from "../components/Topbar";
+import * as CC from "../components/Common";
 import "./MasterPage.css"; 
 /* ─────────────────────────────────────────────
    Injected CSS
@@ -127,8 +128,11 @@ function newBlankRow() {
     FixedRate: "",
     Active: true,
   };
-}
-
+}  const InsertcustomerSaleRate ="/api/SupplierApp/InsertCustomerSaleRate"
+   const ProductListUrl         = "/api/ItemMasterApp/GetProductListV7";
+   const GetCustomerUrl         = "/api/SupplierApp/SelectSupplierAll";
+      const DeleteCustomerSaleRate  = "/api/SupplierApp/DeleteCustomerSaleRate";
+   const SelectCustomerSaleRateALL  = "/api/SupplierApp/SelectCustomerSaleRateALL";
 function newBlankTripRow() {
   return {
     _uid: Math.random().toString(36).slice(2),
@@ -137,6 +141,94 @@ function newBlankTripRow() {
     EW: "",
     Id: null,
   };
+}
+
+// ─── COMBOBOX ─────────────────────────────────────────────────────────────────
+function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, inputRef: extRef, disabled }) {
+  const [q, setQ]           = useState("");
+  const [open, setOpen]     = useState(false);
+  const [hilite, setHilite] = useState(0);
+  const wrapRef = useRef(null);
+  const inpRef  = useRef(null);
+  const listRef = useRef(null);
+  const ref = extRef || inpRef;
+
+  const selectedLabel = options.find(o => String(o.value) === String(value))?.label || "";
+  const filtered = options.filter(o =>
+    o.label.toUpperCase().includes(q.toUpperCase())
+  ).slice(0, 150);
+
+  useEffect(() => { setHilite(0); }, [q]);
+  useEffect(() => {
+    const el = listRef.current?.querySelector(`[data-idx="${hilite}"]`);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [hilite]);
+  useEffect(() => {
+    const handler = e => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false); setQ(selectedLabel);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [selectedLabel]);
+
+  const selectOption = opt => {
+    onChange(String(opt.value));
+    setQ(opt.label.toUpperCase());
+    setOpen(false);
+  };
+
+  const handleKeyDown = e => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+    if (e.key === "ArrowUp")   { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (open && filtered[hilite]) selectOption(filtered[hilite]);
+      onEnterKey?.();
+    }
+    if (e.key === "Escape") { setOpen(false); setQ(selectedLabel); }
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", flex: 1, minWidth: 0, ...style }}>
+      <input
+        ref={ref}
+        className="mp-combo"
+        value={open ? q : selectedLabel.toUpperCase()}
+        placeholder={placeholder}
+        autoComplete="off"
+        disabled={disabled}
+        onFocus={() => { setQ(selectedLabel); setOpen(true); setHilite(0); }}
+        onChange={e => { setQ(e.target.value.toUpperCase()); setOpen(true); }}
+        onKeyDown={handleKeyDown}
+        style={{ width: "100%", cursor: disabled ? "not-allowed" : "text" }}
+      />
+      {open && !disabled && filtered.length > 0 && (
+        <div ref={listRef} style={{
+          position: "absolute", top: "100%", left: 0, right: 0,
+          background: "#fff", border: "1px solid #c5d8f8",
+          borderRadius: 4, zIndex: 9999,
+          maxHeight: 220, overflowY: "auto",
+          boxShadow: "0 8px 24px rgba(31,101,222,.15)",
+        }}>
+          {filtered.map((opt, idx) => (
+            <div key={opt.value} data-idx={idx}
+              onMouseDown={() => selectOption(opt)}
+              onMouseEnter={() => setHilite(idx)}
+              style={{
+                padding: "5px 10px", fontSize: 12, cursor: "pointer",
+                background: idx === hilite ? "#deeafb" : idx % 2 === 0 ? "#fff" : "#fafbff",
+                borderLeft: idx === hilite ? "3px solid #1f65de" : "3px solid transparent",
+                color: "#1a2e4a", fontWeight: idx === hilite ? 600 : 400,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}
+            >{opt.label}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────
@@ -239,8 +331,8 @@ function ProductPickerModal({ products, onSelect, onClose }) {
                   onClick={() => onSelect(p)}
                   onMouseEnter={() => setSelIdx(i)}
                 >
-                  <td>{p.Productcode}</td>
-                  <td>{p.ProductName}</td>
+                  <td>{p.Prod_Code}</td>
+                  <td>{p.PName}</td>
                   <td style={{ textAlign: "right" }}>{valNum(p.SaleRate).toFixed(2)}</td>
                 </tr>
               ))}
@@ -557,6 +649,7 @@ export default function CustomerWiseSaleRate() {
   }
 
   /* ─── load customer combo ─── */
+<<<<<<< HEAD
   async function loadCustomerCombo() {
     try {
       const res = await fetch("/SupplierApp/SelectSupplier", {
@@ -567,11 +660,43 @@ export default function CustomerWiseSaleRate() {
       const data = await res.json();
       if (data.ok) setCustomers(data.data || []);
     } catch {}
+=======
+async function loadCustomerCombo() {
+  console.log("loadCustomerCombo started");
+
+  try {
+
+
+    const res = await CC.api(
+      GetCustomerUrl,
+      null,
+      {},
+      {
+        Comid: Comid.current,
+        AccountType: "CUSTOMER",
+      }
+    );
+
+    
+
+    const customerList = res?.data || res?.Data1 || [];
+
+ 
+
+    setCustomers(customerList);
+
+    console.log("After setCustomers");
+  } catch (err) {
+    console.log("CATCH BLOCK HIT");
+    console.error(err);
+>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
   }
+}
 
   /* ─── load products ─── */
   async function loadProducts() {
     try {
+<<<<<<< HEAD
       const res = await fetch("/ItemMasterApp/GetProductList", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -579,11 +704,21 @@ export default function CustomerWiseSaleRate() {
       });
       const data = await res.json();
       setProducts(Array.isArray(data) ? data : (data.data || []));
+=======
+     const ProductListUrl = "/api/ItemMasterApp/GetProductListV7";
+    setLoading(true); 
+    const res = await CC.api(ProductListUrl, null, {}, { Comid:Comid.current });
+    setLoading(false);
+   
+    const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    setProducts(arr);
+>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
     } catch {}
   }
 
   /* ─── load customer sale rates on customer select ─── */
   async function loadCustomerRates(custId) {
+<<<<<<< HEAD
     if (!custId || custId === "0") return;
     setLoading(true);
     try {
@@ -594,6 +729,18 @@ export default function CustomerWiseSaleRate() {
       });
       const data = await res.json();
       const raw = data.data || [];
+=======
+   if (!custId || custId === "0") return;
+  setLoading(true);
+  try {
+    const res = await CC.api(
+      SelectCustomerSaleRateALL,
+      null,
+      {},
+      { Comid: Comid.current, Id: custId }
+    );
+    const raw = res?.data || res?.Data1 || [];
+>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
       if (raw.length) {
         const normalised = raw.map((obj) => ({
           ...obj,
@@ -615,17 +762,13 @@ export default function CustomerWiseSaleRate() {
   }
 
   /* ─── combo change ─── */
-  function handleCustomerChange(e) {
-    const val = e.target.value;
+  function handleCustomerChange(val) {
     setCustomerId(val);
-    if (val && val !== "0") loadCustomerRates(val);
+    if (val && val !== "0" && val !== "") loadCustomerRates(val);
   }
 
-  function handleComboKeyDown(e) {
-    if (e.key === "Enter") {
-      const selVal = e.target.value;
-      if (selVal && selVal !== "0") loadCustomerRates(selVal);
-    }
+  function handleComboKeyDown() {
+    if (customerId && customerId !== "0" && customerId !== "") loadCustomerRates(customerId);
   }
 
   /* ─── row operations ─── */
@@ -644,22 +787,23 @@ export default function CustomerWiseSaleRate() {
 
   /* ─── product picker select ─── */
   function onProductSelect(product) {
-    const idx = pickerRowIdx;
-    setShowPicker(false);
-    setRows((prev) =>
-      prev.map((r, i) =>
-        i === idx
-          ? {
-              ...r,
-              EditMode: 1,
-              Code: product.Productcode,
-              Description: product.ProductName,
-              PaperRate: valNum(product.SaleRate).toFixed(2),
-              ProductId: product.Id,
-            }
-          : r
-      )
-    );
+
+
+  const idx = pickerRowIdx;
+  setShowPicker(false);
+  setRows((prev) =>
+    prev.map((r, i) =>
+      i === idx
+        ? {
+            ...r,
+            EditMode: 1,
+            Code: product.Prod_Code,
+            Description: product.PName,
+            ProductId: product.Id,
+          }
+        : r
+    )
+  );
     setSelectedRow(idx);
     // focus PlusRate cell after short delay
     setTimeout(() => {
@@ -703,6 +847,7 @@ export default function CustomerWiseSaleRate() {
         setConfirm(null);
         setLoading(true);
         try {
+<<<<<<< HEAD
           const res = await fetch("/SupplierApp/DeleteCustomerSaleRate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -713,6 +858,18 @@ export default function CustomerWiseSaleRate() {
             showToast(data.message || "Deleted.");
             setRows((prev) => prev.filter((_, i) => i !== idx));
           } else msgBox(data.message);
+=======
+         const res = await CC.api(
+  DeleteCustomerSaleRate,
+  {},
+  {},
+   { Comid:Comid.current,Id: row.Id,}
+);
+if (res.ok ?? res.IsSuccess) {
+  showToast(res.message || "Deleted.");
+  setRows((prev) => prev.filter((_, i) => i !== idx));
+} else msgBox(res.message);
+>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
         } catch { msgBox("Technical Fault !!!"); }
         finally { setLoading(false); }
       });
@@ -722,17 +879,20 @@ export default function CustomerWiseSaleRate() {
   }
 
   /* ─── gridemptycheck ─── */
-  function gridEmptyCheck() {
-    let r = [...rows];
-    const last = r[r.length - 1];
-    if ((last.Code === "" || last.Code == null) && r.length > 1) {
-      r = r.slice(0, -1);
-      setRows(r);
-    }
-    return true;
+// AFTER
+function gridEmptyCheck() {
+  const filtered = rows.filter(r => r.Code !== "" && r.Code != null);
+  
+  if (filtered.length === 0) {
+    setRows([newBlankRow()]);
+    return false; // nothing to save
   }
+  setRows(filtered);
+  return true;
+}
 
   /* ─── save (F1) ─── */
+<<<<<<< HEAD
   function handleSave() {
     if (submitting.current) return;
     if (!gridEmptyCheck()) return;
@@ -763,7 +923,97 @@ export default function CustomerWiseSaleRate() {
       } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
       finally { setLoading(false); submitting.current = false; }
     }, () => { setConfirm(null); addNewRow(); });
+=======
+// AFTER
+// AFTER
+function gridEmptyCheck() {
+  const filtered = rows.filter(r => r.Code !== "" && r.Code != null);
+  if (filtered.length === 0) {
+    setRows([newBlankRow()]);
+    return null; // null = nothing to save
+>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
   }
+  setRows(filtered);
+  return filtered; // return the clean array directly
+}
+
+// and in handleSave — use the returned filtered array, not rows:
+function handleSave() {
+  if (submitting.current) return;
+
+  if (!customerId || customerId === "0" || customerId === "") {
+    msgBox("Please Select a Customer Before Saving !!!");
+    comboRef.current?.focus();
+    return;
+  }
+
+  const cleanRows = gridEmptyCheck(); // ← get filtered rows synchronously
+  if (!cleanRows) {
+    msgBox("No data to save.");
+    return;
+  }
+
+  showConfirm("Do you Want to Save the Customer SaleRate Details?", async () => {
+    setConfirm(null);
+    submitting.current = true;
+    setLoading(true);
+    try {
+      const res = await CC.insertapi(InsertcustomerSaleRate, cleanRows, { // ← cleanRows here
+        "Content-Type": "application/json",
+        Comid: Comid.current,
+        Cusid: customerId,
+      });
+      if (res.ok ?? res.IsSuccess) {
+        showToast(res.message || "Saved successfully.");
+        handleClear();
+        setTimeout(() => comboRef.current?.focus(), 60);
+      } else {
+        msgBox(res.message);
+        addNewRow();
+      }
+    } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
+    finally { setLoading(false); submitting.current = false; }
+  }, () => { setConfirm(null); addNewRow(); });
+}
+
+// and in handleSave — use the returned filtered array, not rows:
+function handleSave() {
+  if (submitting.current) return;
+
+  if (!customerId || customerId === "0" || customerId === "") {
+    msgBox("Please Select a Customer Before Saving !!!");
+    comboRef.current?.focus();
+    return;
+  }
+
+  const cleanRows = gridEmptyCheck(); // ← get filtered rows synchronously
+  if (!cleanRows) {
+    msgBox("No data to save.");
+    return;
+  }
+
+  showConfirm("Do you Want to Save the Customer SaleRate Details?", async () => {
+    setConfirm(null);
+    submitting.current = true;
+    setLoading(true);
+    try {
+      const res = await CC.insertapi(InsertcustomerSaleRate, cleanRows, { // ← cleanRows here
+        "Content-Type": "application/json",
+        Comid: Comid.current,
+        Cusid: customerId,
+      });
+      if (res.ok ?? res.IsSuccess) {
+        showToast(res.message || "Saved successfully.");
+        handleClear();
+        setTimeout(() => comboRef.current?.focus(), 60);
+      } else {
+        msgBox(res.message);
+        addNewRow();
+      }
+    } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
+    finally { setLoading(false); submitting.current = false; }
+  }, () => { setConfirm(null); addNewRow(); });
+}
 
   /* ─── clear ─── */
   function handleClear() {
@@ -839,18 +1089,15 @@ export default function CustomerWiseSaleRate() {
         {/* CUSTOMER FILTER BAR */}
         <div className="mp-filter-bar">
           <span className="mp-filter-label">Customer :</span>
-          <select
-            ref={comboRef}
-            className="mp-combo"
+          <ComboBox
+            inputRef={comboRef}
+            options={[{ value: "0", label: "" }, ...customers.map(c => ({ value: String(c.Id), label: c.AccountName }))]}
             value={customerId}
             onChange={handleCustomerChange}
-            onKeyDown={handleComboKeyDown}
-          >
-            <option value="0">— Select Customer —</option>
-            {customers.map((c) => (
-              <option key={c.Id} value={c.Id}>{c.AccountName}</option>
-            ))}
-          </select>
+            onEnterKey={handleComboKeyDown}
+            placeholder="— Select Customer —"
+            style={{ minWidth: 280 }}
+          />
         </div>
 
         {/* MAIN GRID */}
