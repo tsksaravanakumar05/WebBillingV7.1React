@@ -1,25 +1,19 @@
-import React, { useState, useMemo, useCallback, memo } from "react";
+import React, { useState, useMemo, useCallback, memo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../dashboard.css";
 
 import Topbar from "./Topbar";
-// comit test
+import * as CC from "./Common";
 
 /* ═══════════════════════════════════════════════
-   DATA LAYER  –  In production, replace with API hooks
+   STATIC DATA  –  Stat counts, chart, products
+   (sale metrics come from API)
 ═══════════════════════════════════════════════ */
-const SALE_METRICS = [
-  { id: "today",     label: "Today's Sales",    value: 4820,  prefix: "₹", delta: +12.4, icon: SunIcon },
-  { id: "yesterday", label: "Yesterday",        value: 3960,  prefix: "₹", delta: -5.2,  icon: ClockIcon },
-  { id: "weekly",    label: "This Week",        value: 28340, prefix: "₹", delta: +8.1,  icon: TrendIcon },
-  { id: "monthly",   label: "This Month",       value: 13782, prefix: "₹", delta: +22.7, icon: CalIcon },
-];
-
-const STAT_METRICS = [
-  { id: "customers", label: "Customers",        value: 16,  accentClass: "accent-orange", icon: UsersIcon },
-  { id: "suppliers", label: "Suppliers",        value: 5,   accentClass: "accent-teal",   icon: TruckIcon },
-  { id: "purchase",  label: "Purchase Invoice", value: 22,  accentClass: "accent-navy",   icon: InvoiceIcon },
-  { id: "sales",     label: "Sales Invoice",    value: 212, accentClass: "accent-green",  icon: ReceiptIcon },
+const DEFAULT_SALE_METRICS_TEMPLATE = [
+  { id: "today",     label: "Today's Sales",    prefix: "₹", icon: SunIcon },
+  { id: "yesterday", label: "Yesterday",        prefix: "₹", icon: ClockIcon },
+  { id: "weekly",    label: "This Week",        prefix: "₹", icon: TrendIcon },
+  { id: "monthly",   label: "This Month",       prefix: "₹", icon: CalIcon },
 ];
 
 const WEEKLY_BARS = [
@@ -58,7 +52,7 @@ const ACTIVITY_FEED = [
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
 
 /* ═══════════════════════════════════════════════
-   SVG ICON COMPONENTS  –  lightweight, no dep
+   SVG ICON COMPONENTS
 ═══════════════════════════════════════════════ */
 function SunIcon()     { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>; }
 function ClockIcon()   { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
@@ -72,52 +66,132 @@ function ChevronUp()   { return <svg viewBox="0 0 24 24" fill="none" stroke="cur
 function ChevronDown() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>; }
 function ChevronLeft() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>; }
 function ChevronRight(){ return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>; }
-function BellIcon()    { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>; }
-function GridIcon()    { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>; }
 function SearchIcon()  { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>; }
 
 /* ═══════════════════════════════════════════════
    UTILITY HELPERS
 ═══════════════════════════════════════════════ */
-const fmt = (n) =>
-  n >= 1_00_000
-    ? `${(n / 1_00_000).toFixed(1)}L`
-    : n >= 1_000
-    ? `${(n / 1_000).toFixed(1)}k`
-    : String(n);
+const ValNum = (v) => isNaN(parseFloat(v)) ? 0 : parseFloat(v);
 
-const fmtCurrency = (n) => `₹${n.toLocaleString("en-IN")}`;
+const fmt = (n) => {
+  const num = ValNum(n);
+  return num >= 1_00_000
+    ? `${(num / 1_00_000).toFixed(1)}L`
+    : num >= 1_000
+    ? `${(num / 1_000).toFixed(1)}k`
+    : String(num);
+};
+
+const fmtCurrency = (n) => `₹${ValNum(n).toLocaleString("en-IN")}`;
 
 /* ═══════════════════════════════════════════════
-   REUSABLE: METRIC CARD  (sale summary row)
+   CUSTOM HOOK — useDashboardData
+   Mirrors home.js exactly:
+   • sessionStorage("home") == "1"  → fresh API call, save to session
+   • otherwise                      → read from sessionStorage (no API call)
 ═══════════════════════════════════════════════ */
-const MetricCard = memo(({ label, value, prefix, delta, icon: Icon }) => {
+function useDashboardData() {
+  const [metrics, setMetrics] = useState({
+    todaysale: 0, yesterdaysale: 0, weeklysale: 0, monthlysale: 0,
+    customercount: 0, suppliercount: 0, purchasecount: 0, salecount: 0,
+  });
+  const [loading, setLoading] = useState(false);
+
+  const Comid  = CC.getStr("Comid")  || "1";
+  const MComid = CC.getStr("MComid") || Comid;
+
+  useEffect(() => {
+    // ✅ Fix 1: async function INSIDE useEffect, not async useEffect itself
+    async function fetchDashboard() {
+      if (sessionStorage.getItem("home") === "1") {
+        setLoading(true);
+        try {
+          const res = await CC.api(
+            "/api/CompanyApp/Dashboard",
+            null,
+            {},
+            { Comid: Comid,MComid:MComid }
+          );
+          // ✅ Fix 2: completed the missing logic from the commented-out code
+          const arr = Array.isArray(res.Data1) ? res.Data1
+                    : Array.isArray(res)       ? res
+                    : [];
+          if (arr.length) {
+            const d = arr[0];
+            const result = {
+              todaysale:     d.Todaysale     ?? 0,
+              yesterdaysale: d.YesterdaySale ?? 0,
+              weeklysale:    d.weeklysale    ?? 0,
+              monthlysale:   d.monthlysale   ?? 0,
+              customercount: d.customercount ?? 0,
+              suppliercount: d.suppliercount ?? 0,
+              purchasecount: d.purchasecount ?? 0,
+              salecount:     d.salecount     ?? 0,
+            };
+            Object.entries(result).forEach(([k, v]) => sessionStorage.setItem(k, v));
+            setMetrics(result);
+          }
+        } catch (e) {
+          console.error("Dashboard fetch error:", e);
+        } finally {
+          sessionStorage.setItem("home", "0");
+          setLoading(false);
+        }
+      } else {
+        // Read from sessionStorage — no API call
+        setMetrics({
+          todaysale:     sessionStorage.getItem("todaysale")     ?? 0,
+          yesterdaysale: sessionStorage.getItem("yesterdaysale") ?? 0,
+          weeklysale:    sessionStorage.getItem("weeklysale")    ?? 0,
+          monthlysale:   sessionStorage.getItem("monthlysale")   ?? 0,
+          customercount: sessionStorage.getItem("customercount") ?? 0,
+          suppliercount: sessionStorage.getItem("suppliercount") ?? 0,
+          purchasecount: sessionStorage.getItem("purchasecount") ?? 0,
+          salecount:     sessionStorage.getItem("salecount")     ?? 0,
+        });
+      }
+    }
+
+    fetchDashboard();
+  }, []); // runs once on mount
+
+  return { metrics, loading };
+}
+
+/* ═══════════════════════════════════════════════
+   REUSABLE: METRIC CARD
+═══════════════════════════════════════════════ */
+const MetricCard = memo(({ label, value, prefix, delta, icon: Icon, loading }) => {
   const isPositive = delta >= 0;
   return (
     <div className="kd-metric-card">
-      <div className="kd-metric-icon">
-        <Icon />
-      </div>
+      <div className="kd-metric-icon"><Icon /></div>
       <div className="kd-metric-body">
         <p className="kd-metric-label">{label}</p>
-        <p className="kd-metric-value">{prefix}{fmt(value)}</p>
+        <p className="kd-metric-value">
+          {loading ? <span className="kd-skeleton">—</span> : `${prefix}${fmt(value)}`}
+        </p>
       </div>
-      <div className={`kd-metric-delta ${isPositive ? "delta-up" : "delta-down"}`}>
-        {isPositive ? <ChevronUp /> : <ChevronDown />}
-        <span>{Math.abs(delta)}%</span>
-      </div>
+      {delta !== undefined && (
+        <div className={`kd-metric-delta ${isPositive ? "delta-up" : "delta-down"}`}>
+          {isPositive ? <ChevronUp /> : <ChevronDown />}
+          <span>{Math.abs(delta)}%</span>
+        </div>
+      )}
     </div>
   );
 });
 
 /* ═══════════════════════════════════════════════
-   REUSABLE: STAT CARD  (customers / suppliers…)
+   REUSABLE: STAT CARD
 ═══════════════════════════════════════════════ */
-const StatCard = memo(({ label, value, accentClass, icon: Icon }) => (
+const StatCard = memo(({ label, value, accentClass, icon: Icon, loading }) => (
   <div className={`kd-stat-card ${accentClass}`}>
     <div className="kd-stat-icon"><Icon /></div>
     <div className="kd-stat-body">
-      <p className="kd-stat-value">{value}</p>
+      <p className="kd-stat-value">
+        {loading ? <span className="kd-skeleton">—</span> : value}
+      </p>
       <p className="kd-stat-label">{label}</p>
     </div>
     <div className="kd-stat-bar" />
@@ -125,7 +199,7 @@ const StatCard = memo(({ label, value, accentClass, icon: Icon }) => (
 ));
 
 /* ═══════════════════════════════════════════════
-   REUSABLE: WEEKLY CHART  (pure CSS bars)
+   REUSABLE: WEEKLY CHART
 ═══════════════════════════════════════════════ */
 const WeeklyChart = memo(() => {
   const [hovered, setHovered] = useState(null);
@@ -137,9 +211,7 @@ const WeeklyChart = memo(() => {
       </div>
       <div className="kd-chart-wrap">
         <div className="kd-chart-y">
-          {[200, 150, 100, 50, 0].map(v => (
-            <span key={v}>{v}</span>
-          ))}
+          {[200, 150, 100, 50, 0].map(v => <span key={v}>{v}</span>)}
         </div>
         <div className="kd-chart-bars">
           {WEEKLY_BARS.map((bar, i) => {
@@ -174,7 +246,7 @@ const WeeklyChart = memo(() => {
 });
 
 /* ═══════════════════════════════════════════════
-   REUSABLE: PRODUCTS TABLE  (sort + paginate)
+   REUSABLE: PRODUCTS TABLE
 ═══════════════════════════════════════════════ */
 const COLS = [
   { key: "id",       label: "#",        sortable: true  },
@@ -186,17 +258,17 @@ const COLS = [
 ];
 
 const STATUS_MAP = {
-  in_stock:  { label: "In Stock",   cls: "status-green" },
-  low_stock: { label: "Low Stock",  cls: "status-amber" },
-  out_stock: { label: "Out Stock",  cls: "status-red"   },
+  in_stock:  { label: "In Stock",  cls: "status-green" },
+  low_stock: { label: "Low Stock", cls: "status-amber" },
+  out_stock: { label: "Out Stock", cls: "status-red"   },
 };
 
 const ProductsTable = memo(() => {
-  const [sortKey,   setSortKey]   = useState("amount");
-  const [sortDir,   setSortDir]   = useState("desc");
-  const [page,      setPage]      = useState(1);
-  const [pageSize,  setPageSize]  = useState(5);
-  const [search,    setSearch]    = useState("");
+  const [sortKey,  setSortKey]  = useState("amount");
+  const [sortDir,  setSortDir]  = useState("desc");
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [search,   setSearch]   = useState("");
 
   const handleSort = useCallback((key) => {
     setSortKey(prev => {
@@ -226,9 +298,9 @@ const ProductsTable = memo(() => {
     return d;
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages  = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const safePage    = Math.min(page, totalPages);
-  const paginated   = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const safePage   = Math.min(page, totalPages);
+  const paginated  = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const SortIcon = ({ col }) => {
     if (!col.sortable) return null;
@@ -277,9 +349,7 @@ const ProductsTable = memo(() => {
           </thead>
           <tbody>
             {paginated.length === 0 ? (
-              <tr>
-                <td colSpan={COLS.length} className="kd-empty">No products match your search.</td>
-              </tr>
+              <tr><td colSpan={COLS.length} className="kd-empty">No products match your search.</td></tr>
             ) : paginated.map((row, i) => {
               const st = STATUS_MAP[row.status];
               return (
@@ -302,26 +372,11 @@ const ProductsTable = memo(() => {
           {sorted.length === 0 ? "0 results" : `${(safePage-1)*pageSize+1}–${Math.min(safePage*pageSize, sorted.length)} of ${sorted.length}`}
         </span>
         <div className="kd-pag-btns">
-          <button
-            type="button"
-            className="kd-pag-btn"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={safePage <= 1}
-          ><ChevronLeft /></button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-            <button
-              key={p}
-              type="button"
-              className={`kd-pag-btn ${p === safePage ? "kd-pag-active" : ""}`}
-              onClick={() => setPage(p)}
-            >{p}</button>
+          <button type="button" className="kd-pag-btn" onClick={() => setPage(p => Math.max(1, p-1))} disabled={safePage <= 1}><ChevronLeft /></button>
+          {Array.from({ length: totalPages }, (_, i) => i+1).map(p => (
+            <button key={p} type="button" className={`kd-pag-btn ${p === safePage ? "kd-pag-active" : ""}`} onClick={() => setPage(p)}>{p}</button>
           ))}
-          <button
-            type="button"
-            className="kd-pag-btn"
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={safePage >= totalPages}
-          ><ChevronRight /></button>
+          <button type="button" className="kd-pag-btn" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={safePage >= totalPages}><ChevronRight /></button>
         </div>
       </div>
     </div>
@@ -352,94 +407,53 @@ const ActivityFeed = memo(() => (
   </div>
 ));
 
-// /* ═══════════════════════════════════════════════
-//    TOPBAR
-// ═══════════════════════════════════════════════ */
-// const Topbar = memo(() => {
-//   const navigate = useNavigate();
-//   const username = localStorage.getItem("username") || "User";
-//   // Show first letter of username as avatar
-//   const avatarLetter = username.charAt(0).toUpperCase();
-
-//   const handleLogout = () => {
-//     localStorage.removeItem("token");
-//     localStorage.removeItem("username");
-//     navigate("/", { replace: true });
-//   };
-
-//   return (
-//     <header className="kd-topbar">
-//       <div className="kd-topbar-left">
-//         <span className="kd-logo-mark">K</span>
-//         <span className="kd-logo-text">KASSA <strong>BM</strong></span>
-//       </div>
-//       <div className="kd-topbar-right">
-//         <button type="button" className="kd-icon-btn" title="Notifications">
-//           <BellIcon />
-//           <span className="kd-notif-dot" />
-//         </button>
-//         <button type="button" className="kd-icon-btn" title="Apps">
-//           <GridIcon />
-//         </button>
-//         <div className="kd-user-pill">
-//           <div className="kd-avatar">{avatarLetter}</div>
-//           <div className="kd-user-info">
-//             <span className="kd-user-name">{username}</span>
-//             <span className="kd-user-role">Admin</span>
-//           </div>
-//         </div>
-//         {/* Logout button */}
-//         <button
-//           type="button"
-//           className="kd-logout-btn"
-//           title="Logout"
-//           onClick={handleLogout}
-//         >
-//           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-//             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-//             <polyline points="16 17 21 12 16 7"/>
-//             <line x1="21" y1="12" x2="9" y2="12"/>
-//           </svg>
-//           <span>Logout</span>
-//         </button>
-//       </div>
-//     </header>
-//   );
-// });
-
 /* ═══════════════════════════════════════════════
    ROOT DASHBOARD
 ═══════════════════════════════════════════════ */
 const Dashboard = () => {
-  
+  const { metrics, loading } = useDashboardData();
+
+  // Build sale metric cards dynamically from API data
+  const saleMetrics = [
+    { id: "today",     label: "Today's Sales",  prefix: "₹", value: metrics.todaysale,     icon: SunIcon   },
+    { id: "yesterday", label: "Yesterday",       prefix: "₹", value: metrics.yesterdaysale, icon: ClockIcon },
+    { id: "weekly",    label: "This Week",       prefix: "₹", value: metrics.weeklysale,    icon: TrendIcon },
+    { id: "monthly",   label: "This Month",      prefix: "₹", value: metrics.monthlysale,   icon: CalIcon   },
+  ];
+
+  // Build stat cards from API data
+  const statMetrics = [
+    { id: "customers", label: "Customers",        value: metrics.customercount, accentClass: "accent-orange", icon: UsersIcon   },
+    { id: "suppliers", label: "Suppliers",        value: metrics.suppliercount, accentClass: "accent-teal",   icon: TruckIcon   },
+    { id: "purchase",  label: "Purchase Invoice", value: metrics.purchasecount, accentClass: "accent-navy",   icon: InvoiceIcon },
+    { id: "sales",     label: "Sales Invoice",    value: metrics.salecount,     accentClass: "accent-green",  icon: ReceiptIcon },
+  ];
 
   return (
     <div className="kd-root">
       <Topbar />
-      
 
-
-      {/* kd-content-wrap shifts right when sidebar is open */}
       <div className="kd-content-wrap">
         <main className="kd-main">
 
-          {/* Page heading */}
           <div className="kd-page-head">
             <div>
               <h1 className="kd-page-title">Dashboard</h1>
               <p className="kd-page-sub">Welcome back — here's what's happening today.</p>
             </div>
-            <div className="kd-page-date">{new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}</div>
+            <div className="kd-page-date">
+              {new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
+            </div>
           </div>
 
-          {/* Row 1 — sale metrics */}
+          {/* Row 1 — sale metrics (dynamic from API) */}
           <section className="kd-metric-row">
-            {SALE_METRICS.map(m => <MetricCard key={m.id} {...m} />)}
+            {saleMetrics.map(m => <MetricCard key={m.id} {...m} loading={loading} />)}
           </section>
 
-          {/* Row 2 — stat pills */}
+          {/* Row 2 — stat pills (dynamic from API) */}
           <section className="kd-stat-row">
-            {STAT_METRICS.map(s => <StatCard key={s.id} {...s} />)}
+            {statMetrics.map(s => <StatCard key={s.id} {...s} loading={loading} />)}
           </section>
 
           {/* Row 3 — chart + activity */}
@@ -448,7 +462,7 @@ const Dashboard = () => {
             <ActivityFeed />
           </section>
 
-          {/* Row 4 — full-width products table */}
+          {/* Row 4 — products table */}
           <section className="kd-table-row">
             <ProductsTable />
           </section>

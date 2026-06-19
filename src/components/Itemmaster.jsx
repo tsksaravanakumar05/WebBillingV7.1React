@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import "../Master/MasterPage.css";
 import "../Itemmaster.css";
 import * as CC from "../Master/Common";
+import * as CC1 from "../components/Common";
 import Topbar from "./Topbar";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
@@ -142,28 +143,41 @@ function calcRow(row, sess, changedKey) {
 // CHANGE 1: Added Toggle component — same design as CashierMaster
 // மாற்றம் 1: CashierMaster-போல் Toggle component சேர்க்கப்பட்டது
 function Toggle({ value, onChange, onKeyDown, inputRef, editMode }) {
+  const [focused, setFocused] = useState(false);
+
+  const insetShadow = value
+    ? "inset 0 0 0 1px #15803d"
+    : "inset 0 0 0 1px #b0bec5";
+
+  const focusRing = "0 0 0 3px rgba(59, 130, 246, 0.45)";
+
   return (
     <button
       ref={inputRef}
       onClick={() => editMode === 1 && onChange(!value)}
       onKeyDown={onKeyDown}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       title={value ? "Active" : "Inactive"}
       style={{
-        width:32, height:18, borderRadius:9, border:"none",
+        width: 32, height: 18, borderRadius: 9, border: "none",
         cursor: editMode === 0 ? "default" : "pointer",
         background: value ? "#16a34a" : "#cbd5e1",
-        position:"relative", transition:"background 0.18s ease", outline:"none",
-        display:"inline-flex", alignItems:"center", flexShrink:0, padding:0,
-        boxShadow: value ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+        position: "relative", transition: "background 0.18s ease",
+        outline: "none",
+        display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
+        boxShadow: focused
+          ? `${insetShadow}, ${focusRing}`
+          : insetShadow,
         opacity: editMode === 0 ? 0.5 : 1,
         pointerEvents: editMode === 0 ? "none" : "auto",
       }}
     >
       <span style={{
-        position:"absolute", top:3, left: value ? 15 : 3,
-        width:12, height:12, borderRadius:"50%", background:"#fff",
-        transition:"left 0.18s ease",
-        boxShadow:"0 1px 2px rgba(0,0,0,0.18)", display:"block",
+        position: "absolute", top: 3, left: value ? 15 : 3,
+        width: 12, height: 12, borderRadius: "50%", background: "#fff",
+        transition: "left 0.18s ease",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.18)", display: "block",
       }} />
     </button>
   );
@@ -608,10 +622,16 @@ const saveBarcodes = useCallback(async () => {
   const draftOk   = useRef(false);
 
   // Add this helper function
+// 1. Second useEffect DELETE பண்ணுங்க — முழுவதும் remove
+
+// 2. redirectIfDualLogin — only API responses check பண்ணு
 const redirectIfDualLogin = useCallback((res) => {
-  if (res?._dualLogin || res?.redis === false) {
+  // res null / undefined / fetch Response object-ஆ இருந்தால் skip
+  if (!res || typeof res !== "object") return false;
+  
+  if (res._dualLogin === true) {
     alert("Already Login Another User Please Login Again!!!");
-    navigate("/"); // Redirect to your specific login path
+    navigate("/");
     return true;
   }
   return false;
@@ -693,20 +713,49 @@ const redirectIfDualLogin = useCallback((res) => {
     if (!draftOk.current) return;
     try { if(entryRow._dirty) sessionStorage.setItem(ITEM_DRAFT_KEY, JSON.stringify({entryRow,rows})); } catch {}
   }, [entryRow, rows]);
+// const loadColCfg = useCallback(async () => {
+//   try {
+//     const res = await fetch(
+//       CC.BASE_URL + `/Content/Appdata/Visible/${sess.Comid}/Itemmaster.json?v=${Date.now()}`
+//     );
+//     if (!res.ok) return;  // ← redirectIfDualLogin call இல்லை — static file-க்கு வேண்டாம்
+//     const data = await res.json();
+//     if (!Array.isArray(data)) return;
+//     setCols(prev => prev.map(col => {
+//       const s = data.find(x => x.column === col.key);
+//       return s ? { ...col, visible: s.Visible === true, width: Number(s.Width) || col.width } : col;
+//     }));
+//   } catch {}
+// }, [sess.Comid]);
+const loadColCfg = useCallback(async () => {
+  try {
+    const res = await fetch(
+      CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Itemmaster`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...CC.authHeaders(),   // ← same headers your other API calls use
+        },
+      }
+    );
 
-  const loadColCfg = useCallback(async () => {
-    try {
-      const res = await fetch(CC.BASE_URL`/Content/Appdata/Visible/${sess.Comid}/Itemmaster.json?v=${Date.now()}`, { headers:CC.authHeaders() });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!Array.isArray(data)) return;
-      setCols(prev => prev.map(col => {
-        const s=data.find(x=>x.column===col.key);
-        return s ? { ...col, visible:s.Visible===true, width:Number(s.Width)||col.width } : col;
-      }));
-    } catch {}
-  }, [sess.Comid,redirectIfDualLogin]);
+    if (res.status === 406) { redirectIfDualLogin(); return; }
+    if (!res.ok) return;
 
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return;
+
+    setCols(prev =>
+      prev.map(col => {
+        const s = data.find(x => x.column === col.key);
+        return s
+          ? { ...col, visible: s.Visible === true, width: Number(s.Width) || col.width }
+          : col;
+      })
+    );
+  } catch {}
+}, [sess.Comid]);
   const saveColCfg = useCallback(async newCols => {
     setF12Open(false); setLoading(true);
     const payload = newCols.map(c => ({ Comid:parseInt(sess.Comid), filename:"Itemmaster", column:c.key, Visible:c.visible===true, Width:parseInt(c.width||120) }));
@@ -717,7 +766,7 @@ const redirectIfDualLogin = useCallback((res) => {
       else toast(`❌ ${data.message||"Failed"}`, true);
     } catch { toast("❌ Error saving columns", true); }
     finally { setLoading(false); }
-  }, [sess.Comid, toast, loadColCfg,redirectIfDualLogin]);
+  }, [sess.Comid, toast, loadColCfg]);
 
   const loadDropdowns = useCallback(async () => {
     const [br,ca,de,su,uo,lo] = await Promise.all([
@@ -1217,6 +1266,9 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
         await loadItems("","",true);
         if(sess.Productcodeautogen){const r=await autoGenCode(mkEmpty());setEntryRow(r);}
       }
+     else {
+  await loadItems("", "", true); // ← இதை add பண்ணு (always load)
+}
       draftOk.current=true;
       setTimeout(()=>focusEntry(editableKeys[0]),500);
     })();

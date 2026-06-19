@@ -18,7 +18,7 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
-export const BASE_URL = "https://billing.kassapos.co.in";
+export const BASE_URL = "http://localhost:64215";
 
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
@@ -116,28 +116,73 @@ export const LoginPasswordUrl     = "/api/LoginApp/EditPassword";
   export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";
  
 
-  // ─── SALE API CONSTANTS ───────────────────────────────────────────────────────
-const SaleMaxNo           = "/api/SaleApp/MaxSaleNo";
-const SaleInsertUrl       = "/api/SaleApp/InsertSale";
-const SaleEditUrl         = "/api/SaleApp/EditSale";
-const SaleSelectUrl       = "/api/SaleApp/SelectSaleV7";
-const SaleDeleteUrl       = "/api/SaleApp/DeleteSale";
-const BillHoldSelectUrl   = "/api/SaleApp/BillHoldName";
-const BillHoldInsertUrl   = "/api/SaleApp/BillHold";
-const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
-const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
-const SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
-const ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
-const GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
-const SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
-const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
-const CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
+// ─── SALE API CONSTANTS ───────────────────────────────────────────────────────
+export const SaleMaxNo           = "/api/SaleApp/MaxSaleNo";
+export const SaleInsertUrl       = "/api/SaleApp/InsertSale";
+export const SaleEditUrl         = "/api/SaleApp/EditSale";
+export const SaleSelectUrl       = "/api/SaleApp/SelectSaleV7";
+export const SaleDeleteUrl       = "/api/SaleApp/DeleteSale";
+export const BillHoldSelectUrl   = "/api/SaleApp/BillHoldName";
+export const BillHoldInsertUrl   = "/api/SaleApp/BillHold";
+export const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
+export const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
+export const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
+export const A4PrintUrl          = "/Sale/A4Print";
 
-const F5SelectUrl         = "/api/SaleApp/SelectSaleV7";
-const VisibleColumnsUrl   = "/Login/VisibleColumns";
-const FocusColumnsUrl     = "/Login/FocusColumns";
-const CurrentBalanceUrl = "/SupplierApp/CurrentBalance";
-const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock"; 
+export const SB_COLUMNS = [
+  { key: "SalesManCode",    label: "SM Code",       width: 140, hidden: true,  type: "smcode" },
+  { key: "ProductCode",     label: "Product Code",  width: 130, hidden: false },
+  { key: "ProductName",     label: "Description",   width: 240, hidden: false, readOnly: true },
+  { key: "MRP",             label: "MRP",           width: 90,  hidden: true,  readOnly: true, type: "float" },
+  { key: "SaleRate",        label: "Sale Rate",     width: 100, hidden: false, type: "float" },
+  { key: "ItemQty",         label: "Qty",           width: 80,  hidden: false, type: "float" },
+  { key: "DiscountPercent", label: "Disc%",         width: 75,  hidden: false, type: "float" },
+  { key: "CDPercent",       label: "CD%",           width: 75,  hidden: true,  type: "float" },
+  { key: "TaxPercent",      label: "GST%",          width: 75,  hidden: false, type: "float" },
+  { key: "CESSPer",         label: "CESS%",         width: 75,  hidden: true,  type: "float" },
+  { key: "TaxAmt",          label: "GST Amt",       width: 90,  hidden: true,  type: "float" },
+  { key: "CESSAmount",      label: "CESS Amt",      width: 90,  hidden: true,  type: "float" },
+  { key: "SPLCESS",         label: "SPL CESS",      width: 80,  hidden: true,  type: "float" },
+  { key: "SPLCESSAmount",   label: "SPL CESS Amt",  width: 100, hidden: true,  type: "float" },
+  { key: "DiscountAmt",     label: "Disc Amt",      width: 90,  hidden: true,  type: "float" },
+  { key: "CDAmount",        label: "CD Amt",        width: 90,  hidden: true,  type: "float" },
+  { key: "LandingCost",     label: "Landing Cost",  width: 100, hidden: true,  type: "float" },
+  { key: "UOM",             label: "UOM",           width: 70,  hidden: true,  readOnly: true },
+  { key: "HSNCode",         label: "HSN Code",      width: 100, hidden: true,  readOnly: true },
+  { key: "Bat_No",          label: "Batch No",      width: 100, hidden: true },
+  { key: "FreeQty",         label: "Free Qty",      width: 80,  hidden: true,  type: "int" },
+  { key: "Remarks",         label: "Remarks",       width: 130, hidden: true },
+  { key: "Amount",          label: "Amount",        width: 100, hidden: false, readOnly: true, type: "float" },
+];
+
+export const SB_DEFAULT_COL_SETTINGS = SB_COLUMNS.map(c => ({
+  key:     c.key,
+  label:   c.label,
+  width:   c.width,
+  visible: !c.hidden,
+}));
+
+// ─── SALE ORDER API CONSTANTS ────────────────────────────────────────────────
+export const SaleOrderMaxNo      = "/api/SaleOrderApp/MaxSaleOrderNo";
+export const SaleOrderInsertUrl  = "/api/SaleOrderApp/InsertSaleOrder";
+export const SaleOrderEditUrl    = "/api/SaleOrderApp/EditSaleOrder";
+export const SaleOrderSelectUrl  = "/api/SaleOrderApp/SelectSaleOrder";
+export const SaleOrderDeleteUrl  = "/api/SaleOrderApp/DeleteSaleOrder";
+export const SO_SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+export const SO_ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
+export const SO_GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
+export const SO_SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
+export const SO_LoginPasswordUrl    = "/api/loginApp/EditPassword";
+export const SO_VisibleColumnsUrl   = "api/loginApp/VisibleColumns";
+export const SO_FocusColumnsUrl     = "/api/loginApp/FocusColumns";
+export const SO_CurrentStockUrl     = "/api/ItemMasterApp/Currentstock";
+export const SO_CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
+export const SO_CurrentBalanceUrl   = "/api/SupplierApp/CurrentBalance";
+
+export const F5SelectUrl         = "/api/SaleApp/SelectSale";
+export const FocusColumnsUrl     = "/Login/FocusColumns";
+export const GetFocusColumnsUrl     ="/api/loginApp/GetFocusColumns";
+export const SelectExpiryByIdUrl = "/api/ItemMasterApp/SelectExpStock"; 
 
           // ─── Supplier Master API Links ────────────────────────────────────────────────
 export const SupplierMasterSelect = "/api/SupplierApp/SelectSupplier";
@@ -160,6 +205,14 @@ export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
 export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
 export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
 
+   //CustomerCardType
+        export const CustomerCardTypeSelect = "/api/CustomerCardTypeApp/SelectCustomerCardType";
+        export const CustomerCardTypeInsert = "/api/CustomerCardTypeApp/InsertCustomerCardType";
+        export const CustomerCardTypeDelete = "/api/CustomerCardTypeApp/DeleteCustomerCardType";
+ //CRMPointsApp
+        export const CRMPointsSelect = "/api/CRMPointsApp/SelectCRMPoints";
+        export const CRMPointsInsert = "/api/CRMPointsApp/InsertCRMPoints";
+        export const CRMPointsDelete = "/api/CRMPointsApp/DeleteCRMPoints";
   //purchases
 
   export const MaxPurchaseNo = "/api/PurchaseApp/MaxPurchaseNo";
@@ -173,7 +226,7 @@ export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
   export const PurchaseList = "/api/PurchaseApp/PurchaseList";
   export const SelectPurchase = "/api/PurchaseApp/SelectPurchase";
   export const FocusColumns = "/api/loginApp/FocusColumns";
-
+export const VisibleColumnsUrl = "/api/loginApp/VisibleColumns";
 
 // ─── PurchaseReturn API endpoints ────────────────────────────────────────────
 export const PR_MaxNo        = "/api/PurchaseReturnApp/MaxPurchaseReturnNo";
@@ -648,3 +701,53 @@ export function ToastList({ toasts }) {
     </div>
   );
 }
+
+// ─── GENERIC HELPERS (Moved from SaleOrder.jsx) ──────────────────────────────
+export const vn    = v => parseFloat(v) || 0;
+export const roVal = v => Math.round(v * 100) / 100;
+export const f2    = v => parseFloat(vn(v).toFixed(2));
+export const f3    = v => parseFloat(vn(v).toFixed(3));
+export const ns    = v => (v == null ? "" : String(v));
+export const today = () => new Date().toISOString().slice(0, 10);
+
+let _rid = 4000;
+export const genRid  = () => ++_rid;
+export const newGuid = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+  const r = Math.random() * 16 | 0;
+  return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+});
+
+// ─── SALE ORDER CONSTANTS (Moved from SaleOrder.jsx) ──────────────────────────
+export const ORDER_TYPES = [
+  { value: "CASH",   label: "CASH" },
+  { value: "CREDIT", label: "CREDIT" },
+];
+
+export const SO_COLUMNS = [
+  { key: "ProductCode",     label: "Product Code", width: 140, hidden: false },
+  { key: "ProductName",     label: "Description",  width: 280, hidden: false, readOnly: true },
+  { key: "HSNcode",         label: "HSN Code",     width: 100, hidden: true },
+  { key: "MRP",             label: "MRP",          width: 90,  hidden: true,  type: "float" },
+  { key: "SaleRate",        label: "Sale Rate",    width: 100, hidden: false, type: "float" },
+  { key: "Pcs",             label: "Pcs",          width: 80,  hidden: true,  type: "int" },
+  { key: "Meter",           label: "Meter",        width: 80,  hidden: true,  type: "float" },
+  { key: "TotalPcs",        label: "Total Pcs",    width: 85,  hidden: true,  type: "float" },
+  { key: "NOMS",            label: "Noms",         width: 80,  hidden: true,  type: "int" },
+  { key: "ItemQty",         label: "Quantity",     width: 90,  hidden: false, type: "float" },
+  { key: "cdpercent",       label: "CD(%)",        width: 75,  hidden: true,  type: "float" },
+  { key: "cdAmount",        label: "CD Amt",       width: 85,  hidden: true,  type: "float" },
+  { key: "DiscountPercent", label: "Disc%",        width: 75,  hidden: true,  type: "float" },
+  { key: "DiscountAmt",     label: "Disc Amt",     width: 85,  hidden: true,  type: "float" },
+  { key: "TaxPercent",      label: "GST%",         width: 75,  hidden: true,  type: "float" },
+  { key: "TaxAmt",          label: "GST Amt",      width: 85,  hidden: true,  type: "float" },
+  { key: "CESSPer",         label: "CESS%",        width: 75,  hidden: true,  type: "float" },
+  { key: "UOM",             label: "UOM",          width: 70,  hidden: true,  readOnly: true },
+  { key: "SMCode",          label: "SM Code",      width: 80,  hidden: true },
+  { key: "BillNo",          label: "Bill No",      width: 90,  hidden: true },
+  { key: "remarks",         label: "Remarks",      width: 120, hidden: true },
+  { key: "Amount",          label: "Amount",       width: 100, hidden: false, readOnly: true, type: "float" },
+];
+
+export const DEFAULT_COL_SETTINGS = SO_COLUMNS.map(c => ({
+  key: c.key, label: c.label, width: c.width, visible: !c.hidden,
+}));

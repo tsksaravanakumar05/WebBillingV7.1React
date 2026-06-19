@@ -482,13 +482,15 @@ export default function PurchaseReturn() {
   // ─────────────────────────────────────────────────────────────────────────────
   const loadVisibleColumns = useCallback(async () => {
     try {
+        const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=PurchaseReturn`;
       // Use relative URL + cache-buster (mirrors PurchasesMaster — static file, no auth headers)
       const res = await fetch(
-        `/Content/Appdata/Visible/${sess.MComid}/PurchaseReturn.json?v=${Date.now()}`
+       url
       );
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) return;
+      
       // ⚠️ jQuery stores the INVERTED visible flag:
       //   savedVisible=false → column is SHOWN (visible=true)
       //   savedVisible=true  → column is HIDDEN (visible=false)
@@ -523,8 +525,9 @@ export default function PurchaseReturn() {
 
     // Step 2: Overlay saved focus settings (relative URL, no auth headers — static file)
     try {
+        const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=PurchaseReturnFocus`;
       const res = await fetch(
-        `/Content/Appdata/Visible/${sess.MComid}/PurchaseReturnFocus.json?v=${Date.now()}`
+       url
       );
       if (res.ok) {
         const saved = await res.json();
@@ -1679,8 +1682,9 @@ const res = await CC.insertapi(
 
     // Step 2: Overlay saved focus settings (relative URL, no auth headers — static file)
     try {
+                const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=PurchaseReturnFocus`;
       const res = await fetch(
-        `/Content/Appdata/Visible/${sess.MComid}/PurchaseReturnFocus.json?v=${Date.now()}`
+       url
       );
       if (res.ok) {
         const saved = await res.json();

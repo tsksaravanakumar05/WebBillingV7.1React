@@ -28,6 +28,7 @@ import AccountsMaster from "./Master/AccountsMaster";
 import SubCategoryMaster from "./Master/SubCategory";
 import PurchaseMasterPage from "./presentation/pages/PurchaseMasterPage";
 
+
 // TRANSACTIONS
 
 import Estimate from "./Transaction/EstimateBill";
@@ -37,6 +38,8 @@ import CustomerReceipt from "./Transaction/Customerreceipt";
 import PurchaseReturn from "./Transaction/Purchasereturn";
 import Supplierpayment from "./Transaction/Supplierpayment";
 import StockInward from "./Transaction/Stockinward";
+import SaleOrder from "./Transaction/Saleorder";
+import PhysicalStock from "./Transaction/PhysicalStock";
 
 // UTILS
 import PasswordSetting from "./Utiles/Passwordsetting";
@@ -94,6 +97,8 @@ function App() {
 
         {/* Transaction */}
         <Route path="/Sale" element={<Sales />} />
+        <Route path="/SaleOrder" element={<SaleOrder />} />
+        <Route path="/PhysicalStock" element={<PhysicalStock />} />
         <Route path="/EstimateBill" element={<Estimate />} />
         <Route path="/purchase" element={<PurchasesMaster />} />
         <Route path="/SaleReturn" element={<SaleReturn />} />
