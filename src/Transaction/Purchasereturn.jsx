@@ -1344,10 +1344,11 @@ const res = await CC.insertapi(
 
     const pm = data[0];
     const pdetails = pm.PurchaseDetails || [];
-    setRealStockList(pm.StockDetails || []);
 
     setEditStatus(1);
-    handleClearRef.current?.();
+    handleClearRef.current?.();              // ✅ FIXED: clear form FIRST...
+
+    setRealStockList(pm.StockDetails || []); // ✅ ...then load StockDetails, so it's no longer wiped out by handleClear
 
     setEditId(pm.Id || 0);
     setUpdateIdEdit(pm.UpdateId || "");

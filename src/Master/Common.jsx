@@ -10,7 +10,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
-export const BASE_URL = "https://billing.kassapos.co.in/";
+export const BASE_URL = "http://localhost:64215";
+//https://billing.kassapos.co.in
 // Cashier API Links
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
@@ -71,7 +72,7 @@ export const LoginPasswordUrl = "/api/LoginApp/EditPassword";
         export const LocationInsert = "/api/LocationApp/InsertLocation";
         export const LocationDelete = "/api/LocationApp/DeleteLocation";
 
-        export const SelectCustomerReceiptDate = "/api/CustomerReceiptApp/SelectCustomerReceiptDate";
+export const SelectCustomerReceiptDate = "/api/CustomerReceiptApp/SelectCustomerReceiptDate";
 export const InsertCustomerReceipt     = "/api/CustomerReceiptApp/InsertCustomerReceipt";
 export const DeleteCustomerReceipt     = "/api/CustomerReceiptApp/DeleteCustomerReceipt";
 export const SelectCustomerReceiptF5   = "/api/CustomerReceiptApp/SelectCustomerReceipt";
@@ -92,8 +93,8 @@ export const SalesManSelect       = "/api/SalesManApp/SelectSalesMan";
 
 
        
-        export const SalesManInsert = "/api//SalesManApp/InsertSalesMan";
-        export const SalesManDelete = "/api//SalesManApp/DeleteSalesMan";// ← fix your actual endpoint
+        export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
+        export const SalesManDelete = "/api/SalesManApp/DeleteSalesMan";// ← fix your actual endpoint
 
 // ─── Salesman loader (called once on mount) ───────────────────────────────────
 export const loadSalesmanData = async (MComid) => {

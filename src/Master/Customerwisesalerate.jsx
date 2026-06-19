@@ -559,7 +559,7 @@ export default function CustomerWiseSaleRate() {
   /* ─── load customer combo ─── */
   async function loadCustomerCombo() {
     try {
-      const res = await fetch("/Supplier/SelectSupplier", {
+      const res = await fetch("/SupplierApp/SelectSupplier", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ Comid: Comid.current, Startindex: -1, PageCount: 500, AccountType: "CUSTOMER", Keyword: "", Column: "" }),
@@ -572,7 +572,7 @@ export default function CustomerWiseSaleRate() {
   /* ─── load products ─── */
   async function loadProducts() {
     try {
-      const res = await fetch("/ItemMaster/GetProductList", {
+      const res = await fetch("/ItemMasterApp/GetProductList", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ Comid: Comid.current }),
@@ -587,7 +587,7 @@ export default function CustomerWiseSaleRate() {
     if (!custId || custId === "0") return;
     setLoading(true);
     try {
-      const res = await fetch("/Supplier/SelectCustomerSaleRateALL", {
+      const res = await fetch("/SupplierApp/SelectCustomerSaleRateALL", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ Comid: Comid.current, Id: custId }),
@@ -703,7 +703,7 @@ export default function CustomerWiseSaleRate() {
         setConfirm(null);
         setLoading(true);
         try {
-          const res = await fetch("/Supplier/DeleteCustomerSaleRate", {
+          const res = await fetch("/SupplierApp/DeleteCustomerSaleRate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ Id: row.Id }),
@@ -742,7 +742,7 @@ export default function CustomerWiseSaleRate() {
       submitting.current = true;
       setLoading(true);
       try {
-        const res = await fetch("/Supplier/InsertCustomerSaleRate", {
+        const res = await fetch("/SupplierApp/InsertCustomerSaleRate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

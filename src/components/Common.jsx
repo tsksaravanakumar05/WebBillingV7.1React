@@ -18,7 +18,8 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
-export const BASE_URL = "https://billing.kassapos.co.in";
+export const BASE_URL = "http://localhost:64215";
+//https://billing.kassapos.co.in
 
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
@@ -70,7 +71,7 @@ export const SelectItemMasterbyId = "/api/ItemMasterApp/SelectItemMasterbyCodeId
 export const SelectExpDate        = "/api/ItemMasterApp/SelectExpStock";
 
 // ─── CUSTOMER / SUPPLIER ─────────────────────────────────────────────────────
-export const GetSupplierAll       = "/api/SupplierApp/SelectSupplierAll_v7";   // AccountType=CUSTOMER or SUPPLIER
+export const GetSupplierAll       = "/api/SupplierApp/SelectSupplierAll";   // AccountType=CUSTOMER or SUPPLIER
 export const GetSupplier          = "/api/SupplierApp/SelectSupplierAll_v7";
 export const CurrentBalance       = "/api/SupplierApp/CurrentBalance";
 export const SelectCustomerSaleRate = "/api/SupplierApp/InsertCustomerSaleRate"; // CustomerwiseSaleRate
@@ -160,6 +161,12 @@ export const SelectModel = "/api/ModelMasterApp/SelectModelMaster";
 export const InsertModel = "/api/ModelMasterApp/InsertModelMaster";
 export const DeleteModel = "/api/ModelMasterApp/DeleteModelMaster";
 
+// ─── Cash Voucher API endpoints ──────────────────────────────────────────────
+export const CV_Insert     = "/api/CashApp/InsertCash";
+export const CV_SelectDate = "/api/CashApp/SelectCashDate";
+export const CV_Select     = "/api/CashApp/SelectCash";
+export const CV_Delete     = "/api/CashApp/DeleteCash";
+
   //purchases
 
   export const MaxPurchaseNo = "/api/PurchaseApp/MaxPurchaseNo";
@@ -200,6 +207,45 @@ export const DeleteSupplierPayment     = "/api/SupplierPaymentApp/DeleteSupplier
 export const SelectSupplierPaymentF5   = "/api/SupplierPaymentApp/SelectSupplierPayment";
 export const SupplierPendingReport     = "/api/PurchaseReportApp/SupplierPendingReport";
  
+// ─────────────────────────────────────────────────────────────────────────────
+//  Quotation API Constants
+//  All endpoints used by Qutation.jsx, replacing the original jQuery $.ajax URLs
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const QuotationMaxNo        = "/Quotation/MaxQuotationNo";
+export const QuotationInsertUrl    = "/Quotation/InsertQuotation";
+export const QuotationEditUrl      = "/Quotation/EditQuotation";
+export const QuotationSelectUrl    = "/Quotation/SelectQuotation";
+export const QuotationDeleteUrl    = "/Quotation/DeleteQuotation";
+
+export const QA_SelectItemByCodeUrl   = "/ItemMaster/SelectItemMasterbyCodeId";
+export const SelectItemByIdSaleUrl = "/ItemMaster/SelectItemMasterbyIdSale";
+export const CurrentStockUrl       = "/ItemMaster/Currentstock";
+export const QA_ProductListUrl        = "/ItemMaster/GetProductListV7";
+
+export const QA_GetCustomerUrl        = "/Customer/SelectCustomerAll";
+export const QA_SalesManSelectUrl     = "/SalesMan/SelectSalesMan_V7";
+
+export const QA_LoginPasswordUrl      = "/Login/EditPassword";
+export const QA_VisibleColumnsUrl     = "/Login/VisibleColumns";
+export const QA_FocusColumnsUrl       = "/Login/FocusColumns";
+
+export const VisibleColumnsCfgUrl  = (mcomid) =>
+  `/Content/Appdata/Visible/${mcomid}/Quotation.json`;
+export const FocusColumnsCfgUrl    = (mcomid) =>
+  `/Content/Appdata/Visible/${mcomid}/QuotationFocus.json`;
+export const FormFocusCfgUrl       = (mcomid) =>
+  `/Content/Appdata/Visible/${mcomid}/QuotationFormFocus.json`;
+
+export const SelectMenuMaster = "/api/loginApp/SelectMenuMaster";
+export const UpdateMenuMaster = "/api/loginApp/UpdateMenuMaster_BM";
+
+
+export const SelectUserMenuDetails = "/api/loginApp/SelectUserMenuDetails"; 
+export const SelectUserPassword= "/api/loginApp/SelectUserPassword"; 
+export const SelectUserMenuHeading= "/api/loginApp/SelectUserMenuHeading";
+export const UpdateMenuList = "/api/loginApp/UpdateMenuList";
+export const UpdateMenuReport = "/api/loginApp/UpdateMenuReport";
 // ─── Report viewer base path (add once if not already present) ───────────────
 //  Used by openVoucherPrint() in SupplierPayment.jsx and CustomerReceipt.jsx
 export const ReportViewerBase = "../Reports/ReportViewer.aspx";
@@ -238,7 +284,7 @@ export const NullToString = (v) => (v == null ? "" : String(v));
 // ─── 6. URL BUILDER ───────────────────────────────────────────────────────────
 //  All fetch calls must go through mkUrl so BASE_URL is always prepended.
 //  No component should concatenate BASE_URL itself.
-const mkUrl = (path) => BASE_URL + path;
+export const mkUrl = (path) => BASE_URL + path;
 
 // ─── 7. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
 /**

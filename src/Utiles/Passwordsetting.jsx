@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../Utilesstyle/TransactionPassword.css";
-
+import Topbar from "../components/Topbar";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
 
@@ -797,7 +797,7 @@ export default function PasswordSetting() {
       )}
 
       {/* Header */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">P</div>
           <div>
@@ -806,8 +806,8 @@ export default function PasswordSetting() {
           </div>
         </div>
         <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
-
+      </div> */}
+      <Topbar />
       {/* Body */}
       <div className="mp-body">
 

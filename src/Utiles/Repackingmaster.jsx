@@ -16,10 +16,10 @@
 //    • Repeated toast/error handling logic
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../Utilesstyle/TransactionPassword.css";
-
+import Topbar from "../components/Topbar";
 
 import * as CC from "../components/Common";
 
@@ -27,6 +27,11 @@ import * as CC from "../components/Common";
 // ── Utility helpers ────────────────────────────────────────────────────────────
 const valNum  = (v) => parseFloat(v) || 0;
 const nullStr = (v) => (v == null ? "" : String(v));
+
+const fmt2 = (v) => {
+  const n = parseFloat(v);
+  return isNaN(n) ? "0.00" : n.toFixed(2);
+};
 
 /** Format JS Date → "MM/dd/yyyy" for server */
 const dateformat = (d) => {
@@ -205,7 +210,6 @@ const loadCombo = useCallback(async () => {
   if (res && Array.isArray(res)) {
     setComboList(res);
   } else if (res && res.ok !== false) {
-    // ✅ FIX: Use Data1 (or the lowercase 'data' mapped by CC.api)
     const items = res.Data1 || res.data || [];
     setComboList(items);
   }
@@ -390,25 +394,6 @@ const fetchMaxNo = useCallback(async () => {
           objstockdetails: JSON.stringify(realStockList || []),
         }
       );
-      
-    //   // FIX: Handle both the C# ResponseViewModel (IsSuccess, Message) 
-    //   // AND the C# anonymous error object (ok, message, error)
-    //   const isSuccess = res?.IsSuccess === true || res?.ok === true;
-      
-    //   // Safely extract the message regardless of how the C# backend formatted it
-    //   let responseMsg = "Save failed";
-    //   if (res?.Message) responseMsg = res.Message;
-    //   else if (res?.message) responseMsg = res.message;
-    //   else if (res?.error && res?.error?.Message) responseMsg = res.error.Message;
-    //   else if (res?.error && typeof res.error === 'string') responseMsg = res.error;
-
-    //   if (isSuccess) {
-    //     toast("✅ " + (responseMsg !== "Save failed" ? responseMsg : "Saved successfully"));
-    //     await handleClear();
-    //   } else {
-    //     toast("❌ " + responseMsg, true);
-    //   }
-
 // ✅ FIX: Check both React-style 'ok' and C#-style 'IsSuccess'
 const isSuccess = res?.IsSuccess === true || res?.ok === true;
       
@@ -434,12 +419,96 @@ setLoading(false);
   ]);
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // F5 View (mirrors methods.F5View)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const loadF5View = useCallback(async (fromDate, toDate) => {
+    if (!fromDate || !toDate) return;
+
+    if (fromDate > toDate) {
+      toast("❌ From Date is greater than To Date", true);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const params = {
+        Comid: Number(sess.Comid),
+        Fromdate: dateformat(new Date(fromDate)),
+        Todate: dateformat(new Date(toDate)),
+        Id: 0,
+      };
+
+      // Change this to pass parameters in the 4th argument
+      const res = await CC.api(
+        CC.RepackingSelect,
+        null,    // body
+        {},      // headers
+        params   // query params
+      );
+
+      console.log("Repacking F5 Response:", res);
+
+      if (!res) {
+        toast("❌ No response from server", true);
+        return;
+      }
+
+      if (res.ok === false || res.IsSuccess === false) {
+        toast(`❌ ${res.message || res.Message || "Failed"}`, true);
+        return;
+      }
+
+      const baseData =
+        res.Data1 ||
+        res.Data ||
+        res.data ||
+        [];
+
+      if (!Array.isArray(baseData) || baseData.length === 0) {
+        setF5List([]);
+        setF5Open(true);
+        return;
+      }
+
+      const masterList = baseData[0]?.purchasemaster || [];
+      const detailsList = baseData[0]?.purchasedetails || [];
+
+      const rows = masterList.map(m => ({
+        ...m,
+        purchasedetails: detailsList.filter(
+          d => Number(d.PurchaseRefId) === Number(m.Id)
+        ),
+      }));
+
+      setF5List(rows);
+      setF5Open(true);
+
+    } catch (err) {
+      console.error(err);
+      toast(`❌ ${err.message}`, true);
+    } finally {
+      setLoading(false);
+    }
+  }, [sess.Comid, toast]);
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Delete (F9 — mirrors keyCode 120 handler after password)
   // ─────────────────────────────────────────────────────────────────────────────
-  const handleDelete = useCallback(async () => {
-    if (editId === 0) { toast("❌ No Delete Id !!!", true); return; }
+  const handleDelete = useCallback(async (override) => {
+    // ✅ FIX: when called right after fillRepackingDetails() (F5 list Del
+    // button), use the freshly returned record instead of editId/masterItem/
+    // totalWeight/realStockList state — those won't reflect the just-issued
+    // setX() calls until after the next render, so reading them here would
+    // still be stale and send wrong/empty values to the delete API.
+    const delId          = override?.Id ?? editId;
+    const delRefNo        = override?.RefNo ?? refNo;
+    const delMasterItem   = override?.ProductMasterRefId ?? masterItem;
+    const delTotalWeight  = override ? override.TotalMasterWeight : totalWeight;
+    const delStockList    = override?.StockDetails ?? realStockList;
 
-    const str = `Do You Want TO Delete Repacking Master. This is Repacking No ${refNo}?`;
+    if (!delId || delId === 0) { toast("❌ No Delete Id !!!", true); return; }
+
+    const str = `Do You Want TO Delete Repacking Master. This is Repacking No ${delRefNo}?`;
     const ok  = await confirm(str);
     if (!ok) return;
 
@@ -447,17 +516,20 @@ setLoading(false);
     try {
       const res = await CC.insertapi(
         CC.RepackingDelete,
-        realStockList || [],
+        delStockList || [],
         {
           Comid:              String(sess.Comid),
-          Id:                 String(editId),
-          OldMasterProductId: String(masterItem),
-          OldNetWeight:       String(valNum(totalWeight)),
+          Id:                 String(delId),
+          OldMasterProductId: String(delMasterItem),
+          OldNetWeight:       String(valNum(delTotalWeight)),
         }
       );
       if (res && res.ok) {
         toast("✅ " + (res.message || "Deleted"));
         await handleClear();
+        // ✅ FIX: Refresh F5 grid after successful deletion so the deleted
+        // record no longer appears in the list if it's reopened.
+        await loadF5View(f5FromDate, f5ToDate);
       } else {
         toast("❌ " + (res?.message || "Delete failed"), true);
       }
@@ -466,55 +538,70 @@ setLoading(false);
     }
   }, [
     editId, refNo, masterItem, totalWeight, realStockList,
-    sess, confirm, handleClear, toast,
+    sess, confirm, handleClear, toast, loadF5View, f5FromDate, f5ToDate,
   ]);
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Edit / load existing record (F3/F5 — mirrors FillRepackingdetails)
-  // ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // Edit / load existing record (F3/F5 — mirrors FillRepackingdetails)
 // ─────────────────────────────────────────────────────────────────────────────
 const fillRepackingDetails = useCallback(async (Pid, PNo) => {
     setLoading(true);
-  
+
     try {
-  
+
       // FIX: Parameters-ஐ 4th argument-ல query param ஆக அனுப்புறோம்
-      const res = await CC.api(
-        CC.RepackingEdit,
-        null,
-        {},
-        {
-          Id: Pid,
-          PNo: PNo,
-          Comid: Number(sess.Comid)
-        }
-      );
-  
-      if (res?.IsSuccess === true) {
-  
-        const getdata = res.Data || [];
-  
+      const url =
+      `${CC.RepackingEdit}?Id=${Pid}&PNo=${PNo}&Comid=${Number(sess.Comid)}`;
+
+    const res = await CC.api(url);
+
+    // 🔍 Verify the raw API response shape (matches Repacking.js "data" callback)
+    console.log("RepackingEdit Raw Response:", res);
+
+      // ✅ FIX: Repacking.js checks `data.ok == true` — the legacy backend does NOT
+      // always send `IsSuccess`. Accept BOTH conventions so a real success response
+      // (ok:true) is never misclassified as a failure (this was why the detail
+      // grid stayed empty even though the password step succeeded).
+      const isSuccess = res?.ok === true || res?.IsSuccess === true;
+
+      if (isSuccess) {
+
+        // ✅ FIX: accept Data / Data1 / data casing, same defensive pattern already
+        // used by loadF5View / loadCombo elsewhere in this file.
+        const getdata = res.Data || res.Data1 || res.data || [];
+
+        console.log("RepackingEdit getdata:", getdata);
+
         if (getdata.length > 0) {
-  
+
           const master  = getdata[0];
-          const details = master.objdetails || [];
-  
-          setRealStockList(master.StockDetails || []);
+
+          // ✅ FIX: accept objdetails in either casing returned by the server
+          const details =
+            master.objdetails || master.ObjDetails || master.Objdetails || [];
+
+          console.log("RepackingEdit master:", master);
+          console.log("RepackingEdit details (grid rows source):", details);
+
+          const stockList = master.StockDetails || master.stockDetails || [];
+
+          setRealStockList(stockList);
           setRefNo(master.RefNo || "");
           setRefDate(toISO(parseServerDate(master.RefDate)));
-  
+
           setMasterItem(String(master.ProductMasterRefId || ""));
-  
+          setMasterItemLabel(master.ProductName || "");
+
           setRealMWeight(master.TotalMasterWeight || 0);
-  
+
           setTotalWeight((master.TotalMasterWeight || 0).toFixed(2));
-  
+
           setTotalQty((master.TotalDetailsQty || 0).toFixed(0));
-  
+
           setEditId(master.Id);
-  
+
+          // ✅ FIX: build grid rows from `details` regardless of array length,
+          // and log the mapped rows so any future field-mapping issue is visible
+          // immediately in the console instead of silently rendering an empty grid.
           const rows = details.length > 0
             ? details.map(d => ({
                 _uid:                 CC.uid(),
@@ -530,24 +617,44 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                 RealQty:              d.RealQty || 0,
               }))
             : [makeRow()];
-  
+
+          console.log("RepackingEdit mapped grid rows:", rows);
+
           setGrid(rows);
-  
+          setSelIdx(0);
+
           calculation(rows);
+
+          // ✅ FIX: return the freshly loaded record so callers that need to
+          // act immediately (e.g. delete-right-after-load) can use these
+          // values directly, instead of reading state/closures that won't
+          // reflect the setX() calls above until after the next render.
+          return {
+            Id:                 master.Id,
+            RefNo:              master.RefNo || "",
+            ProductMasterRefId: master.ProductMasterRefId,
+            TotalMasterWeight:  master.TotalMasterWeight || 0,
+            StockDetails:       stockList,
+          };
+        } else {
+          // Success response but no master record found for this number/id
+          toast("❌ No Repacking record found !!!", true);
+          return null;
         }
-  
+
       } else {
-  
-        toast("❌ " + (res?.message || "Load failed"), true);
-  
+
+        toast("❌ " + (res?.message || res?.Message || "Load failed"), true);
+        return null;
+
       }
-  
+
     } finally {
-  
+
       setLoading(false);
-  
+
     }
-  
+
   }, [sess.Comid, calculation, toast]);
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -663,76 +770,6 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
     }
   }, [sess, fillItemsFromObject, openProductPicker, toast]);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// F5 View (mirrors methods.F5View)
-// ─────────────────────────────────────────────────────────────────────────────
-const loadF5View = useCallback(async (fromDate, toDate) => {
-    if (!fromDate || !toDate) return;
-  
-    if (fromDate > toDate) {
-      toast("❌ From Date is greater than To Date", true);
-      return;
-    }
-  
-    setLoading(true);
-  
-    try {
-  
-      // ✅ Send as POST BODY like jQuery
-      const payload = {
-        Comid: Number(sess.Comid),
-        Fromdate: dateformat(new Date(fromDate)),
-        Todate: dateformat(new Date(toDate)),
-        Id: 0,
-      };
-  
-      const res = await CC.api(
-        CC.RepackingSelect,
-        payload
-      );
-  
-      if (res?.ok === false) {
-        toast("❌ " + (res.message || "Failed"), true);
-        return;
-      }
-  
-      // ✅ Handle Data / Data1 / data safely
-      const baseData =
-        res?.Data ||
-        res?.Data1 ||
-        res?.data ||
-        [];
-  
-      if (baseData.length > 0) {
-  
-        const masterList =
-          baseData[0]?.purchasemaster || [];
-  
-        const detailsList =
-          baseData[0]?.purchasedetails || [];
-  
-        // ✅ Attach details into master rows
-        const enrichedMaster = masterList.map(masterRow => ({
-          ...masterRow,
-          purchasedetails: detailsList.filter(
-            d => d.PurchaseRefId === masterRow.Id
-          )
-        }));
-  
-        setF5List(enrichedMaster);
-  
-      } else {
-        setF5List([]);
-      }
-  
-      setF5Open(true);
-  
-    } finally {
-      setLoading(false);
-    }
-  
-  }, [sess.Comid, toast]);
-
   // ─────────────────────────────────────────────────────────────────────────────
   // Password modal helpers (mirrors EditPasswordWindow)
   // ─────────────────────────────────────────────────────────────────────────────
@@ -777,7 +814,24 @@ const loadF5View = useCallback(async (fromDate, toDate) => {
           f5EditId.current = null;
         }
       } else if (pressKey === "F9") {
-        await handleDelete();
+        // ✅ FIX: If delete was triggered from the F5 list's Del button, the
+        // f5EditId ref holds the record Id but masterItem/totalWeight/
+        // realStockList have NOT been populated yet (the F5 summary row
+        // doesn't reliably carry StockDetails/ProductMasterRefId/
+        // TotalMasterWeight). Load the full record first — exactly like the
+        // F5 Edit button does — then pass the loaded record straight into
+        // handleDelete() rather than relying on state, since setX() calls
+        // inside fillRepackingDetails won't be reflected in this closure's
+        // state variables until after the next render.
+        if (f5EditId.current != null) {
+          const loaded = await fillRepackingDetails(f5EditId.current, 0);
+          f5EditId.current = null;
+          if (loaded) await handleDelete(loaded);
+        } else {
+          // Keyboard-shortcut path (F9 while already editing a loaded record)
+          // — state is already correct, so no override needed.
+          await handleDelete();
+        }
       }
     } else {
       alert("Invalid Password !!!.");
@@ -968,137 +1022,226 @@ const loadF5View = useCallback(async (fromDate, toDate) => {
       )}
 
       {/* ── F5 View Window (mirrors F5Viewwindow) ── */}
+
       {f5Open && (
-        <div className="mp-modal-ov" style={{ alignItems: "flex-start", paddingTop: 60 }}>
-          <div style={{
-            background: "#fff", borderRadius: 8, width: 720, maxHeight: "80vh",
-            display: "flex", flexDirection: "column",
-            boxShadow: "0 16px 48px rgba(0,0,0,.25)",
-          }}>
-            {/* F5 header */}
-            <div style={{
-              background: "#1f65de", color: "#fff", padding: "10px 16px",
-              borderRadius: "8px 8px 0 0", display: "flex",
-              alignItems: "center", justifyContent: "space-between",
-            }}>
-              <span style={{ fontWeight: 700, fontSize: 13 }}>📋 Repacking List</span>
-              <button
-                style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 17 }}
-                onClick={() => setF5Open(false)}
-              >✕</button>
-            </div>
+  <div className="mp-modal-ov" style={{ alignItems: "flex-start", paddingTop: 60 }}>
+    <div style={{
+      background: "#fff",
+      borderRadius: 8,
+      width: 820,
+      maxHeight: "88vh",
+      display: "flex",
+      flexDirection: "column",
+      boxShadow: "0 16px 48px rgba(0,0,0,.25)"
+    }}>
 
-            {/* Date filter bar */}
-            <div style={{
-              padding: "10px 14px", borderBottom: "1px solid #deeafb",
-              display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap",
-            }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2e4a" }}>From:</label>
-              <input
-                type="date"
-                value={f5FromDate}
-                onChange={e => setF5FromDate(e.target.value)}
-                style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }}
-              />
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2e4a" }}>To:</label>
-              <input
-                type="date"
-                value={f5ToDate}
-                onChange={e => setF5ToDate(e.target.value)}
-                style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }}
-              />
-              <button
-                className="mp-btn sv"
-                style={{ height: 28 }}
-                onClick={() => loadF5View(f5FromDate, f5ToDate)}
-              >View</button>
-            </div>
+      {/* HEADER */}
+      <div style={{
+        background: "#1f65de",
+        color: "#fff",
+        padding: "10px 16px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        borderRadius: "8px 8px 0 0"
+      }}>
+        <span style={{ fontWeight: 700, fontSize: 13 }}>📋 Repacking List</span>
+        <button
+          onClick={() => setF5Open(false)}
+          style={{ background: "transparent", border: "none", color: "#fff", fontSize: 18, cursor: "pointer" }}
+        >
+          ✕
+        </button>
+      </div>
 
-            {/* F5 grid */}
-            <div style={{ flex: 1, overflowY: "auto" }}>
-              <table className="mp-tbl" style={{ minWidth: "unset" }}>
-                <thead>
+      {/* FILTER BAR */}
+      <div style={{
+        padding: "10px 14px",
+        borderBottom: "1px solid #deeafb",
+        display: "flex",
+        gap: 10,
+        alignItems: "center",
+        flexWrap: "wrap"
+      }}>
+        <label style={{ fontSize: 12 }}>From</label>
+        <input type="date" value={f5FromDate} onChange={e => setF5FromDate(e.target.value)}
+          style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4 }} />
+
+        <label style={{ fontSize: 12 }}>To</label>
+        <input type="date" value={f5ToDate} onChange={e => setF5ToDate(e.target.value)}
+          style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4 }} />
+
+        <button
+          className="mp-btn sv"
+          style={{ height: 28 }}
+          onClick={() => loadF5View(f5FromDate, f5ToDate)}
+        >
+          🔍 View
+        </button>
+      </div>
+
+      {/* TABLE */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <table className="mp-tbl" style={{ width: "100%" }}>
+          <thead>
+            <tr>
+              <th style={{ width: 60 }}>#</th>
+              <th style={{ width: 120 }}>Ref No</th>
+              <th style={{ width: 120 }}>Date</th>
+              <th>Product</th>
+              <th style={{ width: 120, textAlign: "center" }}>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {f5List.map((row, i) => (
+              <React.Fragment key={row.Id || i}>
+
+                {/* MAIN ROW */}
+                <tr
+                  onClick={() => setF5SelIdx(i)}
+                  onDoubleClick={() => {
+                    if (perm.Edit === 0) return toast("❌ No Permission", true);
+                    f5EditId.current = row.Id;
+                    setPressKey("F5");
+                    setF5Open(false);
+                    openPwdModal(1);
+                  }}
+                  style={{ cursor: "pointer" }}
+                >
+                  <td>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setF5ExpandedId(f5ExpandedId === row.Id ? null : row.Id);
+                      }}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        marginRight: 6
+                      }}
+                    >
+                      {f5ExpandedId === row.Id ? "▾" : "▸"}
+                    </button>
+                    {i + 1}
+                  </td>
+
+                  <td>{row.PurchaseNo || row.RefNo}</td>
+                  <td>{displayDate(parseServerDate(row.PurchaseDate || row.RefDate))}</td>
+                  <td>{row.SupplierName || row.ProductName}</td>
+
+                  {/* ACTION BUTTONS FIXED */}
+                  <td style={{ textAlign: "center", display: "flex", gap: 6, justifyContent: "center" }}>
+
+                    <button
+                      style={{
+                        height: 24, fontSize: 11, padding: "2px 10px",
+                        borderRadius: 4, border: "1px solid #bfd4ff",
+                        background: "#edf4ff", color: "#2563eb",
+                        fontWeight: 600, cursor: "pointer",
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (perm.Edit === 0) { toast("❌ Page Edit Permission Denied !!!", true); return; }
+                        f5EditId.current = row.Id;
+                        setPressKey("F5");
+                        setF5Open(false);
+                        openPwdModal(1);
+                      }}
+                    >
+                      ✏ Edit
+                    </button>
+
+                    <button
+                      style={{
+                        height: 24, fontSize: 11, padding: "2px 10px",
+                        borderRadius: 4, border: "1px solid #fecaca",
+                        background: "#fee2e2", color: "#dc2626",
+                        fontWeight: 600, cursor: "pointer",
+                      }}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (perm.Delete === 0) { toast("❌ Page Delete Permission Denied !!!", true); return; }
+                        // ✅ FIX: don't guess masterItem/totalWeight/realStockList
+                        // off the F5 summary row (those fields aren't reliably
+                        // present there). Just record which Id to delete —
+                        // handlePwdConfirm will load the full record via
+                        // fillRepackingDetails before calling handleDelete().
+                        f5EditId.current = row.Id;
+                        setPressKey("F9");
+                        setF5Open(false);
+                        openPwdModal(1);
+                      }}
+                    >
+                      🗑 Del
+                    </button>
+
+                  </td>
+                </tr>
+
+                {/* EXPAND ROW */}
+                {f5ExpandedId === row.Id && (
                   <tr>
-                    <th style={{ width: 70 }}>Ref.No</th>
-                    <th style={{ width: 110 }}>Ref Date</th>
-                    <th>Repacking Product</th>
-                    <th style={{ width: 80 }}>Action</th>
+                    <td colSpan={5} style={{ background: "#f8fafc", padding: 0 }}>
+                      <table style={{ width: "100%", fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ background: "#e5edff" }}>
+                            <th>Code</th>
+                            <th>Description</th>
+                            <th style={{ textAlign: "right" }}>Qty</th>
+                            <th style={{ textAlign: "right" }}>Rate</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {(row.purchasedetails || []).map((d, di) => (
+                            <tr key={di}>
+                              <td>{d.ProductCode}</td>
+                              <td>{d.ProductName}</td>
+                              <td style={{ textAlign: "right" }}>{fmt2(d.ItemQty)}</td>
+                              <td style={{ textAlign: "right" }}>{fmt2(d.PurchaseRate)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {f5List.map((row, i) => (
-                    <>
-                      <tr
-                        key={row.Id || i}
-                        className={f5SelIdx === i ? "sel" : ""}
-                        onClick={() => setF5SelIdx(i)}
-                        onDoubleClick={() => {
-                          if (perm.Edit === 0) { toast("❌ Page Edit Permission Denied !!!", true); return; }
-                          f5EditId.current = row.Id;
-                          setPressKey("F5");
-                          setF5Open(false);
-                          openPwdModal(1);
-                        }}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <td>{row.PurchaseNo || row.RefNo}</td>
-                        <td>{displayDate(parseServerDate(row.PurchaseDate || row.RefDate))}</td>
-                        <td>{row.SupplierName || row.ProductName || ""}</td>
-                        <td style={{ textAlign: "center" }}>
-                          <button
-                            className="mp-btn nw"
-                            style={{ height: 24, padding: "2px 10px", fontSize: 11 }}
-                            onClick={e => {
-                              e.stopPropagation();
-                              setF5ExpandedId(f5ExpandedId === row.Id ? null : row.Id);
-                            }}
-                          >{f5ExpandedId === row.Id ? "▲" : "▼"}</button>
-                        </td>
-                      </tr>
-                      {f5ExpandedId === row.Id && (
-                        <tr key={`exp-${row.Id}`}>
-                          <td colSpan={4} style={{ padding: 0, background: "#f5f9ff" }}>
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-                              <thead>
-                                <tr style={{ background: "#deeafb" }}>
-                                  <th style={{ padding: "4px 8px", textAlign: "left" }}>Code</th>
-                                  <th style={{ padding: "4px 8px", textAlign: "left" }}>Description</th>
-                                  <th style={{ padding: "4px 8px", textAlign: "right" }}>Net Weight</th>
-                                  <th style={{ padding: "4px 8px", textAlign: "right" }}>Qty</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(row.purchasedetails || row.details || []).map((d, di) => (
-                                  <tr key={di} style={{ borderBottom: "1px solid #eaecf4" }}>
-                                    <td style={{ padding: "3px 8px" }}>{d.ProductCode}</td>
-                                    <td style={{ padding: "3px 8px" }}>{d.ProductName}</td>
-                                    <td style={{ padding: "3px 8px", textAlign: "right" }}>{parseFloat(d.PurchaseRate || d.NetWeight || 0).toFixed(3)}</td>
-                                    <td style={{ padding: "3px 8px", textAlign: "right" }}>{parseFloat(d.ItemQty || d.Qty || 0).toFixed(0)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ))}
-                  {f5List.length === 0 && (
-                    <tr><td colSpan={4} style={{ textAlign: "center", color: "#aaa", padding: 16 }}>No records found</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                )}
 
-            <div style={{ padding: "8px 14px", borderTop: "1px solid #deeafb", display: "flex", justifyContent: "flex-end" }}>
-              <button className="mp-btn dl" style={{ height: 28 }} onClick={() => setF5Open(false)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+              </React.Fragment>
+            ))}
 
+            {f5List.length === 0 && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: "center", padding: 16, color: "#999" }}>
+                  No records found
+                </td>
+              </tr>
+            )}
+
+          </tbody>
+        </table>
+      </div>
+
+      {/* FOOTER */}
+      <div style={{
+        padding: "8px 14px",
+        borderTop: "1px solid #e5e7eb",
+        display: "flex",
+        justifyContent: "flex-end"
+      }}>
+        <button className="mp-btn dl" onClick={() => setF5Open(false)}>
+          Close
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
       {/* ── Header ── */}
-      <div className="mp-hdr">
+      {/* <div className="mp-hdr">
         <div className="mp-hdr-left">
           <div className="mp-icon">R</div>
           <div>
@@ -1110,7 +1253,8 @@ const loadF5View = useCallback(async (fromDate, toDate) => {
           const ok = await confirm("Do You Want To Quit?");
           if (ok) navigate("/Home");
         }}>← Back</button>
-      </div>
+      </div> */}
+      <Topbar />
 
       <div className="mp-body">
 
