@@ -37,6 +37,7 @@ import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";
 import "../TransactionStyle/SaleOrder.css";
 
+
 // ─── API ENDPOINTS (SaleOrder specific) ──────────────────────────────────────
 // ─── EXTRACTED GLOBALS FROM Common.jsx ───────────────────────────────────────
 // (Aliases removed - using CC.* directly)
