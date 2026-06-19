@@ -740,7 +740,7 @@ const loadColCfg = useCallback(async () => {
       }
     );
 
-<<<<<<< HEAD
+//<<<<<<< HEAD
   const loadColCfg = useCallback(async () => {
     try {
       const res = await fetch(CC.BASE_URL+ `/Content/Appdata/Visible/${sess.Comid}/Itemmaster.json?v=${Date.now()}`, { headers:CC.authHeaders() });
@@ -753,10 +753,10 @@ const loadColCfg = useCallback(async () => {
       }));
     } catch {}
   }, [sess.Comid,redirectIfDualLogin]);
-=======
+//=======
     if (res.status === 406) { redirectIfDualLogin(); return; }
     if (!res.ok) return;
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
+//>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
 
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) return;

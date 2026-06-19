@@ -649,18 +649,24 @@ export default function CustomerWiseSaleRate() {
   }
 
   /* ─── load customer combo ─── */
-<<<<<<< HEAD
-  async function loadCustomerCombo() {
-    try {
-      const res = await fetch("/SupplierApp/SelectSupplier", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Comid: Comid.current, Startindex: -1, PageCount: 500, AccountType: "CUSTOMER", Keyword: "", Column: "" }),
-      });
-      const data = await res.json();
-      if (data.ok) setCustomers(data.data || []);
-    } catch {}
-=======
+/* ─── load customer combo ─── */
+async function loadCustomerCombo() {
+  try {
+    const res = await CC.api(
+      GetCustomerUrl,
+      null,
+      {},
+      {
+        Comid: Comid.current,
+        AccountType: "CUSTOMER",
+      }
+    );
+    const customerList = res?.data || res?.Data1 || [];
+    setCustomers(customerList);
+  } catch (err) {
+    console.error(err);
+  }
+}
 async function loadCustomerCombo() {
   console.log("loadCustomerCombo started");
 
@@ -689,58 +695,33 @@ async function loadCustomerCombo() {
   } catch (err) {
     console.log("CATCH BLOCK HIT");
     console.error(err);
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
+//>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
   }
 }
 
   /* ─── load products ─── */
   async function loadProducts() {
     try {
-<<<<<<< HEAD
-      const res = await fetch("/ItemMasterApp/GetProductList", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Comid: Comid.current }),
-      });
-      const data = await res.json();
-      setProducts(Array.isArray(data) ? data : (data.data || []));
-=======
-     const ProductListUrl = "/api/ItemMasterApp/GetProductListV7";
-    setLoading(true); 
-    const res = await CC.api(ProductListUrl, null, {}, { Comid:Comid.current });
-    setLoading(false);
-   
-    const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
-    setProducts(arr);
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
+      setLoading(true);
+      const res = await CC.api(ProductListUrl, null, {}, { Comid: Comid.current });
+      setLoading(false);
+
+      const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+      setProducts(arr);
     } catch {}
   }
-
   /* ─── load customer sale rates on customer select ─── */
   async function loadCustomerRates(custId) {
-<<<<<<< HEAD
     if (!custId || custId === "0") return;
     setLoading(true);
     try {
-      const res = await fetch("/SupplierApp/SelectCustomerSaleRateALL", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Comid: Comid.current, Id: custId }),
-      });
-      const data = await res.json();
-      const raw = data.data || [];
-=======
-   if (!custId || custId === "0") return;
-  setLoading(true);
-  try {
-    const res = await CC.api(
-      SelectCustomerSaleRateALL,
-      null,
-      {},
-      { Comid: Comid.current, Id: custId }
-    );
-    const raw = res?.data || res?.Data1 || [];
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
+      const res = await CC.api(
+        SelectCustomerSaleRateALL,
+        null,
+        {},
+        { Comid: Comid.current, Id: custId }
+      );
+      const raw = res?.data || res?.Data1 || [];
       if (raw.length) {
         const normalised = raw.map((obj) => ({
           ...obj,
@@ -760,7 +741,6 @@ async function loadCustomerCombo() {
     } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
     finally { setLoading(false); }
   }
-
   /* ─── combo change ─── */
   function handleCustomerChange(val) {
     setCustomerId(val);
@@ -847,29 +827,16 @@ async function loadCustomerCombo() {
         setConfirm(null);
         setLoading(true);
         try {
-<<<<<<< HEAD
-          const res = await fetch("/SupplierApp/DeleteCustomerSaleRate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ Id: row.Id }),
-          });
-          const data = await res.json();
-          if (data.ok) {
-            showToast(data.message || "Deleted.");
+          const res = await CC.api(
+            DeleteCustomerSaleRate,
+            {},
+            {},
+            { Comid: Comid.current, Id: row.Id }
+          );
+          if (res.ok ?? res.IsSuccess) {
+            showToast(res.message || "Deleted.");
             setRows((prev) => prev.filter((_, i) => i !== idx));
-          } else msgBox(data.message);
-=======
-         const res = await CC.api(
-  DeleteCustomerSaleRate,
-  {},
-  {},
-   { Comid:Comid.current,Id: row.Id,}
-);
-if (res.ok ?? res.IsSuccess) {
-  showToast(res.message || "Deleted.");
-  setRows((prev) => prev.filter((_, i) => i !== idx));
-} else msgBox(res.message);
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
+          } else msgBox(res.message);
         } catch { msgBox("Technical Fault !!!"); }
         finally { setLoading(false); }
       });
@@ -877,7 +844,6 @@ if (res.ok ?? res.IsSuccess) {
       setRows((prev) => prev.length === 1 ? [newBlankRow()] : prev.filter((_, i) => i !== idx));
     }
   }
-
   /* ─── gridemptycheck ─── */
 // AFTER
 function gridEmptyCheck() {
@@ -892,7 +858,7 @@ function gridEmptyCheck() {
 }
 
   /* ─── save (F1) ─── */
-<<<<<<< HEAD
+//<<<<<<< HEAD
   function handleSave() {
     if (submitting.current) return;
     if (!gridEmptyCheck()) return;
@@ -923,7 +889,7 @@ function gridEmptyCheck() {
       } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
       finally { setLoading(false); submitting.current = false; }
     }, () => { setConfirm(null); addNewRow(); });
-=======
+//=======
 // AFTER
 // AFTER
 function gridEmptyCheck() {
@@ -931,7 +897,7 @@ function gridEmptyCheck() {
   if (filtered.length === 0) {
     setRows([newBlankRow()]);
     return null; // null = nothing to save
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
+//>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
   }
   setRows(filtered);
   return filtered; // return the clean array directly
@@ -1146,4 +1112,4 @@ function handleSave() {
       </main>
     </div>
   );
-}
+}}
