@@ -649,6 +649,24 @@ export default function CustomerWiseSaleRate() {
   }
 
   /* ─── load customer combo ─── */
+/* ─── load customer combo ─── */
+async function loadCustomerCombo() {
+  try {
+    const res = await CC.api(
+      GetCustomerUrl,
+      null,
+      {},
+      {
+        Comid: Comid.current,
+        AccountType: "CUSTOMER",
+      }
+    );
+    const customerList = res?.data || res?.Data1 || [];
+    setCustomers(customerList);
+  } catch (err) {
+    console.error(err);
+  }
+}
 async function loadCustomerCombo() {
   console.log("loadCustomerCombo started");
 
@@ -692,7 +710,6 @@ async function loadCustomerCombo() {
     setProducts(arr);
     } catch {}
   }
-
   /* ─── load customer sale rates on customer select ─── */
   async function loadCustomerRates(custId) {
    if (!custId || custId === "0") return;
@@ -724,7 +741,6 @@ async function loadCustomerCombo() {
     } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
     finally { setLoading(false); }
   }
-
   /* ─── combo change ─── */
   function handleCustomerChange(val) {
     setCustomerId(val);
@@ -828,7 +844,6 @@ if (res.ok ?? res.IsSuccess) {
       setRows((prev) => prev.length === 1 ? [newBlankRow()] : prev.filter((_, i) => i !== idx));
     }
   }
-
   /* ─── gridemptycheck ─── */
 // AFTER
 function gridEmptyCheck() {
@@ -843,6 +858,38 @@ function gridEmptyCheck() {
 }
 
   /* ─── save (F1) ─── */
+//<<<<<<< HEAD
+  function handleSave() {
+    if (submitting.current) return;
+    if (!gridEmptyCheck()) return;
+
+    showConfirm("Do you Want to Save the Customer SaleRate Details?", async () => {
+      setConfirm(null);
+      submitting.current = true;
+      setLoading(true);
+      try {
+        const res = await fetch("/SupplierApp/InsertCustomerSaleRate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Comid: Comid.current,
+            Cusid: customerId,
+          },
+          body: JSON.stringify(rows),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(data.message || "Saved successfully.");
+          handleClear();
+          setTimeout(() => comboRef.current?.focus(), 60);
+        } else {
+          msgBox(data.message);
+          addNewRow();
+        }
+      } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
+      finally { setLoading(false); submitting.current = false; }
+    }, () => { setConfirm(null); addNewRow(); });
+//=======
 // AFTER
 // AFTER
 function gridEmptyCheck() {
@@ -1064,4 +1111,4 @@ function handleSave() {
       </main>
     </div>
   );
-}
+}}
