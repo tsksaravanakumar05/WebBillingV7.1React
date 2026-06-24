@@ -18,7 +18,8 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
-export const BASE_URL = "http://localhost:64215";
+export const BASE_URL = "https://billing.kassapos.co.in";
+//export const BASE_URL = "http://localhost:64215";
 
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
@@ -470,6 +471,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
  */
 export const insertapi = async (path, body = null, extraHeaders = {}) => {
   try {
+    var b =JSON.stringify(body);
     const res = await fetch(mkUrl(path), {
    
       method: "POST",
@@ -801,3 +803,55 @@ export const SO_COLUMNS = [
 export const DEFAULT_COL_SETTINGS = SO_COLUMNS.map(c => ({
   key: c.key, label: c.label, width: c.width, visible: !c.hidden,
 }));
+
+// ─── API CONSTANTS (Moved from StockInward.jsx) ───────────────────────────────
+// Inward
+export const SI_MaxNo          = "/api/StockInwardApp/MaxStockInward";
+export const SI_Insert         = "/api/StockInwardApp/InsertStockInward";
+export const SI_Edit           = "/api/StockInwardApp/EditStockInward";
+export const SI_Delete         = "/api/StockInwardApp/DeleteStockInward";
+export const SI_Select         = "/api/StockInwardApp/SelectStockInward";
+export const SI_TransferInward = "/api/StockInwardApp/StockTransferInwardEdit";
+
+// Outward
+export const SO_MaxNo    = "/api/StockOutwardApp/MaxStockOutward";
+export const SO_Insert   = "/api/StockOutwardApp/InsertStockOutward";
+export const SO_Edit     = "/api/StockOutwardApp/EditStockOutward";
+export const SO_Delete   = "/api/StockOutwardApp/DeleteStockOutward";
+export const SO_Select   = "/api/StockOutwardApp/SelectStockOutward";
+
+// Transfer
+export const ST_MaxNo      = "/api/StockTransferApp/MaxStockTransfer";
+export const ST_Insert     = "/api/StockTransferApp/InsertStockTransfer";
+export const ST_Edit       = "/api/StockTransferApp/EditStockTransfer";
+export const ST_Delete     = "/api/StockTransferApp/DeleteStockTransfer";
+export const ST_Select     = "/api/StockTransferApp/SelectStockTransfer";
+export const ST_PrintView  = "/api/StockTransferApp/PrintView";
+
+// Item Master
+export const IM_ByCode      = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+export const IM_ProductList = "/api/ItemMasterApp/GetProductListV7";
+export const IM_TransferList= "/api/ItemMasterApp/SelectStockTrasferList";
+
+// Supplier / Branch / Customer
+export const SUP_All    = "/api/SupplierApp/SelectSupplierAll";
+export const BRANCH_List= "/api/CompanyApp/SelectCompany";
+
+// BatchWise master lists
+export const BW_Brand  = "/api/BrandApp/SelectBrandAll";
+export const BW_Model  = "/api/ModelApp/SelectModelAll";
+export const BW_Color  = "/api/ColorApp/SelectColorAll";
+export const BW_Size   = "/api/SizeApp/SelectSizeAll";
+export const BW_Gender = "/api/GenderApp/SelectGenderAll";
+
+// Purchase / PO
+export const PO_Edit     = "/api/PurchaseOrderApp/EditPurchaseOrder";
+export const PO_NoCombo  = "/api/PurchaseOrderApp/PoNoComboList";
+
+// Login / Config
+export const CFG_EditPwd   = "/api/LoginApp/EditPassword";
+export const CFG_VisibleCols= "/api/LoginApp/VisibleColumns";
+export const CFG_FocusCols = "/api/LoginApp/FocusColumns";
+
+// User
+export const USR_UserCombo = "/api/LoginApp/UserComboList";

@@ -71,8 +71,8 @@
 // //
 // // Common ports: 64215, 44300, 5000, 5001, 7000, 8080
 // // ─────────────────────────────────────────────────────────────────────────────
-const BACKEND_PORT = 64215       // ← change this to match your Visual Studio port
-const TARGET = `http://localhost:${BACKEND_PORT}`
+
+const TARGET = "https://billing.kassapos.co.in";
  
 // // Rewrites /ShortName/Method → /api/ShortNameApp/Method
 // // e.g. /Login/LoginSuccess → http://localhost:64215/api/loginApp/LoginSuccess

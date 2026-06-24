@@ -61,7 +61,7 @@ const StockAdjustmentInsert    = "/api/StockAdjustmentApp/InsertStockAdjustment"
 const StockAdjustmentEdit      = "/api/StockAdjustmentApp/EditStockAdjustment";
 const StockAdjustmentDelete    = "/api/StockAdjustmentApp/DeleteStockAdjustment";
 const StockAdjustmentSelect    = "/api/StockAdjustmentApp/SelectStockAdjustment";
-
+const ItemMasterSelectById = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
 // ─── Field-name constants (match JS exactly) ─────────────────────────────────
 const grdProductCode  = "ProductCode";
 const grdProductName  = "ProductName"; 
@@ -511,7 +511,7 @@ function F5ViewWindow({ comid, onClose, onSelectRow, onEditRow, onDeleteRow, loa
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.5)",
       zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center" }}>
-      <div style={{ background:"#fff",borderRadius:8,width:"82vw",maxHeight:"88vh",
+      <div style={{ background:"#fff",borderRadius:8,width:"60vw",maxHeight:"88vh",
         display:"flex",flexDirection:"column",boxShadow:"0 16px 48px rgba(0,0,0,.3)" }}>
         {/* header */}
         <div style={{ background:"#1a2e4a",color:"#fff",padding:"10px 16px",fontSize:13,
@@ -1237,50 +1237,90 @@ export default function StockAdjustment() {
   }, [focusCell, addRow]);
 
   // ── Item popup selection ─────────────────────────────────────────────────
-  const onItemSelect = useCallback((item) => {
-    const idx = itemPopup.rowIdx;
-    setItemPopup({ open:false, rowIdx:null, prefill:"" });
-    fillItemCode(item.ProductCode, idx);
-  }, [itemPopup.rowIdx, fillItemCode]);
+const fillItemById = useCallback(async (id, rowIdx) => {
+  const res = await CC.api(ItemMasterSelectById, null, {}, {
+    code: "",
+    Comid: Number(sess.MComid),
+    CComid: Number(sess.Comid),
+    Id: Number(id),
+    Batchwise: sess.BatchStatus,
+  });
+  if (redirectIfDualLogin(res)) return;
+  const list = Array.isArray(res?.data) ? res.data
+             : Array.isArray(res?.Data1) ? res.Data1 : [];
+  if (list.length === 0) {
+    toast("❌ Invalid Product !!!.", true);
+    setSelIdx(rowIdx); focusCell(rowIdx, grdProductCode);
+    return;
+  }
+  if (list[0].BatchStatus === 1) {
+    if (list.length === 1) fillBatchItems(list[0], rowIdx);
+    else setBatchPopup({ rowIdx, list });
+  } else {
+    if (list.length === 1) {
+      if (sess.MultipleUOMBilling && list[0].NomsQty !== 0 && Array.isArray(list[0]._uomList)) {
+        setUnitPopup({ rowIdx, list: list[0]._uomList, productItem: list[0] });
+      } else {
+        fillItems(list[0], rowIdx);
+      }
+    } else {
+      setMrpPopup({ rowIdx, list });
+    }
+  }
+}, [sess, redirectIfDualLogin, toast, focusCell, fillBatchItems, fillItems]);
+const onItemSelect = useCallback((item) => {
+  const idx = itemPopup.rowIdx;
+  setItemPopup({ open:false, rowIdx:null, prefill:"" });
+  if (item.Id) fillItemById(item.Id, idx);
+  else fillItemCode(item.ProductCode, idx);
+}, [itemPopup.rowIdx, fillItemById, fillItemCode]);
 
   // ── handleCellKeyDown (mirrors gridStockAdjustment keydown) ─────────────
-  const handleCellKeyDown = useCallback((e, idx, field) => {
-    if (e.keyCode === 46) { // Delete
-      e.preventDefault(); deleteRow(idx); return;
-    }
-    if (e.key !== "Enter") return;
-    e.preventDefault();
+const handleCellKeyDown = useCallback((e, idx, field) => {
+  if (e.keyCode === 46) { // Delete key
+    e.preventDefault(); deleteRow(idx); return;
+  }
 
+  if (field === grdProductCode) {
+    if (e.key !== "Enter") return;   // ← only react to Enter, ignore all other keys
+    e.preventDefault();
     const row = gridRef.current[idx];
     if (!row) return;
     const value = row[field];
+    if (value == null || value === "") {
+      setItemPopup({ open:true, rowIdx:idx, prefill:"" });
+    } else {
+      fillItemCode(value, idx);
+    }
+    return;
+  }
 
-    if (field === grdProductCode) {
-      if (value == null || value === "") {
-        setItemPopup({ open:true, rowIdx:idx, prefill:"" });
-      } else {
-        fillItemCode(value, idx);
-      }
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+
+  const row = gridRef.current[idx];
+  if (!row) return;
+  const value = row[field];
+
+  if (field === grdQuantity) {
+    if (value == null || value === "" || vn(value) < 0) {
+      toast("❌ Enter Quantity!!!", true);
+      return;
     }
-    else if (field === grdQuantity) {
-      if (value == null || value === "" || vn(value) < 0) {
-        toast("❌ Enter Quantity!!!", true);
-        return;
-      }
-      moveNext(idx, field);
-      calculation(gridRef.current);
-    }
-    else if (field === grdRate) {
-      const rate = vn(value).toFixed(2);
-      updateCell(idx, grdRate, rate);
-      moveNext(idx, grdAmount);
-      calculation(gridRef.current.map((r,i) => i===idx ? { ...r, [grdRate]:rate } : r));
-    }
-    else {
-      moveNext(idx, field);
-      calculation(gridRef.current);
-    }
-  }, [moveNext, updateCell, calculation, deleteRow, fillItemCode, toast]);
+    moveNext(idx, field);
+    calculation(gridRef.current);
+  }
+  else if (field === grdRate) {
+    const rate = vn(value).toFixed(2);
+    updateCell(idx, grdRate, rate);
+    moveNext(idx, grdAmount);
+    calculation(gridRef.current.map((r,i) => i===idx ? { ...r, [grdRate]:rate } : r));
+  }
+  else {
+    moveNext(idx, field);
+    calculation(gridRef.current);
+  }
+}, [moveNext, updateCell, calculation, deleteRow, fillItemCode, toast]);
 
   // ── Inline cell renderer ─────────────────────────────────────────────────
   function renderCell(row, realIdx, colDef) {
@@ -1311,19 +1351,26 @@ export default function StockAdjustment() {
     }
 
     // popup (Product Code)
-    if (type === "popup") {
-      const openPopup = () => setItemPopup({ open:true, rowIdx:realIdx, prefill:String(value) });
-      return (
-        <input ref={ref} className="mp-cell-input" type="text"
-          value={String(value)}
-          style={{ ...base, cursor:"pointer", background:"#f8fafc" }}
-          placeholder="Enter to select…"
-          onFocus={() => setSelIdx(realIdx)}
-          onChange={e => CC.applyUppercase(e, v => updateCell(realIdx, field, v))}
-          onClick={openPopup}
-          onKeyDown={e => handleCellKeyDown(e, realIdx, field)} />
-      );
-    }
+  if (type === "popup") {
+  return (
+    <input ref={ref} className="mp-cell-input" type="text"
+      value={String(value)}
+      style={{ ...base, background:"#f8fafc" }}
+      placeholder="Code "
+      autoComplete="off"
+      name={`product-code-${realIdx}`}
+      onFocus={() => setSelIdx(realIdx)}
+      onChange={e => CC.applyUppercase(e, v => updateCell(realIdx, field, v))}
+      onKeyDown={e => {
+        if (e.key === " " && !String(value).trim()) {
+          e.preventDefault();
+          setItemPopup({ open:true, rowIdx:realIdx, prefill:"" });
+          return;
+        }
+        handleCellKeyDown(e, realIdx, field);
+      }} />
+  );
+}
 
     // qty (decimal precision driven by row's UOMDecimal)
     if (type === "qty") {

@@ -506,13 +506,13 @@ useEffect(() => {
 
   if (!menudata || menudata.length === 0) {
     alert("Page Access Permission Denied !!!.");
-    setTimeout(() => navigate("/Home"), 3000);
+    setTimeout(() => navigate("/"), 3000);
     return;
   }
 
   if (menudata[0].View === 0) {
     alert("Page Access Permission Denied !!!.");
-    setTimeout(() => navigate("/Home"), 3000);
+    setTimeout(() => navigate("/"), 3000);
     return;
   }
 
@@ -567,14 +567,14 @@ const saveBarcodes = useCallback(async () => {
     // 2. Check if page exists in user's menu
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/"); }, 3000);
       return;
     }
 
     // 3. Check if View permission is 0
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/"); }, 3000);
       return;
     }
 
@@ -740,23 +740,7 @@ const loadColCfg = useCallback(async () => {
       }
     );
 
-//<<<<<<< HEAD
-  const loadColCfg = useCallback(async () => {
-    try {
-      const res = await fetch(CC.BASE_URL+ `/Content/Appdata/Visible/${sess.Comid}/Itemmaster.json?v=${Date.now()}`, { headers:CC.authHeaders() });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!Array.isArray(data)) return;
-      setCols(prev => prev.map(col => {
-        const s=data.find(x=>x.column===col.key);
-        return s ? { ...col, visible:s.Visible===true, width:Number(s.Width)||col.width } : col;
-      }));
-    } catch {}
-  }, [sess.Comid,redirectIfDualLogin]);
-//=======
-    if (res.status === 406) { redirectIfDualLogin(); return; }
-    if (!res.ok) return;
-//>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
+  
 
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) return;

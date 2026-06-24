@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import Topbar from "../components/Topbar";
 import '../Utilesstyle/Menumastersetting.css';
-import { useToast, useConfirm, ToastList, SelectMenuMaster, UpdateMenuMaster, mkUrl, authHeaders } from "../components/Common";
+import { useToast, useConfirm, ToastList, SelectMenuMaster, UpdateMenuMaster, api, insertapi } from "../components/Common";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const MENU_TYPES = [
@@ -159,7 +159,7 @@ function TreeNode({ node, depth, selectedId, expandedIds, onSelect, onToggleExpa
         ) : (
           <span className="mp-tree-toggle-spacer" />
         )}
-        <span className="mp-tree-label">{node.label}</span>
+        <span className="mp-tree-label" style={{ color: node.checked ? "green" : "black" }}>{node.label}</span>
       </div>
       {hasChildren && isExpanded && (
         <ul className="mp-tree-ul">
@@ -281,25 +281,16 @@ export default function Menumastersetting() {
       try {
         // ✅ FIX: Build query string — matches C# signature:
         //    SelectMenuMaster(string Type, Int32 Comid)
-        const params = new URLSearchParams({
+        const params = {
           Type:  type,
           Comid: String(Number(comid)),   // ensure numeric string, e.g. "65"
-        });
+        };
 
-        const url = `${mkUrl(SelectMenuMaster)}?${params}`;
-        console.log("URL =", url);
+        const result = await api(SelectMenuMaster, null, {}, params);
 
-        const response = await fetch(url, {
-          method:  "POST",
-          headers: { ...authHeaders() },
-          // ✅ No Content-Type, no body — primitives come from query string
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        if (result._http404 || result._netErr || result.message?.startsWith("Server error")) {
+          throw new Error(result.message);
         }
-
-        const result = await response.json();
         console.log("FULL RESPONSE =", result);
         console.log("DATA1 =", result.Data1);
 
@@ -340,21 +331,13 @@ export default function Menumastersetting() {
       setLoading(true);
   
       try {
-        const response = await fetch(mkUrl(UpdateMenuMaster), {
-          method: "POST",
-          headers: {
-            ...authHeaders(),
-            "Content-Type": "application/json; charset=utf-8"
-          },
-          body: JSON.stringify(payload)
-        });
+        const data = await insertapi(UpdateMenuMaster, payload);
   
-        if (!response.ok)
-          throw new Error(`HTTP ${response.status}`);
+        if (data.ok === false && data.message && (data.message.startsWith("HTTP Error") || data.message.startsWith("Server error") || data._netErr)) {
+          throw new Error(data.message);
+        }
   
-        const data = await response.json();
-  
-        if (data.IsSuccess || data.isSuccess) {
+        if (data.IsSuccess || data.isSuccess || data.ok) {
           pushToast(data.Message || data.message, "ok");
           return true;
         }

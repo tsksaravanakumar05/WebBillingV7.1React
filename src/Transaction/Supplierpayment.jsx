@@ -1012,7 +1012,7 @@ export default function SupplierPayment() {
   }, [sess.Comid, sess.MComid, redirectIfDualLogin]);
 
   // ── handleCellKeyDown (mirrors gridSupplierPayment keydown) ─────────────
-  const handleCellKeyDown = useCallback((e, idx, field) => {
+const handleCellKeyDown = useCallback((e, idx, field) => {
     if (e.keyCode === 46 && e.ctrlKey) { e.preventDefault(); deleteRow(idx); return; }
     if (e.key !== "Enter") return;
     e.preventDefault();
@@ -1029,19 +1029,23 @@ export default function SupplierPayment() {
     }
     else if (field === grdCashAmount) {
       updateCell(idx, grdCashAmount, fmt2(value));
-      if (!calculation(idx, { ...row, [grdCashAmount]:value })) return;
+      if (!calculation(idx, { ...row, [grdCashAmount]: value })) return;
+      // ✅ FIXED: was just moveNext(); now mirrors CustomerReceipt —
+      //    always move to next after cash (no conditional split needed for cash)
       moveNext(idx, field);
     }
-    else if (field === grdRTGSAmt) {
-      updateCell(idx, grdRTGSAmt, fmt2(value));
-      if (!calculation(idx, { ...row, [grdRTGSAmt]:value })) return;
-      if (vn(value) > 0) {
-        focusCell(idx, grdRTGSNo);
-      } else {
-        updateCell(idx, grdRTGSNo, "");
-        focusCell(idx, grdChequeAmount);
-      }
+   else if(field===grdRTGSAmt){
+    updateCell(idx, grdRTGSAmt, fmt2(value));
+    if(!calculation(idx, {...row, [grdRTGSAmt]:value})) return;
+    
+    // ✅ FIX: RTGSAmt > 0 → go RTGSNo, else skip to ChequeAmt
+    if(vn(value) > 0){
+        focusCell(idx, grdRTGSNo);   // RTGSNo-க்கு போ
+    } else {
+        updateCell(idx, grdRTGSNo, ""); // RTGSNo clear செய்
+        focusCell(idx, grdChequeAmount); // skip செய்
     }
+}
     else if (field === grdRTGSNo) {
       if (vn(row[grdRTGSAmt]) > 0) {
         focusCell(idx, grdBankName);
@@ -1051,13 +1055,13 @@ export default function SupplierPayment() {
     }
     else if (field === grdChequeAmount) {
       updateCell(idx, grdChequeAmount, fmt2(value));
-      if (!calculation(idx, { ...row, [grdChequeAmount]:value })) return;
+      if (!calculation(idx, { ...row, [grdChequeAmount]: value })) return;
       if (vn(value) > 0) {
         focusCell(idx, grdChequeNo);
       } else {
         updateCell(idx, grdChequeNo, "");
         updateCell(idx, grdChequeDate, "");
-        focusCell(idx, grdDiscountAmount);
+        focusCell(idx, grdDiscountAmount);  // ✅ skip to Discount, not moveNext
       }
     }
     else if (field === grdChequeNo) {
@@ -1076,7 +1080,7 @@ export default function SupplierPayment() {
     }
     else if (field === grdDiscountAmount) {
       updateCell(idx, grdDiscountAmount, fmt2(value));
-      if (!calculation(idx, { ...row, [grdDiscountAmount]:value })) return;
+      if (!calculation(idx, { ...row, [grdDiscountAmount]: value })) return;
       moveNext(idx, field);
     }
     else if (field === grdAmount) {
