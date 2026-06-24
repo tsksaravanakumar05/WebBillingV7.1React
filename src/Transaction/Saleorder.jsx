@@ -35,17 +35,79 @@ import React, {
 import { useNavigate } from "react-router-dom";
 import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";
-import "../TransactionStyle/SaleOrder.css";
-
+//import "../TransactionStyle/SaleOrder.css";
 
 // ─── API ENDPOINTS (SaleOrder specific) ──────────────────────────────────────
-// ─── EXTRACTED GLOBALS FROM Common.jsx ───────────────────────────────────────
-// (Aliases removed - using CC.* directly)
+const SaleOrderMaxNo      = "/api/SaleOrderApp/MaxSaleOrderNo";
+const SaleOrderInsertUrl  = "/api/SaleOrderApp/InsertSaleOrder";
+const SaleOrderEditUrl    = "/api/SaleOrderApp/EditSaleOrder";
+const SaleOrderSelectUrl  = "/api/SaleOrderApp/SelectSaleOrder";
+const SaleOrderDeleteUrl  = "/api/SaleOrderApp/DeleteSaleOrder";
+const SelectItemByCodeUrl = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
+const ProductListUrl      = "/api/ItemMasterApp/GetProductListV7";
+const GetCustomerUrl      = "/api/SupplierApp/SelectSupplierAll";
+const SalesManSelectUrl   = "/api/SalesManApp/SelectSalesMan_V7";
+const LoginPasswordUrl    = "/api/LoginApp/EditPassword";
+const VisibleColumnsUrl   = "/Login/VisibleColumns";
+const FocusColumnsUrl     = "/Login/FocusColumns";
+const CurrentStockUrl     = "/api/ItemMasterApp/Currentstock";
+const CRMBalanceUrl       = "/api/SalesReportApp/CRMBalanceReport";
+const CurrentBalanceUrl   = "/api/SupplierApp/CurrentBalance";
 
+// ─── ORDER TYPE OPTIONS ───────────────────────────────────────────────────────
+const ORDER_TYPES = [
+  { value: "CASH",   label: "CASH" },
+  { value: "CREDIT", label: "CREDIT" },
+];
+
+// ─── GRID COLUMNS DEFINITION ─────────────────────────────────────────────────
+const SO_COLUMNS = [
+  { key: "ProductCode",     label: "Product Code", width: 140, hidden: false },
+  { key: "ProductName",     label: "Description",  width: 280, hidden: false, readOnly: true },
+  { key: "HSNcode",         label: "HSN Code",     width: 100, hidden: true },
+  { key: "MRP",             label: "MRP",          width: 90,  hidden: true,  type: "float" },
+  { key: "SaleRate",        label: "Sale Rate",    width: 100, hidden: false, type: "float" },
+  { key: "Pcs",             label: "Pcs",          width: 80,  hidden: true,  type: "int" },
+  { key: "Meter",           label: "Meter",        width: 80,  hidden: true,  type: "float" },
+  { key: "TotalPcs",        label: "Total Pcs",    width: 85,  hidden: true,  type: "float" },
+  { key: "NOMS",            label: "Noms",         width: 80,  hidden: true,  type: "int" },
+  { key: "ItemQty",         label: "Quantity",     width: 90,  hidden: false, type: "float" },
+  { key: "cdpercent",       label: "CD(%)",        width: 75,  hidden: true,  type: "float" },
+  { key: "cdAmount",        label: "CD Amt",       width: 85,  hidden: true,  type: "float" },
+  { key: "DiscountPercent", label: "Disc%",        width: 75,  hidden: true,  type: "float" },
+  { key: "DiscountAmt",     label: "Disc Amt",     width: 85,  hidden: true,  type: "float" },
+  { key: "TaxPercent",      label: "GST%",         width: 75,  hidden: true,  type: "float" },
+  { key: "TaxAmt",          label: "GST Amt",      width: 85,  hidden: true,  type: "float" },
+  { key: "CESSPer",         label: "CESS%",        width: 75,  hidden: true,  type: "float" },
+  { key: "UOM",             label: "UOM",          width: 70,  hidden: true,  readOnly: true },
+  { key: "SMCode",          label: "SM Code",      width: 80,  hidden: true },
+  { key: "BillNo",          label: "Bill No",      width: 90,  hidden: true },
+  { key: "remarks",         label: "Remarks",      width: 120, hidden: true },
+  { key: "Amount",          label: "Amount",       width: 100, hidden: false, readOnly: true, type: "float" },
+];
+
+const DEFAULT_COL_SETTINGS = SO_COLUMNS.map(c => ({
+  key: c.key, label: c.label, width: c.width, visible: !c.hidden,
+}));
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const vn    = v => parseFloat(v) || 0;
+const roVal = v => Math.round(v * 100) / 100;
+const f2    = v => parseFloat(vn(v).toFixed(2));
+const f3    = v => parseFloat(vn(v).toFixed(3));
+const ns    = v => (v == null ? "" : String(v));
+const today = () => new Date().toISOString().slice(0, 10);
+
+let _rid = 4000;
+const genRid  = () => ++_rid;
+const newGuid = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+  const r = Math.random() * 16 | 0;
+  return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+});
 
 // ─── ROW FACTORY ──────────────────────────────────────────────────────────────
 const mkRow = () => ({
-  _rid: CC.genRid(), _isNew: true, _dirty: false, _indexid: CC.newGuid(),
+  _rid: genRid(), _isNew: true, _dirty: false, _indexid: newGuid(),
   SDId: 0, ProductRefId: 0, ProductCode: "", ProductName: "",
   MRP: "0.00", SaleRate: "0.00", ItemQty: "", UOMDecimal: 0,
   TaxPercent: "0.00", TaxAmt: 0, CESSPer: "0.00", CESSAmount: 0,
@@ -73,33 +135,33 @@ const mkRow = () => ({
 
 const fmtRow = obj => ({
   ...mkRow(), ...obj,
-  _rid: obj._rid || CC.genRid(),
+  _rid: obj._rid || genRid(),
   _isNew: false, _dirty: false,
-  MRP:             CC.ns(CC.f2(CC.vn(obj.MRP))),
-  SaleRate:        CC.ns(CC.f2(CC.vn(obj.SaleRate))),
+  MRP:             ns(f2(vn(obj.MRP))),
+  SaleRate:        ns(f2(vn(obj.SaleRate))),
   ItemQty:         (() => {
     const d = obj.UOMDecimal;
-    if (d === 2) return CC.f2(CC.vn(obj.ItemQty)).toFixed(2);
-    if (d === 3) return CC.f3(CC.vn(obj.ItemQty)).toFixed(3);
-    return Math.round(CC.vn(obj.ItemQty)).toFixed(0);
+    if (d === 2) return f2(vn(obj.ItemQty)).toFixed(2);
+    if (d === 3) return f3(vn(obj.ItemQty)).toFixed(3);
+    return Math.round(vn(obj.ItemQty)).toFixed(0);
   })(),
-  TaxPercent:      CC.ns(CC.f2(CC.vn(obj.TaxPercent))),
-  TaxAmt:          CC.f2(CC.vn(obj.TaxAmt)),
-  CESSPer:         CC.ns(CC.f2(CC.vn(obj.CESSPer))),
-  CESSAmount:      CC.f2(CC.vn(obj.CESSAmount)),
-  DiscountPercent: CC.ns(CC.f2(CC.vn(obj.DiscountPercent))),
-  DiscountAmt:     CC.ns(CC.f2(CC.vn(obj.DiscountAmt))),
-  cdpercent:       CC.ns(CC.f2(CC.vn(obj.cdpercent))),
-  cdAmount:        CC.ns(CC.f2(CC.vn(obj.cdAmount))),
-  Amount:          CC.f2(CC.vn(obj.Amount)),
-  LandingCost:     CC.f2(CC.vn(obj.Landingcost || obj.LandingCost)),
-  WholeSaleRate:   CC.ns(CC.f2(CC.vn(obj.WholeSaleRate))),
-  RetailRate:      CC.ns(CC.f2(CC.vn(obj.RetailRate))),
-  LessAmt:         CC.ns(CC.f2(CC.vn(obj.LessAmt))),
-  CardRate:        CC.ns(CC.f2(CC.vn(obj.CardRate))),
-  SPLCESSPer:      CC.ns(CC.f2(CC.vn(obj.SPLCESS || obj.SPLCESSPer))),
-  SPLCESSAmount:   CC.f2(CC.vn(obj.SPLCESSAmount)),
-  NOMS:            CC.ns(obj.NOMS || "0"),
+  TaxPercent:      ns(f2(vn(obj.TaxPercent))),
+  TaxAmt:          f2(vn(obj.TaxAmt)),
+  CESSPer:         ns(f2(vn(obj.CESSPer))),
+  CESSAmount:      f2(vn(obj.CESSAmount)),
+  DiscountPercent: ns(f2(vn(obj.DiscountPercent))),
+  DiscountAmt:     ns(f2(vn(obj.DiscountAmt))),
+  cdpercent:       ns(f2(vn(obj.cdpercent))),
+  cdAmount:        ns(f2(vn(obj.cdAmount))),
+  Amount:          f2(vn(obj.Amount)),
+  LandingCost:     f2(vn(obj.Landingcost || obj.LandingCost)),
+  WholeSaleRate:   ns(f2(vn(obj.WholeSaleRate))),
+  RetailRate:      ns(f2(vn(obj.RetailRate))),
+  LessAmt:         ns(f2(vn(obj.LessAmt))),
+  CardRate:        ns(f2(vn(obj.CardRate))),
+  SPLCESSPer:      ns(f2(vn(obj.SPLCESS || obj.SPLCESSPer))),
+  SPLCESSAmount:   f2(vn(obj.SPLCESSAmount)),
+  NOMS:            ns(obj.NOMS || "0"),
 });
 
 // ─── ROW CALCULATION (mirrors SaleOrder.js methods.Calculation) ───────────────
@@ -118,14 +180,14 @@ function calcSaleRow(row, settings) {
     AutoGSTDeptWise,
   } = settings;
 
-  const qty      = CC.vn(row.ItemQty) + CC.vn(row.NOMS);
-  const salerate = CC.vn(row.SaleRate);
-  const cdper    = CC.vn(row.cdpercent);
-  const discper  = CC.vn(row.DiscountPercent);
-  let   gst      = CC.vn(row.TaxPercent);
-  const cess     = CC.vn(row.CESSPer);
-  const splcess  = CC.vn(row.SPLCESSPer);
-  const deptname = CC.ns(row.deptname);
+  const qty      = vn(row.ItemQty) + vn(row.NOMS);
+  const salerate = vn(row.SaleRate);
+  const cdper    = vn(row.cdpercent);
+  const discper  = vn(row.DiscountPercent);
+  let   gst      = vn(row.TaxPercent);
+  const cess     = vn(row.CESSPer);
+  const splcess  = vn(row.SPLCESSPer);
+  const deptname = ns(row.deptname);
 
   if (qty === 0 || salerate === 0) return { ...row, Amount: 0, TaxAmt: 0, CTAmount: 0, STAmount: 0, CESSAmount: 0, SPLCESSAmount: 0, ProductTotal: 0, LandingCost: 0, discamountprint: 0 };
 
@@ -148,17 +210,17 @@ function calcSaleRow(row, settings) {
     // Exclusive tax mode
     if (taxtype === 0) {
       orgrate = salerate - splcess;
-      const withouttax = CC.roVal(orgrate / (((gst + cess) / 100) + 1));
+      const withouttax = roVal(orgrate / (((gst + cess) / 100) + 1));
       orgrate = RiceUOMSetting ? withouttax * qty : withouttax * qty;
     } else {
       orgrate = salerate * qty;
     }
 
     const A1  = orgrate;
-    cdamt     = CC.roVal(A1 * (cdper / 100));
+    cdamt     = roVal(A1 * (cdper / 100));
     const B1  = A1 - cdamt;
 
-    if (BillDiscLog === 0) discamt = CC.roVal(B1 * (discper / 100));
+    if (BillDiscLog === 0) discamt = roVal(B1 * (discper / 100));
     else discamt = parseFloat((B1 * (discper / 100)).toFixed(4));
 
     if (qty !== 0) {
@@ -171,81 +233,81 @@ function calcSaleRow(row, settings) {
 
     if (qty !== 0 && landingcost !== 0) {
       if (!SaleDiscountAfterTax) {
-        ctamt   = CC.roVal(landingcost * ((gst / 2) / 100));
-        stamt   = CC.roVal(landingcost * ((gst / 2) / 100));
-        cessamt = CC.roVal(landingcost * (cess / 100));
+        ctamt   = roVal(landingcost * ((gst / 2) / 100));
+        stamt   = roVal(landingcost * ((gst / 2) / 100));
+        cessamt = roVal(landingcost * (cess / 100));
         gstamt  = ctamt + stamt;
         if (IGSTBillStatus) { ctamt = gstamt; stamt = 0; }
       } else {
-        ctamt   = CC.roVal(CC.roVal((orgrate / qty) * ((gst / 2) / 100)) * qty);
-        stamt   = CC.roVal(CC.roVal((orgrate / qty) * ((gst / 2) / 100)) * qty);
-        cessamt = CC.roVal(orgrate * (cess / 100));
+        ctamt   = roVal(roVal((orgrate / qty) * ((gst / 2) / 100)) * qty);
+        stamt   = roVal(roVal((orgrate / qty) * ((gst / 2) / 100)) * qty);
+        cessamt = roVal(orgrate * (cess / 100));
         gstamt  = ctamt + stamt;
         if (IGSTBillStatus) { ctamt = gstamt; stamt = 0; }
       }
 
       Amount = SaleDiscountAfterTax
-        ? CC.f2(orgrate - discamt + gstamt + cessamt + splcessamt)
-        : CC.f2(landingcost + gstamt + cessamt + splcessamt);
+        ? f2(orgrate - discamt + gstamt + cessamt + splcessamt)
+        : f2(landingcost + gstamt + cessamt + splcessamt);
 
-      orgratenew          = CC.roVal(orgrate);
-      landingcostprint    = CC.roVal(orgrate / qty);
+      orgratenew          = roVal(orgrate);
+      landingcostprint    = roVal(orgrate / qty);
       landingcostAmountPrint = landingcostprint * qty - (cdamt + discamt);
     }
   } else {
     // Inclusive tax mode
     orgrate = salerate * qty;
     const A1 = orgrate;
-    cdamt     = CC.roVal(A1 * (cdper / 100));
+    cdamt     = roVal(A1 * (cdper / 100));
     const B1  = A1 - cdamt;
 
-    if (BillDiscLog === 0) discamt = CC.roVal(B1 * (discper / 100));
+    if (BillDiscLog === 0) discamt = roVal(B1 * (discper / 100));
     else discamt = parseFloat((B1 * (discper / 100)).toFixed(4));
 
     landingcost = orgrate - cdamt - discamt;
 
     const A = landingcost;
     const B = (gst / 100) + 1;
-    const C = CC.roVal(A / B);
+    const C = roVal(A / B);
     const D = (cess / 100) + 1;
-    const E = CC.roVal(A / D);
-    gstamt  = CC.roVal(A - C);
-    cessamt = CC.roVal(A - E);
-    ctamt   = CC.roVal(gstamt / 2);
-    stamt   = CC.roVal(gstamt / 2);
+    const E = roVal(A / D);
+    gstamt  = roVal(A - C);
+    cessamt = roVal(A - E);
+    ctamt   = roVal(gstamt / 2);
+    stamt   = roVal(gstamt / 2);
     gstamt  = ctamt + stamt;
     if (IGSTBillStatus) { ctamt = gstamt; stamt = 0; }
     splcessamt = splcess * qty;
-    Amount = CC.f2(landingcost + splcessamt);
+    Amount = f2(landingcost + splcessamt);
 
     orgratenew          = orgrate - (gstamt + cessamt);
-    landingcostprint    = CC.roVal(orgrate / qty) + splcess;
+    landingcostprint    = roVal(orgrate / qty) + splcess;
     landingcostAmountPrint = landingcostprint * qty - (cdamt + discamt);
   }
 
   return {
     ...row,
-    TaxPercent:          CC.ns(CC.f2(gst)),
-    TaxAmt:              CC.f2(gstamt),
-    CTAmount:            CC.f2(ctamt),
-    STAmount:            CC.f2(stamt),
-    CESSAmount:          CC.f2(cessamt),
-    SPLCESSAmount:       CC.f2(splcessamt),
-    cdAmount:            CC.ns(CC.f2(cdamt)),
-    DiscountAmt:         CC.ns(CC.f2(discamt)),
+    TaxPercent:          ns(f2(gst)),
+    TaxAmt:              f2(gstamt),
+    CTAmount:            f2(ctamt),
+    STAmount:            f2(stamt),
+    CESSAmount:          f2(cessamt),
+    SPLCESSAmount:       f2(splcessamt),
+    cdAmount:            ns(f2(cdamt)),
+    DiscountAmt:         ns(f2(discamt)),
     Amount:              Amount,
-    LandingCost:         qty > 0 ? CC.f2(landingcost / qty) : 0,
-    NetSaleRate:         qty > 0 ? CC.roVal(Amount / qty) : 0,
-    orgrate:             qty > 0 ? CC.roVal(orgrate / qty) : 0,
-    ProductTotal:        CC.f2(orgratenew),
+    LandingCost:         qty > 0 ? f2(landingcost / qty) : 0,
+    NetSaleRate:         qty > 0 ? roVal(Amount / qty) : 0,
+    orgrate:             qty > 0 ? roVal(orgrate / qty) : 0,
+    ProductTotal:        f2(orgratenew),
     WithoutTaxRate:      taxtype === 0 && taxinclusivedontshow === 0
-                           ? CC.roVal(salerate / (((gst + cess) / 100) + 1))
-                           : CC.f2(salerate),
-    Landingcostprint:    CC.f2(landingcostprint),
-    salerateprint:       CC.f2(landingcostprint),
-    LandingcostAmountPrint: CC.f2(landingcostAmountPrint),
+                           ? roVal(salerate / (((gst + cess) / 100) + 1))
+                           : f2(salerate),
+    Landingcostprint:    f2(landingcostprint),
+    salerateprint:       f2(landingcostprint),
+    LandingcostAmountPrint: f2(landingcostAmountPrint),
     discperprint:        cdper + discper,
-    discamountprint:     CC.f2(cdamt + discamt),
+    discamountprint:     f2(cdamt + discamt),
   };
 }
 
@@ -268,7 +330,7 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
     if (el) el.scrollIntoView({ block: "nearest" });
   }, [hi]);
   useEffect(() => {
-    const h = e => { if (wrapRef.current && !wrapRef.current.contaiCC.ns(e.target)) { setOpen(false); setQ(selectedLabel); } };
+    const h = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setQ(selectedLabel); } };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [selectedLabel]);
@@ -324,20 +386,20 @@ function PwModal({ title, comid, onOk, onClose }) {
   const [val, setVal] = useState("");
   const verify = async () => {
     if (!val) return;
-    const res = await CC.api(CC.SO_LoginPasswordUrl, null, {}, { password: val, type: "EditPassword", Comid: comid });
+    const res = await CC.api(LoginPasswordUrl, null, {}, { password: val, type: "EditPassword", Comid: comid });
     if (res.ok ?? res.IsSuccess ?? false) { onOk(); onClose(); }
     else window.alert("Invalid Password !!!");
   };
   return (
-    <div className="mp-ov so-modal-overlay">
-      <div className="mp-modal-box so-modal-box">
-        <div className="so-modal-title">🔐 {title}</div>
+    <div className="mp-ov" style={{ zIndex: 99999 }}>
+      <div className="mp-modal-box" style={{ width: 280, padding: "20px 24px" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#1f65de" }}>🔐 {title}</div>
         <input type="password" autoFocus value={val}
           onChange={e => setVal(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") verify(); if (e.key === "Escape") onClose(); }}
-          className="so-modal-input"
+          style={{ width: "100%", padding: "6px 10px", border: "1px solid #c5d8f8", borderRadius: 4, fontSize: 13, marginBottom: 14, outline: "none" }}
           placeholder="Enter password…" />
-        <div className="so-modal-btns">
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button className="mp-btn" onClick={onClose}>Cancel</button>
           <button className="mp-btn sv" onClick={verify}>OK</button>
         </div>
@@ -399,8 +461,8 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
               onClick={() => onSelect(p)} onMouseEnter={() => setHi(idx)}>
               <span className="sb-prod-code">{p.Prod_Code || p.ProductCode}</span>
               <span className="sb-prod-name">{p.PName || p.ProductName}</span>
-              <span className="sb-prod-rate">₹{CC.f2(CC.vn(p.SaleRate || p.SalesRate)).toFixed(2)}</span>
-              <span className="sb-prod-stock">{CC.vn(p.Stock).toFixed(0)}</span>
+              <span className="sb-prod-rate">₹{f2(vn(p.SaleRate || p.SalesRate)).toFixed(2)}</span>
+              <span className="sb-prod-stock">{vn(p.Stock).toFixed(0)}</span>
             </div>
           ))
         }
@@ -413,48 +475,127 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
 }
 
 // ─── F5 VIEW MODAL ────────────────────────────────────────────────────────────
-function F5ViewModal({ rows, onEdit, onClose, fromDate, toDate, onSearch }) {
-  const [from, setFrom] = useState(fromDate);
-  const [to, setTo]     = useState(toDate);
-  const totalAmt = rows.reduce((s, r) => s + CC.vn(r.NetAmt || r.NetAmount || r.Netamt), 0);
+function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDate, onSearch }) {
+  const [from, setFrom]         = useState(fromDate);
+  const [to, setTo]             = useState(toDate);
+  const [expandedId, setExpandedId] = useState(null);
+  const totalAmt = rows.reduce((s, r) => s + vn(r.NetAmt || r.NetAmount || r.Netamt), 0);
+
+  const toggleExpand = (id) => setExpandedId(prev => prev === id ? null : id);
+
+  const getRowDetails = (id) =>
+    (details || []).filter(d =>
+      String(d.SaleRefId || d.SaleId || d.SaleOrderRefId || "") === String(id)
+    );
+
   return (
-    <div className="mp-ov so-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box sb-f5-modal so-f5-modal-box">
+    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="mp-modal-box sb-f5-modal" style={{ width: 1000, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
         <div className="mp-modal-hdr">
           <span>📋 Sale Order View (F5)</span>
           <button onClick={onClose}>✕</button>
         </div>
-        <div className="so-modal-header-flex">
-          <label className="so-label-sm">From</label>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="so-date-input" />
-          <label className="so-label-sm">To</label>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="so-date-input" />
-          <button className="mp-btn sv so-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
-          <span className="so-total-amt">Total: ₹{CC.f2(totalAmt).toFixed(2)}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "#f5f9ff", borderBottom: "1px solid #dde6f5", flexShrink: 0 }}>
+          <label style={{ fontSize: 11, fontWeight: 700 }}>From</label>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
+          <label style={{ fontSize: 11, fontWeight: 700 }}>To</label>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
+          <button className="mp-btn sv" style={{ height: 28, padding: "0 14px", fontSize: 11 }} onClick={() => onSearch(from, to)}>🔍 Search</button>
+          <span style={{ marginLeft: "auto", fontWeight: 700, fontSize: 15 }}>Total: ₹{f2(totalAmt).toFixed(2)}</span>
         </div>
-        <div className="mp-modal-body so-modal-body-flex">
-          <table className="so-table">
+        <div className="mp-modal-body" style={{ flex: 1, overflowY: "auto", padding: 0 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr>
+              <tr style={{ color: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
+                <th style={{ background: "#1a2e4a", padding: "6px 6px", width: 28, textAlign: "center" }}></th>
                 {["Order No", "Order Date", "Order Type", "Customer Name", "Amount", "Actions"].map(h => (
-                  <th key={h} className={`so-th ${h === "Amount" ? "right" : ""}`}>{h}</th>
+                  <th key={h} style={{ background: "#1a2e4a", color: "#fff", padding: "6px 10px", textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && <tr><td colSpan={6} className="so-tr-empty">No records found.</td></tr>}
-              {rows.map((r, i) => (
-                <tr key={r.Id || i} className={i % 2 === 0 ? "so-tr-even" : "so-tr-odd"}>
-                  <td className="so-td-bold">{r.BillNo || r.SaleNo || "—"}</td>
-                  <td className="so-td">{String(r.BillDate || r.SaleDate || "").slice(0, 10)}</td>
-                  <td className="so-td">{r.SaleType || ""}</td>
-                  <td className="so-td">{r.CustomerName || ""}</td>
-                  <td className="so-td-right">₹{CC.f2(CC.vn(r.NetAmt || r.NetAmount)).toFixed(2)}</td>
-                  <td className="so-td-center">
-                    <button onClick={() => onEdit(r.Id)} className="so-edit-btn">✏ Edit</button>
-                  </td>
-                </tr>
-              ))}
+              {rows.length === 0 && <tr><td colSpan={7} style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>No records found.</td></tr>}
+              {rows.map((r, i) => {
+                const rowId      = r.Id;
+                const isExpanded = expandedId === rowId;
+                const rowDetails = getRowDetails(rowId);
+                return (
+                  <React.Fragment key={r.Id || i}>
+                    <tr style={{ background: i % 2 === 0 ? "#fff" : "#fafbff", borderBottom: "1px solid #eaecf4" }}>
+                      {/* expand/collapse arrow */}
+                      <td style={{ padding: "5px 6px", textAlign: "center", width: 28 }}>
+                        <button
+                          onClick={() => toggleExpand(rowId)}
+                          title={isExpanded ? "Collapse details" : "Expand details"}
+                          style={{
+                            background: "none", border: "none", cursor: "pointer",
+                            fontSize: 13, color: "#4f8cff", padding: 0, lineHeight: 1,
+                            transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                            transition: "transform 0.15s",
+                            display: "inline-block",
+                          }}
+                        >▶</button>
+                      </td>
+                      <td style={{ padding: "5px 10px", fontWeight: 700 }}>{r.BillNo || r.SaleNo || "—"}</td>
+                      <td style={{ padding: "5px 10px" }}>{String(r.BillDate || r.SaleDate || "").slice(0, 10)}</td>
+                      <td style={{ padding: "5px 10px" }}>{r.SaleType || ""}</td>
+                      <td style={{ padding: "5px 10px" }}>{r.CustomerName || ""}</td>
+                      <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700 }}>₹{f2(vn(r.NetAmt || r.NetAmount)).toFixed(2)}</td>
+                      <td style={{ padding: "5px 10px", textAlign: "center" }}>
+                        <button onClick={() => onEdit(r.Id)} style={{ marginRight: 6, padding: "3px 10px", fontSize: 11, borderRadius: 4, border: "1px solid #c5d8f8", background: "#e8f0fe", color: "#1f65de", fontWeight: 600, cursor: "pointer" }}>✏ Edit</button>
+                        <button onClick={() => onDelete(r.Id, r.BillNo || r.SaleNo)} style={{ padding: "3px 10px", fontSize: 11, borderRadius: 4, border: "1px solid #fecaca", background: "#fee2e2", color: "#dc2626", fontWeight: 600, cursor: "pointer" }}>🗑 Del</button>
+                      </td>
+                    </tr>
+                    {/* expanded product details sub-row */}
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: 0, background: "#eaf2ff" }}>
+                          <div style={{ margin: 10 }}>
+                            {rowDetails.length === 0 ? (
+                              <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8" }}>No product details available.</div>
+                            ) : (
+                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                                <thead>
+                                  <tr>
+                                    {[
+                                      { label: "Code",      align: "left"  },
+                                      { label: "Description", align: "left" },
+                                      { label: "MRP",       align: "right" },
+                                      { label: "Rate",      align: "right" },
+                                      { label: "Qty",       align: "right" },
+                                      { label: "GST(%)",    align: "right" },
+                                      { label: "GST Amt",   align: "right" },
+                                      { label: "Disc(%)",   align: "right" },
+                                      { label: "Disc Amt",  align: "right" },
+                                    ].map(h => (
+                                      <th key={h.label} style={{ background: "#1f65de", color: "#fff", padding: "4px 8px", textAlign: h.align, fontWeight: 600, fontSize: 11 }}>{h.label}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rowDetails.map((d, di) => (
+                                    <tr key={di} style={{ background: di % 2 === 0 ? "#fff" : "#f7faff", borderBottom: "1px solid #e2e8f0" }}>
+                                      <td style={{ padding: "3px 8px" }}>{d.ProductCode || ""}</td>
+                                      <td style={{ padding: "3px 8px" }}>{d.ProductName || ""}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.MRP)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.SaleRate)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.ItemQty || d.Qty)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.TaxPercent)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.TaxAmt)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.DiscountPercent)).toFixed(2)}</td>
+                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.DiscountAmt)).toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -473,7 +614,7 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
   const handleSave = async () => {
     const payload = local.map(c => ({ Comid: parseInt(comid) || 1, filename: "SaleOrder", column: c.key, Visible: c.visible === true, Width: parseInt(c.width) || 100 }));
     try {
-      const res = await fetch(CC.SO_VisibleColumnsUrl, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() }, body: JSON.stringify(payload) });
+      const res = await fetch(VisibleColumnsUrl, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (data.ok) { toast?.("✅ Column settings saved"); onSave(local); }
       else { toast?.("⚠️ " + (data.message || "Saved locally"), false); onSave(local); }
@@ -481,18 +622,18 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
   };
 
   return (
-    <div className="mp-ov so-modal-overlay">
-      <div className="mp-modal-box so-col-config-modal">
+    <div className="mp-ov">
+      <div className="mp-modal-box" style={{ width: 500, maxHeight: "82vh" }}>
         <div className="mp-modal-hdr"><span>⚙ Sale Order Grid Column Settings (F12)</span><button onClick={onClose}>✕</button></div>
-        <div className="mp-modal-body so-col-config-body">
-          <table className="so-table">
-            <thead><tr>{["Column", "Visible", "Width (px)"].map(h => <th key={h} className="so-col-config-th">{h}</th>)}</tr></thead>
+        <div className="mp-modal-body" style={{ overflowY: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+            <thead><tr>{["Column", "Visible", "Width (px)"].map(h => <th key={h} style={{ color: "#fff", padding: "6px 10px", background: "#1a2e4a", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>)}</tr></thead>
             <tbody>
               {local.map((c, i) => (
-                <tr key={c.key} className={i % 2 === 0 ? "so-col-config-tr-even" : "so-col-config-tr-odd"}>
-                  <td className="so-col-config-td">{c.label}</td>
-                  <td className="so-col-config-td-center"><input type="checkbox" checked={!!c.visible} onChange={() => toggle(c.key)} /></td>
-                  <td className="so-col-config-td"><input type="number" min={40} max={600} value={c.width} className="so-col-config-input" onChange={e => setWid(c.key, e.target.value)} /></td>
+                <tr key={c.key} style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}>
+                  <td style={{ padding: "5px 10px", borderBottom: "1px solid #eaecf4", fontSize: 12 }}>{c.label}</td>
+                  <td style={{ padding: "5px 10px", textAlign: "center", borderBottom: "1px solid #eaecf4" }}><input type="checkbox" checked={!!c.visible} onChange={() => toggle(c.key)} /></td>
+                  <td style={{ padding: "5px 10px", borderBottom: "1px solid #eaecf4" }}><input type="number" min={40} max={600} value={c.width} style={{ width: 70, border: "1px solid #d4dbe8", borderRadius: 3, padding: "2px 6px", fontSize: 12, textAlign: "right" }} onChange={e => setWid(c.key, e.target.value)} /></td>
                 </tr>
               ))}
             </tbody>
@@ -514,8 +655,7 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
   useEffect(() => {
     (async () => {
       try {
-           const url =  CC.BASE_URL + `${CC1.GetCC.SO_FocusColumnsUrl}?comid=${sess.Comid}&filename=SaleOrderFocus`;
-        //const url = `/Content/Appdata/Visible/${mcomid}/SaleOrderFocus.json?v=${Date.now()}`;
+        const url = `/Content/Appdata/Visible/${mcomid}/SaleOrderFocus.json?v=${Date.now()}`;
         const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
         let saved = [];
         if (res.ok) { try { saved = await res.json(); } catch {} }
@@ -544,7 +684,7 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
   const handleSave = async () => {
     const payload = items.map((it, i) => ({ filename: "SaleOrderFocus", column: it.key, Index: i, Focus: it.focus, Comid: parseInt(comid) || 1 }));
     try {
-      const res = await fetch(CC.SO_FocusColumnsUrl, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() }, body: JSON.stringify(payload) });
+      const res = await fetch(FocusColumnsUrl, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (data.ok) { toast?.("✅ Focus/Reorder saved."); onSaved?.(); onClose(); }
       else { toast?.("⚠️ " + (data.message || "Save failed")); onClose(); }
@@ -552,17 +692,17 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
   };
 
   return (
-    <div className="so-grid-focus-overlay">
-      <div className="so-grid-focus-box">
-        <div className="so-grid-focus-header">
-          <span className="so-grid-focus-title">⚡ Ctrl+G — Grid Column Focus & Reorder</span>
-          <button onClick={onClose} className="so-close-btn">✕</button>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(10,20,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8700 }}>
+      <div style={{ background: "#fff", borderRadius: 10, width: 420, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 16px 48px rgba(31,101,222,.22)", border: "1px solid #d0ddf5" }}>
+        <div style={{ background: "linear-gradient(135deg,#1b3a8f 0%,#1f65de 100%)", padding: "10px 14px", display: "flex", alignItems: "center" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", flex: 1 }}>⚡ Ctrl+G — Grid Column Focus & Reorder</span>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,.15)", border: "none", color: "#fff", width: 22, height: 22, borderRadius: "50%", cursor: "pointer", fontSize: 11 }}>✕</button>
         </div>
-        <div className="so-grid-focus-desc">
+        <div style={{ background: "#f0f7ff", borderBottom: "1px solid #dde6f5", padding: "6px 12px", fontSize: 10.5, color: "#4a5568" }}>
           🖱 <strong>Drag rows</strong> to reorder &nbsp;|&nbsp; ☑ <strong>Check</strong> to enable focus navigation
         </div>
-        <div className="so-grid-focus-body">
-          {loading ? <div className="so-loading-text">Loading...</div>
+        <div style={{ overflowY: "auto", flex: 1, padding: "6px 0" }}>
+          {loading ? <div style={{ textAlign: "center", padding: 20, color: "#94a3b8", fontSize: 12 }}>Loading...</div>
             : items.map((it, idx) => (
               <div key={it.key} draggable
                 onDragStart={e => onDragStart(e, idx)} onDragOver={e => onDragOver(e, idx)}
@@ -591,6 +731,10 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
 }
 
 // ─── INLINE STYLES ────────────────────────────────────────────────────────────
+const fieldInput = { height: 24, border: "1px solid #b8ccee", borderRadius: 3, padding: "0 6px", fontSize: 12, outline: "none", background: "#fff", color: "#1a2e4a" };
+const fieldLabel = { fontSize: 12, fontWeight: 600, color: "#4a5568", minWidth: 80, flexShrink: 0 };
+const panelStyle = { border: "1px solid #c8d8ee", borderRadius: 4, background: "#fff", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 };
+const panelTitle = { fontSize: 11, fontWeight: 700, color: "#4a5568", borderBottom: "1px solid #e2e8f0", paddingBottom: 4, marginBottom: 2 };
 
 const RIGHT_KEYS = new Set(["Amount","SaleRate","ItemQty","MRP","TaxPercent","DiscountPercent","TaxAmt","CESSAmount","DiscountAmt","CESSPer","cdpercent","cdAmount","Pcs","Meter","TotalPcs","NOMS"]);
 const FREE_AMT_COLOR  = "#fff3cd";
@@ -696,15 +840,14 @@ export default function SaleOrder() {
   });
 
   // ── Column Settings ────────────────────────────────────────────────────────
-  const [colSettings, setColSettings] = useState(CC.DEFAULT_COL_SETTINGS);
+  const [colSettings, setColSettings] = useState(DEFAULT_COL_SETTINGS);
   const [f12Open,     setF12Open]     = useState(false);
   const [ctrlGOpen,   setCtrlGOpen]   = useState(false);
   const visCols = colSettings.filter(c => c.visible);
 
   const loadColCfg = useCallback(async (comid) => {
     try {
-       const url =  CC.BASE_URL + `${CC1.GetCC.SO_FocusColumnsUrl}?comid=${sess.Comid}&filename=SaleOrder`;
-     // const url = `Content/Appdata/Visible/${comid}/SaleOrder.json?v=${Date.now()}`;
+      const url = `Content/Appdata/Visible/${comid}/SaleOrder.json?v=${Date.now()}`;
       const res = await fetch(url, { headers: CC.authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
@@ -723,8 +866,7 @@ export default function SaleOrder() {
 
   const loadFocusCols = useCallback(async (mcomid) => {
     try {
-        const url =  CC.BASE_URL + `${CC1.GetCC.SO_FocusColumnsUrl}?comid=${sess.Comid}&filename=SaleOrderFocus`;
-      //const url = `/Content/Appdata/Visible/${mcomid}/SaleOrderFocus.json?v=${Date.now()}`;
+      const url = `/Content/Appdata/Visible/${mcomid}/SaleOrderFocus.json?v=${Date.now()}`;
       const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
       if (!res.ok) return;
       const saved = await res.json();
@@ -746,7 +888,7 @@ export default function SaleOrder() {
   const [prodList,     setProdList]     = useState([]);
 
   const [orderNo,      setOrderNo]      = useState("");
-  const [orderDate,    setOrderDate]    = useState(CC.today());
+  const [orderDate,    setOrderDate]    = useState(today());
   const [orderType,    setOrderType]    = useState("CASH");
   const [custId,       setCustId]       = useState("");
   const [custMobile,   setCustMobile]   = useState("");
@@ -789,6 +931,7 @@ export default function SaleOrder() {
   const [prodPopup,    setProdPopup]    = useState(null);
   const [f5Open,       setF5Open]       = useState(false);
   const [f5Rows,       setF5Rows]       = useState([]);
+  const [f5Details,    setF5Details]    = useState([]);
 
   const rowsRef  = useRef(rows);
   const cellRefs = useRef({});
@@ -824,7 +967,7 @@ export default function SaleOrder() {
     if (!isAuthorized) return;
     (async () => {
       setLoading(true); setLdMsg("Loading...");
-      await Promise.all([loadDropdowCC.ns(), loadOrderNo(), loadColCfg(settings.Comid), loadFocusCols(settings.MComid)]);
+      await Promise.all([loadDropdowns(), loadOrderNo(), loadColCfg(settings.Comid), loadFocusCols(settings.MComid)]);
       setLoading(false);
       setTimeout(() => {
         const fr = rowsRef.current[0];
@@ -836,18 +979,18 @@ export default function SaleOrder() {
 
   // ── Load Order No ─────────────────────────────────────────────────────────
   const loadOrderNo = useCallback(async () => {
-    const res = await CC.api(CC.SaleOrderMaxNo, null, {}, { Comid: settings.Comid });
+    const res = await CC.api(SaleOrderMaxNo, null, {}, { Comid: settings.Comid });
     if (redirectIfDualLogin(res)) return;
     const no = res.No || res.data || "";
-    if (no) setOrderNo(CC.ns(no));
+    if (no) setOrderNo(ns(no));
   }, [settings.Comid]);
 
   // ── Load Dropdowns ────────────────────────────────────────────────────────
   const loadDropdowns = useCallback(async () => {
     const comid = settings.Comid;
     const [custRes, smRes] = await Promise.all([
-      CC.api(CC.SO_GetCustomerUrl, null, {}, { Comid: comid, AccountType: "CUSTOMER" }),
-      CC.api(CC.SO_SalesManSelectUrl, null, {}, { Comid: comid }),
+      CC.api(GetCustomerUrl, null, {}, { Comid: comid, AccountType: "CUSTOMER" }),
+      CC.api(SalesManSelectUrl, null, {}, { Comid: comid }),
     ]);
     if (redirectIfDualLogin(custRes)) return;
     const pick = r => r.data || r.Data1 || r || [];
@@ -867,23 +1010,23 @@ export default function SaleOrder() {
 
       // Salesman auto-select from customer if not in edit mode
       if (editId === 0 && found.SalemanRefid) {
-        setSmId(CC.ns(found.SalemanRefid));
+        setSmId(ns(found.SalemanRefid));
         const sm = salesmen.find(s => String(s.Id) === String(found.SalemanRefid));
         if (sm) { smRef.current = { smId: sm.Id, smCode: sm.Code, smComper: sm.Commission }; }
       }
     }
 
     const [crmRes, balRes] = await Promise.all([
-      CC.api(CC.SO_CRMBalanceUrl, null, {}, { Id: cid, Fromdate: orderDate, Comid: settings.Comid, MComid: settings.MComid }),
-      CC.api(CC.SO_CurrentStockUrl, null, {}, { Id: cid, MComid: settings.MComid, TillDate: orderDate, Comid: settings.Comid, AccountType: "CUSTOMER" }),
+      CC.api(CRMBalanceUrl, null, {}, { Id: cid, Fromdate: orderDate, Comid: settings.Comid, MComid: settings.MComid }),
+      CC.api(CurrentBalanceUrl, null, {}, { Id: cid, MComid: settings.MComid, TillDate: orderDate, Comid: settings.Comid, AccountType: "CUSTOMER" }),
     ]);
     if (!crmRes._netErr && (crmRes.ok ?? crmRes.IsSuccess)) {
       const arr = Array.isArray(crmRes.data) ? crmRes.data : [];
-      setCrmValue(arr.length > 0 ? CC.f2(CC.vn(arr[0].Value)).toFixed(2) : "0.00");
+      setCrmValue(arr.length > 0 ? f2(vn(arr[0].Value)).toFixed(2) : "0.00");
     }
     if (balRes && !balRes._netErr) {
       const bal = parseFloat(balRes.Data1 ?? balRes.data ?? 0);
-      setCurBal(isNaN(bal) ? "0.00" : CC.f2(bal).toFixed(2));
+      setCurBal(isNaN(bal) ? "0.00" : f2(bal).toFixed(2));
     }
   }, [customers, salesmen, settings, orderDate, editId]);
 
@@ -930,27 +1073,27 @@ export default function SaleOrder() {
     rowsArr.forEach(r => {
       if (r.Freeamountdetailsrefid || r.Freeqtydetailsrefid || r.CompanyOfferFreeqtydetailsrefid) return;
       if (!r.ProductRefId) return;
-      productTotal += CC.vn(r.ProductTotal);
-      gstTotal     += CC.vn(r.TaxAmt);
-      cessTotal    += CC.vn(r.CESSAmount);
-      discTotal    += CC.vn(r.DiscountAmt);
-      cdTotal      += CC.vn(r.cdAmount);
-      splcessTotal += CC.vn(r.SPLCESSAmount);
+      productTotal += vn(r.ProductTotal);
+      gstTotal     += vn(r.TaxAmt);
+      cessTotal    += vn(r.CESSAmount);
+      discTotal    += vn(r.DiscountAmt);
+      cdTotal      += vn(r.cdAmount);
+      splcessTotal += vn(r.SPLCESSAmount);
 
-      const key = CC.f2(CC.vn(r.TaxPercent));
+      const key = f2(vn(r.TaxPercent));
       if (!gstMap[key]) gstMap[key] = { TaxPercent: key, TaxAmt: 0, CTAmount: 0, STAmount: 0 };
-      gstMap[key].TaxAmt   += CC.vn(r.TaxAmt);
-      gstMap[key].CTAmount += CC.vn(r.CTAmount);
-      gstMap[key].STAmount += CC.vn(r.STAmount);
+      gstMap[key].TaxAmt   += vn(r.TaxAmt);
+      gstMap[key].CTAmount += vn(r.CTAmount);
+      gstMap[key].STAmount += vn(r.STAmount);
     });
 
-    const grossAmt = productTotal + gstTotal + cessTotal + splcessTotal + CC.vn(oPlus) - cdTotal - discTotal - CC.vn(oMinus);
+    const grossAmt = productTotal + gstTotal + cessTotal + splcessTotal + vn(oPlus) - cdTotal - discTotal - vn(oMinus);
     let coinageVal = 0;
     if (settings.RoundoffPaise === "3") coinageVal = Math.round(grossAmt) - grossAmt;
-    const netAmt = CC.f2(grossAmt + coinageVal);
+    const netAmt = f2(grossAmt + coinageVal);
 
     setGstSplit(Object.values(gstMap).filter(g => g.TaxAmt > 0));
-    setTotals({ GrossAmt: CC.f2(productTotal), DiscAmt: CC.f2(discTotal + cdTotal), GSTAmt: CC.f2(gstTotal), CESSAmt: CC.f2(cessTotal), NetAmt: netAmt, ProductTotal: CC.f2(productTotal) });
+    setTotals({ GrossAmt: f2(productTotal), DiscAmt: f2(discTotal + cdTotal), GSTAmt: f2(gstTotal), CESSAmt: f2(cessTotal), NetAmt: netAmt, ProductTotal: f2(productTotal) });
     setCoinage(coinageVal.toFixed(2));
     return netAmt;
   }, [settings]);
@@ -960,7 +1103,7 @@ export default function SaleOrder() {
 
   // ── Bill discount from discPer input (mirrors txtdiscper keydown) ─────────
   const applyDiscPer = useCallback((perVal) => {
-    const per = CC.vn(perVal);
+    const per = vn(perVal);
     setDiscPer(per.toFixed(2));
     setBillDiscLog(0);
     setRows(prev => {
@@ -976,7 +1119,7 @@ export default function SaleOrder() {
 
   // ── Bill discount from discAmt input (mirrors txtdiscamt keydown) ─────────
   const applyDiscAmt = useCallback((amtVal) => {
-    const amt = CC.vn(amtVal);
+    const amt = vn(amtVal);
     if (amt === 0) {
       setDiscAmt("0.00"); setDiscPer("0.00"); setBillDiscLog(0);
       setRows(prev => prev.map(r => {
@@ -989,8 +1132,8 @@ export default function SaleOrder() {
     rowsRef.current.forEach(r => {
       if (r.Freeqtydetailsrefid || r.Freeamountdetailsrefid || r.CompanyOfferFreeqtydetailsrefid) return;
       if (!r.ProductRefId) return;
-      const qty = CC.vn(r.ItemQty) + (settings.RiceUOMSetting ? CC.vn(r.NOMS) : 0);
-      totalItemAmt += qty * CC.vn(r.orgrate || r.SaleRate);
+      const qty = vn(r.ItemQty) + (settings.RiceUOMSetting ? vn(r.NOMS) : 0);
+      totalItemAmt += qty * vn(r.orgrate || r.SaleRate);
     });
     if (totalItemAmt === 0) return;
     const per = parseFloat(((amt * 100) / totalItemAmt).toFixed(4));
@@ -1017,58 +1160,58 @@ export default function SaleOrder() {
       const newRows = prev.map(r => {
         if (r._rid !== rid) return r;
         const saleRate = (() => {
-          if (!settings.WholeSaleRate) return CC.f2(CC.vn(item.SalesRate || item.SaleRate));
+          if (!settings.WholeSaleRate) return f2(vn(item.SalesRate || item.SaleRate));
           const ws = whoSaleStatus;
-          if (ws === "M") return CC.f2(CC.vn(item.MRP));
-          if (ws === "R") return CC.f2(CC.vn(item.SalesRate));
-          if (ws === "P") return CC.f2(CC.vn(item.PurchaseRate));
-          if (ws === "W") return CC.f2(CC.vn(item.WholeSaleRate));
+          if (ws === "M") return f2(vn(item.MRP));
+          if (ws === "R") return f2(vn(item.SalesRate));
+          if (ws === "P") return f2(vn(item.PurchaseRate));
+          if (ws === "W") return f2(vn(item.WholeSaleRate));
           if (ws === "C") return 0;
-          return CC.f2(CC.vn(item.SalesRate));
+          return f2(vn(item.SalesRate));
         })();
         const updated = {
           ...r,
           ProductRefId:    item.Id,
           ProductCode:     item.ProductCode || item.Prod_Code,
           ProductName:     item.ProductName || item.PName,
-          MRP:             CC.ns(CC.f2(CC.vn(item.MRP))),
-          SaleRate:        CC.ns(saleRate),
-          SaleRateorg:     CC.f2(CC.vn(item.SalesRate)),
-          NomsRate:        CC.f2(CC.vn(item.NomsRate || 0)),
-          TaxPercent:      CC.ns(CC.f2(CC.vn(item.GST))),
-          CESSPer:         CC.ns(CC.f2(CC.vn(item.CESS))),
-          SPLCESSPer:      CC.ns(CC.f2(CC.vn(item.SPLCESS))),
+          MRP:             ns(f2(vn(item.MRP))),
+          SaleRate:        ns(saleRate),
+          SaleRateorg:     f2(vn(item.SalesRate)),
+          NomsRate:        f2(vn(item.NomsRate || 0)),
+          TaxPercent:      ns(f2(vn(item.GST))),
+          CESSPer:         ns(f2(vn(item.CESS))),
+          SPLCESSPer:      ns(f2(vn(item.SPLCESS))),
           UOM:             item.UOM || "",
           UOMDecimal:      item.UOMDecimal || 0,
           HSNcode:         item.HSNCode || "",
           StockQty:        (() => {
-            const s = CC.vn(item.StockQty || item.Stock);
+            const s = vn(item.StockQty || item.Stock);
             const d = item.UOMDecimal;
             if (d === 0) return Math.round(s).toFixed(0);
             if (d === 2) return s.toFixed(2);
             return s.toFixed(3);
           })(),
           PrintName:       item.PrinterName || "",
-          PurchaseRate:    CC.ns(CC.f2(CC.vn(item.PurchaseRate))),
-          RetailRate:      CC.ns(CC.f2(CC.vn(item.SalesRate))),
-          WholeSaleRate:   CC.ns(CC.f2(CC.vn(item.WholeSaleRate))),
+          PurchaseRate:    ns(f2(vn(item.PurchaseRate))),
+          RetailRate:      ns(f2(vn(item.SalesRate))),
+          WholeSaleRate:   ns(f2(vn(item.WholeSaleRate))),
           CardRate:        "0",
           NegativetStock:  item.NegativetStock || false,
           SaleRateType:    item.SalesRateType !== undefined ? item.SalesRateType : true,
           BatchStatus:     item.BatchwiseStock || 0,
-          DiscountPercent: CC.ns(CC.f2(CC.vn(item.SaleDiscountPer) + crmdiscdata)),
+          DiscountPercent: ns(f2(vn(item.SaleDiscountPer) + crmdiscdata)),
           DiscountAmt:     "0.00",
           cdpercent:       "0.00",
           cdAmount:        "0.00",
           NOMS:            "0",
-          NOMSQty:         Math.round(CC.vn(item.NomsQty || 0)).toFixed(0),
+          NOMSQty:         Math.round(vn(item.NomsQty || 0)).toFixed(0),
           CRMPoints:       item.CRMPoints || 0,
-          LandingcostProfit: CC.ns(CC.f2(CC.vn(item.LandingCost))),
+          LandingcostProfit: ns(f2(vn(item.LandingCost))),
           Schemedetailsrefid: item.Schemeid || null,
           ExpiryDate:      null,
           MfgDate:         null,
           BatchRefid:      null,
-          _indexid:        CC.newGuid(),
+          _indexid:        newGuid(),
           SMCode:          smRef.current.smCode,
           salesmancomm:    smRef.current.smComper,
           SalesManRefId:   smRef.current.smId,
@@ -1079,7 +1222,7 @@ export default function SaleOrder() {
           deptname:        item.deptname || "",
           _dirty: true,
         };
-        setStockLbl(CC.vn(item.StockQty || item.Stock).toFixed(0));
+        setStockLbl(vn(item.StockQty || item.Stock).toFixed(0));
         return updated.ItemQty ? recalcRow(updated) : updated;
       });
 
@@ -1096,7 +1239,7 @@ export default function SaleOrder() {
             String(r.SaleRate) === String(targetRow.SaleRate)
           );
           if (duplicate) {
-            const totalQty = CC.vn(targetRow.ItemQty) + CC.vn(duplicate.ItemQty);
+            const totalQty = vn(targetRow.ItemQty) + vn(duplicate.ItemQty);
             const dec = targetRow.UOMDecimal;
             const mergedQty = dec === 0 ? Math.round(totalQty).toFixed(0) : dec === 2 ? totalQty.toFixed(2) : totalQty.toFixed(3);
             const merged = recalcRow({ ...targetRow, ItemQty: mergedQty });
@@ -1110,7 +1253,7 @@ export default function SaleOrder() {
     setProdPopup(null);
 
     setTimeout(() => {
-      const editableCols = CC.SO_COLUMNS.filter(c => !c.readOnly && c.key !== "ProductCode").map(c => c.key);
+      const editableCols = SO_COLUMNS.filter(c => !c.readOnly && c.key !== "ProductCode").map(c => c.key);
       const firstFocusCol = focusColsRef.current.length > 0
         ? focusColsRef.current.find(k => k !== "ProductCode" && editableCols.includes(k))
         : "ItemQty";
@@ -1122,7 +1265,7 @@ export default function SaleOrder() {
   // ── Fetch product by code ──────────────────────────────────────────────────
   const fetchProductByCode = useCallback(async (rid, code) => {
     if (!code.trim()) return;
-    const res = await CC.api(CC.SO_SelectItemByCodeUrl, null, {}, {
+    const res = await CC.api(SelectItemByCodeUrl, null, {}, {
       code: code.trim().toUpperCase(),
       Comid: settings.MComid, CComid: settings.Comid,
       Id: 0, Batchwise: 0,
@@ -1142,7 +1285,7 @@ export default function SaleOrder() {
   const loadProductsForPopup = useCallback(async (rid) => {
     if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
     setLoading(true); setLdMsg("Loading products...");
-    const res = await CC.api(CC.SO_ProductListUrl, null, {}, { Comid: settings.Comid });
+    const res = await CC.api(ProductListUrl, null, {}, { Comid: settings.Comid });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
@@ -1159,19 +1302,19 @@ export default function SaleOrder() {
       // NOMS logic (mirrors gridsale keypress for grdNOMS)
       if (colKey === "NOMS") {
         updated.ItemQty = "0";
-        if (CC.vn(value) !== 0) updated.SaleRate = CC.ns(CC.f2(CC.vn(r.SaleRateorg)));
-        else updated.SaleRate = CC.ns(CC.f2(CC.vn(r.NomsRate)));
+        if (vn(value) !== 0) updated.SaleRate = ns(f2(vn(r.SaleRateorg)));
+        else updated.SaleRate = ns(f2(vn(r.NomsRate)));
       }
       // ItemQty: if NOMSQty non-zero, reset NOMS
-      if (colKey === "ItemQty" && CC.vn(r.NOMSQty) !== 0) {
+      if (colKey === "ItemQty" && vn(r.NOMSQty) !== 0) {
         updated.NOMS = "0";
-        updated.SaleRate = CC.ns(CC.f2(CC.vn(r.NomsRate)));
+        updated.SaleRate = ns(f2(vn(r.NomsRate)));
       }
       // Pcs/Meter/TotalPcs auto-compute ItemQty
       if (colKey === "Pcs" || colKey === "Meter" || colKey === "TotalPcs") {
-        const pcs      = colKey === "Pcs"      ? CC.vn(value) : CC.vn(r.Pcs);
-        const meter    = colKey === "Meter"    ? CC.vn(value) : CC.vn(r.Meter) || 1;
-        const totalpcs = colKey === "TotalPcs" ? CC.vn(value) : CC.vn(r.TotalPcs) || 1;
+        const pcs      = colKey === "Pcs"      ? vn(value) : vn(r.Pcs);
+        const meter    = colKey === "Meter"    ? vn(value) : vn(r.Meter) || 1;
+        const totalpcs = colKey === "TotalPcs" ? vn(value) : vn(r.TotalPcs) || 1;
         const totalqty = pcs * meter * totalpcs;
         const dec = r.UOMDecimal;
         updated.ItemQty = dec === 0 ? Math.round(totalqty).toFixed(0) : dec === 2 ? totalqty.toFixed(2) : totalqty.toFixed(3);
@@ -1204,7 +1347,7 @@ export default function SaleOrder() {
   // ── Cell keydown ───────────────────────────────────────────────────────────
   const handleCellKeyDown = useCallback((e, rid, colKey) => {
     const editableCols = visCols
-      .map(vc => CC.SO_COLUMNS.find(c => c.key === vc.key))
+      .map(vc => SO_COLUMNS.find(c => c.key === vc.key))
       .filter(Boolean).filter(cd => !cd.readOnly).map(cd => cd.key);
 
     const COLS = focusColsRef.current.length > 0
@@ -1235,18 +1378,18 @@ export default function SaleOrder() {
       // SaleRate validation (mirrors SaleOrder.js columnnameC == grdSalerate)
       if (colKey === "SaleRate") {
         const row = rowsRef.current.find(r => r._rid === rid);
-        if (CC.vn(row?.SaleRate) === 0) { toast("Enter the SaleRate !!!", true); return; }
+        if (vn(row?.SaleRate) === 0) { toast("Enter the SaleRate !!!", true); return; }
       }
 
       // ItemQty validation (mirrors SaleOrder.js columnnameC == grdItemQty)
       if (colKey === "ItemQty") {
         const row = rowsRef.current.find(r => r._rid === rid);
-        if ((CC.vn(row?.ItemQty) + CC.vn(row?.NOMS)) === 0) {
+        if ((vn(row?.ItemQty) + vn(row?.NOMS)) === 0) {
           setRows(prev => prev.map(r => r._rid === rid ? { ...r, ItemQty: "1" } : r));
         }
         // Check SaleRateType: if false, must go to SaleRate
         if (row && !row.SaleRateType) { focusCell(rid, "SaleRate"); return; }
-        if (row && CC.vn(row.SaleRate) === 0) { focusCell(rid, "SaleRate"); return; }
+        if (row && vn(row.SaleRate) === 0) { focusCell(rid, "SaleRate"); return; }
       }
 
       // Move to next column
@@ -1294,14 +1437,14 @@ export default function SaleOrder() {
         cellRefs.current[r._rid]?.["ProductCode"]?.focus();
         return false;
       }
-      if ((CC.vn(r.ItemQty) + CC.vn(r.NOMS)) === 0) {
+      if ((vn(r.ItemQty) + vn(r.NOMS)) === 0) {
         toast("Enter All Quantity in the Grid !!!", true);
         cellRefs.current[r._rid]?.["ItemQty"]?.focus();
         return false;
       }
       if (!r.Freeqtydetailsrefid && !r.Freeamountdetailsrefid && !r.CompanyOfferFreeqtydetailsrefid) {
-        if (CC.vn(r.SaleRate) === 0) { toast("Enter All SaleRate in the Grid !!!", true); return false; }
-        if (CC.vn(r.Amount) === 0)   { toast("Enter All Amount in the Grid !!!", true); return false; }
+        if (vn(r.SaleRate) === 0) { toast("Enter All SaleRate in the Grid !!!", true); return false; }
+        if (vn(r.Amount) === 0)   { toast("Enter All Amount in the Grid !!!", true); return false; }
       }
     }
     setRows(rowsArr.length > 0 ? rowsArr : [mkRow()]);
@@ -1323,7 +1466,7 @@ export default function SaleOrder() {
 
     setLoading(true); setLdMsg("Saving...");
 
-    const saledetails = rowsRef.current.filter(r => r.ProductRefId && (CC.vn(r.ItemQty) + CC.vn(r.NOMS)) > 0);
+    const saledetails = rowsRef.current.filter(r => r.ProductRefId && (vn(r.ItemQty) + vn(r.NOMS)) > 0);
     const salemaster = [{
       Id:               editId,
       CustomerRefId:    cid ? parseInt(cid) : 0,
@@ -1343,7 +1486,7 @@ export default function SaleOrder() {
       Pincode:          custObj?.Pincode     || "",
       TinNo:            custObj?.GSTINNo     || "",
       IGSTBill:         igstBill,
-      OtherssubAmt:     CC.vn(otherMinus),
+      OtherssubAmt:     vn(otherMinus),
       Grossamt:         totals.ProductTotal,
       CESSAmount:       totals.CESSAmt,
       SPLCESSAmount:    0,
@@ -1352,26 +1495,26 @@ export default function SaleOrder() {
       ShiftCode:        0,
       Modified_Date:    new Date().toLocaleString(),
       Duedate:          orderDate,
-      disper:           CC.vn(discPer),
+      disper:           vn(discPer),
       cdamount:         0,
       taxamount:        totals.GSTAmt,
       Cashtender:       0,
       Cashrecevier:     0,
-      OthersplusAmt:    CC.vn(otherPlus),
+      OthersplusAmt:    vn(otherPlus),
       schargePer:       0,
       OldBillAmount:    0,
       TodaySaving:      0,
-      coinage:          CC.vn(coinage),
+      coinage:          vn(coinage),
       NetAmount:        totals.NetAmt,
       Remarks:          remarks,
-      discamount:       CC.vn(discAmt),
+      discamount:       vn(discAmt),
       CashierRefId:     parseInt(settings.CashierId) || 0,
       salesmanRefId:    smId ? parseInt(smId) : null,
       Credit:           0,
       SaleDetails:      saledetails,
     }];
 
-    const res = await CC.insertapi(CC.SaleOrderInsertUrl, salemaster, {
+    const res = await CC.insertapi(SaleOrderInsertUrl, salemaster, {
       PrintA4Invoice: String(settings.PrintA4Bill),
     });
     setLoading(false);
@@ -1401,7 +1544,7 @@ export default function SaleOrder() {
     const ok = await confirm("Do You Want To Delete SaleOrder Bill ?");
     if (!ok) return;
     setLoading(true);
-    const res = await CC.api(CC.SaleOrderDeleteUrl, null, {}, { Id: editId });
+    const res = await CC.api(SaleOrderDeleteUrl, null, {}, { Id: editId });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     if (res.ok ?? res.IsSuccess) { toast("✅ " + (res.message || "Deleted Successfully")); await clearForm(); }
@@ -1412,7 +1555,7 @@ export default function SaleOrder() {
   const openF5 = useCallback(async (from = orderDate, to = orderDate) => {
     if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!", true); return; }
     setLoading(true); setLdMsg("Loading orders...");
-    const res = await CC.api(CC.SaleOrderSelectUrl, null, {}, {
+    const res = await CC.api(SaleOrderSelectUrl, null, {}, {
       Comid: settings.Comid, Fromdate: from, Todate: to, Id: 0,
     });
     setLoading(false);
@@ -1420,22 +1563,54 @@ export default function SaleOrder() {
     if (!(res.ok ?? res.IsSuccess)) { toast("❌ " + (res.message || "Load Failed"), true); return; }
 
     let master = [];
-    if (Array.isArray(res?.Data)) {
-      const node = res.Data[0];
-      master = node?.salemaster || node?.SaleMaster || res.Data || [];
-    } else if (Array.isArray(res?.data)) {
-      master = res.data;
+    let details = [];
+
+    const dataSource = res?.Data1 || res?.Data || res?.data || [];
+
+    if (Array.isArray(dataSource)) {
+      const node = dataSource[0];
+
+      if (node?.salemaster) {
+        master  = node.salemaster;
+        details = node.saledetails || node.SaleDetails || [];
+      } else if (node?.SaleMaster) {
+        master  = node.SaleMaster;
+        details = node.SaleDetails || node.saledetails || [];
+      } else {
+        master = dataSource;
+      }
     }
-    setF5Rows(Array.isArray(master) ? master : []);
+
+    setF5Rows(Array.isArray(master)  ? master  : []);
+    setF5Details(Array.isArray(details) ? details : []);
     setF5Open(true);
   }, [settings, orderDate, perm, redirectIfDualLogin, toast]);
+
+  // ── F5 Delete (delete from F5 popup with password) ────────────────────────
+  const handleF5Delete = useCallback((id, billNo) => {
+    pwOkRef.current = async () => {
+      const ok = await confirm(`Delete Sale Order "${billNo}"?`);
+      if (!ok) return;
+      setLoading(true); setLdMsg("Deleting...");
+      const res = await CC.api(SaleOrderDeleteUrl, null, {}, { Id: id });
+      setLoading(false);
+      if (redirectIfDualLogin(res)) return;
+      if (res.ok ?? res.IsSuccess) {
+        toast("✅ " + (res.message || "Deleted Successfully"));
+        await openF5();
+      } else {
+        toast("❌ " + (res.message || "Delete Failed"), true);
+      }
+    };
+    setPw({ title: "Delete Password" });
+  }, [confirm, redirectIfDualLogin, toast, openF5]);
 
   // ── Edit (mirrors methods.SaleEdit) ───────────────────────────────────────
   const doEdit = useCallback(async (id) => {
     setF5Open(false);
     if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!", true); return; }
     setLoading(true); setLdMsg("Loading order...");
-    const res = await CC.api(CC.SaleOrderEditUrl, null, {}, {
+    const res = await CC.api(SaleOrderEditUrl, null, {}, {
       Id: id, SaleReturnNo: 0, Comid: settings.Comid, Tamil: settings.Tamil,
     });
     setLoading(false);
@@ -1449,16 +1624,16 @@ export default function SaleOrder() {
     const details = master.SaleDetails || master.saledetails || [];
 
     setEditId(master.Id || id);
-    setOrderNo(CC.ns(master.SaleNo || master.SaleNoDisplay));
-    setOrderDate(String(master.SaleDate || "").slice(0, 10) || CC.today());
+    setOrderNo(ns(master.SaleNo || master.SaleNoDisplay));
+    setOrderDate(String(master.SaleDate || "").slice(0, 10) || today());
     setOrderType(master.SaleType || "CASH");
-    setCustId(CC.ns(master.CustomerRefId));
-    await loadCustomerDetails(CC.ns(master.CustomerRefId));
-    setSmId(CC.ns(master.salesmanRefId || ""));
-    setRemarks(CC.ns(master.Remarks));
-    setOtherMinus(CC.ns(master.OtherssubAmt || "0.00"));
-    setOtherPlus(CC.ns(master.schargeamount || master.OthersplusAmt || "0.00"));
-    setDiscPer(CC.ns(master.disper || "0.00"));
+    setCustId(ns(master.CustomerRefId));
+    await loadCustomerDetails(ns(master.CustomerRefId));
+    setSmId(ns(master.salesmanRefId || ""));
+    setRemarks(ns(master.Remarks));
+    setOtherMinus(ns(master.OtherssubAmt || "0.00"));
+    setOtherPlus(ns(master.schargeamount || master.OthersplusAmt || "0.00"));
+    setDiscPer(ns(master.disper || "0.00"));
     const loadedRows = details.map(r => {
       const fr = fmtRow({ ...mkRow(), ...r });
       return calcSaleRow(fr, { ...calcSettings, BillDiscLog: 0 });
@@ -1515,10 +1690,10 @@ export default function SaleOrder() {
   }, [prodPopup, f5Open, pw, f12Open, ctrlGOpen, doSave, openF5, doDelete, clearForm, confirm, navigate, editId]);
 
   // ── Summary stats ─────────────────────────────────────────────────────────
-  const validRows  = rows.filter(r => r.ProductRefId && CC.vn(r.ItemQty) + CC.vn(r.NOMS) > 0);
+  const validRows  = rows.filter(r => r.ProductRefId && vn(r.ItemQty) + vn(r.NOMS) > 0);
   const itemCount  = rows.filter(r => r.ProductRefId && !r.Freeqtydetailsrefid && !r.Freeamountdetailsrefid && !r.CompanyOfferFreeqtydetailsrefid).length;
-  const totalQty   = validRows.reduce((s, r) => s + CC.vn(r.ItemQty), 0);
-  const totalPcs   = validRows.reduce((s, r) => s + CC.vn(r.Pcs), 0);
+  const totalQty   = validRows.reduce((s, r) => s + vn(r.ItemQty), 0);
+  const totalPcs   = validRows.reduce((s, r) => s + vn(r.Pcs), 0);
 
   const getRowBg = (r, i) => {
     if (r.Freeamountdetailsrefid) return FREE_AMT_COLOR;
@@ -1555,23 +1730,23 @@ export default function SaleOrder() {
         <div style={{ display: "flex", gap: 10, padding: "8px 10px", background: "#f5f8fd", borderBottom: "1px solid #d0ddf5", alignItems: "stretch" }}>
 
           {/* ── LEFT PANEL: Sale Order Details ── */}
-          <div className="so-panel" style={{ minWidth: 220, flexShrink: 0 }}>
-            <div className="so-panel-title">Sale Order Details</div>
+          <div style={{ ...panelStyle, minWidth: 220, flexShrink: 0 }}>
+            <div style={panelTitle}>Sale Order Details</div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <label className="so-field-label" style={{ minWidth: 78 }}>OrderNo</label>
-              <input className="so-field-input" style={{ flex: 1 }} value={orderNo} onChange={e => setOrderNo(e.target.value)} readOnly />
+              <label style={{ ...fieldLabel, minWidth: 78 }}>OrderNo</label>
+              <input style={{ ...fieldInput, flex: 1 }} value={orderNo} onChange={e => setOrderNo(e.target.value)} readOnly />
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <label className="so-field-label" style={{ minWidth: 78 }}>OrderDate</label>
-              <input type="date" className="so-field-input" style={{ flex: 1 }} value={orderDate} onChange={e => setOrderDate(e.target.value)} />
+              <label style={{ ...fieldLabel, minWidth: 78 }}>OrderDate</label>
+              <input type="date" style={{ ...fieldInput, flex: 1 }} value={orderDate} onChange={e => setOrderDate(e.target.value)} />
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <label className="so-field-label" style={{ minWidth: 78 }}>OrderType</label>
-              <select className="so-field-input" style={{ flex: 1 }} value={orderType} onChange={e => setOrderType(e.target.value)}>
-                {CC.ORDER_TYPES.map(ot => <option key={ot.value} value={ot.value}>{ot.label}</option>)}
+              <label style={{ ...fieldLabel, minWidth: 78 }}>OrderType</label>
+              <select style={{ ...fieldInput, flex: 1 }} value={orderType} onChange={e => setOrderType(e.target.value)}>
+                {ORDER_TYPES.map(ot => <option key={ot.value} value={ot.value}>{ot.label}</option>)}
               </select>
             </div>
 
@@ -1579,11 +1754,11 @@ export default function SaleOrder() {
           </div>
 
           {/* ── MIDDLE PANEL: Customer Details ── */}
-          <div className="so-panel" style={{ flex: 1 }}>
-            <div className="so-panel-title">Customer Details</div>
+          <div style={{ ...panelStyle, flex: 1 }}>
+            <div style={panelTitle}>Customer Details</div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <label className="so-field-label">Customer</label>
+              <label style={fieldLabel}>Customer</label>
               <ComboBox
                 inputRef={custRef}
                 options={[{ value: "", label: "" }, ...customers.map(c => ({ value: String(c.Id), label: c.AccountName }))]}
@@ -1595,10 +1770,10 @@ export default function SaleOrder() {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <label className="so-field-label">MobileNo</label>
-              <input className="so-field-input" style={{ flex: 1 }} value={custMobile} readOnly placeholder="Select MobileNo" />
-              <label className="so-field-label" style={{ minWidth: 36, marginLeft: 8 }}>CRM</label>
-              <input className="so-field-input" style={{ flex: 1 }} value={crmNo} onChange={e => setCrmNo(e.target.value)} placeholder="Select CRMNO" />
+              <label style={fieldLabel}>MobileNo</label>
+              <input style={{ ...fieldInput, flex: 1 }} value={custMobile} readOnly placeholder="Select MobileNo" />
+              <label style={{ ...fieldLabel, minWidth: 36, marginLeft: 8 }}>CRM</label>
+              <input style={{ ...fieldInput, flex: 1 }} value={crmNo} onChange={e => setCrmNo(e.target.value)} placeholder="Select CRMNO" />
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1612,13 +1787,13 @@ export default function SaleOrder() {
           </div>
 
           {/* ── RIGHT PANEL: Amount + SalesMan ── */}
-          <div className="so-panel" style={{ minWidth: 240, flexShrink: 0, alignItems: "stretch" }}>
+          <div style={{ ...panelStyle, minWidth: 240, flexShrink: 0, alignItems: "stretch" }}>
             <div style={{ textAlign: "center", fontSize: 22, fontWeight: 800, color: "#16a34a", letterSpacing: 0.5, paddingBottom: 4 }}>
               Rs.{totals.NetAmt.toFixed(2)}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <label className="so-field-label" style={{ minWidth: 68 }}>SalesMan</label>
+              <label style={{ ...fieldLabel, minWidth: 68 }}>SalesMan</label>
               <ComboBox
                 options={[{ value: "", label: "Select SalesMan" }, ...salesmen.map(s => ({ value: String(s.Id), label: s.SalesManName || s.SalesmanName || "" }))]}
                 value={smId}
@@ -1628,8 +1803,8 @@ export default function SaleOrder() {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <label className="so-field-label" style={{ minWidth: 68 }}>Remarks</label>
-              <input className="so-field-input" style={{ flex: 1 }} value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Remarks" />
+              <label style={{ ...fieldLabel, minWidth: 68 }}>Remarks</label>
+              <input style={{ ...fieldInput, flex: 1 }} value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Remarks" />
             </div>
           </div>
         </div>
@@ -1652,7 +1827,7 @@ export default function SaleOrder() {
                 </thead>
                 <tbody>
                   {rows.map((row, idx) => {
-                    const m = CC.SO_COLUMNS.find(c => c.key === "ProductCode");
+                    const m = SO_COLUMNS.find(c => c.key === "ProductCode");
                     return (
                       <tr key={row._rid}
                         className={selRid === row._rid ? "sel" : ""}
@@ -1660,7 +1835,7 @@ export default function SaleOrder() {
                         onClick={() => setSelRid(row._rid)}>
                         <td className="sb-sno">{idx + 1}</td>
                         {visCols.map(col => {
-                          const colDef  = CC.SO_COLUMNS.find(c => c.key === col.key) || {};
+                          const colDef  = SO_COLUMNS.find(c => c.key === col.key) || {};
                           const val     = row[col.key];
                           const isRight = RIGHT_KEYS.has(col.key);
                           const isRO    = !!colDef.readOnly;
@@ -1673,13 +1848,13 @@ export default function SaleOrder() {
                             <td key={col.key} style={{ textAlign: isRight ? "right" : undefined }}>
                               {isRO && col.key !== "ProductName" ? (
                                 <span className="sb-cell-calc" style={{ display: "block", padding: "0 4px", color: isAmt ? "#1f65de" : undefined, fontWeight: isAmt ? 700 : undefined }}>
-                                  {isFloat && val ? CC.f2(val).toFixed(2) : CC.ns(val)}
+                                  {isFloat && val ? f2(val).toFixed(2) : ns(val)}
                                 </span>
                               ) : col.key === "ProductCode" ? (
                                 <input
                                   ref={el => regCell(row._rid, col.key, el)}
                                   className="sb-cell-input"
-                                  value={CC.ns(val)}
+                                  value={ns(val)}
                                   readOnly={isFreeRow}
                                   onChange={e => handleCellChange(row._rid, col.key, e.target.value.toUpperCase())}
                                   onKeyDown={e => handleCellKeyDown(e, row._rid, col.key)}
@@ -1691,7 +1866,7 @@ export default function SaleOrder() {
                                 <input
                                   ref={el => regCell(row._rid, col.key, el)}
                                   className="sb-cell-input"
-                                  value={CC.ns(val)}
+                                  value={ns(val)}
                                   readOnly
                                   style={{ width: "100%", boxSizing: "border-box", background: "transparent", border: "none", cursor: "default", color: "#475569" }}
                                   placeholder="—"
@@ -1714,7 +1889,7 @@ export default function SaleOrder() {
                                 <input
                                   ref={el => regCell(row._rid, col.key, el)}
                                   className="sb-cell-input"
-                                  value={CC.ns(val)}
+                                  value={ns(val)}
                                   onChange={e => handleCellChange(row._rid, col.key, e.target.value)}
                                   onKeyDown={e => handleCellKeyDown(e, row._rid, col.key)}
                                   onFocus={() => setSelRid(row._rid)}
@@ -1725,9 +1900,9 @@ export default function SaleOrder() {
                             </td>
                           );
                         })}
-                        <td className="sb-row-del">
+                        <td style={{ textAlign: "center" }}>
                           {!row.Freeqtydetailsrefid && !row.Freeamountdetailsrefid && !row.CompanyOfferFreeqtydetailsrefid && (
-                            <button className="mp-del-btn"
+                            <button className="mp-del-btn" style={{ fontSize: 14 }}
                               onClick={e => { e.stopPropagation(); doDeleteRow(row._rid); }}>🗑</button>
                           )}
                         </td>
@@ -1743,25 +1918,25 @@ export default function SaleOrder() {
         {/* ══════════════════════════════════════════════════════════════════
             BOTTOM SECTION
         ══════════════════════════════════════════════════════════════════ */}
-        <div className="sb-footer">
+        <div style={{ display: "flex", gap: 0, borderTop: "1px solid #d0ddf5", background: "#f8fafd", flexShrink: 0 }}>
 
           {/* GST Split Table */}
-          <div className="sb-gst-tbl">
-            <div className="sb-gst-head">
+          <div style={{ minWidth: 340, maxWidth: 360, borderRight: "1px solid #d0ddf5", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr 1fr", background: "#e8edf7", borderBottom: "1px solid #d0ddf5", padding: "4px 8px", fontSize: 11, fontWeight: 700, color: "#4a5568" }}>
               <span>GST %</span>
-              <span>GST Amt</span>
-              <span>CGST Amt</span>
-              <span>SGST Amt</span>
+              <span style={{ textAlign: "right" }}>GST Amt</span>
+              <span style={{ textAlign: "right" }}>CGST Amt</span>
+              <span style={{ textAlign: "right" }}>SGST Amt</span>
             </div>
-            <div className="sb-gst-body">
+            <div style={{ flex: 1, overflowY: "auto", maxHeight: 100 }}>
               {gstSplit.length === 0
-                ? <div className="sb-empty-msg">No data to display</div>
+                ? <div style={{ textAlign: "center", color: "#94a3b8", padding: "12px 8px", fontSize: 11 }}>No data to display</div>
                 : gstSplit.map((g, i) => (
-                  <div key={i} className="sb-gst-row">
-                    <span>{g.TaxPercent}%</span>
-                    <span>{CC.f2(g.TaxAmt).toFixed(2)}</span>
-                    <span>{CC.f2(g.CTAmount).toFixed(2)}</span>
-                    <span>{CC.f2(g.STAmount).toFixed(2)}</span>
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr 1fr", padding: "3px 8px", fontSize: 11, background: i % 2 === 0 ? "#fff" : "#f5f8fd", borderBottom: "1px solid #edf0f7" }}>
+                    <span style={{ color: "#4a5568" }}>{g.TaxPercent}%</span>
+                    <span style={{ textAlign: "right" }}>{f2(g.TaxAmt).toFixed(2)}</span>
+                    <span style={{ textAlign: "right" }}>{f2(g.CTAmount).toFixed(2)}</span>
+                    <span style={{ textAlign: "right" }}>{f2(g.STAmount).toFixed(2)}</span>
                   </div>
                 ))
               }
@@ -1769,22 +1944,22 @@ export default function SaleOrder() {
           </div>
 
           {/* Totals 3-col grid */}
-          <div className="sb-totals-grid">
+          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", fontSize: 12 }}>
             {/* Col 1 */}
-            <div className="sb-totals-col">
+            <div style={{ borderRight: "1px solid #d0ddf5", display: "flex", flexDirection: "column" }}>
               {[
                 { label: "Gross Amt", value: totals.GrossAmt.toFixed(2), readOnly: true },
                 { label: "Disc(%)",   value: discPer, onChange: v => applyDiscPer(v), type: "number", onEnter: () => applyDiscPer(discPer) },
                 { label: "Disc Amt",  value: discAmt, onChange: setDiscAmt, type: "number", onEnter: () => applyDiscAmt(discAmt) },
               ].map((item, i) => (
-                <div key={i} className="sb-total-item">
-                  <span>{item.label}</span>
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", borderBottom: "1px solid #edf0f7", gap: 6 }}>
+                  <span style={{ color: "#4a5568", fontWeight: 600 }}>{item.label}</span>
                   {item.readOnly
-                    ? <div className="sb-total-val">{item.value}</div>
+                    ? <span style={{ fontWeight: 700, color: "#1a2e4a", minWidth: 80, textAlign: "right" }}>{item.value}</span>
                     : <input type={item.type || "text"} step="0.01" value={item.value}
                         onChange={e => item.onChange(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") item.onEnter?.(); }}
-                        className="so-field-input" placeholder="0.00" />
+                        style={{ ...fieldInput, width: 90, textAlign: "right" }} placeholder="0.00" />
                   }
                 </div>
               ))}
@@ -1801,7 +1976,7 @@ export default function SaleOrder() {
                   <span style={{ color: "#4a5568", fontWeight: 600 }}>{item.label}</span>
                   {item.readOnly
                     ? <span style={{ fontWeight: 700, color: "#1a2e4a", minWidth: 80, textAlign: "right" }}>{item.value}</span>
-                    : <input type={item.type || "text"} step="0.01" value={item.value} onChange={e => item.onChange(e.target.value)} className="so-field-input" style={{ width: 90, textAlign: "right" }} placeholder="0.00" />
+                    : <input type={item.type || "text"} step="0.01" value={item.value} onChange={e => item.onChange(e.target.value)} style={{ ...fieldInput, width: 90, textAlign: "right" }} placeholder="0.00" />
                   }
                 </div>
               ))}
@@ -1818,7 +1993,7 @@ export default function SaleOrder() {
                   <span style={{ color: item.bold ? "#1a2e4a" : "#4a5568", fontWeight: item.bold ? 700 : 600 }}>{item.label}</span>
                   {item.readOnly
                     ? <span style={{ fontWeight: 800, color: "#1a2e4a", minWidth: 80, textAlign: "right", fontSize: item.bold ? 14 : 12 }}>{item.value}</span>
-                    : <input type={item.type || "text"} step="0.01" value={item.value} onChange={e => item.onChange(e.target.value)} className="so-field-input" style={{ width: 90, textAlign: "right" }} placeholder="0.00" />
+                    : <input type={item.type || "text"} step="0.01" value={item.value} onChange={e => item.onChange(e.target.value)} style={{ ...fieldInput, width: 90, textAlign: "right" }} placeholder="0.00" />
                   }
                 </div>
               ))}
@@ -1891,7 +2066,9 @@ export default function SaleOrder() {
 
       {f5Open && (
         <F5ViewModal rows={f5Rows}
+          details={f5Details}
           onEdit={id => doEdit(id)}
+          onDelete={handleF5Delete}
           onClose={() => setF5Open(false)}
           fromDate={orderDate} toDate={orderDate}
           onSearch={openF5}

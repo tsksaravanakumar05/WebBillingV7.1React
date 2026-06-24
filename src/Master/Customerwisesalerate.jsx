@@ -2,111 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Topbar from "../components/Topbar";
 import * as CC from "../components/Common";
 import "./MasterPage.css"; 
-/* ─────────────────────────────────────────────
-   Injected CSS
-───────────────────────────────────────────── */
-// const CSS = `
-// @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-// *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;font-family:'Inter',sans-serif;}
-// html,body,#root{height:100%;margin:0;padding:0;}
-// .mp-wrap{min-height:100vh;display:flex;flex-direction:column;background:#eef1f7;font-size:12.5px;}
-// .mp-hdr{background:#1a2e4a;display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:50px;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.28);}
-// .mp-hdr-left{display:flex;align-items:center;gap:10px;}
-// .mp-icon{width:32px;height:32px;border-radius:6px;background:#e8a020;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;flex-shrink:0;}
-// .mp-title{font-size:14px;font-weight:700;color:#fff;}
-// .mp-sub{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:1px;text-transform:uppercase;margin-top:1px;}
-// .mp-back{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;padding:5px 14px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s;}
-// .mp-back:hover{background:#e8a020;border-color:#e8a020;}
-// .mp-body{flex:1;padding:16px 20px;display:flex;flex-direction:column;gap:10px;width:100%;margin:0 auto;}
-// .mp-toolbar{background:#fff;border:1px solid #d4dbe8;border-left:4px solid #e8a020;border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-// .mp-btn{display:flex;align-items:center;gap:4px;border:1px solid transparent;border-radius:4px;padding:5px 12px;font-size:11.5px;font-weight:600;cursor:pointer;transition:all .12s;height:30px;}
-// .mp-btn.sv{background:#1a2e4a;color:#fff;border-color:#1a2e4a;}
-// .mp-btn.sv:hover{background:#e8a020;border-color:#e8a020;}
-// .mp-btn.sv:disabled{opacity:.45;cursor:not-allowed;}
-// .mp-btn.nw{background:#fff;color:#6f42c1;border-color:#6f42c1;}
-// .mp-btn.nw:hover{background:#6f42c1;color:#fff;}
-// .mp-btn.dl{background:#fff;color:#dc3545;border-color:#dc3545;}
-// .mp-btn.dl:hover{background:#dc3545;color:#fff;}
-// .mp-btn.cl{background:#fff;color:#6c757d;border-color:#6c757d;}
-// .mp-btn.cl:hover{background:#6c757d;color:#fff;}
-// .mp-btn.tr{background:#fff;color:#0d6efd;border-color:#0d6efd;}
-// .mp-btn.tr:hover{background:#0d6efd;color:#fff;}
-// .mp-msg{font-size:11px;font-weight:600;padding:4px 10px;border-radius:4px;margin-left:6px;}
-// .mp-msg.ok{background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;}
-// .mp-msg.err{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;}
-// .mp-filter-bar{background:#fff;border:1px solid #d4dbe8;border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-// .mp-filter-label{font-size:11.5px;font-weight:600;color:#1a2e4a;white-space:nowrap;}
-// .mp-combo{height:32px;border:1px solid #d4dbe8;border-radius:4px;padding:0 10px;font-size:12px;color:#1a2e4a;outline:none;background:#fff;min-width:280px;cursor:pointer;}
-// .mp-combo:focus{border-color:#e8a020;box-shadow:0 0 0 2px rgba(232,160,32,.15);}
-// .mp-grid-wrap{background:#fff;border:1px solid #d4dbe8;border-radius:6px;overflow:auto;flex:1;min-height:320px;}
-// .mp-tbl{border-collapse:collapse;width:100%;table-layout:fixed;}
-// .mp-tbl thead tr{position:sticky;top:0;z-index:2;}
-// .mp-tbl th{background:#1a2e4a;color:#fff;border:1px solid #253d5e;padding:7px 8px;font-size:11px;font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-// .mp-tbl th.r{text-align:right;}
-// .mp-tbl td{border:1px solid #eaecf4;padding:2px 4px;font-size:12px;color:#1a2e4a;}
-// .mp-tbl tbody tr{cursor:pointer;transition:background .07s;}
-// .mp-tbl tbody tr:nth-child(even){background:#f5f7fc;}
-// .mp-tbl tbody tr:hover{background:#fef3e0;}
-// .mp-tbl tbody tr.sel{background:#fddfa0 !important;}
-// .mp-tbl tbody tr.mod td:first-child{border-left:3px solid #e8a020;}
-// .mp-tbl td.sno{text-align:center;color:#8b99b5;font-size:11px;}
-// .mp-cell-input{border:1px solid #d4dbe8;border-radius:3px;padding:2px 6px;font-size:12px;width:100%;height:25px;outline:none;background:#fff;color:#1a2e4a;transition:border-color .12s;}
-// .mp-cell-input:focus{border-color:#e8a020;box-shadow:0 0 0 2px rgba(232,160,32,.15);}
-// .mp-cell-input.ro{background:#f5f7fc;color:#8b99b5;cursor:default;}
-// .mp-cell-input.r{text-align:right;}
-// .mp-del-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 5px;border-radius:3px;transition:background .1s;line-height:1;}
-// .mp-del-btn:hover{background:#fee2e2;}
-// .mp-hint{background:#f5f7fc;border:1px solid #e0e5f0;border-radius:4px;padding:6px 12px;font-size:10.5px;color:#8b99b5;flex-shrink:0;}
-// .mp-hint kbd{background:#1a2e4a;color:#fff;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;font-family:'Inter',monospace;}
-// .mp-loader-ov{position:fixed;inset:0;background:rgba(10,20,40,.48);display:flex;align-items:center;justify-content:center;z-index:9000;}
-// .mp-ldr-box{background:#fff;border-radius:8px;padding:22px 32px;display:flex;flex-direction:column;align-items:center;gap:10px;box-shadow:0 16px 48px rgba(0,0,0,.25);min-width:150px;}
-// .mp-spin{width:32px;height:32px;border:4px solid #eee;border-top-color:#e8a020;border-radius:50%;animation:mp-spin .55s linear infinite;}
-// @keyframes mp-spin{to{transform:rotate(360deg);}}
-// .mp-ldr-msg{font-size:12px;color:#4a5568;font-weight:600;}
-// .mp-modal-ov{position:fixed;inset:0;background:rgba(10,20,40,.45);display:flex;align-items:center;justify-content:center;z-index:8000;}
-// .mp-modal{background:#fff;border-radius:8px;padding:22px 26px;min-width:300px;max-width:440px;box-shadow:0 16px 48px rgba(0,0,0,.22);}
-// .mp-modal h3{font-size:13px;font-weight:700;color:#1a2e4a;margin-bottom:10px;}
-// .mp-modal p{font-size:12px;color:#374151;margin-bottom:16px;line-height:1.55;}
-// .mp-modal-btns{display:flex;gap:8px;justify-content:flex-end;}
-// .mp-modal-btn{padding:5px 16px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .12s;}
-// .mp-modal-btn.yes{background:#1a2e4a;color:#fff;border-color:#1a2e4a;}
-// .mp-modal-btn.yes:hover{background:#e8a020;border-color:#e8a020;}
-// .mp-modal-btn.no{background:#fff;color:#374151;border-color:#d4dbe8;}
-// .mp-modal-btn.no:hover{background:#f3f4f6;}
-// /* Product picker */
-// .mp-picker-ov{position:fixed;inset:0;background:rgba(10,20,40,.42);display:flex;align-items:center;justify-content:center;z-index:8500;}
-// .mp-picker{background:#fff;border-radius:8px;box-shadow:0 16px 48px rgba(0,0,0,.24);display:flex;flex-direction:column;width:540px;max-height:460px;}
-// .mp-picker header{padding:10px 16px;background:#1a2e4a;color:#fff;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;}
-// .mp-picker header h3{font-size:12px;font-weight:700;}
-// .mp-picker-close{background:none;border:none;color:#fff;cursor:pointer;font-size:17px;line-height:1;}
-// .mp-picker-search{padding:8px 12px;border-bottom:1px solid #e0e5f0;}
-// .mp-picker-search input{width:100%;height:30px;border:1px solid #d4dbe8;border-radius:4px;padding:0 10px;font-size:12px;outline:none;}
-// .mp-picker-search input:focus{border-color:#e8a020;}
-// .mp-picker-list{overflow-y:auto;flex:1;}
-// .mp-picker-tbl{border-collapse:collapse;width:100%;}
-// .mp-picker-tbl th{background:#253d5e;color:#fff;padding:5px 8px;font-size:11px;text-align:left;position:sticky;top:0;}
-// .mp-picker-tbl td{border-bottom:1px solid #f0f2f7;padding:5px 8px;font-size:12px;color:#1a2e4a;}
-// .mp-picker-tbl tbody tr:hover{background:#fef3e0;cursor:pointer;}
-// .mp-picker-tbl tbody tr.psel{background:#fddfa0;}
-// /* Trip window */
-// .mp-trip-ov{position:fixed;inset:0;background:rgba(10,20,40,.42);display:flex;align-items:center;justify-content:center;z-index:8200;}
-// .mp-trip{background:#fff;border-radius:8px;box-shadow:0 16px 48px rgba(0,0,0,.24);width:640px;display:flex;flex-direction:column;}
-// .mp-trip header{padding:10px 16px;background:#1a2e4a;color:#fff;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;}
-// .mp-trip header h3{font-size:12px;font-weight:700;}
-// .mp-trip-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
-// .mp-trip-inputs{display:flex;gap:12px;align-items:center;}
-// .mp-trip-input-wrap{display:flex;flex-direction:column;gap:3px;}
-// .mp-trip-input-label{font-size:10.5px;color:#8b99b5;font-weight:600;}
-// .mp-trip-input{height:28px;border:1px solid #d4dbe8;border-radius:4px;padding:0 8px;font-size:12px;outline:none;width:140px;}
-// .mp-trip-input:focus{border-color:#e8a020;}
-// .mp-trip-grid-wrap{border:1px solid #d4dbe8;border-radius:4px;overflow:auto;max-height:220px;}
-// .mp-trip-tbl{border-collapse:collapse;width:100%;}
-// .mp-trip-tbl th{background:#1a2e4a;color:#fff;padding:6px 8px;font-size:11px;text-align:left;position:sticky;top:0;}
-// .mp-trip-tbl td{border-bottom:1px solid #eaecf4;padding:3px 5px;font-size:12px;}
-// .mp-trip-tbl tbody tr:nth-child(even){background:#f5f7fc;}
-// .mp-trip-tbl tbody tr:hover{background:#fef3e0;}
-// .mp-trip-tbl tbody tr.sel{background:#fddfa0;}
-// `;
 
 /* ─────────────────────────────────────────────
    Helpers
@@ -649,30 +544,9 @@ export default function CustomerWiseSaleRate() {
   }
 
   /* ─── load customer combo ─── */
-/* ─── load customer combo ─── */
-async function loadCustomerCombo() {
-  try {
-    const res = await CC.api(
-      GetCustomerUrl,
-      null,
-      {},
-      {
-        Comid: Comid.current,
-        AccountType: "CUSTOMER",
-      }
-    );
-    const customerList = res?.data || res?.Data1 || [];
-    setCustomers(customerList);
-  } catch (err) {
-    console.error(err);
-  }
-}
 async function loadCustomerCombo() {
   console.log("loadCustomerCombo started");
-
   try {
-
-
     const res = await CC.api(
       GetCustomerUrl,
       null,
@@ -695,33 +569,34 @@ async function loadCustomerCombo() {
   } catch (err) {
     console.log("CATCH BLOCK HIT");
     console.error(err);
-//>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
   }
 }
 
   /* ─── load products ─── */
   async function loadProducts() {
     try {
-      setLoading(true);
-      const res = await CC.api(ProductListUrl, null, {}, { Comid: Comid.current });
-      setLoading(false);
-
-      const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
-      setProducts(arr);
+     const ProductListUrl = "/api/ItemMasterApp/GetProductListV7";
+    setLoading(true); 
+    const res = await CC.api(ProductListUrl, null, {}, { Comid:Comid.current });
+    setLoading(false);
+   
+    const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    setProducts(arr);
     } catch {}
   }
+
   /* ─── load customer sale rates on customer select ─── */
   async function loadCustomerRates(custId) {
-    if (!custId || custId === "0") return;
-    setLoading(true);
-    try {
-      const res = await CC.api(
-        SelectCustomerSaleRateALL,
-        null,
-        {},
-        { Comid: Comid.current, Id: custId }
-      );
-      const raw = res?.data || res?.Data1 || [];
+   if (!custId || custId === "0") return;
+  setLoading(true);
+  try {
+    const res = await CC.api(
+      SelectCustomerSaleRateALL,
+      null,
+      {},
+      { Comid: Comid.current, Id: custId }
+    );
+    const raw = res?.data || res?.Data1 || [];
       if (raw.length) {
         const normalised = raw.map((obj) => ({
           ...obj,
@@ -741,6 +616,7 @@ async function loadCustomerCombo() {
     } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
     finally { setLoading(false); }
   }
+
   /* ─── combo change ─── */
   function handleCustomerChange(val) {
     setCustomerId(val);
@@ -827,16 +703,16 @@ async function loadCustomerCombo() {
         setConfirm(null);
         setLoading(true);
         try {
-          const res = await CC.api(
-            DeleteCustomerSaleRate,
-            {},
-            {},
-            { Comid: Comid.current, Id: row.Id }
-          );
-          if (res.ok ?? res.IsSuccess) {
-            showToast(res.message || "Deleted.");
-            setRows((prev) => prev.filter((_, i) => i !== idx));
-          } else msgBox(res.message);
+         const res = await CC.api(
+  DeleteCustomerSaleRate,
+  {},
+  {},
+   { Comid:Comid.current,Id: row.Id,}
+);
+if (res.ok ?? res.IsSuccess) {
+  showToast(res.message || "Deleted.");
+  setRows((prev) => prev.filter((_, i) => i !== idx));
+} else msgBox(res.message);
         } catch { msgBox("Technical Fault !!!"); }
         finally { setLoading(false); }
       });
@@ -844,6 +720,7 @@ async function loadCustomerCombo() {
       setRows((prev) => prev.length === 1 ? [newBlankRow()] : prev.filter((_, i) => i !== idx));
     }
   }
+
   /* ─── gridemptycheck ─── */
 // AFTER
 function gridEmptyCheck() {
@@ -858,46 +735,12 @@ function gridEmptyCheck() {
 }
 
   /* ─── save (F1) ─── */
-//<<<<<<< HEAD
-  function handleSave() {
-    if (submitting.current) return;
-    if (!gridEmptyCheck()) return;
 
-    showConfirm("Do you Want to Save the Customer SaleRate Details?", async () => {
-      setConfirm(null);
-      submitting.current = true;
-      setLoading(true);
-      try {
-        const res = await fetch("/SupplierApp/InsertCustomerSaleRate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Comid: Comid.current,
-            Cusid: customerId,
-          },
-          body: JSON.stringify(rows),
-        });
-        const data = await res.json();
-        if (data.ok) {
-          showToast(data.message || "Saved successfully.");
-          handleClear();
-          setTimeout(() => comboRef.current?.focus(), 60);
-        } else {
-          msgBox(data.message);
-          addNewRow();
-        }
-      } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
-      finally { setLoading(false); submitting.current = false; }
-    }, () => { setConfirm(null); addNewRow(); });
-//=======
-// AFTER
-// AFTER
 function gridEmptyCheck() {
   const filtered = rows.filter(r => r.Code !== "" && r.Code != null);
   if (filtered.length === 0) {
     setRows([newBlankRow()]);
     return null; // null = nothing to save
-//>>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
   }
   setRows(filtered);
   return filtered; // return the clean array directly
@@ -1019,18 +862,6 @@ function handleSave() {
       
       {showTrip && <TripModal onClose={() => setShowTrip(false)} />}
       <Topbar />
-      {/* HEADER */}
-      {/* <header className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">📋</div>
-          <div>
-            <div className="mp-title">Customer Wise Sale Rate</div>
-            <div className="mp-sub">Pricing Management</div>
-          </div>
-        </div>
-        <button className="mp-back" onClick={() => (window.location.href = "/Home")}>← Back</button>
-      </header> */}
-
       {/* BODY */}
       <main className="mp-body">
         {/* TOOLBAR */}
@@ -1112,4 +943,4 @@ function handleSave() {
       </main>
     </div>
   );
-}}
+}

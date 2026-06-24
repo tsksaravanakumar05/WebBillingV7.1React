@@ -42,6 +42,7 @@ import Bankvoucher from "./Transaction/Bankvoucher";
 import Qutation from "./Transaction/Qutation";
 import SaleOrder from "./Transaction/SaleOrder";
 import Purchaseorder from "./Transaction/Purchaseorder";
+import Sales from "./Transaction/SaleBill";
 import StockAdjustment from "./Transaction/StockAdjustment";
 // UTILS
 import PasswordSetting from "./Utiles/Passwordsetting";
@@ -50,8 +51,9 @@ import Repackingmaster from "./Utiles/Repackingmaster";
 import Menumastersetting from "./Utiles/Menumastersetting";
 import Menucontrol from "./Utiles/Menucontrol";
 import Menucontrolreport from "./Utiles/Menucontrolreport";
-
-import Sales from "./Transaction/SaleBill";
+import Mainsetting from "./Utiles/Mainsetting";
+// Reports
+import ReportSaleOrder from "./CrystalReport/SaleReport/SaleOrderReport";
 
 function App() {
 
@@ -83,8 +85,7 @@ function App() {
         <Route path="/ColorMaster" element={<ColorMaster />} />
         <Route path="/ModelMaster" element={<ModelMaster />} />
         <Route path="/RateChange" element={<RateChange />} />
-        <Route path="/Customer" element={<CustomerMaster />} />
-        
+        <Route path="/Customer" element={<CustomerMaster />} />        
         <Route path="/Customer/CustomerWiseSalerate" element={<CustomerWiseSaleRate />}/>
         <Route path="/CardMaster" element={<CardMaster />} />
         <Route path="/GroupMaster" element={<GroupMaster />} />
@@ -102,6 +103,8 @@ function App() {
         <Route path="/UserRightsMenuMaster" element={<Menumastersetting />} />
         <Route path="/UserRightsMaster" element={<Menucontrol />} />
         <Route path="/UserRightsReport" element={<Menucontrolreport/>} />
+        <Route path="/Mainsetting" element={<Mainsetting/>} />
+        
         {/* Transaction */}
         <Route path="/Sale" element={<Sales />} />
         <Route path="/EstimateBill" element={<Estimate />} />
@@ -118,6 +121,8 @@ function App() {
         <Route path="/SaleOrder" element={<SaleOrder />} />
         <Route path="/Purchaseorder" element={<Purchaseorder />} />
         <Route path="/StockAdjustment" element={<StockAdjustment />} />
+        {/* Reports */}
+        <Route path="/Report/SaleOrder" element={<ReportSaleOrder />} />
 
       </Routes>
 
