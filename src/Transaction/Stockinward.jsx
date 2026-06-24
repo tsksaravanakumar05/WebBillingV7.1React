@@ -17,59 +17,9 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import * as CC from "../components/Common";
+import "../TransactionStyle/SaleBill.css";
 import Topbar from "../components/Topbar";
 
-// ─── API CONSTANTS ────────────────────────────────────────────────────────────
-// Inward
-const SI_MaxNo          = "/api/StockInwardApp/MaxStockInward";
-const SI_Insert         = "/api/StockInwardApp/InsertStockInward";
-const SI_Edit           = "/api/StockInwardApp/EditStockInward";
-const SI_Delete         = "/api/StockInwardApp/DeleteStockInward";
-const SI_Select         = "/api/StockInwardApp/SelectStockInward";
-const SI_TransferInward = "/api/StockInwardApp/StockTransferInwardEdit";
-
-// Outward
-const SO_MaxNo    = "/api/StockOutwardApp/MaxStockOutward";
-const SO_Insert   = "/api/StockOutwardApp/InsertStockOutward";
-const SO_Edit     = "/api/StockOutwardApp/EditStockOutward";
-const SO_Delete   = "/api/StockOutwardApp/DeleteStockOutward";
-const SO_Select   = "/api/StockOutwardApp/SelectStockOutward";
-
-// Transfer
-const ST_MaxNo      = "/api/StockTransferApp/MaxStockTransfer";
-const ST_Insert     = "/api/StockTransferApp/InsertStockTransfer";
-const ST_Edit       = "/api/StockTransferApp/EditStockTransfer";
-const ST_Delete     = "/api/StockTransferApp/DeleteStockTransfer";
-const ST_Select     = "/api/StockTransferApp/SelectStockTransfer";
-const ST_PrintView  = "/api/StockTransferApp/PrintView";
-
-// Item Master
-const IM_ByCode      = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
-const IM_ProductList = "/api/ItemMasterApp/GetProductListV7";
-const IM_TransferList= "/api/ItemMasterApp/SelectStockTrasferList";
-
-// Supplier / Branch / Customer
-const SUP_All    = "/api/SupplierApp/SelectSupplierAll";
-const BRANCH_List= "/api/CompanyApp/SelectCompany";
-
-// BatchWise master lists — mirrors jQuery loadbrand/loadmodel/loadcolor/loadsize
-const BW_Brand  = "/api/BrandApp/SelectBrandAll";
-const BW_Model  = "/api/ModelApp/SelectModelAll";
-const BW_Color  = "/api/ColorApp/SelectColorAll";
-const BW_Size   = "/api/SizeApp/SelectSizeAll";
-const BW_Gender = "/api/GenderApp/SelectGenderAll";
-
-// Purchase / PO
-const PO_Edit     = "/api/PurchaseOrderApp/EditPurchaseOrder";
-const PO_NoCombo  = "/api/PurchaseOrderApp/PoNoComboList";
-
-// Login / Config
-const CFG_EditPwd   = "/api/LoginApp/EditPassword";
-const CFG_VisibleCols= "/api/LoginApp/VisibleColumns";
-const CFG_FocusCols = "/api/LoginApp/FocusColumns";
-
-// User
-const USR_UserCombo = "/api/LoginApp/UserComboList";
 
 // ─── GRID COLUMNS DEFINITION ─────────────────────────────────────────────────
 // Mirrors stockinward.js InVisibleColumns + BatchWise combobox columns from loadgrid()
@@ -404,6 +354,7 @@ function ComboBox({ options = [], value, onChange, onEnterKey, placeholder, styl
     </div>
   );
 }
+// ── Fetch StockDetails for a specific record before delete ────────────────────
 
 // ─── INLINE SELECT for BatchWise grid cells ───────────────────────────────────
 function GridSelect({ options, value, onChange, onKeyDown, cellId, onFocus }) {
@@ -433,7 +384,7 @@ function PwModal({ title, comid, onOk, onClose }) {
   const [val, setVal] = useState("");
   const verify = async () => {
     if (!val) return;
-    const res = await CC.api(CFG_EditPwd, null, {}, { password: val, type: "EditPassword", Comid: comid });
+    const res = await CC.api(CC.CFG_EditPwd, null, {}, { password: val, type: "EditPassword", Comid: comid });
     if (res.ok ?? res.IsSuccess ?? false) { onOk(); onClose(); }
     else window.alert("Invalid Password !!!");
   };
@@ -612,7 +563,7 @@ function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
       column: c.key, Visible: c.visible === true, Width: parseInt(c.width) || 100,
     }));
     try {
-      const res = await CC.insertapi(CFG_VisibleCols, payload);
+      const res = await CC.insertapi(CC.CFG_VisibleCols, payload);
       if (res.ok) { toast?.("✅ Column settings saved"); onSave(local); }
       else { toast?.("⚠️ " + (res.message || "Saved locally")); onSave(local); }
     } catch { onSave(local); }
@@ -723,7 +674,28 @@ export default function StockInward() {
       return { Comid: "1", MComid: "1", FYear: "2024", Ecotech: false, BatchWiseStock: false, BatchSizeStock: 0, priv: "User", loginuser: "" };
     }
   });
-
+  
+const fetchStockDetailsForDelete = useCallback(async (id, currentMode) => {
+  const url = currentMode === "inward" ? CC.SI_Edit
+            : currentMode === "outward" ? CC.SO_Edit
+            : CC.ST_Edit;
+  const extraHeaders = currentMode === "inward" || currentMode === "outward"
+    ? { Ecotech: sess.Ecotech ? "1" : "0" }
+    : {};
+  try {
+    const res = await CC.api(url, null, extraHeaders, {
+      Id: id, PNo: 0, Comid: sess.Comid,
+      BatchwiseSizeStock: sess.BatchSizeStock,
+    });
+    if (!(res.ok ?? res.IsSuccess)) return [];
+    const data = currentMode === "transfer"
+      ? (Array.isArray(res.Data) ? res.Data[0] : null)
+      : (Array.isArray(res.data) ? res.data[0] : res.data);
+    return data?.StockDetails || data?.[0]?.StockDetails || [];
+  } catch {
+    return [];
+  }
+}, [sess]);
   // ── Column settings ───────────────────────────────────────────────────────
   const [colSettings, setColSettings] = useState(DEFAULT_COL_SETTINGS);
   const [f12Open,     setF12Open]     = useState(false);
@@ -829,7 +801,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
       CC.api(CC.SelectModel, null, {}, { Comid: sess.MComid }),
       CC.api(CC.SelectColor, null, {}, { Comid: sess.MComid }),
       CC.api(CC.SizeSelect,  null, {}, { Comid: sess.MComid }),
-        CC.api(BW_Gender, null, {}, { Comid: sess.MComid }),
+        CC.api(CC.BW_Gender, null, {}, { Comid: sess.MComid }),
       ]);
       setBrandList(norm(bRes));
       setModelList(norm(mRes));
@@ -955,11 +927,11 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   // ── Load combos ───────────────────────────────────────────────────────────
   const loadCombos = useCallback(async () => {
     const [supRes, cusRes, brRes, poRes, usrRes] = await Promise.all([
-      CC.api(SUP_All, null, {}, { Comid: sess.Comid, AccountType: "SUPPLIER" }),
-      CC.api(SUP_All, null, {}, { Comid: sess.Comid, AccountType: "CUSTOMER" }),
-      CC.api(BRANCH_List, null, {}, { Comid: sess.MComid }),
-      CC.api(PO_NoCombo, null, {}, { Comid: sess.Comid }),
-      CC.api(USR_UserCombo, null, {}, { Comid: sess.Comid }),
+      CC.api(CC.SUP_All, null, {}, { Comid: sess.Comid, AccountType: "SUPPLIER" }),
+      CC.api(CC.SUP_All, null, {}, { Comid: sess.Comid, AccountType: "CUSTOMER" }),
+      CC.api(CC.BRANCH_List, null, {}, { Comid: sess.MComid }),
+      CC.api(CC.PO_NoCombo, null, {}, { Comid: sess.Comid }),
+      CC.api(CC.USR_UserCombo, null, {}, { Comid: sess.Comid }),
     ]);
     const pick = r => Array.isArray(r?.data) ? r.data : Array.isArray(r?.Data1) ? r.Data1 : [];
     setSupplierList(pick(supRes));
@@ -968,13 +940,13 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
     setPoNoList(pick(poRes));
     setUserList(pick(usrRes));
 
-    const pRes = await CC.api(IM_ProductList, null, {}, { Comid: sess.Comid });
+    const pRes = await CC.api(CC.IM_ProductList, null, {}, { Comid: sess.Comid });
     setProductList(pick(pRes));
   }, [sess]);
 
   // ── Load max stock no ─────────────────────────────────────────────────────
   const loadMaxNo = useCallback(async (m) => {
-    const url = m === "inward" ? SI_MaxNo : m === "outward" ? SO_MaxNo : ST_MaxNo;
+    const url = m === "inward" ? CC.SI_MaxNo : m === "outward" ? CC.SO_MaxNo : CC.ST_MaxNo;
     const comid = m === "transfer" ? sess.MComid : sess.Comid;
     const res = await CC.api(url, null, {}, { Comid: comid });
     if (res.ok ?? res.IsSuccess) setStockNo(ns(res.No || res.data || ""));
@@ -1066,7 +1038,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   if (!code.trim()) return;
   const codeU = code.trim().toUpperCase();
   const batchwise = modeRef.current === "inward" ? 0 : sess.BatchSizeStock;
-  const res = await CC.api(IM_ByCode, null, {}, {
+  const res = await CC.api(CC.IM_ByCode, null, {}, {
     code: codeU,
     Comid: sess.MComid, CComid: sess.Comid,
     Id: 0, Batchwise: batchwise,
@@ -1339,7 +1311,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
       MirrorTable: String(mirrorTable),
       LocalDB: "0",
     };
-    const res = await CC.insertapi(SI_Insert, payload, headers);
+    const res = await CC.insertapi(CC.SI_Insert, payload, headers);
     setLoading(false);
     if (redirectIfDual(res)) return;
     if (res.ok ?? res.IsSuccess) {
@@ -1378,7 +1350,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
       InvoiceNo: invoiceNo, InvoiceDate: new Date(invoiceDate).toISOString(),
       StockInwardDetails: details, StockDetails: realStockList, SerialNoDetails: "",
     }];
-    const res = await CC.insertapi(SO_Insert, payload, { MirrorTable: String(mirrorTable) ,LocalDB:"0"});
+    const res = await CC.insertapi(CC.SO_Insert, payload, { MirrorTable: String(mirrorTable) ,LocalDB:"0"});
     setLoading(false);
     if (redirectIfDual(res)) return;
     if (res.ok ?? res.IsSuccess) {
@@ -1406,7 +1378,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
       UpdateId: "", Univercell: false, StockNo: 0,
       StockInwardDetails: details, StockDetails: realStockList, SerialNoDetails: "", SaleorderId: 0,
     }];
-    const res = await CC.insertapi(ST_Insert, payload, {
+    const res = await CC.insertapi(CC.ST_Insert, payload, {
       SaleorderId: "0", MirrorTable: String(mirrorTable),
       StockApprovalStatus: sess.StockApprovalStatus ? "1" : "0",
       MComid: sess.MComid,
@@ -1418,7 +1390,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
       if (sess.StockTransferA4Print) {
         const prOk = await confirm("Do you want to View Stock Transfer?");
         if (prOk) {
-          await CC.insertapi(ST_PrintView, { Id: res.data, Type: "StockTransfer", CompanyName: sess.CompanyName });
+          await CC.insertapi(CC.ST_PrintView, { Id: res.data, Type: "StockTransfer", CompanyName: sess.CompanyName });
           window.open(`../Reports/ReportViewer.aspx?ReportName=StockTransfer&A4Print=0`, "_blank");
         }
       }
@@ -1471,7 +1443,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   const doInwardEdit = useCallback(async (pid, pno) => {
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading...");
-    const res = await CC.api(SI_Edit, null, { Ecotech: sess.Ecotech ? "1" : "0" }, {
+    const res = await CC.api(CC.SI_Edit, null, { Ecotech: sess.Ecotech ? "1" : "0" }, {
       Id: pid, PNo: pno, Comid: sess.Comid, BatchwiseSizeStock: sess.BatchSizeStock,
     });
     setLoading(false);
@@ -1485,7 +1457,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   const doOutwardEdit = useCallback(async (pid, pno) => {
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading...");
-    const res = await CC.api(SO_Edit, null, { Ecotech: sess.Ecotech ? "1" : "0" }, {
+    const res = await CC.api(CC.SO_Edit, null, { Ecotech: sess.Ecotech ? "1" : "0" }, {
       Id: pid, PNo: pno, Comid: sess.Comid,BatchwiseSizeStock:sess.BatchSizeStock,
     });
     setLoading(false);
@@ -1499,7 +1471,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   const doTransferEdit = useCallback(async (pid, pno) => {
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading...");
-    const res = await CC.api(ST_Edit, null, {}, { Id: pid, PNo: pno, Comid: sess.Comid });
+    const res = await CC.api(CC.ST_Edit, null, {}, { Id: pid, PNo: pno, Comid: sess.Comid });
     setLoading(false);
     if (redirectIfDual(res)) return;
     if (res.ok ?? res.IsSuccess) {
@@ -1515,30 +1487,36 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   };
 
   // ── DELETE ────────────────────────────────────────────────────────────────
-  const doDelete = useCallback(async () => {
-    if (!perm.Delete) { toast("❌ Delete Permission Denied", true); return; }
-    if (!editId) { toast("❌ No record to delete", true); return; }
-    const ok = await confirm(`Delete Stock ${mode === "inward" ? "Inward" : mode === "outward" ? "Outward" : "Transfer"} No ${stockNo}?`);
-    if (!ok) return;
-    setLoading(true);
-    const url = mode === "inward" ? SI_Delete : mode === "outward" ? SO_Delete : ST_Delete;
-    const res = await CC.api(url, realStockList, {
-      Year: sess.FYear, Comid: sess.Comid, Id: String(editId),
-      MirrorTable: String(mirrorTable), UpdateId: updateIdEdit,LocalDB:"0"
-    });
-    setLoading(false);
-    if (redirectIfDual(res)) return;
-    if (res.ok ?? res.IsSuccess) {
-      toast("✅ " + (res.message || "Deleted Successfully"));
-      await doClear();
-    } else toast("❌ " + (res.message || "Delete Failed"), true);
-  }, [perm, editId, mode, stockNo, realStockList, sess, mirrorTable, updateIdEdit, confirm, doClear, redirectIfDual, toast]);
+// ── DELETE ────────────────────────────────────────────────────────────────────
+const doDelete = useCallback(async () => {
+  if (!perm.Delete) { toast("❌ Delete Permission Denied", true); return; }
+  if (!editId) { toast("❌ No record to delete", true); return; }
+  const ok = await confirm(`Delete Stock ${mode === "inward" ? "Inward" : mode === "outward" ? "Outward" : "Transfer"} No ${stockNo}?`);
+  if (!ok) return;
+  setLoading(true); setLdMsg("Deleting...");
 
+  const stockDetailsForDelete = realStockList.length > 0
+    ? realStockList
+    : await fetchStockDetailsForDelete(editId, mode); // ← pass mode here too
+
+  const url = mode === "inward" ? CC.SI_Delete : mode === "outward" ? CC.SO_Delete : CC.ST_Delete;
+  const res = await CC.api(url, stockDetailsForDelete, {
+    Year: sess.FYear, Comid: sess.Comid, Id: String(editId),
+    MirrorTable: String(mirrorTable), UpdateId: updateIdEdit, LocalDB: "0",
+  });
+  setLoading(false);
+  if (redirectIfDual(res)) return;
+  if (res.ok ?? res.IsSuccess) {
+    toast("✅ " + (res.message || "Deleted Successfully"));
+    await doClear();
+  } else toast("❌ " + (res.message || "Delete Failed"), true);
+}, [perm, editId, mode, stockNo, realStockList, sess, mirrorTable, updateIdEdit,
+    confirm, doClear, redirectIfDual, toast, fetchStockDetailsForDelete]);
   // ── F5 VIEW ───────────────────────────────────────────────────────────────
   const openF5 = useCallback(async (from = stockDate, to = stockDate) => {
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading...");
-    const url = mode === "inward" ? SI_Select : mode === "outward" ? SO_Select : ST_Select;
+    const url = mode === "inward" ? CC.SI_Select : mode === "outward" ? CC.SO_Select : CC.ST_Select;
     const res = await CC.api(url, null, {}, { Comid: sess.Comid, Fromdate: from, Todate: to, Id: 0, SearchNo: "" });
     setLoading(false);
     if (redirectIfDual(res)) return;
@@ -1552,7 +1530,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   const doPOEdit = useCallback(async (pid, pno) => {
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading PO...");
-    const res = await CC.api(PO_Edit, null, { EcoStock: "1" }, { Id: pid, PNo: pno, Comid: sess.Comid, univercell: true });
+    const res = await CC.api(CC.PO_Edit, null, { EcoStock: "1" }, { Id: pid, PNo: pno, Comid: sess.Comid, univercell: true });
     setLoading(false);
     if (redirectIfDual(res)) return;
     if (!(res.ok ?? res.IsSuccess)) { toast("❌ " + (res.message || "PO load failed"), true); return; }
@@ -1604,7 +1582,7 @@ const selectedPartyInfo = useMemo(() => {
         e.preventDefault();
         const ok = await confirm("Do You Want To Download Item List?");
         if (ok) {
-          const res = await CC.api(IM_TransferList, null, {}, { Comid: sess.Comid });
+          const res = await CC.api(CC.IM_TransferList, null, {}, { Comid: sess.Comid });
           if (res.ok) toast("✅ Download initiated");
         }
       }
@@ -1885,7 +1863,7 @@ const selectedPartyInfo = useMemo(() => {
                     return (
                       <td key={col.key} style={{ padding: "1px 2px", textAlign: align }}>
                         {isRO ? (
-                          <span style={{ display: "block", padding: "3px 6px", color: isAmt ? "#1f65de" : "#475569", fontWeight: isAmt ? 700 : 400, textAlign: align }}>
+                          <span className="sb-cell-calc" style={{ display: "block", padding: "0 4px", color: isAmt ? "#1f65de" : undefined, fontWeight: isAmt ? 700 : undefined }}>
                             {isNum && val ? f2(val).toFixed(2) : ns(val)}
                           </span>
                         ) : col.key === "ProductCode" ? (
@@ -1893,6 +1871,7 @@ const selectedPartyInfo = useMemo(() => {
                             ref={el => regCell(row._rid, col.key, el)}
                             id={cellId}
                             value={ns(val)}
+                            autoComplete="off"
                             onChange={e => handleCellChange(row._rid, col.key, e.target.value.toUpperCase())}
                             onKeyDown={e => handleCellKeyDown(e, row._rid, col.key)}
                             onFocus={() => setSelRid(row._rid)}
@@ -2064,19 +2043,31 @@ const selectedPartyInfo = useMemo(() => {
         <F5ViewModal
           rows={f5Rows} mode={mode}
           onEdit={id => { setF5Open(false); doEditById(id); }}
-          onDelete={(id, no) => {
-            pwOkRef.current = async () => {
-              const ok = await confirm(`Delete Stock No "${no}"?`);
-              if (!ok) return;
-              setLoading(true);
-              const url = mode === "inward" ? SI_Delete : mode === "outward" ? SO_Delete : ST_Delete;
-              const res = await CC.api(url, realStockList, { Comid: sess.Comid, Id: String(id), Year: sess.FYear, MirrorTable: String(mirrorTable), UpdateId: "",LocalDB:"0" });
-              setLoading(false);
-              if (res.ok ?? res.IsSuccess) { toast("✅ Deleted"); await openF5(); }
-              else toast("❌ " + (res.message || "Delete Failed"), true);
-            };
-            setPw({ title: "Delete Password" });
-          }}
+     onDelete={(id, no) => {
+  const snapshotMode = mode; // ← snapshot current mode at click time
+  pwOkRef.current = async () => {
+    const ok = await confirm(`Delete Stock No "${no}"?`);
+    if (!ok) return;
+    setLoading(true); setLdMsg("Fetching stock details...");
+
+    const stockDetailsForDelete = await fetchStockDetailsForDelete(id, snapshotMode);
+
+    setLdMsg("Deleting...");
+    const url = snapshotMode === "inward" ? CC.SI_Delete
+              : snapshotMode === "outward" ? CC.SO_Delete
+              : CC.ST_Delete;
+
+    const res = await CC.api(url, stockDetailsForDelete, {
+      Comid: sess.Comid, Id: String(id),
+      Year: sess.FYear, MirrorTable: String(mirrorTable),
+      UpdateId: "", LocalDB: "0",
+    });
+    setLoading(false);
+    if (res.ok ?? res.IsSuccess) { toast("✅ Deleted"); await openF5(); }
+    else toast("❌ " + (res.message || "Delete Failed"), true);
+  };
+  setPw({ title: "Delete Password" });
+}}
           onClose={() => setF5Open(false)}
           fromDate={stockDate} toDate={stockDate}
           onSearch={openF5}

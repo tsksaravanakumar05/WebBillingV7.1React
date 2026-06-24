@@ -343,6 +343,8 @@ export default function PhysicalStock() {
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
 
+const skipEnterRef = useRef({}); // ← ADD THIS
+
   // ── Column Settings ──────────────────────────────────────────────────────
   const [colSettings, setColSettings] = useState(DEFAULT_COL_SETTINGS);
   const [f12Open,     setF12Open]     = useState(false);
@@ -448,55 +450,75 @@ export default function PhysicalStock() {
   useEffect(() => { recalcTotals(rows); }, [rows, recalcTotals]);
 
   // ── Fill items into row ───────────────────────────────────────────────────
-  const fillItemsIntoRow = useCallback(async (rid, itemId) => {
-    const res = await CC.api(SelectItemListUrl, null,
-      { Comid: sess.Comid, MComid: sess.MComid },
-      { Id: itemId, date: dateformat(refDate), Comid: sess.Comid, MComid: sess.MComid }
-    );
-    if (redirectIfDualLogin(res)) return;
-    const arr = Array.isArray(res.data)  ? res.data
-              : Array.isArray(res.Data1) ? res.Data1
-              : Array.isArray(res)       ? res : [];
+const fillItemsIntoRow = useCallback(async (rid, itemId,Stock) => {
+  const res = await CC.api(SelectItemListUrl, null,
+    { Comid: sess.Comid, MComid: sess.MComid },
+    { Id: itemId, date: dateformat(refDate), Comid: sess.Comid, MComid: sess.MComid }
+  );
+  if (redirectIfDualLogin(res)) return;
+  const arr = Array.isArray(res.data)  ? res.data
+            : Array.isArray(res.Data1) ? res.Data1
+            : Array.isArray(res)       ? res : [];
 
-    if (arr.length === 0) {
-      toast("❌ Invalid Product Code !!!", true);
-      setTimeout(() => cellRefs.current[rid]?.["ProductCode"]?.focus(), 50);
-      return;
-    }
+  if (arr.length === 0) {
+    toast("❌ Invalid Product Code !!!", true);
+    setTimeout(() => cellRefs.current[rid]?.["ProductCode"]?.focus(), 50);
+    return;
+  }
 
-    const obj = arr[0];
-    const uom = vn(obj.UOMDemical || obj.UOMDecimal);
-    const isDupe = rowsRef.current.some(r => r._rid !== rid && r.ProductId === obj.Id);
-    if (isDupe) {
-      toast("❌ Duplicate Product !!!", true);
-      setTimeout(() => cellRefs.current[rid]?.["ProductCode"]?.focus(), 50);
-      return;
-    }
+  const obj = arr[0];
 
-    setRows(prev => prev.map(r => {
-      if (r._rid !== rid) return r;
-      const updated = {
-        ...r,
-        ProductCode:      obj.ProductCode,
-        ProductId:        obj.Id,
-        ProductName:      obj.ProductName,
-        UOMDecimal:       uom,
-        ClosingStock:     parseFloat(vn(obj.Closingqty)).toFixed(uom),
-        PhysicalStockQty: "",
-        ExcessStorageQty: "",
-        LandingCost:      parseFloat(vn(obj.PurRate)).toFixed(2),
-        DifferentValue:   0,
-        _dirty:           true,
-      };
-      if (obj.ExpiryDate == 1) setExpWin({ rid, productId: obj.Id });
-      return updated;
-    }));
+  // ── FIX 1: Normalize UOMDecimal safely (was: obj.UOMDemical || obj.UOMDecimal)
+  // UOMDemical is a backend typo that sometimes appears; fall back gracefully
+  const rawUOM = obj.UOMDecimal ?? obj.UOMDemical ?? obj.UomDecimal ?? 0;
+  const uom = [0, 2, 3].includes(parseInt(rawUOM)) ? parseInt(rawUOM) : 0;
 
-    setTimeout(() => {
-      cellRefs.current[rid]?.["PhysicalStockQty"]?.focus();
-      cellRefs.current[rid]?.["PhysicalStockQty"]?.select();
-    }, 60);
-  }, [sess, refDate, redirectIfDualLogin, toast]);
+  // ── FIX 2: Normalize ClosingStock (was: obj.Closingqty alone — missing fallbacks)
+  const rawClosing =Stock?? 0;
+  const closingDisplay = (() => {
+    const val = parseFloat(rawClosing) || 0;
+    if (uom === 2) return val.toFixed(2);
+    if (uom === 3) return val.toFixed(3);
+    return Math.round(val).toFixed(0);   // integer UOM — whole numbers only
+  })();
+
+  // ── FIX 3: Normalize LandingCost (was: obj.PurRate alone — missing fallbacks)
+  const rawLanding = obj.LandingCost ?? obj.Landingcost ?? obj.PurRate
+                  ?? obj.PurchaseRate ?? obj.purchaserate ?? 0;
+  const landingDisplay = parseFloat(rawLanding || 0).toFixed(2);
+
+  const isDupe = rowsRef.current.some(r => r._rid !== rid && r.ProductId === obj.Id);
+  if (isDupe) {
+    toast("❌ Duplicate Product !!!", true);
+    setTimeout(() => cellRefs.current[rid]?.["ProductCode"]?.focus(), 50);
+    return;
+  }
+
+  setRows(prev => prev.map(r => {
+    if (r._rid !== rid) return r;
+    const updated = {
+      ...r,
+      ProductCode:      obj.ProductCode  || obj.Prod_Code || "",
+      ProductId:        obj.Id           || obj.ProductId || 0,
+      ProductName:      obj.ProductName  || obj.PName     || "",
+      UOMDecimal:       uom,
+      ClosingStock:     closingDisplay,   // ← FIX 2: correct value + correct decimals
+      PhysicalStockQty: "",
+      ExcessStorageQty: "",
+      LandingCost:      landingDisplay,   // ← FIX 3: correct field with fallbacks
+      DifferentValue:   0,
+      _dirty:           true,
+    };
+    // Trigger exp-date window if product requires batch/expiry entry
+    if (obj.ExpiryDate == 1) setExpWin({ rid, productId: obj.Id });
+    return updated;
+  }));
+
+  setTimeout(() => {
+    cellRefs.current[rid]?.["PhysicalStockQty"]?.focus();
+    cellRefs.current[rid]?.["PhysicalStockQty"]?.select();
+  }, 60);
+}, [sess, refDate, redirectIfDualLogin, toast]);
 
   // ── Fetch product by code ─────────────────────────────────────────────────
   const fetchProductByCode = useCallback(async (rid, code) => {
@@ -513,7 +535,7 @@ export default function PhysicalStock() {
       return;
     }
     if (arr.length === 1) {
-      await fillItemsIntoRow(rid, arr[0].Id);
+      await fillItemsIntoRow(rid, arr[0].Id,arr[0].Stock);
     } else {
       setProdList(arr);
       setProdPopup({ rid, pos: { top: 200, left: 80 } });
@@ -664,69 +686,89 @@ export default function PhysicalStock() {
       sess, refDate, expDateList, clearForm, redirectIfDualLogin, toast]);
 
   // ── Cell keydown ──────────────────────────────────────────────────────────
-  const handleCellKeyDown = useCallback((e, rid, colKey) => {
-    const editableCols = visCols
-      .map(vc => PS_COLUMNS.find(c => c.key === vc.key))
-      .filter(Boolean)
-      .filter(cd => !cd.readOnly)
-      .map(cd => cd.key);
+const handleCellKeyDown = useCallback((e, rid, colKey) => {
+  const editableCols = visCols
+    .map(vc => PS_COLUMNS.find(c => c.key === vc.key))
+    .filter(Boolean)
+    .filter(cd => !cd.readOnly)
+    .map(cd => cd.key);
 
-    const COLS = ["ProductCode", ...editableCols.filter(k => k !== "ProductCode")];
-    const colIdx = COLS.indexOf(colKey);
-    const rowIdx = rowsRef.current.findIndex(r => r._rid === rid);
+  const COLS = ["ProductCode", ...editableCols.filter(k => k !== "ProductCode")];
+  const colIdx = COLS.indexOf(colKey);
+  const rowIdx = rowsRef.current.findIndex(r => r._rid === rid);
 
-    const focusCell = (targetRid, targetKey) => {
-      setTimeout(() => {
-        const el = cellRefs.current[targetRid]?.[targetKey];
-        if (el) { el.focus(); el.select?.(); }
-      }, 10);
-    };
+  const focusCell = (targetRid, targetKey, skipEnter = false) => {
+    setTimeout(() => {
+      if (skipEnter) skipEnterRef.current[targetRid] = true;
+      const el = cellRefs.current[targetRid]?.[targetKey];
+      if (el) { el.focus(); el.select?.(); }
+    }, 10);
+  };
 
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (colKey === "ProductCode") {
-        const row = rowsRef.current.find(r => r._rid === rid);
-        if (row?.ProductCode?.trim()) fetchProductByCode(rid, row.ProductCode);
-        else loadProductsForPopup(rid);
-        return;
-      }
-      if (colKey === "PhysicalStockQty" || colKey === "LandingCost") {
-        const curRows = rowsRef.current;
-        const isLast  = rowIdx === curRows.length - 1;
-        if (isLast) {
-          const curRow = curRows.find(r => r._rid === rid);
-          if (curRow?.ProductId) {
-            const newRow = mkRow();
-            setRows(prev => [...prev, newRow]);
-            setTimeout(() => cellRefs.current[newRow._rid]?.["ProductCode"]?.focus(), 80);
-          } else { focusCell(rid, "ProductCode"); }
-        } else { focusCell(curRows[rowIdx + 1]._rid, "ProductCode"); }
-        return;
-      }
-      if (colIdx >= 0 && colIdx < COLS.length - 1) {
-        focusCell(rid, COLS[colIdx + 1]);
+  if (e.key === "Enter") {
+    e.preventDefault();
+
+    // Consume carry-over Enter from programmatic focus
+    if (skipEnterRef.current[rid]) {
+      delete skipEnterRef.current[rid];
+      return;
+    }
+
+    if (colKey === "ProductCode") {
+      const row = rowsRef.current.find(r => r._rid === rid);
+      if (row?.ProductCode?.trim()) fetchProductByCode(rid, row.ProductCode);
+      else loadProductsForPopup(rid);
+      return;
+    }
+
+    if (colKey === "PhysicalStockQty" || colKey === "LandingCost") {
+      const curRows = rowsRef.current;
+      const isLast  = rowIdx === curRows.length - 1;
+      if (isLast) {
+        const curRow = curRows.find(r => r._rid === rid);
+        if (curRow?.ProductId) {
+          const newRow = mkRow();
+          setRows(prev => [...prev, newRow]);
+          setTimeout(() => {
+            skipEnterRef.current[newRow._rid] = true;
+            cellRefs.current[newRow._rid]?.["ProductCode"]?.focus();
+          }, 80);
+        } else { focusCell(rid, "ProductCode", true); }
       } else {
-        const curRows = rowsRef.current;
-        const isLast  = rowIdx === curRows.length - 1;
-        if (isLast) {
-          const curRow = curRows.find(r => r._rid === rid);
-          if (curRow?.ProductId) {
-            const newRow = mkRow();
-            setRows(prev => [...prev, newRow]);
-            setTimeout(() => cellRefs.current[newRow._rid]?.["ProductCode"]?.focus(), 80);
-          } else { focusCell(rid, "ProductCode"); }
-        } else { focusCell(curRows[rowIdx + 1]._rid, "ProductCode"); }
+        focusCell(curRows[rowIdx + 1]._rid, "ProductCode", true);
       }
       return;
     }
 
-    if (e.key === "ArrowDown" && rowIdx < rowsRef.current.length - 1) { e.preventDefault(); focusCell(rowsRef.current[rowIdx + 1]._rid, colKey); }
-    if (e.key === "ArrowUp"   && rowIdx > 0)                           { e.preventDefault(); focusCell(rowsRef.current[rowIdx - 1]._rid, colKey); }
-    if (e.key === "ArrowRight" && colIdx < COLS.length - 1)            { e.preventDefault(); focusCell(rid, COLS[colIdx + 1]); }
-    if (e.key === "ArrowLeft"  && colIdx > 0)                          { e.preventDefault(); focusCell(rid, COLS[colIdx - 1]); }
-    if (e.key === "Delete")    { e.preventDefault(); doDeleteRow(rid); }
-    if (e.key === " " && colKey === "ProductCode") { e.preventDefault(); loadProductsForPopup(rid); }
-  }, [visCols, fetchProductByCode, loadProductsForPopup, doDeleteRow]);
+    if (colIdx >= 0 && colIdx < COLS.length - 1) {
+      focusCell(rid, COLS[colIdx + 1]);
+    } else {
+      const curRows = rowsRef.current;
+      const isLast  = rowIdx === curRows.length - 1;
+      if (isLast) {
+        const curRow = curRows.find(r => r._rid === rid);
+        if (curRow?.ProductId) {
+          const newRow = mkRow();
+          setRows(prev => [...prev, newRow]);
+          setTimeout(() => {
+            skipEnterRef.current[newRow._rid] = true;
+            cellRefs.current[newRow._rid]?.["ProductCode"]?.focus();
+          }, 80);
+        } else { focusCell(rid, "ProductCode", true); }
+      } else {
+        focusCell(curRows[rowIdx + 1]._rid, "ProductCode", true);
+      }
+    }
+    return;
+  }
+
+  if (e.key === "ArrowDown" && rowIdx < rowsRef.current.length - 1) { e.preventDefault(); focusCell(rowsRef.current[rowIdx + 1]._rid, colKey); }
+  if (e.key === "ArrowUp"   && rowIdx > 0)                           { e.preventDefault(); focusCell(rowsRef.current[rowIdx - 1]._rid, colKey); }
+  if (e.key === "ArrowRight" && colIdx < COLS.length - 1)            { e.preventDefault(); focusCell(rid, COLS[colIdx + 1]); }
+  if (e.key === "ArrowLeft"  && colIdx > 0)                          { e.preventDefault(); focusCell(rid, COLS[colIdx - 1]); }
+  if (e.key === "Delete")    { e.preventDefault(); doDeleteRow(rid); }
+  if (e.key === " " && colKey === "ProductCode") { e.preventDefault(); loadProductsForPopup(rid); }
+}, [visCols, fetchProductByCode, loadProductsForPopup, doDeleteRow]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {

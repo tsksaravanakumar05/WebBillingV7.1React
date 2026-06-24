@@ -780,7 +780,13 @@ useEffect(() => {
   const loadColSettings = async () => {
     try {
       const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Supplier`;
-      const res = await fetch(url);
+      const res = await fetch(url,{
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...CC.authHeaders(),   // ← same headers your other API calls use
+              },
+            });
       if (!res.ok) return;               // no file yet — use defaults
 
       const serverData = await res.json();

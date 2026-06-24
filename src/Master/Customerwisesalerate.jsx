@@ -649,18 +649,6 @@ export default function CustomerWiseSaleRate() {
   }
 
   /* ─── load customer combo ─── */
-<<<<<<< HEAD
-  async function loadCustomerCombo() {
-    try {
-      const res = await fetch("/SupplierApp/SelectSupplier", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Comid: Comid.current, Startindex: -1, PageCount: 500, AccountType: "CUSTOMER", Keyword: "", Column: "" }),
-      });
-      const data = await res.json();
-      if (data.ok) setCustomers(data.data || []);
-    } catch {}
-=======
 async function loadCustomerCombo() {
   console.log("loadCustomerCombo started");
 
@@ -689,22 +677,12 @@ async function loadCustomerCombo() {
   } catch (err) {
     console.log("CATCH BLOCK HIT");
     console.error(err);
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
   }
 }
 
   /* ─── load products ─── */
   async function loadProducts() {
     try {
-<<<<<<< HEAD
-      const res = await fetch("/ItemMasterApp/GetProductList", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Comid: Comid.current }),
-      });
-      const data = await res.json();
-      setProducts(Array.isArray(data) ? data : (data.data || []));
-=======
      const ProductListUrl = "/api/ItemMasterApp/GetProductListV7";
     setLoading(true); 
     const res = await CC.api(ProductListUrl, null, {}, { Comid:Comid.current });
@@ -712,24 +690,11 @@ async function loadCustomerCombo() {
    
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
     setProducts(arr);
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
     } catch {}
   }
 
   /* ─── load customer sale rates on customer select ─── */
   async function loadCustomerRates(custId) {
-<<<<<<< HEAD
-    if (!custId || custId === "0") return;
-    setLoading(true);
-    try {
-      const res = await fetch("/SupplierApp/SelectCustomerSaleRateALL", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Comid: Comid.current, Id: custId }),
-      });
-      const data = await res.json();
-      const raw = data.data || [];
-=======
    if (!custId || custId === "0") return;
   setLoading(true);
   try {
@@ -740,7 +705,6 @@ async function loadCustomerCombo() {
       { Comid: Comid.current, Id: custId }
     );
     const raw = res?.data || res?.Data1 || [];
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
       if (raw.length) {
         const normalised = raw.map((obj) => ({
           ...obj,
@@ -847,18 +811,6 @@ async function loadCustomerCombo() {
         setConfirm(null);
         setLoading(true);
         try {
-<<<<<<< HEAD
-          const res = await fetch("/SupplierApp/DeleteCustomerSaleRate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ Id: row.Id }),
-          });
-          const data = await res.json();
-          if (data.ok) {
-            showToast(data.message || "Deleted.");
-            setRows((prev) => prev.filter((_, i) => i !== idx));
-          } else msgBox(data.message);
-=======
          const res = await CC.api(
   DeleteCustomerSaleRate,
   {},
@@ -869,7 +821,6 @@ if (res.ok ?? res.IsSuccess) {
   showToast(res.message || "Deleted.");
   setRows((prev) => prev.filter((_, i) => i !== idx));
 } else msgBox(res.message);
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
         } catch { msgBox("Technical Fault !!!"); }
         finally { setLoading(false); }
       });
@@ -892,38 +843,6 @@ function gridEmptyCheck() {
 }
 
   /* ─── save (F1) ─── */
-<<<<<<< HEAD
-  function handleSave() {
-    if (submitting.current) return;
-    if (!gridEmptyCheck()) return;
-
-    showConfirm("Do you Want to Save the Customer SaleRate Details?", async () => {
-      setConfirm(null);
-      submitting.current = true;
-      setLoading(true);
-      try {
-        const res = await fetch("/SupplierApp/InsertCustomerSaleRate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Comid: Comid.current,
-            Cusid: customerId,
-          },
-          body: JSON.stringify(rows),
-        });
-        const data = await res.json();
-        if (data.ok) {
-          showToast(data.message || "Saved successfully.");
-          handleClear();
-          setTimeout(() => comboRef.current?.focus(), 60);
-        } else {
-          msgBox(data.message);
-          addNewRow();
-        }
-      } catch { msgBox("Technical Fault. Contact Software Vendor !!!"); }
-      finally { setLoading(false); submitting.current = false; }
-    }, () => { setConfirm(null); addNewRow(); });
-=======
 // AFTER
 // AFTER
 function gridEmptyCheck() {
@@ -931,7 +850,6 @@ function gridEmptyCheck() {
   if (filtered.length === 0) {
     setRows([newBlankRow()]);
     return null; // null = nothing to save
->>>>>>> 710ad9e3216d23f0b852e182a1555c9197353313
   }
   setRows(filtered);
   return filtered; // return the clean array directly

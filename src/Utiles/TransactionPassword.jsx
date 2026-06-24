@@ -15,6 +15,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../Utilesstyle/TransactionPassword.css";
+import Topbar from "../components/Topbar";
 
 import * as CC from "../components/Common";
 // Endpoint constants are now centralised in Common.jsx:
@@ -292,10 +293,9 @@ export default function TransactionMaster() {
 
       {/* ── Password Lock Modal (mirrors #LockEditWindow jqxWindow) ── */}
       {pwdModal && (
-        <div className="mp-modal-ov">
-          <div className="mp-pwd-modal" role="dialog" aria-modal="true"
-               style={{ minWidth: 200 }}>
-            <h3>{pwdModalTitle}</h3>
+        <div className="mp-ov" style={{ zIndex: 99999 }}>
+          <div className="mp-modal-box" style={{ width: 280, padding: "20px 24px" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#1f65de" }}>🔐 {pwdModalTitle}</div>
             {pwdError && (
               <div style={{
                 fontSize: 11, color: "#991b1b", background: "#fee2e2",
@@ -308,52 +308,26 @@ export default function TransactionMaster() {
             <input
               ref={pwdInputRef}
               type="password"
-              className="mp-pwd-input"
               value={pwdValue}
               onChange={e => { setPwdValue(e.target.value); setPwdError(""); }}
               onKeyDown={onPwdKeyDown}
               maxLength={50}
               placeholder="Enter password…"
-              style={{ marginBottom: 12, letterSpacing: "3px" }}
+              autoComplete="off"
+              style={{ width: "100%", padding: "6px 10px", border: "1px solid #c5d8f8", borderRadius: 4, fontSize: 13, marginBottom: 14, outline: "none" }}
             />
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-              <button
-                className="mp-modal-btn yes"
-                onClick={submitPwd}
-                disabled={loading}
-              >
-                OK
-              </button>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="mp-btn" onClick={() => setPwdModal(false)}>Cancel</button>
+              <button className="mp-btn sv" onClick={submitPwd} disabled={loading}>OK</button>
             </div>
           </div>
         </div>
       )}
 
       {/* ── Header ── */}
-      <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">T</div>
-          <div>
-            <div className="mp-title">Transaction Password</div>
-            <div className="mp-sub">Co: {sess.Comid} — Manage transaction passwords</div>
-          </div>
-        </div>
-        <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div>
+      <Topbar />
 
       <div className="mp-body">
-
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button
-            className="mp-btn sv"
-            onClick={handleSave}
-            disabled={loading || !pageUnlocked}
-          >
-            💾 F1 Save
-          </button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-        </div>
 
         {/* ── Grid ── */}
         <div className="mp-grid-wrap">
@@ -363,6 +337,7 @@ export default function TransactionMaster() {
                 <th style={{ width: 50 }}>S.No</th>
                 <th style={{ width: 150 }}>Transaction Name</th>
                 <th style={{ width: 100 }}>Password</th>
+                <th style={{ width: 60, textAlign: "center" }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -387,7 +362,14 @@ export default function TransactionMaster() {
                       value={row.UserName || ""}
                       readOnly
                       tabIndex={-1}
-                      style={{ background: "#f5f9ff", cursor: "default", color: "#4a5568" }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "default",
+                        color: "var(--color-text-secondary)",
+                        padding: 0,
+                        outline: "none"
+                      }}
                     />
                   </td>
 
@@ -402,12 +384,42 @@ export default function TransactionMaster() {
                       type="text"
                       value={row.Password || ""}
                       maxLength={50}
-                      onChange={e =>
-                        CC.applyUppercase(e, val => updateCell(idx, "Password", val))
-                      }
-                      onKeyDown={e => onCellKeyDown(e, idx)}
+                      readOnly={row.EditMode === 0}
+                      onChange={e => row.EditMode === 1 && CC.applyUppercase(e, val => updateCell(idx, "Password", val))}
+                      onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx)}
                       onFocus={() => setSelIdx(idx)}
+                      style={{
+                        background:   row.EditMode === 0 ? "transparent"               : "#fff",
+                        border:       row.EditMode === 0 ? "none"                      : "1px solid #93c5fd",
+                        cursor:       row.EditMode === 0 ? "default"                   : "text",
+                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                        boxShadow:    row.EditMode === 0 ? "none"                      : "0 0 0 2px rgba(59,130,246,0.15)",
+                        borderRadius: row.EditMode === 1 ? "4px"                       : "0",
+                        padding:      row.EditMode === 0 ? "0"                         : undefined,
+                      }}
                     />
+                  </td>
+
+                  {/* Action Column */}
+                  <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                    {row.EditMode === 0 && (
+                      <button
+                        className="mp-edit-btn"
+                        title="Edit row"
+                        onClick={e => { e.stopPropagation(); updateCell(idx, "Password", row.Password || ""); setTimeout(() => inputRefs.current[idx]?.[0]?.focus(), 50); }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    {row.EditMode === 1 && (
+                      <button
+                        className="mp-edit-btn active"
+                        title="Editing…"
+                        style={{ color: "#16a34a", cursor: "default" }}
+                      >
+                        ✏️
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -425,6 +437,18 @@ export default function TransactionMaster() {
               Please verify your password to access this page.
             </div>
           )}
+        </div>
+
+        {/* ── Toolbar ── */}
+        <div className="mp-toolbar">
+          <button
+            className="mp-btn sv"
+            onClick={handleSave}
+            disabled={loading || !pageUnlocked}
+          >
+            💾 F1 Save
+          </button>
+          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
         </div>
 
         {/* ── Keyboard hint bar ── */}

@@ -2,209 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../Utilesstyle/TransactionPassword.css";
 import Topbar from "../components/Topbar";
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const mkUrl = (path) => (path.startsWith("/") ? path : "/" + path);
+import * as CC from "../Master/Common";
 
-const authHeaders = () => ({
-  Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-  Userid:        localStorage.getItem("userid")     || "0",
-  Profile:       localStorage.getItem("Profile")    || "Admin",
-  LoginCheck:    localStorage.getItem("LoginCheck") || "1",
-});
-
-const api = async (path, body = null, extraHeaders = {}, queryParams = null) => {
-  try {
-    let fullUrl = mkUrl(path);
-    if (queryParams && typeof queryParams === "object") {
-      const qs = new URLSearchParams(
-        Object.entries(queryParams)
-          .filter(([, v]) => v !== undefined && v !== null)
-          .map(([k, v]) => [k, String(v)])
-      ).toString();
-      if (qs) fullUrl += "?" + qs;
-    }
-    const res = await fetch(fullUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...authHeaders(),
-        ...extraHeaders,
-      },
-      body: body !== null ? JSON.stringify(body) : null,
-    });
-    if (res.status === 406) {
-      alert("Already Login Another User Please Login Again!!!");
-      window.location.href = "/Login";
-      return { ok: false };
-    }
-    if (res.status === 404) return { ok: false, _http404: true, message: `404: ${fullUrl}` };
-    if (res.status === 500) {
-      const t = await res.text();
-      console.error(`500 on ${fullUrl}:`, t.slice(0, 500));
-      return { ok: false, message: "Server error 500 — see console" };
-    }
-    const text = await res.text();
-    if (!text.trim()) return { ok: false, message: "Empty response" };
-    try {
-      const j = JSON.parse(text);
-      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
-      if (j.Data1     !== undefined && j.data    === undefined) j.data    = j.Data1;
-      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
-      return j;
-    } catch { return { ok: false, message: text }; }
-  } catch (err) {
-    return { ok: false, _netErr: true, message: err.message };
-  }
-};
-
-
-const insertapi = async (path, body = null, extraHeaders = {}) => {
-    try {
-      const res = await fetch(mkUrl(path), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          ...authHeaders(),
-          ...extraHeaders,
-        },
-        body: body != null ? JSON.stringify(body) : null,
-      });
-  
-      const text = await res.text();
-      
-      // 1. Attempt to parse the response as JSON (even on 500 status)
-      let j = {};
-      try {
-        j = JSON.parse(text);
-      } catch {
-        // If it's not valid JSON, fallback to generic error handling
-        if (!res.ok) {
-          return { ok: false, message: text || `Server error ${res.status}` };
-        }
-        return { ok: false, message: "Invalid JSON response" };
-      }
-  
-      // 2. Normalize the parsed JSON so `handleSave` can easily read it
-      if (j.IsSuccess !== undefined && j.ok === undefined) j.ok = j.IsSuccess;
-      if (j.Data1 !== undefined && j.data === undefined) j.data = j.Data1;
-      if (j.Message !== undefined && j.message === undefined) j.message = j.Message;
-  
-      // 3. If HTTP status is bad (like 500) but it has a valid backend JSON message
-      if (!res.ok) {
-        // Return false to prevent "success" actions, pass the custom message to the UI
-        return { 
-          ok: false, 
-          message: j.message || `HTTP Error: ${res.status}` 
-        };
-      }
-  
-      return j;
-    } catch (err) {
-      return { ok: false, message: err.message };
-    }
-  };
-
-
-
-const getStr   = (k) => localStorage.getItem(k) || "";
-const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-const uid = () =>
-  crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
-
-// ─── Inject keyframe + shared styles once ────────────────────────────────────
-if (typeof document !== "undefined" && !document.getElementById("psPopInStyle")) {
-  const s = document.createElement("style");
-  s.id = "psPopInStyle";
-  s.textContent = `
-    @keyframes popIn {
-      from { transform: scale(0.88); opacity: 0; }
-      to   { transform: scale(1);    opacity: 1; }
-    }
-    .mp-active-sel {
-      text-align: center;
-      font-size: 16px;
-      padding: 2px 4px;
-      border: 1px solid #cbd5e1;
-      border-radius: 5px;
-      background: #f8fafc;
-      cursor: pointer;
-      width: 62px;
-    }
-    .mp-active-sel:focus { outline: 2px solid #3b82f6; }
-  `;
-  document.head.appendChild(s);
-}
-
-// ─── Modal styles ─────────────────────────────────────────────────────────────
-const mStyles = {
-  overlay: {
-    position: "fixed", inset: 0,
-    background: "rgba(10,20,40,0.55)",
-    backdropFilter: "blur(2px)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    zIndex: 9999,
-  },
-  modal: {
-    background: "#fff",
-    borderRadius: "10px",
-    padding: "28px 32px 22px",
-    minWidth: "280px",
-    maxWidth: "360px",
-    textAlign: "center",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)",
-    border: "1px solid #e2e8f0",
-    animation: "popIn 0.15s ease",
-  },
-  modalIcon: {
-    width: "40px", height: "40px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
-    color: "#fff",
-    fontSize: "20px", fontWeight: "700",
-    lineHeight: "40px",
-    margin: "0 auto 14px",
-  },
-  modalMsg: {
-    fontSize: "14px",
-    color: "#1e293b",
-    fontWeight: "500",
-    margin: "0 0 20px",
-    lineHeight: "1.5",
-  },
-  modalBtns:  { display: "flex", gap: "10px", justifyContent: "center" },
-  modalBtn:   { padding: "7px 26px", borderRadius: "6px", border: "none", fontSize: "13px", fontWeight: "600", cursor: "pointer", transition: "opacity 0.15s", outline: "none" },
-  yesBtn:     { background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff", boxShadow: "0 2px 6px rgba(34,197,94,0.35)" },
-  noBtn:      { background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1" },
-};
-
-// ─── ConfirmModal ─────────────────────────────────────────────────────────────
-function ConfirmModal({ message, onYes, onNo }) {
-  const yesBtnRef = useRef(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => yesBtnRef.current?.focus(), 30);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") { e.preventDefault(); onNo(); } };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onNo]);
-
-  return (
-    <div style={mStyles.overlay}>
-      <div style={mStyles.modal} role="dialog" aria-modal="true">
-        <div style={mStyles.modalIcon}>?</div>
-        <p style={mStyles.modalMsg}>{message}</p>
-        <div style={mStyles.modalBtns}>
-          <button ref={yesBtnRef} style={{ ...mStyles.modalBtn, ...mStyles.yesBtn }} onClick={onYes}>✔ Yes</button>
-          <button style={{ ...mStyles.modalBtn, ...mStyles.noBtn }} onClick={onNo}>✘ No</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── PasswordModal — mirrors jQuery LockEditWindow ────────────────────────────
 function PasswordModal({ title, onSubmit, onClose }) {
@@ -223,71 +22,46 @@ function PasswordModal({ title, onSubmit, onClose }) {
   };
 
   return (
-    <div style={mStyles.overlay}>
-      <div style={{ ...mStyles.modal, minWidth: "200px", maxWidth: "260px" }} role="dialog" aria-modal="true">
-        <div className="mp-pwd-modal" style={{ padding: 0, boxShadow: "none" }}>
-          <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#1f65de", marginBottom: "12px" }}>{title}</h3>
-          <input
-            ref={inputRef}
-            type="password"
-            className="mp-pwd-input"
-            value={pwd}
-            onChange={e => setPwd(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder="Enter password"
-            autoComplete="off"
-          />
-          <div style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-            <button
-              style={{ ...mStyles.modalBtn, ...mStyles.yesBtn, padding: "5px 16px", fontSize: "12px" }}
-              onClick={() => pwd.trim() && onSubmit(pwd.trim())}
-            >
-              OK
-            </button>
-            <button
-              style={{ ...mStyles.modalBtn, ...mStyles.noBtn, padding: "5px 16px", fontSize: "12px" }}
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-          </div>
+    <div className="mp-ov" style={{ zIndex: 99999 }}>
+      <div className="mp-modal-box" style={{ width: 280, padding: "20px 24px" }} role="dialog" aria-modal="true">
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#1f65de", textAlign: "left" }}>🔐 {title}</div>
+        <input
+          ref={inputRef}
+          type="password"
+          value={pwd}
+          onChange={e => setPwd(e.target.value)}
+          onKeyDown={(e) => {
+            handleKey(e);
+            if (e.key === "Escape") onClose();
+          }}
+          placeholder="Enter password…"
+          autoComplete="off"
+          style={{ width: "100%", padding: "6px 10px", border: "1px solid #c5d8f8", borderRadius: 4, fontSize: 13, marginBottom: 14, outline: "none" }}
+        />
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="mp-btn" onClick={onClose}>Cancel</button>
+          <button className="mp-btn sv" onClick={() => pwd.trim() && onSubmit(pwd.trim())}>OK</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── useConfirm hook ──────────────────────────────────────────────────────────
-function useConfirm() {
-  const [conf, setConf] = useState(null);
-
-  const confirm = useCallback(
-    (message) => new Promise((resolve) => setConf({ message, resolve })),
-    []
-  );
-  const handleYes = useCallback(() => { conf?.resolve(true);  setConf(null); }, [conf]);
-  const handleNo  = useCallback(() => { conf?.resolve(false); setConf(null); }, [conf]);
-
-  const ConfirmUI = conf
-    ? <ConfirmModal message={conf.message} onYes={handleYes} onNo={handleNo} />
-    : null;
-
-  return { confirm, ConfirmUI };
-}
+// Removed local useConfirm in favor of CC.useConfirm
 
 // ─── PasswordSetting ─────────────────────────────────────────────────────────
 export default function PasswordSetting() {
   const navigate = useNavigate();
   const inputRefs = useRef([]);    // refs for UserName inputs
   const pwdRefs   = useRef([]);    // refs for Password inputs
-  const toastId   = useRef(0);
 
-  const { confirm, ConfirmUI } = useConfirm();
+  const { confirm, ConfirmUI } = CC.useConfirm();
+  const { toast, toasts }      = CC.useToast();
 
   // ── Session / permissions ──────────────────────────────────────────────────
   const [sess] = useState(() => {
     try {
-      const menulist = getLocal("menulist") || [];
+      const menulist = CC.getLocal("menulist") || [];
       const menudata = menulist.filter(o => o.PageName === "Login Password");
 
       if (!menulist.length) {
@@ -299,10 +73,10 @@ export default function PasswordSetting() {
         alert("Page Access Permission Denied !!!.");
       }
 
-      const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
-      const Comid       = getStr("Comid")  || "1";
-      const MComid      = getStr("MComid") || Comid;
-      const MirrorTable = getStr("MirrorTableOnline") || "0";
+      const main0       = (CC.getLocal("Mainsetting") || [{}])[0] || {};
+      const Comid       = CC.getStr("Comid")  || "1";
+      const MComid      = CC.getStr("MComid") || Comid;
+      const MirrorTable = CC.getStr("MirrorTableOnline") || "0";
 
       return {
         Comid:        main0.CommonCompany ? MComid : Comid,
@@ -319,18 +93,10 @@ export default function PasswordSetting() {
   // ── Grid state ─────────────────────────────────────────────────────────────
   const [grid,    setGrid]    = useState([]);
   const [loading, setLoading] = useState(false);
-  const [toasts,  setToasts]  = useState([]);
   const [selIdx,  setSelIdx]  = useState(null);
 
   // ── Password-window state (mirrors jQuery LockEditWindow / PasswordType) ───
   const [pwdModal, setPwdModal] = useState(null); // null | { type: 0|1|2 }
-
-  // ── Toast helper ───────────────────────────────────────────────────────────
-  const toast = useCallback((msg, isErr = false) => {
-    const id = ++toastId.current;
-    setToasts(p => [...p, { id, msg, isErr }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
-  }, []);
 
   const focusRow = useCallback((idx, field = "user") => {
     setTimeout(() => {
@@ -341,7 +107,7 @@ export default function PasswordSetting() {
 
   const makeNewRow = () => ({
     Id: null, UserName: "", Password: "", Priv: false, Active: true,
-    EditMode: 1, _uid: uid(),
+    EditMode: 1, _uid: CC.uid(),
   });
 
   // ── loadData — mirrors jQuery loadTransactionpassword ─────────────────────
@@ -350,7 +116,7 @@ export default function PasswordSetting() {
   
     setLoading(true);
   
-    const res = await api("/Login/SelectPassword?Comid=" + Number(sess.Comid), {
+    const res = await CC.api("/api/loginApp/SelectPassword?Comid=" + Number(sess.Comid), {
       method: "POST",
     });
   
@@ -380,7 +146,7 @@ export default function PasswordSetting() {
       Priv: r.Priv === true || r.Priv === 1,
       Active: r.Active === true || r.Active === 1,
       EditMode: 0,
-      _uid: uid(),
+      _uid: CC.uid(),
     }));
   
     const blank = makeNewRow();
@@ -418,13 +184,13 @@ export default function PasswordSetting() {
   
       // ✅ query string format for ASP.NET WebAPI
       const url =
-        `Login/EditPassword` +
+        `/api/loginApp/EditPassword` +
         `?password=${encodeURIComponent(password)}` +
         `&type=${encodeURIComponent(typeMap[pwdModal.type])}` +
         `&Comid=${Number(sess?.Comid || 0)}`;
   
       // ✅ GET request because backend expects params directly
-      const res = await api(url);
+      const res = await CC.api(url);
   
       setLoading(false);
   
@@ -566,8 +332,8 @@ export default function PasswordSetting() {
       if (!ok) return;
 
       setLoading(true);
-      const res = await api(
-        `/Login/DeletePassword?Id=${row.Id}&Comid=${sess.Comid}&MirrorTable=${sess.MirrorTable}`
+      const res = await CC.api(
+        `/api/loginApp/DeletePassword?Id=${row.Id}&Comid=${sess.Comid}&MirrorTable=${sess.MirrorTable}`
       );
       setLoading(false);
 
@@ -604,7 +370,7 @@ export default function PasswordSetting() {
     if (!ok) return;
 
     setLoading(true);
-    const res = await api(
+    const res = await CC.api(
       "/Login/MenuReset",
       { Userid: String(row.Id), Comid: String(sess.Comid), Per: String(priv) }
     );
@@ -664,23 +430,20 @@ export default function PasswordSetting() {
     if (!ok2) { addRow(); return; }
 
     setLoading(true);
-    const payload = dirty.map(r => ({
-        Id: r.Id || 0,
-      
-        UserId: String(r.UserName || "").trim(),
-      
-        Password: String(r.Password || "").trim(),
-      
-        Priv: r.Priv ? 1 : 0,
-      
-        Active: r.Active ? 1 : 0,
+const today = new Date().toISOString().slice(0, 10) + "T00:00:00";
 
+const payload = dirty.map(r => ({
+    Id: r.Id || 0,
+    UserId: String(r.UserName || "").trim(),
+    Password: String(r.Password || "").trim(),
+    Priv: r.Priv ? 1 : 0,
+    Active: r.Active ? 1 : 0,
+    Todate: today,
+    Trial: r.Trial || 0,
+}));
 
-
-      }));
-
-    const res = await insertapi(
-      "/Login/InsertPassword",
+    const res = await CC.insertapi(
+      "/api/loginApp/InsertPassword",
       payload,
       {
         Comid:       String(sess.Comid),
@@ -787,7 +550,6 @@ export default function PasswordSetting() {
     <div className="mp-wrap">
       {ConfirmUI}
 
-      {/* Password Window — mirrors jQuery LockEditWindow */}
       {pwdModal && (
         <PasswordModal
           title={pwdTitle(pwdModal.type)}
@@ -797,27 +559,9 @@ export default function PasswordSetting() {
       )}
 
       {/* Header */}
-      {/* <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">P</div>
-          <div>
-            <div className="mp-title">Password Setting</div>
-            <div className="mp-sub">Co: {sess?.Comid} — Manage login credentials</div>
-          </div>
-        </div>
-        <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div> */}
       <Topbar />
       {/* Body */}
       <div className="mp-body">
-
-        {/* Toolbar */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn info" onClick={menuReset} disabled={loading} title="F3 — Menu Reset for selected row">🔄 F3 Menu Reset</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-        </div>
 
         {/* Grid */}
         <div className="mp-grid-wrap">
@@ -853,9 +597,19 @@ export default function PasswordSetting() {
                       className="mp-cell-input"
                       value={row.UserName || ""}
                       maxLength={200}
-                      onChange={e => updateCell(idx, "UserName", e.target.value)}
-                      onKeyDown={e => onCellKeyDown(e, idx, "UserName")}
+                      readOnly={row.EditMode === 0}
+                      onChange={e => row.EditMode === 1 && updateCell(idx, "UserName", e.target.value)}
+                      onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, "UserName")}
                       onFocus={() => setSelIdx(idx)}
+                      style={{
+                        background:   row.EditMode === 0 ? "transparent"               : "#fff",
+                        border:       row.EditMode === 0 ? "none"                      : "1px solid #93c5fd",
+                        cursor:       row.EditMode === 0 ? "default"                   : "text",
+                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                        boxShadow:    row.EditMode === 0 ? "none"                      : "0 0 0 2px rgba(59,130,246,0.15)",
+                        borderRadius: row.EditMode === 1 ? "4px"                       : "0",
+                        padding:      row.EditMode === 0 ? "0"                         : undefined,
+                      }}
                     />
                   </td>
 
@@ -867,42 +621,94 @@ export default function PasswordSetting() {
                       type="text"
                       value={row.Password || ""}
                       maxLength={100}
-                      onChange={e => updateCell(idx, "Password", e.target.value)}
-                      onKeyDown={e => onCellKeyDown(e, idx, "Password")}
+                      readOnly={row.EditMode === 0}
+                      onChange={e => row.EditMode === 1 && updateCell(idx, "Password", e.target.value)}
+                      onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, "Password")}
                       onFocus={() => setSelIdx(idx)}
+                      style={{
+                        background:   row.EditMode === 0 ? "transparent"               : "#fff",
+                        border:       row.EditMode === 0 ? "none"                      : "1px solid #93c5fd",
+                        cursor:       row.EditMode === 0 ? "default"                   : "text",
+                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                        boxShadow:    row.EditMode === 0 ? "none"                      : "0 0 0 2px rgba(59,130,246,0.15)",
+                        borderRadius: row.EditMode === 1 ? "4px"                       : "0",
+                        padding:      row.EditMode === 0 ? "0"                         : undefined,
+                      }}
                     />
                   </td>
 
-                  {/* Priv (Admin Status) — checkbox */}
+                  {/* Priv (Admin Status) — toggle */}
                   <td style={{ textAlign: "center" }}>
-                    <select
-                      className="mp-active-sel"
-                      value={row.Priv ? "1" : "0"}
-                      onChange={e => handlePrivChange(idx, e.target.value === "1")}
+                    <button
+                      onClick={() => row.EditMode === 1 && handlePrivChange(idx, !row.Priv)}
                       onFocus={() => setSelIdx(idx)}
                       title={row.Priv ? "Admin" : "Not Admin"}
+                      style={{
+                        width: 32, height: 18, borderRadius: 9, border: "none", cursor: row.EditMode === 0 ? "default" : "pointer",
+                        background: row.Priv ? "#16a34a" : "#cbd5e1",
+                        position: "relative", transition: "background 0.18s ease", outline: "none",
+                        display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
+                        boxShadow: row.Priv ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+                        opacity: row.EditMode === 0 ? 0.5 : 1,
+                        pointerEvents: row.EditMode === 0 ? "none" : "auto",
+                      }}
                     >
-                      <option value="1">✓</option>
-                      <option value="0">✗</option>
-                    </select>
+                      <span style={{
+                        position: "absolute", top: 3, left: row.Priv ? 15 : 3,
+                        width: 12, height: 12, borderRadius: "50%", background: "#fff",
+                        transition: "left 0.18s ease",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+                        display: "block",
+                      }} />
+                    </button>
                   </td>
 
-                  {/* Active — checkbox */}
+                  {/* Active — toggle */}
                   <td style={{ textAlign: "center" }}>
-                    <select
-                      className="mp-active-sel"
-                      value={row.Active ? "1" : "0"}
-                      onChange={e => handleActiveChange(idx, e.target.value === "1")}
+                    <button
+                      onClick={() => row.EditMode === 1 && handleActiveChange(idx, !row.Active)}
                       onFocus={() => setSelIdx(idx)}
                       title={row.Active ? "Active" : "Inactive"}
+                      style={{
+                        width: 32, height: 18, borderRadius: 9, border: "none", cursor: row.EditMode === 0 ? "default" : "pointer",
+                        background: row.Active ? "#16a34a" : "#cbd5e1",
+                        position: "relative", transition: "background 0.18s ease", outline: "none",
+                        display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
+                        boxShadow: row.Active ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+                        opacity: row.EditMode === 0 ? 0.5 : 1,
+                        pointerEvents: row.EditMode === 0 ? "none" : "auto",
+                      }}
                     >
-                      <option value="1">✓</option>
-                      <option value="0">✗</option>
-                    </select>
+                      <span style={{
+                        position: "absolute", top: 3, left: row.Active ? 15 : 3,
+                        width: 12, height: 12, borderRadius: "50%", background: "#fff",
+                        transition: "left 0.18s ease",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+                        display: "block",
+                      }} />
+                    </button>
                   </td>
 
                   {/* Delete */}
-                  <td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {row.Id && row.EditMode === 0 && (
+                      <button
+                        className="mp-edit-btn"
+                        title="Edit row"
+                        onClick={e => { e.stopPropagation(); updateCell(idx, "EditMode", 1); focusRow(idx, "user"); }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    {row.Id && row.EditMode === 1 && (
+                      <button
+                        className="mp-edit-btn active"
+                        title="Editing…"
+                        style={{ color: "#16a34a", cursor: "default" }}
+                      >
+                        ✏️
+                      </button>
+                    )}
                     <button
                       className="mp-del-btn"
                       onClick={e => { e.stopPropagation(); deleteRow(idx); }}
@@ -920,6 +726,14 @@ export default function PasswordSetting() {
               No records. Press ➕ to add a user.
             </div>
           )}
+        </div>
+
+        {/* Toolbar */}
+        <div className="mp-toolbar">
+          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
+          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
+          <button className="mp-btn info" onClick={menuReset} disabled={loading} title="F3 — Menu Reset for selected row">🔄 F3 Menu Reset</button>
+          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
         </div>
 
         {/* Hint bar */}
@@ -943,11 +757,7 @@ export default function PasswordSetting() {
       )}
 
       {/* Toast notifications */}
-      <div className="toasts">
-        {toasts.map(t => (
-          <div key={t.id} className={`toast${t.isErr ? " err" : ""}`}>{t.msg}</div>
-        ))}
-      </div>
+      <CC.ToastList toasts={toasts} />
     </div>
   );
 }

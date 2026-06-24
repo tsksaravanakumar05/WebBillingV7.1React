@@ -30,15 +30,21 @@ import PurchaseMasterPage from "./presentation/pages/PurchaseMasterPage";
 
 
 // TRANSACTIONS
-
+//import Mainsetting from "./Utiles/Mainsetting";
 import Estimate from "./Transaction/EstimateBill";
 import SaleReturn from "./Transaction/SaleReturn";
+import SaleOrder from "./Transaction/Saleorder";
 import PurchasesMaster from "./Purchases/PurchasesMaster";
 import CustomerReceipt from "./Transaction/Customerreceipt";
 import PurchaseReturn from "./Transaction/Purchasereturn";
 import Supplierpayment from "./Transaction/Supplierpayment";
 import StockInward from "./Transaction/Stockinward";
-
+import PhysicalStock from "./Transaction/PhysicalStock";
+import Cashvoucher from "./Transaction/Cashvoucher";
+import Bankvoucher from "./Transaction/Bankvoucher";
+import Qutation from "./Transaction/Qutation";
+import Purchaseorder from "./Transaction/Purchaseorder";
+import StockAdjustment from "./Transaction/StockAdjustment";
 // UTILS
 import PasswordSetting from "./Utiles/Passwordsetting";
 import TransactionPassword from "./Utiles/TransactionPassword";
@@ -97,6 +103,7 @@ function App() {
         <Route path="/repackingmaster" element={<Repackingmaster />} />
         <Route path="/UserRightsMenuMaster" element={<Menumastersetting />} />
         <Route path="/UserRightsMaster" element={<Menucontrol />} />
+          {/* <Route path="/Mainsetting" element={<Mainsetting/>} /> */}
         <Route path="/UserRightsReport" element={<Menucontrolreport/>} />
         {/* Transaction */}
         <Route path="/Sale" element={<Sales />} />
@@ -113,7 +120,7 @@ function App() {
         <Route path="/Cash" element={<Cashvoucher />} />
         <Route path="/Bank" element={<Bankvoucher />} />
         <Route path="/Quotation" element={<Qutation />} />
-        <Route path="/SaleOrder" element={<SaleOrder />} />
+        
         <Route path="/Purchaseorder" element={<Purchaseorder />} />
         <Route path="/StockAdjustment" element={<StockAdjustment />} />
 

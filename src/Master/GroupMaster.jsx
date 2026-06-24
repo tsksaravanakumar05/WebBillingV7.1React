@@ -1,643 +1,547 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  GroupMaster.jsx
+//  Uses shared helpers from Common.jsx via wildcard import (CC.*)
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import "./MasterPage.css";
 
-// ─── Request Controller (mirrors original class) ───────────────────────────
-class Request_Controller {
-  constructor(key) {
-    this.key = key;
-    this._running = false;
-  }
-  Is_Request_Running() { return this._running; }
-  Start_Request()      { this._running = true; }
-  End_Request()        { this._running = false; }
-}
+import Topbar from "../components/Topbar";
+import * as CC from "./Common";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-function CheckDuplicateRows(rows, field, label, setMsg) {
-  const vals = rows
-    .filter(r => r[field] !== "" && r[field] != null)
-    .map(r => String(r[field]).trim().toLowerCase());
-  const dupes = vals.filter((v, i) => vals.indexOf(v) !== i);
-  if (dupes.length > 0) {
-    setMsg({ type: "err", text: `Duplicate ${label} found!` });
-    return false;
-  }
-  return true;
-}
-
-// ─── Confirm / Alert helpers (using browser dialogs to replicate MsgBoxYesNo / MsgBox) ──
-async function MsgBoxYesNo(str) {
-  return new Promise((resolve) => {
-    const confirmed = window.confirm(str);
-    resolve({ isConfirmed: confirmed });
-  });
-}
-function MsgBox(str) {
-  window.alert(str);
-}
-
-// ─── Inline CSS (from provided stylesheet) ──────────────────────────────────
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
-html, body, #root { height: 100%; margin: 0; padding: 0; }
-.mp-wrap { min-height: 100vh; display: flex; flex-direction: column; background: #eef1f7; font-size: 12.5px; }
-.mp-hdr { background: #1a2e4a; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; height: 50px; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,.28); }
-.mp-hdr-left { display: flex; align-items: center; gap: 10px; }
-.mp-icon { width: 32px; height: 32px; border-radius: 6px; background: #e8a020; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; color: #fff; flex-shrink: 0; }
-.mp-title { font-size: 14px; font-weight: 700; color: #fff; }
-.mp-sub { font-size: 10px; color: rgba(255,255,255,.5); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
-.mp-back { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); color: #fff; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all .15s; }
-.mp-back:hover { background: #e8a020; border-color: #e8a020; }
-.mp-body { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; max-width: 1100px; width: 100%; margin: 0 auto; }
-.mp-toolbar { background: #fff; border: 1px solid #d4dbe8; border-left: 4px solid #e8a020; border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.mp-btn { display: flex; align-items: center; gap: 4px; border: 1px solid transparent; border-radius: 4px; padding: 5px 12px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all .12s; height: 30px; }
-.mp-btn.sv { background: #1a2e4a; color: #fff; border-color: #1a2e4a; }
-.mp-btn.sv:hover { background: #e8a020; border-color: #e8a020; }
-.mp-btn.sv:disabled { opacity: .45; cursor: not-allowed; }
-.mp-btn.nw { background: #fff; color: #6f42c1; border-color: #6f42c1; }
-.mp-btn.nw:hover { background: #6f42c1; color: #fff; }
-.mp-btn.dl { background: #fff; color: #dc3545; border-color: #dc3545; }
-.mp-btn.dl:hover { background: #dc3545; color: #fff; }
-.mp-msg { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px; margin-left: 6px; }
-.mp-msg.ok { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-.mp-msg.err { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-.mp-grid-wrap { background: #fff; border: 1px solid #d4dbe8; border-radius: 6px; overflow: auto; flex: 1; }
-.mp-tbl { border-collapse: collapse; width: 100%; min-width: 400px; table-layout: fixed; }
-.mp-tbl thead tr { position: sticky; top: 0; z-index: 2; }
-.mp-tbl th { background: #1a2e4a; color: #fff; border: 1px solid #253d5e; padding: 7px 10px; font-size: 11px; font-weight: 600; text-align: left; white-space: nowrap; }
-.mp-tbl td { border: 1px solid #eaecf4; padding: 3px 5px; font-size: 12px; color: #1a2e4a; }
-.mp-tbl tbody tr { cursor: pointer; transition: background .07s; }
-.mp-tbl tbody tr:nth-child(even) { background: #f5f7fc; }
-.mp-tbl tbody tr:hover { background: #fef3e0; }
-.mp-tbl tbody tr.sel { background: #fddfa0 !important; }
-.mp-tbl tbody tr.inact td { color: #bbb; }
-.mp-tbl tbody tr.mod td:first-child { border-left: 3px solid #e8a020; }
-.mp-tbl td.sno { text-align: center; color: #8b99b5; font-size: 11px; }
-.mp-cell-input { border: 1px solid #d4dbe8; border-radius: 3px; padding: 3px 7px; font-size: 12px; width: 100%; height: 26px; outline: none; background: #fff; color: #1a2e4a; transition: border-color .12s; }
-.mp-cell-input:focus { border-color: #e8a020; box-shadow: 0 0 0 2px rgba(232,160,32,.15); }
-.mp-cell-select { border: 1px solid #d4dbe8; border-radius: 3px; padding: 2px 5px; font-size: 12px; width: 100%; height: 26px; outline: none; background: #fff; color: #1a2e4a; cursor: pointer; }
-.mp-cell-select:focus { border-color: #e8a020; }
-.mp-del-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 3px; transition: background .1s; line-height: 1; }
-.mp-del-btn:hover { background: #fee2e2; }
-.mp-hint { background: #f5f7fc; border: 1px solid #e0e5f0; border-radius: 4px; padding: 6px 12px; font-size: 10.5px; color: #8b99b5; flex-shrink: 0; }
-.mp-hint kbd { background: #1a2e4a; color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-family: 'Inter', monospace; }
-.mp-loader-ov { position: fixed; inset: 0; background: rgba(10,20,40,.48); display: flex; align-items: center; justify-content: center; z-index: 9000; }
-.mp-ldr-box { background: #fff; border-radius: 8px; padding: 22px 32px; display: flex; flex-direction: column; align-items: center; gap: 10px; box-shadow: 0 16px 48px rgba(0,0,0,.25); min-width: 150px; }
-.mp-spin { width: 32px; height: 32px; border: 4px solid #eee; border-top-color: #e8a020; border-radius: 50%; animation: mp-spin .55s linear infinite; }
-@keyframes mp-spin { to { transform: rotate(360deg); } }
-.mp-ldr-msg { font-size: 12px; color: #4a5568; font-weight: 600; }
-`;
-
-// ─── MAIN COMPONENT ─────────────────────────────────────────────────────────
 export default function GroupMaster() {
-  // ── Permission flags ──
-  const [pageview,   setPageview]   = useState(0);
-  const [pageadd,    setPageadd]    = useState(0);
-  const [pageedit,   setPageedit]   = useState(0);
-  const [pagedelete, setPagedelete] = useState(0);
-  const [permReady,  setPermReady]  = useState(false);
+  const navigate  = useNavigate();
+  const inputRefs = useRef([]);
+  const dirtyIds  = useRef(new Set());
 
-  // ── Session / company ──
-  const [Comid,     setComid]     = useState(null);
-  const [IdComList, setIdComList] = useState(null);
-  const [MirrorTable] = useState(() => window.MirrorTable ?? 0); // global if set
+  // ── Shared hooks from Common ─────────────────────────────────────────────
+  const { confirm, ConfirmUI } = CC.useConfirm();
+  const { toast,   toasts    } = CC.useToast();
 
-  // ── Grid rows ──
-  const [rows, setRows]           = useState([]);      // { uid, Id, GroupName, Active, EditMode }
-  const [selectedUid, setSelectedUid] = useState(null);
+  // ── Session / company variables ─────────────────────────────────────────────
+  const [sess] = useState(() => CC.buildSession("Item Master"));
 
-  // ── UI state ──
-  const [loading, setLoading]     = useState(false);
-  const [msg, setMsg]             = useState(null);    // { type:'ok'|'err', text }
-
-  // ── Refs ──
-  const requestFlagRef = useRef(new Request_Controller("Group"));
-  const uidCounter     = useRef(0);
-  const inputRefs      = useRef({});  // uid → input element
-
-  // ── Inject styles once ──
-  useEffect(() => {
-    const el = document.createElement("style");
-    el.textContent = STYLES;
-    document.head.appendChild(el);
-    return () => document.head.removeChild(el);
-  }, []);
-
+  const [perm,         setPerm        ] = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   const redirectIfDualLogin = useCallback((res) => {
-  if (res?._dualLogin || res?.redis === false) {
-    alert("Already Login Another User Please Login Again!!!");
-    navigate("/"); // Redirect to your specific login path
-    return true;
-  }
-  return false;
-}, [navigate]);
-  // ─────────────────────────────────────────────────────────────────────────
-  // 1. INIT — mirrors $(document).ready and methods.init()
-  // ─────────────────────────────────────────────────────────────────────────
+    if (res?._dualLogin || res?.redis === false) {
+      alert("Already Login Another User Please Login Again!!!");
+      navigate("/"); 
+      return true;
+    }
+    return false;
+  }, [navigate]);
+
   useEffect(() => {
-    // Session check
-    const menulist = JSON.parse(localStorage.getItem("menulist"));
-    if (!menulist) {
-      MsgBox("Session Close Please Login !!!.");
-      window.location.href = "/Login/Index";
+    const menuStr = localStorage.getItem("menulist");
+    if (!menuStr) {
+      alert("Session Close Please Login !!!.");
+      navigate("/");
       return;
     }
 
+    const menulist = JSON.parse(menuStr);
     const menudata = menulist.filter(obj => obj.PageName === "Item Master");
+
     if (!menudata || menudata.length === 0) {
-      MsgBox("Page Access Permission Denied !!!.");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
-      MsgBox("Page Access Permission Denied !!!.");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => { navigate("/Home"); }, 3000);
       return;
     }
 
-    setPageview(menudata[0].View);
-    setPageadd(menudata[0].Add);
-    setPageedit(menudata[0].Edit);
-    setPagedelete(menudata[0].Delete);
+    setPerm({
+      View:   menudata[0].View,
+      Add:    menudata[0].Add,
+      Edit:   menudata[0].Edit,
+      Delete: menudata[0].Delete,
+    });
 
-    // Company resolution
-    let comid = localStorage.getItem("Comid");
-    const idComList = localStorage.getItem("IdComList");
-    const MComid    = localStorage.getItem("MComid");
-    const MainSet   = JSON.parse(localStorage.getItem("Mainsetting"));
-    const CommonCompany = MainSet?.[0]?.CommonCompany;
-    if (CommonCompany === true) comid = MComid;
+    setIsAuthorized(true);
+  }, [navigate]);
 
-    setComid(comid);
-    setIdComList(idComList);
-    setPermReady(true);
-  }, []);
+  // ── Component state ─────────────────────────────────────────────────────────
+  const [grid,    setGrid]    = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selIdx,  setSelIdx]  = useState(null);
 
-  // Load data once permissions are ready
+  const ALL_COLUMNS = [
+    { field: "GroupName", label: "Group Name", width: 300, hidden: false },
+    { field: "Active",    label: "Active",     width: 100, hidden: false },
+  ];
+
+  const [colSettings, setColSettings] = useState(() =>
+    ALL_COLUMNS.map(c => ({ field: c.field, label: c.label, hidden: c.hidden, width: c.width }))
+  );
+
   useEffect(() => {
-    if (permReady && Comid !== null) {
-      loadCounter(Comid, IdComList);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [permReady, Comid]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 2. KEYBOARD SHORTCUTS — F1 Save, ESC Quit
-  // ─────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const handler = async (e) => {
-      // F1 → Save
-      if (e.keyCode === 112) {
-        e.preventDefault();
-        await handleSave();
-      }
-      // F2 → (original does nothing)
-      if (e.keyCode === 113) {
-        e.preventDefault();
-      }
-      // ESC → Quit
-      if (e.keyCode === 27) {
-        e.preventDefault();
-        const reply = await MsgBoxYesNo("Do You Want To Quit Page?");
-        if (reply.isConfirmed) {
-          if (sessionStorage.getItem("POPStatus") === "ON") {
-            sessionStorage.setItem("POPValue", -1);
-            sessionStorage.setItem("POPStatus", "OFF");
-            window.parent?.document?.querySelector(".ui-dialog-content")?.closest("[role=dialog]")?.__jqxDialog?.close();
-          } else {
-            window.location.href = "/Home";
-          }
-        }
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, pageadd, pageedit, pagedelete, Comid, IdComList]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 3. LOAD DATA — mirrors methods.loadCounter()
-  // ─────────────────────────────────────────────────────────────────────────
-  const loadCounter = useCallback(async (comid, idComList) => {
-    setLoading(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/Group/SelectGroup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify({ Comid: comid }),
-      });
-      const data = await res.json();
-      if (data.ok === true) {
-        const loaded = data.data.map(item => ({
-          uid:       ++uidCounter.current,
-          Id:        item.Id,
-          GroupName: item.GroupName,
-          Active:    item.Active,
-          EditMode:  0,
-        }));
-        // Add blank new row at end (mirrors addrow())
-        loaded.push(makeNewRow());
-        setRows(loaded);
-
-        // Focus last row GroupName
-        setTimeout(() => focusRow(loaded[loaded.length - 1].uid), 80);
-
-        // POPValue pre-fill
-        const popVal = sessionStorage.getItem("POPValue");
-        if (popVal && popVal !== "") {
-          setRows(prev => {
-            const next = [...prev];
-            next[next.length - 1] = { ...next[next.length - 1], GroupName: popVal, EditMode: 1 };
-            return next;
-          });
-        }
-      } else {
-        MsgBox(data.message);
-      }
-    } catch (xhr) {
-      MsgBox("Network error loading groups.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 4. HELPERS
-  // ─────────────────────────────────────────────────────────────────────────
-  function makeNewRow() {
-    return { uid: ++uidCounter.current, Id: null, GroupName: "", Active: true, EditMode: 0 };
-  }
-
-  function addRow(currentRows) {
-    const next = [...currentRows, makeNewRow()];
-    setRows(next);
-    return next;
-  }
-
-  function focusRow(uid) {
-    const el = inputRefs.current[uid];
-    if (el) el.focus();
-  }
-
-  // mirrors gridemptycheck()
-  function gridemptycheck(currentRows, setM) {
-    let cleaned = [...currentRows];
-    // Remove last row if empty and there's more than one row
-    if (cleaned.length > 1) {
-      const last = cleaned[cleaned.length - 1];
-      if (!last.GroupName || last.GroupName.trim() === "") {
-        cleaned = cleaned.slice(0, -1);
-        setRows(cleaned);
-      }
-    }
-
-    for (let i = 0; i < cleaned.length; i++) {
-      if (cleaned[i].EditMode === 1) {
-        if (!cleaned[i].GroupName || cleaned[i].GroupName.trim() === "") {
-          MsgBox("Enter All Group Name in the Grid !!!.");
-          setTimeout(() => focusRow(cleaned[i].uid), 30);
-          return { ok: false, rows: cleaned };
-        }
-      }
-    }
-    return { ok: true, rows: cleaned };
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 5. SAVE — mirrors F1 handler
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleSave = useCallback(async () => {
-    let flag = 1;
-    const currentRows = rows;
-
-    if (pageadd === 0 && pageedit === 0) {
-      MsgBox("Page Add & Update Permission Denied !!!.");
-      flag = 0;
-    }
-
-    const checkResult = gridemptycheck(currentRows, setMsg);
-    if (!checkResult.ok) return;
-    const cleanRows = checkResult.rows;
-
-    let getdata = [];
-    if (flag === 1) {
-      if (pageadd === 1 && pageedit === 1) {
-        getdata = cleanRows.filter(obj => obj.EditMode === 1);
-        if (getdata.length === 0) {
-          MsgBox("No Data Modified,Cannot Update !!!.");
-          flag = 0;
-        }
-      } else if (pageadd === 1 && pageedit === 0) {
-        getdata = cleanRows.filter(obj => obj.EditMode === 1 && obj.Id == null);
-        if (getdata.length === 0) {
-          const tempdata = cleanRows.filter(obj => obj.EditMode === 1);
-          MsgBox(tempdata.length === 0
-            ? "No Data Modified,Cannot Update !!!."
-            : "Page Edit Permission Denied !!!.");
-          flag = 0;
-        }
-      } else if (pageedit === 1 && pageadd === 0) {
-        getdata = cleanRows.filter(obj => obj.EditMode === 1 && obj.Id != null);
-        if (getdata.length === 0) {
-          const tempdata = cleanRows.filter(obj => obj.EditMode === 1);
-          MsgBox(tempdata.length === 0
-            ? "No Data Modified,Cannot Update !!!."
-            : "Page Add Permission Denied !!!.");
-          flag = 0;
-        }
-      }
-    }
-
-    if (flag === 0) {
-      // Addrowfunc equivalent
-      setRows(prev => {
-        const next = addRow(prev);
-        setTimeout(() => focusRow(next[next.length - 1].uid), 30);
-        return next;
-      });
-      return;
-    }
-
-    if (!CheckDuplicateRows(cleanRows, "GroupName", "Group Name", setMsg)) return;
-
-    if (requestFlagRef.current.Is_Request_Running()) return;
-    requestFlagRef.current.Start_Request();
-
-    const reply = await MsgBoxYesNo("Do you Want to Save the Group Details?");
-    if (reply.isConfirmed) {
-      setLoading(true);
+    const loadColSettings = async () => {
       try {
-        const res = await fetch("/Group/InsertGroup", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Comid": Comid,
-            "MirrorTable": MirrorTable,
-            "IdComList": IdComList,
-          },
-          body: JSON.stringify(getdata),
+        const url = `/Content/Appdata/Visible/${sess.MComid}/Group.json?t=${Date.now()}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+
+        const serverData = await res.json();
+        if (!Array.isArray(serverData) || serverData.length === 0) return;
+
+        const merged = ALL_COLUMNS.map(c => {
+          const s = serverData.find(d => d.column === c.field);
+          return {
+            field:  c.field,
+            label:  c.label,
+            hidden: s ? !s.Visible : c.hidden,
+            width:  s ? s.Width    : c.width,
+          };
         });
-        const data = await res.json();
-        if (data.ok) {
-          setMsg({ type: "ok", text: data.message });
-          await loadCounter(Comid, IdComList);
-          if (sessionStorage.getItem("POPStatus") === "ON") {
-            sessionStorage.setItem("POPValue", data.Id);
-            sessionStorage.setItem("POPName", data.Name);
-            sessionStorage.setItem("POPStatus", "OFF");
-            window.parent?.document?.querySelector(".ui-dialog-content")?.closest("[role=dialog]")?.__jqxDialog?.close();
-          }
-        } else {
-          MsgBox(data.message);
-        }
-      } catch (err) {
-        MsgBox("Network error saving groups.");
-      } finally {
-        setLoading(false);
-        requestFlagRef.current.End_Request();
-      }
-    } else {
-      // Addrowfunc on cancel
-      setRows(prev => {
-        const next = [...prev, makeNewRow()];
-        setTimeout(() => focusRow(next[next.length - 1].uid), 30);
-        return next;
-      });
-      requestFlagRef.current.End_Request();
-    }
-  }, [rows, pageadd, pageedit, Comid, IdComList, MirrorTable, loadCounter]);
+        setColSettings(merged);
+      } catch { }
+    };
+    loadColSettings();
+  }, [sess.MComid]); // eslint-disable-line
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 6. DELETE ROW — mirrors keydown Delete (keyCode 46)
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleDeleteRow = useCallback(async (uid) => {
-    const row = rows.find(r => r.uid === uid);
-    if (!row) return;
+  const visibleColumns = ALL_COLUMNS.filter(c => {
+    const cs = colSettings.find(s => s.field === c.field);
+    return cs ? !cs.hidden : !c.hidden;
+  }).map(c => {
+    const cs = colSettings.find(s => s.field === c.field);
+    return { ...c, width: cs?.width ?? c.width };
+  });
 
-    if (row.Id != null && row.Id !== 0) {
-      // Persisted row → confirm + AJAX delete
-      if (pagedelete !== 1) {
-        MsgBox("Page Delete Permission Denied !!!.");
-        return;
-      }
-      const str = `Wish to Delete the Record ${row.GroupName}?`;
-      const reply = await MsgBoxYesNo(str);
-      if (reply.isConfirmed) {
-        setLoading(true);
-        try {
-          const res = await fetch("/Group/DeleteGroup", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json; charset=utf-8",
-              "IdComList": IdComList,
-            },
-            body: JSON.stringify({ Id: row.Id, Comid: Comid, MirrorTable: MirrorTable }),
-          });
-          const data = await res.json();
-          if (data.ok) {
-            setMsg({ type: "ok", text: data.message });
-            setRows(prev => {
-              const next = prev.filter(r => r.uid !== uid);
-              // Focus last row after delete
-              setTimeout(() => {
-                if (next.length > 0) focusRow(next[next.length - 1].uid);
-              }, 50);
-              return next;
-            });
-          } else {
-            MsgBox(data.message);
-          }
-        } catch {
-          MsgBox("Network error deleting group.");
-        } finally {
-          setLoading(false);
-        }
-      }
-    } else {
-      // Unsaved row → just remove from state (mirrors DeleteRow with id=0)
-      setRows(prev => {
-        const next = prev.filter(r => r.uid !== uid);
-        setTimeout(() => {
-          if (next.length > 0) focusRow(next[next.length - 1].uid);
-        }, 30);
-        return next;
-      });
-    }
-  }, [rows, pagedelete, Comid, IdComList, MirrorTable]);
+  const Toggle = ({ value, onChange, onKeyDown, inputRef, idx, editMode }) => (
+    <button
+      ref={inputRef}
+      onClick={() => onChange(!value)}
+      onKeyDown={onKeyDown}
+      onFocus={() => setSelIdx(idx)}
+      title={value ? "Active" : "Inactive"}
+      style={{
+        width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer",
+        background: value ? "#16a34a" : "#cbd5e1",
+        position: "relative", transition: "background 0.18s ease", outline: "none",
+        display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
+        boxShadow: value ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+        opacity: editMode === 0 ? 0.5 : 1,
+        pointerEvents: editMode === 0 ? "none" : "auto",
+      }}
+    >
+      <span style={{
+        position: "absolute", top: 3, left: value ? 15 : 3,
+        width: 12, height: 12, borderRadius: "50%", background: "#fff",
+        transition: "left 0.18s ease",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+        display: "block",
+      }} />
+    </button>
+  );
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 7. CELL CHANGE HANDLERS
-  // ─────────────────────────────────────────────────────────────────────────
-  function handleGroupNameChange(uid, value) {
-    // Mirrors keypress validation: max 200 chars, string type
-    if (value.length > 200) return;
-    setRows(prev =>
-      prev.map(r => r.uid === uid ? { ...r, GroupName: value, EditMode: 1 } : r)
+  const focusRow = useCallback((idx, colIdx = 0) => {
+    setTimeout(() => inputRefs.current[idx]?.[colIdx]?.focus(), 50);
+  }, []);
+
+  const selectRow = useCallback((newIdx) => {
+    setGrid(prev => prev.map((r, i) => {
+      if (i !== newIdx && r.EditMode === 1 && r.Id && !dirtyIds.current.has(r.Id)) {
+        return { ...r, EditMode: 0 };
+      }
+      return r;
+    }));
+    setSelIdx(newIdx);
+  }, []);
+
+  const makeNewRow = (prefill = "") => ({
+    Id:        null,
+    GroupName: prefill,
+    Active:    true,
+    EditMode:  1,
+    _uid:      CC.uid(),
+  });
+
+  const rowValidator = useCallback((row) => {
+    return String(row.GroupName || "").trim().length > 0;
+  }, []);
+
+  const loadData = useCallback(async () => {
+    const prefill = sessionStorage.getItem("masterPrefill") || sessionStorage.getItem("POPValue") || "";
+    setLoading(true);
+
+    const res = await CC.api(
+      "/Group/SelectGroup",
+      { Comid: sess.Comid }
     );
-  }
 
-  function handleActiveChange(uid, checked) {
-    setRows(prev =>
-      prev.map(r => r.uid === uid ? { ...r, Active: checked, EditMode: 1 } : r)
+    setLoading(false);
+    if (redirectIfDualLogin(res)) return;
+    if (res._http404) { toast(`❌ 404 — /Group/SelectGroup not found`, true); }
+    if (res._netErr)  { toast(`❌ Network: ${res.message}`, true); }
+
+    const rawList = Array.isArray(res.data)  ? res.data
+                  : Array.isArray(res.Data1) ? res.Data1
+                  : [];
+
+    const existing = rawList.map(r => ({
+      ...r,
+      Active:   r.Active === true || r.Active === 1,
+      Id:       Number(r.Id ?? 0),
+      EditMode: 0,
+      _uid:     CC.uid(),
+    }));
+
+    const blank = makeNewRow(prefill);
+    setGrid([...existing, blank]);
+    setSelIdx(existing.length);
+    focusRow(existing.length);
+    sessionStorage.removeItem("masterPrefill");
+    sessionStorage.removeItem("POPValue");
+  }, [sess.Comid, toast, focusRow, redirectIfDualLogin]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const addRow = useCallback(() => {
+    setGrid(prev => {
+      const next = [...prev, makeNewRow()];
+      const idx  = next.length - 1;
+      setSelIdx(idx);
+      focusRow(idx);
+      return next;
+    });
+  }, [focusRow]);
+
+  const updateCell = useCallback((idx, field, value) => {
+    setGrid(prev =>
+      prev.map((r, i) => {
+        if (i === idx) {
+          if (r.Id) dirtyIds.current.add(r.Id);
+          return { ...r, [field]: value, EditMode: 1 };
+        }
+        return r;
+      })
     );
-  }
+  }, []);
 
-  // ── Enter key navigation (mirrors keydown Enter in grid) ──
-  function handleGroupNameKeyDown(e, uid, rowIndex) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const row = rows.find(r => r.uid === uid);
-      const value = row?.GroupName;
+  const enableEdit = useCallback((idx) => {
+    setGrid(prev =>
+      prev.map((r, i) => i === idx ? { ...r, EditMode: 1 } : r)
+    );
+    selectRow(idx);
+    focusRow(idx, 0);
+  }, [focusRow, selectRow]);
 
-      if (!value || value.trim() === "") {
-        MsgBox("Enter Group Name!!!.");
-        return;
-      }
+  const deleteRow = useCallback(async (idx) => {
+    if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; }
 
-      if (!CheckDuplicateRows(rows, "GroupName", "Group Name", setMsg)) return;
+    const row     = grid[idx];
+    const isSaved = row.Id != null && row.Id !== 0;
 
-      // Move to next row or add new row (GirdNextCell equivalent)
-      if (rowIndex === rows.length - 1) {
-        // last row → add new
-        setRows(prev => {
-          const next = [...prev, makeNewRow()];
-          setTimeout(() => focusRow(next[next.length - 1].uid), 30);
+    if (isSaved) {
+      const ok = await confirm(`Do you want to delete "${row.GroupName}"?`);
+      if (!ok) return;
+
+      setLoading(true);
+
+      const res = await CC.api(
+        "/Group/DeleteGroup",
+        { Id: Number(row.Id), Comid: Number(sess.Comid), MirrorTable: Number(sess.MirrorTable) },
+        { IdComList: String(sess.IdComList) }
+      );
+
+      setLoading(false);
+      if (redirectIfDualLogin(res)) return;
+      if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+
+      if (res.ok || res.IsSuccess) {
+        toast("✅ " + (res.message || "Deleted"));
+        setGrid(prev => {
+          const next = prev.filter((_, i) => i !== idx);
+          const sel  = Math.max(0, next.length - 1);
+          setSelIdx(sel);
+          focusRow(sel);
           return next;
         });
       } else {
-        const nextRow = rows[rowIndex + 1];
-        focusRow(nextRow.uid);
+        toast(`❌ ${res.message || "Delete failed"}`, true);
+      }
+    } else {
+      setGrid(prev => {
+        const next = prev.filter((_, i) => i !== idx);
+        const sel  = Math.max(0, next.length - 1);
+        setSelIdx(sel);
+        focusRow(sel);
+        return next;
+      });
+    }
+  }, [grid, sess, perm, focusRow, toast, confirm, redirectIfDualLogin]);
+
+  const gridemptycheck = useCallback((g) => {
+    let cleaned = [...g];
+
+    if (cleaned.length > 1 && !String(cleaned[cleaned.length - 1].GroupName || "").trim())
+      cleaned = cleaned.slice(0, -1);
+
+    for (let i = 0; i < cleaned.length; i++) {
+      if (cleaned[i].EditMode === 1 && !String(cleaned[i].GroupName || "").trim()) {
+        toast("❌ Enter All Group Name in the Grid !!!", true);
+        setSelIdx(i);
+        focusRow(i);
+        return { ok: false, cleaned };
+      }
+    }
+    return { ok: true, cleaned };
+  }, [focusRow, toast]);
+
+  const hasDuplicate = useCallback((g) => {
+    const names = g
+      .filter(r => String(r.GroupName || "").trim())
+      .map(r => String(r.GroupName).trim().toLowerCase());
+    return new Set(names).size !== names.length;
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    const { ok, cleaned } = gridemptycheck(grid);
+    if (!ok) return;
+    setGrid(cleaned);
+
+    let dirty = [];
+    let flag  = 1;
+
+    if (perm.Add === 0 && perm.Edit === 0) {
+      toast("❌ Page Add & Update Permission Denied !!!", true);
+      flag = 0;
+    } else if (perm.Add === 1 && perm.Edit === 1) {
+      dirty = cleaned.filter(r => r.EditMode === 1);
+      if (!dirty.length) { toast("⚠️ No Data Modified, Cannot Update !!!", true); flag = 0; }
+    } else if (perm.Add === 1 && perm.Edit === 0) {
+      dirty = cleaned.filter(r => r.EditMode === 1 && r.Id == null);
+      if (!dirty.length) {
+        const any = cleaned.filter(r => r.EditMode === 1);
+        toast(any.length ? "❌ Page Edit Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
+        flag = 0;
+      }
+    } else if (perm.Edit === 1 && perm.Add === 0) {
+      dirty = cleaned.filter(r => r.EditMode === 1 && r.Id != null);
+      if (!dirty.length) {
+        const any = cleaned.filter(r => r.EditMode === 1);
+        toast(any.length ? "❌ Page Add Permission Denied !!!" : "⚠️ No Data Modified, Cannot Update !!!", true);
+        flag = 0;
       }
     }
 
-    // Delete key (keyCode 46) on a cell — handled by row delete button
-    if (e.key === "Delete" && e.shiftKey) {
-      handleDeleteRow(uid);
+    if (flag === 0) { addRow(); return; }
+    if (hasDuplicate(cleaned)) { toast("❌ Duplicate Group Name found !!!", true); return; }
+
+    const hasNew      = dirty.some(r => r.Id == null || r.Id === 0);
+    const hasExisting = dirty.some(r => r.Id != null && r.Id !== 0);
+    let confirmMsg    = "Do you want to save the Group details?";
+    if (hasExisting && !hasNew) confirmMsg = "Do you want to update the Group details?";
+    if (hasExisting &&  hasNew) confirmMsg = "Do you want to save & update the Group details?";
+
+    const proceed = await confirm(confirmMsg);
+    if (!proceed) { addRow(); return; }
+
+    setLoading(true);
+
+    const payload = dirty.map(r => ({
+      Id:        (r.Id && r.Id !== 0) ? r.Id : null,
+      GroupName: String(r.GroupName || "").trim(),
+      Active:    r.Active === true ? 1 : 0,
+    }));
+
+    const res = await CC.insertapi(
+      "/Group/InsertGroup",
+      payload,
+      {
+        Comid:       String(sess.Comid),
+        MirrorTable: String(sess.MirrorTable),
+        IdComList:   String(sess.IdComList),
+      }
+    );
+
+    setLoading(false);
+    if (redirectIfDualLogin(res)) return;
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+
+    if (res.ok || res.IsSuccess) {
+      dirtyIds.current.clear();
+      toast("✅ " + (res.message || "Saved successfully!"));
+
+      const retField = sessionStorage.getItem("masterReturnField");
+      if (retField) {
+        sessionStorage.setItem("masterReturnValue", String(res.Data2 ?? res.Id ?? ""));
+        sessionStorage.setItem("masterReturnName",  dirty[0]?.GroupName || "");
+        sessionStorage.removeItem("masterReturnField");
+        setTimeout(() => navigate(-1), 800);
+      } else if (sessionStorage.getItem("POPStatus") === "ON") {
+        sessionStorage.setItem("POPValue", res.Id || res.Data2 || "");
+        sessionStorage.setItem("POPName", res.Name || dirty[0]?.GroupName || "");
+        sessionStorage.setItem("POPStatus", "OFF");
+        window.parent?.document?.querySelector(".ui-dialog-content")?.closest("[role=dialog]")?.__jqxDialog?.close();
+      } else {
+        await loadData();
+      }
+    } else {
+      toast(`❌ ${res.message || "Save failed"}`, true);
     }
-  }
+  }, [grid, sess, perm, navigate, loadData, gridemptycheck, hasDuplicate, addRow, toast, confirm, redirectIfDualLogin]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 8. ADD ROW BUTTON — mirrors methods.Addrowfunc()
-  // ─────────────────────────────────────────────────────────────────────────
-  function handleAddRow() {
-    setRows(prev => {
-      const next = [...prev, makeNewRow()];
-      setTimeout(() => focusRow(next[next.length - 1].uid), 30);
-      return next;
-    });
-  }
+  const handleEsc = useCallback(async () => {
+    const proceed = await confirm("Do You Want To Quit Page?");
+    if (!proceed) return;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 9. RENDER
-  // ─────────────────────────────────────────────────────────────────────────
+    if (sessionStorage.getItem("POPStatus") === "ON") {
+      sessionStorage.setItem("POPValue", -1);
+      sessionStorage.setItem("POPStatus", "OFF");
+      window.parent?.document?.querySelector(".ui-dialog-content")?.closest("[role=dialog]")?.__jqxDialog?.close();
+    } else {
+      sessionStorage.removeItem("masterReturnField");
+      sessionStorage.removeItem("masterPrefill");
+      navigate("/Home");
+    }
+  }, [navigate, confirm]);
+
+  useEffect(() => {
+    const onKey = e => {
+      if (e.keyCode === 112) { e.preventDefault(); handleSave(); }
+      if (e.keyCode === 27)  { e.preventDefault(); handleEsc();  }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleSave, handleEsc]);
+
+  const onCellKeyDown = useCallback((e, idx) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (!String(grid[idx]?.GroupName || "").trim()) { toast("❌ Enter Group Name !!!", true); return; }
+      if (hasDuplicate(grid))                         { toast("❌ Duplicate Group Name !!!", true); return; }
+      if (idx === grid.length - 1) addRow();
+      else { setSelIdx(idx + 1); focusRow(idx + 1); }
+    }
+    if (e.key === "Delete" && e.ctrlKey) {
+      e.preventDefault();
+      deleteRow(idx);
+    }
+    if (e.key === "Delete" && !e.ctrlKey && !String(grid[idx]?.GroupName || "").trim()) {
+      e.preventDefault();
+      deleteRow(idx);
+    }
+  }, [grid, hasDuplicate, addRow, focusRow, deleteRow, toast]);
+
+  if (!isAuthorized) return null;
+
   return (
     <div className="mp-wrap">
-      {/* Loader overlay */}
-      {loading && (
-        <div className="mp-loader-ov">
-          <div className="mp-ldr-box">
-            <div className="mp-spin" />
-            <div className="mp-ldr-msg">Loading...</div>
-          </div>
-        </div>
-      )}
+      {ConfirmUI}
+      <Topbar />
 
-      {/* Header */}
-      {/* <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">G</div>
-          <div>
-            <div className="mp-toolbar-title">Group Master</div>
-            <div className="mp-sub">Item Master</div>
-          </div>
-        </div>
-        <button className="mp-back" onClick={() => { window.location.href = "/Home"; }}>
-          ← Home
-        </button>
-      </div> */}
-
-      {/* Body */}
       <div className="mp-body">
-
-        {/* Toolbar */}
-        <div className="mp-toolbar">
-          <button
-            className="mp-btn sv"
-            onClick={handleSave}
-            disabled={pageadd === 0 && pageedit === 0}
-            title="F1 – Save"
-          >
-            💾 Save (F1)
-          </button>
-          <button className="mp-btn nw" onClick={handleAddRow} title="Add new row">
-            ＋ New Row
-          </button>
-          {msg && (
-            <span className={`mp-msg ${msg.type}`}>{msg.text}</span>
-          )}
-
-
-<div className="mp-toolbar-title">Group Master</div>
-        </div>
-
-        {/* Grid */}
         <div className="mp-grid-wrap">
           <table className="mp-tbl">
             <thead>
               <tr>
                 <th style={{ width: 50 }}>S.No</th>
-                <th style={{ width: 300 }}>Group Name</th>
-                <th style={{ width: 80 }}>Active</th>
-                <th style={{ width: 50 }}>Del</th>
+                {visibleColumns.map(c => (
+                  <th key={c.field} style={{
+                    width: c.width, minWidth: c.width,
+                    textAlign: c.field === "Active" ? "center" : undefined,
+                  }}>
+                    {c.label}
+                  </th>
+                ))}
+                <th style={{ width: 44 }}></th>
               </tr>
             </thead>
+
             <tbody>
-              {rows.map((row, idx) => (
+              {grid.map((row, idx) => (
                 <tr
-                  key={row.uid}
+                  key={row._uid}
                   className={[
-                    selectedUid === row.uid ? "sel" : "",
-                    row.Active === false || row.Active === 0 ? "inact" : "",
-                    row.EditMode === 1 ? "mod" : "",
+                    selIdx === idx     ? "sel"   : "",
+                    !row.Active        ? "inact" : "",
+                    row.EditMode === 1 ? "mod"   : "",
                   ].filter(Boolean).join(" ")}
-                  onClick={() => setSelectedUid(row.uid)}
+                  onClick={() => selectRow(idx)}
                 >
-                  {/* S.No */}
                   <td className="sno">{idx + 1}</td>
 
-                  {/* Group Name */}
-                  <td>
-                    <input
-                      ref={el => { if (el) inputRefs.current[row.uid] = el; }}
-                      className="mp-cell-input"
-                      type="text"
-                      maxLength={200}
-                      value={row.GroupName ?? ""}
-                      onChange={e => handleGroupNameChange(row.uid, e.target.value)}
-                      onKeyDown={e => handleGroupNameKeyDown(e, row.uid, idx)}
-                      onFocus={() => setSelectedUid(row.uid)}
-                    />
-                  </td>
+                  {visibleColumns.map((col, colIdx) => (
+                    <td key={col.field} style={{ textAlign: col.field === "Active" ? "center" : undefined }}>
+                      {col.field === "Active" && (
+                        <Toggle
+                          value={!!row.Active}
+                          idx={idx}
+                          editMode={row.EditMode}
+                          inputRef={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][colIdx] = el;
+                          }}
+                          onChange={val => row.EditMode === 1 && updateCell(idx, col.field, val)}
+                          onFocus={() => selectRow(idx)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator);
+                            }
+                          }}
+                        />
+                      )}
 
-                  {/* Active checkbox */}
-                  <td style={{ textAlign: "center" }}>
-                    <input
-                      type="checkbox"
-                      checked={row.Active === true || row.Active === 1}
-                      onChange={e => handleActiveChange(row.uid, e.target.checked)}
-                      style={{ width: 16, height: 16, cursor: "pointer" }}
-                    />
-                  </td>
+                      {col.field !== "Active" && (
+                        <input
+                          ref={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][colIdx] = el;
+                          }}
+                          className="mp-cell-input"
+                          value={row[col.field] || ""}
+                          maxLength={200}
+                          readOnly={row.EditMode === 0}
+                          onChange={e => row.EditMode === 1 && CC.applyUppercase(e, val => updateCell(idx, col.field, val))}
+                          onKeyDown={e => row.EditMode === 1 && CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator)}
+                          onFocus={() => setSelIdx(idx)}
+                          style={{
+                            background:   row.EditMode === 0 ? "transparent"               : "#fff",
+                            border:       row.EditMode === 0 ? "none"                      : "1px solid #93c5fd",
+                            cursor:       row.EditMode === 0 ? "default"                   : "text",
+                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
+                            boxShadow:    row.EditMode === 0 ? "none"                      : "0 0 0 2px rgba(59,130,246,0.15)",
+                            borderRadius: row.EditMode === 1 ? "4px"                       : "0",
+                            padding:      row.EditMode === 0 ? "0"                         : undefined,
+                          }}
+                        />
+                      )}
+                    </td>
+                  ))}
 
-                  {/* Delete */}
-                  <td style={{ textAlign: "center" }}>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {row.Id && row.EditMode === 0 && (
+                      <button
+                        className="mp-edit-btn"
+                        title="Edit row"
+                        onClick={e => { e.stopPropagation(); enableEdit(idx); }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+
+                    {row.Id && row.EditMode === 1 && (
+                      <button
+                        className="mp-edit-btn active"
+                        title="Editing…"
+                        style={{ color: "#16a34a", cursor: "default" }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+
                     <button
                       className="mp-del-btn"
-                      title="Delete row"
-                      onClick={e => { e.stopPropagation(); handleDeleteRow(row.uid); }}
+                      onClick={e => { e.stopPropagation(); deleteRow(idx); }}
                     >
                       🗑
                     </button>
@@ -646,16 +550,29 @@ export default function GroupMaster() {
               ))}
             </tbody>
           </table>
+
+          {grid.length === 0 && !loading && (
+            <div className="mp-empty">No records. Press ➕ to add a group.</div>
+          )}
         </div>
 
-        {/* Hint bar */}
-        <div className="mp-hint">
-          <kbd>F1</kbd> Save &nbsp;|&nbsp;
-          <kbd>Enter</kbd> Next Cell &nbsp;|&nbsp;
-          <kbd>Del</kbd> Delete Row (use 🗑 button) &nbsp;|&nbsp;
-          <kbd>Esc</kbd> Quit
+        <div className="mp-toolbar">
+          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
+          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
+          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
         </div>
       </div>
+
+      {loading && (
+        <div className="mp-loader-ov">
+          <div className="mp-ldr-box">
+            <div className="mp-spin" />
+            <div className="mp-ldr-msg">Processing…</div>
+          </div>
+        </div>
+      )}
+
+      <CC.ToastList toasts={toasts} />
     </div>
   );
 }

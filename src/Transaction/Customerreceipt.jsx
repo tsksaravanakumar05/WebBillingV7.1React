@@ -1090,17 +1090,16 @@ console.log(pendingDetails);
       
       else moveNext(idx,field);
     }
-else if(field===grdRTGSAmt){
-    updateCell(idx, grdRTGSAmt, fmt2(value));
-    if(!calculation(idx, {...row, [grdRTGSAmt]:value})) return;
-    
-    // ✅ FIX: RTGSAmt > 0 → go RTGSNo, else skip to ChequeAmt
-    if(vn(value) > 0){
-        focusCell(idx, grdRTGSNo);   // RTGSNo-க்கு போ
-    } else {
-        updateCell(idx, grdRTGSNo, ""); // RTGSNo clear செய்
-        focusCell(idx, grdChequeAmount); // skip செய்
-    }
+else if (field === grdRTGSAmt) {
+  updateCell(idx, grdRTGSAmt, fmt2(value));
+  if (!calculation(idx, { ...row, [grdRTGSAmt]: value })) return;
+
+  if (vn(value) > 0) {
+    focusCell(idx, grdRTGSNo);      // RTGSAmt > 0 → go to RTGSNo
+  } else {
+    updateCell(idx, grdRTGSNo, ""); // clear RTGSNo
+    moveNext(idx, field);           // ✅ use moveNext — skips hidden ChequeAmt correctly
+  }
 }
 
 else if(field===grdRTGSNo){
