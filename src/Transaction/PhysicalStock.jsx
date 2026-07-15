@@ -9,10 +9,10 @@
 //    • Same ProductSearchPopup design
 //    • Same F12Popup column settings design
 // ─────────────────────────────────────────────────────────────────────────────
-
 import React, {
   useState, useEffect, useRef, useCallback,
 } from "react";
+
 import { useNavigate } from "react-router-dom";
 import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";

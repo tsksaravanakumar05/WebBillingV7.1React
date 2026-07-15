@@ -365,7 +365,7 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
   };
 
   return (
-    <div className="sb-prod-search" style={{ top: anchorPos?.top || 120, left: anchorPos?.left || 80 }}>
+    <div className="sb-prod-search" style={{ top: anchorPos?.top || 120, left: anchorPos?.left || 80, width: 820, height: "80vh" }}>
       <div className="sb-prod-search-hdr">
         <span className="sb-ps-title">🔍 Product Search</span>
         <span className="sb-ps-count">{filtered.length} items</span>
@@ -377,10 +377,14 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
           onKeyDown={handleKey} placeholder="Type to filter…" className="sb-ps-input" />
       </div>
       <div className="sb-ps-cols">
-        <span style={{ width: 90 }}>Code</span>
-        <span style={{ flex: 1 }}>Product Name</span>
-        <span style={{ width: 80, textAlign: "right" }}>Pur.Rate</span>
-        <span style={{ width: 60, textAlign: "right" }}>Stock</span>
+        <span style={{ width: 70 }}>Code</span>
+        <span style={{ flex: 1 }}>Description</span>
+        <span style={{ width: 45, textAlign: "center" }}>UOM</span>
+        <span style={{ width: 60, textAlign: "right" }}>MRP</span>
+        <span style={{ width: 60, textAlign: "right" }}>PurRate</span>
+        <span style={{ width: 45, textAlign: "right" }}>GST%</span>
+        <span style={{ width: 75, textAlign: "right" }}>LandingCost</span>
+        <span style={{ width: 60, textAlign: "right" }}>SaleRate</span>
       </div>
       <div ref={listRef} className="sb-prod-list">
         {filtered.length === 0
@@ -389,10 +393,30 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
             <div key={p.Id} data-idx={idx}
               className={`sb-prod-item${idx === hi ? " hi" : ""}`}
               onClick={() => onSelect(p)} onMouseEnter={() => setHi(idx)}>
-              <span className="sb-prod-code">{p.Prod_Code || p.ProductCode}</span>
-              <span className="sb-prod-name">{p.PName || p.ProductName}</span>
-              <span className="sb-prod-rate">₹{f2(vn(p.PurchaseRate)).toFixed(2)}</span>
-              <span className="sb-prod-stock">{vn(p.Stock).toFixed(0)}</span>
+              <span className="sb-prod-code" style={{ width: 70 }}>
+                {p.Prod_Code || p.ProductCode}
+              </span>
+              <span className="sb-prod-name" style={{ flex: 1 }}>
+                {p.PName || p.ProductName}
+              </span>
+              <span style={{ width: 45, textAlign: "center", fontSize: 10.5, color: "#6b7a99" }}>
+                {p.UOM || "—"}
+              </span>
+              <span style={{ width: 60, textAlign: "right", color: "#475569" }}>
+                ₹{f2(vn(p.MRP)).toFixed(2)}
+              </span>
+              <span className="sb-prod-rate" style={{ width: 60, textAlign: "right" }}>
+                ₹{f2(vn(p.PurchaseRate)).toFixed(2)}
+              </span>
+              <span style={{ width: 45, textAlign: "right", color: "#8b5cf6" }}>
+                {f2(vn(p.GST)).toFixed(2)}
+              </span>
+              <span style={{ width: 75, textAlign: "right", color: "#ea580c" }}>
+                ₹{f2(vn(p.LandingCost)).toFixed(2)}
+              </span>
+              <span style={{ width: 60, textAlign: "right", color: "#16a34a", fontWeight: 600 }}>
+                ₹{f2(vn(p.SaleRate ?? p.SalesRate)).toFixed(2)}
+              </span>
             </div>
           ))
         }
@@ -422,7 +446,7 @@ function F5ViewModal({ rows, details, suppliers, onEdit, onDelete, onClose, from
 
   return (
     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box sb-f5-modal" style={{ width: 1050, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+      <div className="mp-modal-box sb-f5-modal" style={{ width: 1050, height: "85vh", display: "flex", flexDirection: "column" }}>
         <div className="mp-modal-hdr">
           <span>📋 Purchase Order View (F5)</span>
           <button onClick={onClose}>✕</button>
@@ -918,6 +942,19 @@ export default function PurchaseOrder() {
   const [ctrlGOpen,   setCtrlGOpen]   = useState(false);
   const [ctrlFOpen,   setCtrlFOpen]   = useState(false);
   const visCols = colSettings.filter(c => c.visible);
+ const [focusCols, setFocusCols] = useState([]);
+  const focusColsRef = useRef([]);
+  useEffect(() => { focusColsRef.current = focusCols; }, [focusCols]);
+  const focusEnabledCols = useMemo(() => {
+    const defaultCols = visCols
+      .map(vc => PO_COLUMNS?.find(c => c.key === vc.key))
+      .filter(Boolean)
+      .filter(cd => !cd.readOnly)
+      .map(cd => cd.key);
+
+    if (focusCols.length === 0) return defaultCols;
+    return defaultCols.filter(k => focusCols.includes(k));
+  }, [visCols, focusCols]);
 
   const loadColCfg = useCallback(async (comid) => {
     try {
@@ -933,9 +970,7 @@ export default function PurchaseOrder() {
     } catch {}
   }, []);
 
-  const [focusCols, setFocusCols] = useState([]);
-  const focusColsRef = useRef([]);
-  useEffect(() => { focusColsRef.current = focusCols; }, [focusCols]);
+ 
 
   const loadFocusCols = useCallback(async (mcomid) => {
     try {
@@ -1227,6 +1262,11 @@ export default function PurchaseOrder() {
   const handleCellChange = useCallback((rid, colKey, value) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
+      if (colKey === "ItemQty") {
+        if (r.UOMDecimal === 0 && String(value).includes(".")) {
+          return r;
+        }
+      }
       let updated = { ...r, [colKey]: value, _dirty: true };
 
       // Pcs/Meter → auto-compute ItemQty

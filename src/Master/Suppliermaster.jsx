@@ -50,7 +50,7 @@ function SalesmanPicker({ salesmanList, initialSearch = "", onSelect, onClose })
     !search.trim() || (s.SalesManName || s.salesmanname || "").toLowerCase().includes(search.trim().toLowerCase())
   );
 
-  useEffect(() => { setTimeout(() => { searchRef.current?.focus(); searchRef.current?.select(); }, 60); }, []);
+  useEffect(() => { setTimeout(() => { searchRef.current?.focus(); }, 60); }, []);
   useEffect(() => { setFocusedIdx(0); }, [search]);
   useEffect(() => {
     listRef.current?.querySelector(".sm-picker-item.focused")?.scrollIntoView({ block:"nearest" });
@@ -189,7 +189,7 @@ const selectRow = useCallback((idx) => {
   const pwOkRef = useRef(null);
   const [filterSearch, setFilterSearch] = useState("");
 const [filterColumn, setFilterColumn] = useState("AccountName");
-const [activeFilter, setActiveFilter] = useState("all");
+
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const cellRefs       = useRef({});
@@ -210,14 +210,14 @@ const editableFields = visibleColumns.map(c => c.field).filter(f => f !== "Activ
   const focusCell = useCallback((rowIdx, field) => {
     setTimeout(() => {
       const el = cellRefs.current[`${rowIdx}_${field}`];
-      if (el) { el.focus(); if (el.select) el.select(); }
+      if (el) { el.focus(); }
     }, 40);
   }, []);
 
   // ── Init — load salesman THEN suppliers (runs ONCE) ──────────────────────
 
   const displayGrid = grid.filter(row => {
-  if (activeFilter === "active" && (row.Active === false || row.Active === 0)) return false;
+
   return true;
 });// eslint-disable-line
 // ── doExcelDownload (F4) ──────────────────────────────────────────────────────
@@ -488,6 +488,16 @@ loadDataRef.current = () => doLoadData(salesmanRef.current, "", "", curPage);
   // ── addRow ────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
     setGrid(prev => {
+      if (prev.length > 0) {
+        const lastRow = prev[prev.length - 1];
+        if (!String(lastRow["AccountName"] || "").trim()) {
+          const lastIdx = prev.length - 1;
+          setSelIdx(lastIdx);
+          focusCell(lastIdx, "AccountName");
+          return prev;
+        }
+      }
+
       const next = [...prev, makeNewRow()];
       const ni = next.length - 1;
       setSelIdx(ni);
@@ -746,35 +756,67 @@ if (e.keyCode === 118) { // F7
       if (saved && Array.isArray(saved)) setColSettings(saved);
     } catch {}
   }, []);
-const saveColSettings = useCallback(async (localSettings) => {
+  const saveColSettings = useCallback(async (localSettings) => {
   setF12Open(false);
   setLoading(true);
-  const payload = (localSettings ?? colSettings).map(s => ({
-    filename: "Supplier",           // ← "Supplier" not "Cashier"
+  const newCols = localSettings ?? colSettings;
+  const payload = newCols.map(s => ({
+    Comid:    parseInt(MComid),
+    filename: "Supplier",
     column:   s.field,
-    Visible:  !s.hidden,
-    Width:    s.width,
-    Comid:    Number(MComid),
+    Visible:  s.hidden !== true,
+    Width:    parseInt(s.width || 120),
   }));
   try {
-    const res  = await fetch("/Login/VisibleColumns", {
+    const res = await fetch(CC.BASE_URL + CC.VisibleColumnsUrl, {
       method:  "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8" },
+      headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() },
       body:    JSON.stringify(payload),
     });
     const data = await res.json();
     if (data.ok) {
-      toast("✅ Column settings saved");
-      if (localSettings) setColSettings(localSettings);
+      toast("✅ Column settings saved.");
+      setColSettings(newCols);
+      // await loadColSettings();          // ← re-fetch from backend to confirm persistence
     } else {
-      toast(`❌ ${data.message || "Failed to save"}`, true);
+      toast(`❌ ${data.message || "Failed"}`, true);
     }
-  } catch {
-    toast("❌ Error saving column settings", true);
+  } catch (err) {
+    console.error("saveColSettings error:", err);
+    toast(`❌ Error saving columns: ${err.message || err}`, true);
   } finally {
     setLoading(false);
-  }
+  } 
 }, [colSettings, MComid, toast]);
+// const saveColSettings = useCallback(async (localSettings) => {
+//   setF12Open(false);
+//   setLoading(true);
+//   const payload = (localSettings ?? colSettings).map(s => ({
+//     filename: "Supplier",           // ← "Supplier" not "Cashier"
+//     column:   s.field,
+//     Visible:  !s.hidden,
+//     Width:    s.width,
+//     Comid:    Number(MComid),
+//   }));
+//   try {
+//     const res  = await fetch(CC.BASE_URL+CC.VisibleColumnsUrl, {
+//       method:  "POST",
+//       headers: { "Content-Type": "application/json; charset=utf-8" },
+//       body:    JSON.stringify(payload),
+//     });
+//     const data = await res.json();
+//     if (data.ok) {
+//       toast("✅ Column settings saved");
+//       if (localSettings) setColSettings(localSettings);
+//     } else {
+//       toast(`❌ ${data.message || "Failed to save"}`, true);
+//     }
+//   } catch {
+//     toast("❌ Error saving column settings", true);
+//   } finally {
+//     setLoading(false);
+//   }
+// }, [colSettings, MComid, toast]);
 
 useEffect(() => {
   const loadColSettings = async () => {
@@ -823,6 +865,7 @@ function renderCell(row, rowIdx, colDef) {
     boxShadow:    editMode === 0 ? "none"        : "0 0 0 2px rgba(59,130,246,0.15)",
     borderRadius: editMode === 1 ? "4px"         : "0",
     padding:      editMode === 0 ? "2px 4px"     : undefined,
+    pointerEvents:editMode === 0 ? "none"        : "auto",
   };
 
   const common = {
@@ -963,7 +1006,7 @@ function PwModal({ title, comid, onOk, onClose }) {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap supplier-page">
+    <div className="mp-wrap supplier-page" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       {ConfirmUI}
       {pw && (
   <PwModal
@@ -977,7 +1020,7 @@ function PwModal({ title, comid, onOk, onClose }) {
       {loading && <div className="mp-loader-ov"><div className="mp-ldr-box"><div className="mp-spin"/><div className="mp-ldr-msg">Processing…</div></div></div>}
       {f12Open && <F12Popup />}
       {pickerTarget && <SalesmanPicker salesmanList={salesmanList} initialSearch={pickerTarget.currentName} onSelect={onSalesmanSelect} onClose={onSalesmanClose} />}
-<div className="mp-body">
+<div className="mp-body" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
 
   {/* ── TOP TOOLBAR: Title + Filter ── */}
   <div className="mp-toolbar" style={{
@@ -988,107 +1031,110 @@ function PwModal({ title, comid, onOk, onClose }) {
     <div className="mp-toolbar-title">Supplier Master</div>
 
     {/* Search filter — pushed to the right */}
-    <div style={{ display:"flex", gap:4, alignItems:"center", marginLeft:"auto" }}>
-      <select className="mp-cell-select" style={{ width:160, height:28 }}
-        value={filterColumn} onChange={e => setFilterColumn(e.target.value)}>
-        <option value="AccountName">Supplier Name</option>
-        <option value="MobileNo">Mobile No</option>
-        <option value="GSTINNo">GSTIN No</option>
-        <option value="City">City</option>
-        <option value="Code">Code</option>
-      </select>
+    <div style={{ display:"flex", gap:12, alignItems:"center", marginLeft:"auto" }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", fontSize: "13px", fontWeight: 500 }}>
+        <label style={{ display: "flex", gap: 4, alignItems: "center", cursor: "pointer", color: "#475569" }}>
+          <input type="radio" name="supplierFilter" value="AccountName"
+            checked={filterColumn === "AccountName"}
+            onChange={e => setFilterColumn(e.target.value)} />
+          Supplier Name
+        </label>
+        <label style={{ display: "flex", gap: 4, alignItems: "center", cursor: "pointer", color: "#475569" }}>
+          <input type="radio" name="supplierFilter" value="MobileNo"
+            checked={filterColumn === "MobileNo"}
+            onChange={e => setFilterColumn(e.target.value)} />
+          Mobile No
+        </label>
+      </div>
       <input className="mp-cell-input" style={{ width:160, height:28 }}
         placeholder="Search… (Enter)"
         value={filterSearch}
         onChange={e => setFilterSearch(e.target.value)}
         onKeyDown={handleFilterSearch}
       />
-      <select className="mp-cell-select" style={{ width:110, height:28 }}
-        value={activeFilter} onChange={e => setActiveFilter(e.target.value)}>
-        <option value="all">All</option>
-        <option value="active">Active Only</option>
-      </select>
     </div>
   </div>
 
   {/* ── Grid ── */}
-    <div className="mp-grid-wrap" style={{ overflowX:"auto", width:"100%" }}>
-  <table className="mp-tbl" style={{ width:"100%", tableLayout:"fixed", minWidth:visibleColumns.reduce((a,c)=>a+c.width,150)+"px" }}>
-        <thead>
-  <tr>
-    <th style={{ width:45 }}>S.No</th>
-    <th style={{ width:44 }}></th>  {/* ← edit icon column */}
-    {visibleColumns.map(c => (
-      <th key={c.field} style={{ width:c.width, minWidth:c.width,
-        textAlign: c.field==="Active" ? "center" : undefined }}>
-        {c.label}
-      </th>
-    ))}
-    <th style={{ width:44 }}></th>
-  </tr>
-</thead>
-<tbody>
-  {displayGrid.map((row, idx) => {
-      const rowIdx = grid.indexOf(row);
-    const editMode = row.EditMode ?? 0;
-    return (
-      <tr key={row._uid}
-        className={[
-          selIdx === rowIdx ? "sel" : "",
-          row.Active === 0 || row.Active === false ? "inact" : "",
-          editMode === 1 ? "mod" : "",
-        ].filter(Boolean).join(" ")}
-        onClick={() => selectRow(rowIdx)}>
+<div className="mp-grid-wrap" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
+  <div className="mp-gscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "auto" }}>
+    <table className="mp-tbl" style={{ width:"100%", tableLayout:"fixed", minWidth:visibleColumns.reduce((a,c)=>a+c.width,150)+"px" }}>
+      <thead>
+        <tr>
+          <th style={{ width:45 }}>S.No</th>
+          <th style={{ width:44 }}></th>  {/* edit icon column */}
+          {visibleColumns.map(c => (
+            <th key={c.field} style={{ width:c.width, minWidth:c.width,
+              textAlign: c.field==="Active" ? "center" : undefined }}>
+              {c.label}
+            </th>
+          ))}
+          <th style={{ width:44 }}></th>
+        </tr>
+      </thead>
+      <tbody>
+        {displayGrid.map((row, idx) => {
+          const rowIdx = grid.indexOf(row);
+          const editMode = row.EditMode ?? 0;
+          return (
+            <tr key={row._uid}
+              className={[
+                selIdx === rowIdx ? "sel" : "",
+                row.Active === 0 || row.Active === false ? "inact" : "",
+                editMode === 1 ? "mod" : "",
+              ].filter(Boolean).join(" ")}
+              onClick={() => selectRow(rowIdx)}>
 
-        <td className="sno">{rowIdx + 1}</td>
+              <td className="sno">{rowIdx + 1}</td>
 
-        {/* ── Edit icon cell ── */}
-        <td style={{ textAlign:"center", whiteSpace:"nowrap" }}>
-          {row.Id && editMode === 0 && (
-            <button className="mp-edit-btn" title="Edit row"
-              onClick={e => { e.stopPropagation(); enableEdit(rowIdx); }}>
-              ✏️
-            </button>
-          )}
-          {row.Id && editMode === 1 && (
-            <button className="mp-edit-btn active" title="Editing…"
-              style={{ color:"#16a34a", cursor:"default" }}>
-              ✏️
-            </button>
-          )}
-        </td>
+              {/* Edit icon cell */}
+              <td style={{ textAlign:"center", whiteSpace:"nowrap" }}>
+                {row.Id && editMode === 0 && (
+                  <button className="mp-edit-btn" title="Edit row"
+                    onClick={e => { e.stopPropagation(); enableEdit(rowIdx); }}>
+                    ✏️
+                  </button>
+                )}
+                {row.Id && editMode === 1 && (
+                  <button className="mp-edit-btn active" title="Editing…"
+                    style={{ color:"#16a34a", cursor:"default" }}>
+                    ✏️
+                  </button>
+                )}
+              </td>
 
-        {visibleColumns.map(colDef => (
-          <td key={colDef.field}
-            style={{ padding:"2px 4px",
-              textAlign: colDef.field==="Active" ? "center" : undefined }}
-            onClick={e => {
-              e.stopPropagation();
-              selectRow(rowIdx);
-              if (editMode === 1) {
-                setTimeout(() => {
-                  const el = cellRefs.current[`${rowIdx}_${colDef.field}`];
-                  if (el) { el.focus(); el.select?.(); }
-                }, 20);
-              }
-            }}>
-            {renderCell(row, rowIdx, colDef)}
-          </td>
-        ))}
+              {visibleColumns.map(colDef => (
+                <td key={colDef.field}
+                  style={{ padding:"2px 4px",
+                    textAlign: colDef.field==="Active" ? "center" : undefined }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    selectRow(rowIdx);
+                    if (e.target.tagName !== "INPUT" && e.target.tagName !== "SELECT") {
+                      setTimeout(() => {
+                        const el = cellRefs.current[`${rowIdx}_${colDef.field}`];
+                        if (el) { el.focus(); }
+                      }, 20);
+                    }
+                  }}>
+                  {renderCell(row, rowIdx, colDef)}
+                </td>
+              ))}
 
-        <td style={{ textAlign:"center", padding:"2px 4px" }}>
-          <button className="mp-del-btn"
-            onClick={e => { e.stopPropagation(); deleteRow(rowIdx); }}>
-            🗑
-          </button>
-        </td>
-      </tr>
-    );
-  })}
-</tbody>
-          </table>
-          {grid.length===0 && !loading && <div className="mp-empty">No records. Press ➕ to add a supplier.</div>}
-        </div>
+              <td style={{ textAlign:"center", padding:"2px 4px" }}>
+                <button className="mp-del-btn"
+                  onClick={e => { e.stopPropagation(); deleteRow(rowIdx); }}>
+                  🗑
+                </button>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+    {grid.length===0 && !loading && <div className="mp-empty">No records. Press ➕ to add a supplier.</div>}
+  </div>
+</div>
 
   {/* ── BOTTOM TOOLBAR: All action buttons ── */}
   <div className="mp-toolbar" style={{

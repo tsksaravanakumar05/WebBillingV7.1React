@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import * as CC from "../../components/common";
+import * as CC from "../../components/Common"
 import Topbar from "../../components/Topbar";
 
 // Report-type identifiers (mirrors the 3 jqxRadioButtons in the original markup)

@@ -119,8 +119,9 @@ export default function RepackingMaster() {
   const [realMWeight, setRealMWeight] = useState(0);
   const [realStockList, setRealStockList] = useState([]);
 
-  // ── Combo list for master item ────────────────────────────────────────────────
+  // ── Combo list for master item ────────────────────────────────────────────────  // Combos
   const [comboList, setComboList]   = useState([]);
+  const [gridComboList, setGridComboList] = useState([]);
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -146,6 +147,7 @@ export default function RepackingMaster() {
   const [pickerSearch,  setPickerSearch] = useState("");
   const [pickerList,    setPickerList]   = useState([]);
   const [pickerRowIdx,  setPickerRowIdx] = useState(0);
+  const [pickerSelIdx,  setPickerSelIdx] = useState(0);
   const pickerSearchRef = useRef(null);
 
   // ── Refs ──────────────────────────────────────────────────────────────────────
@@ -212,6 +214,8 @@ const loadCombo = useCallback(async () => {
   } else if (res && res.ok !== false) {
     const items = res.Data1 || res.data || [];
     setComboList(items);
+    const gridItems = res.Data2 || res.data1 || [];
+    setGridComboList(gridItems);
   }
 }, [sess.Comid]);
 
@@ -660,27 +664,14 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
   // ─────────────────────────────────────────────────────────────────────────────
   // Product picker — search & fill (mirrors FillItemsCode / productwindow)
   // ─────────────────────────────────────────────────────────────────────────────
-  const openProductPicker = useCallback(async (rowIdx) => {
+  const openProductPicker = useCallback((rowIdx) => {
     setPickerRowIdx(rowIdx);
     setPickerSearch("");
-    setPickerList([]);
+    setPickerSelIdx(0);
+    setPickerList(gridComboList);
     setPickerOpen(true);
-    
-    // Fix: body is null, empty headers {}, params go in 4th slot
-    const res = await CC.api(
-      CC.ItemByCode,
-      null, 
-      {}, 
-      { code: "", Comid: Number(sess.MComid), CComid: Number(sess.Comid), Id: 0, Batchwise: 0 }
-    );
-    
-    if (res && Array.isArray(res)) {
-      setPickerList(res);
-    } else if (res) {
-        setPickerList(res.Data || res.Data1 || res.data || []);
-      }
     setTimeout(() => pickerSearchRef.current?.focus(), 100);
-  }, [sess]);
+  }, [gridComboList]);
 
   const fillItemsFromObject = useCallback((obj, rowIdx) => {
     setGrid(prev => {
@@ -689,11 +680,11 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
           ? {
               ...r,
               EditMode:         1,
-              ItemsMasterRefId: obj.Id,
-              ProductCode:      obj.ProductCode || "",
-              ProductName:      obj.ProductName || "",
-              StockQty:         parseFloat(obj.Stock || 0).toFixed(0),
-              NetWeight:        parseFloat(obj.NetWeight || 0).toFixed(3),
+              ItemsMasterRefId: obj.Id || obj.ItemsMasterRefId || obj.ProductMasterRefId || obj.Itemid || 0,
+              ProductCode:      obj.ProductCode || obj.Productcode || "",
+              ProductName:      obj.ProductName || obj.Productname || "",
+              StockQty:         parseFloat(obj.Stock || obj.StockQty || obj.stock || 0).toFixed(0),
+              NetWeight:        parseFloat(obj.NetWeight || obj.netweight || obj.Netweight || 0).toFixed(3),
             }
           : r
       );
@@ -703,72 +694,48 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
     setTimeout(() => qtyRefs.current[rowIdx]?.focus(), 60);
   }, [calculation]);
 
-  const handlePickerSelect = useCallback(async (code, rowIdx) => {
+  const handlePickerSelect = useCallback((code, rowIdx) => {
     setPickerOpen(false);
     if (!code) return;
-    setLoading(true);
-    try {
-      // Fix: body is null, empty headers {}, params go in 4th slot
-      const res = await CC.api(
-        CC.ItemByCode,
-        null, 
-        {}, 
-        { code, Comid: Number(sess.MComid), CComid: Number(sess.Comid), Id: 0, Batchwise: 0 }
-      );
-      
-      const list =
-  Array.isArray(res)
-    ? res
-    : (res?.Data || res?.Data1 || res?.data || []);
-      if (!list.length) {
-        toast("❌ Invalid Product Code !!!", true);
-        setTimeout(() => codeRefs.current[rowIdx]?.focus(), 50);
-        return;
-      }
-      fillItemsFromObject(list[0], rowIdx);
-    } finally {
-      setLoading(false);
+    
+    const selectedItem = gridComboList.find(p => 
+      String(p.ProductCode || p.Productcode || "").toUpperCase() === String(code).toUpperCase()
+    );
+    
+    if (selectedItem) {
+      fillItemsFromObject(selectedItem, rowIdx);
+    } else {
+      toast("❌ Invalid Product Code !!!", true);
+      setTimeout(() => codeRefs.current[rowIdx]?.focus(), 50);
     }
-  }, [sess, fillItemsFromObject, toast]);
+  }, [gridComboList, fillItemsFromObject, toast]);
 
-  const handleCodeEnter = useCallback(async (rowIdx, codeVal) => {
+  const handleCodeEnter = useCallback((rowIdx, codeVal) => {
     if (!codeVal.trim()) {
       openProductPicker(rowIdx);
       return;
     }
-    setLoading(true);
-    try {
-      // Fix: body is null, empty headers {}, params go in 4th slot
-      const res = await CC.api(
-        CC.ItemByCode,
-        null, 
-        {}, 
-        { code: codeVal.trim(), Comid: Number(sess.MComid), CComid: Number(sess.Comid), Id: 0, Batchwise: 0 }
-      );
-      
-      const list =
-  Array.isArray(res)
-    ? res
-    : (res?.Data || res?.Data1 || res?.data || []);
-      if (!list.length) {
-        toast("❌ Invalid Product Code !!!", true);
-        setTimeout(() => codeRefs.current[rowIdx]?.focus(), 50);
-        return;
-      }
-      if (list.length === 1) {
-        fillItemsFromObject(list[0], rowIdx);
-      } else {
-        // Multiple matches → open picker with results
-        setPickerList(list);
-        setPickerRowIdx(rowIdx);
-        setPickerSearch(codeVal);
-        setPickerOpen(true);
-        setTimeout(() => pickerSearchRef.current?.focus(), 100);
-      }
-    } finally {
-      setLoading(false);
+    
+    const list = gridComboList.filter(p => 
+      String(p.ProductCode || p.Productcode || "").toUpperCase() === codeVal.trim().toUpperCase()
+    );
+
+    if (!list.length) {
+      toast("❌ Invalid Product Code !!!", true);
+      setTimeout(() => codeRefs.current[rowIdx]?.focus(), 50);
+      return;
     }
-  }, [sess, fillItemsFromObject, openProductPicker, toast]);
+    if (list.length === 1) {
+      fillItemsFromObject(list[0], rowIdx);
+    } else {
+      // Multiple matches → open picker with results
+      setPickerList(list);
+      setPickerRowIdx(rowIdx);
+      setPickerSearch(codeVal);
+      setPickerOpen(true);
+      setTimeout(() => pickerSearchRef.current?.focus(), 100);
+    }
+  }, [gridComboList, fillItemsFromObject, openProductPicker, toast]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Password modal helpers (mirrors EditPasswordWindow)
@@ -967,19 +934,35 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
               <input
                 ref={pickerSearchRef}
                 value={pickerSearch}
-                onChange={e => setPickerSearch(e.target.value)}
+                onChange={e => {
+                  setPickerSearch(e.target.value);
+                  setPickerSelIdx(0);
+                }}
                 placeholder="Search code or name…"
                 onKeyDown={e => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    if (filteredPicker.length > 0) {
-                      handlePickerSelect(filteredPicker[0].ProductCode || filteredPicker[0].Productcode, pickerRowIdx);
+                    if (filteredPicker.length > pickerSelIdx) {
+                      const p = filteredPicker[pickerSelIdx];
+                      handlePickerSelect(p.ProductCode || p.Productcode, pickerRowIdx);
                     }
                   }
                   if (e.key === "Escape") { setPickerOpen(false); }
                   if (e.key === "ArrowDown") {
                     e.preventDefault();
-                    // handled by table row keyboard in picker
+                    setPickerSelIdx(prev => {
+                      const next = Math.min(prev + 1, Math.max(0, filteredPicker.length - 1));
+                      setTimeout(() => document.getElementById("picker-row-" + next)?.scrollIntoView({ block: "nearest" }), 10);
+                      return next;
+                    });
+                  }
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setPickerSelIdx(prev => {
+                      const next = Math.max(prev - 1, 0);
+                      setTimeout(() => document.getElementById("picker-row-" + next)?.scrollIntoView({ block: "nearest" }), 10);
+                      return next;
+                    });
                   }
                 }}
               />
@@ -997,10 +980,13 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                   {filteredPicker.map((p, i) => (
                     <tr
                       key={i}
+                      id={`picker-row-${i}`}
+                      className={pickerSelIdx === i ? "psel" : ""}
                       onDoubleClick={() =>
                         handlePickerSelect(p.ProductCode || p.Productcode, pickerRowIdx)
                       }
-                      onClick={() => {}}
+                      onClick={() => handlePickerSelect(p.ProductCode || p.Productcode, pickerRowIdx)}
+                      style={{ cursor: "pointer" }}
                       onKeyDown={e => {
                         if (e.key === "Enter")
                           handlePickerSelect(p.ProductCode || p.Productcode, pickerRowIdx);

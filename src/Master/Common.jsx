@@ -37,6 +37,8 @@ export const ItemGroupCommission = "/api/ItemMasterApp/SelectGroupCommission";
 export const ItemGroupCommissionInsert = "/api/ItemMasterApp/InsertGroupCommission";
 export const VisibleColumnsUrl = "/api/loginApp/VisibleColumns";
 export const LoginPasswordUrl = "/api/LoginApp/EditPassword";
+export const SelectOpeningStock = "/api/ItemMasterApp/SelectOpeningStock";
+export const InsertOpeingStock = "/api/ItemMasterApp/InsertOpeingStock";
 
         export const BankDateSelect = "/api/BankApp/SelectBankDate";
         export const BankAllSelect = "/api/BankApp/SelectBankList";

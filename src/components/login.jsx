@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import "../index.css";
 import { useNavigate } from "react-router-dom";
 import Image from "../assets/image.png";
 import Logo from "../assets/logo.png";
 
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { BASE_URL } from "../components/Common"
+import { BASE_URL, modalStyles } from "../components/Common"
 // ─────────────────────────────────────────────────────────────────────────────
 // WHY QUERY STRING — NOT JSON BODY
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,7 +26,20 @@ const Login = () => {
   const [email,        setEmail]        = useState("");
   const [password,     setPassword]     = useState("");
   const [loading,      setLoading]      = useState(false);
+  const [loginFailedOpen, setLoginFailedOpen] = useState(false);
+  const loginFailedResolveRef = useRef(null);
   const navigate = useNavigate();
+
+  const showLoginFailedPopup = () => new Promise((resolve) => {
+    loginFailedResolveRef.current = resolve;
+    setLoginFailedOpen(true);
+  });
+
+  const closeLoginFailedPopup = () => {
+    setLoginFailedOpen(false);
+    loginFailedResolveRef.current?.();
+    loginFailedResolveRef.current = null;
+  };
 
   const handleLogin = async () => {
     if (!email && !password) { alert("Please Enter the Username & Password !!!"); return; }
@@ -43,7 +56,7 @@ localStorage.removeItem("lastBillAmt");
       const qs = new URLSearchParams({
         Userid:    email,
         Pwd:       password,
-        olduserid: olduserid,
+        olduserid: "",
       }).toString();
 
       // Vite proxy: /Login/LoginSuccess → http://localhost:64215/api/loginApp/LoginSuccess
@@ -55,7 +68,7 @@ localStorage.removeItem("lastBillAmt");
       if (!res.ok) {
         const txt = await res.text();
         console.error(`[Login] HTTP ${res.status}:`, txt);
-        alert(`Invalid Username or Password !! Please Check`);
+        await showLoginFailedPopup();
         return;
       }
 
@@ -106,7 +119,7 @@ localStorage.removeItem("lastBillAmt");
         }
 
         // ── Full settings — only on new/changed user ───────────────────────
-        if (olduserid !== String(user.UserId)) {
+        // if (olduserid !== String(user.UserId)) {
           const comdata  = data.Comdata?.[0]  || {};
           const maindata = data.Maindata?.[0] || {};
 
@@ -120,7 +133,9 @@ localStorage.removeItem("lastBillAmt");
           localStorage.setItem("CreditId",                 data.CreditId                ?? "");
           localStorage.setItem("CustomerCashid",           data.CustomerCashId          ?? "");
           localStorage.setItem("menulistload",             data.Menulist                ?? "");
+          console.log(data.Menulist);
           localStorage.setItem("BillPrintData",            data.BillPrintData           ?? "");
+           localStorage.setItem("BillPrintData", data.BillPrintData);
           localStorage.setItem("BillPrintDataDC",          data.BillPrintDataDC         ?? "");
           localStorage.setItem("CustomerReceiptPrintData", data.CustomerReceiptPrintData ?? "");
 
@@ -141,7 +156,7 @@ localStorage.removeItem("lastBillAmt");
           localStorage.setItem("Companysetting", JSON.stringify(data.Comdata  ?? []));
           localStorage.setItem("Mainsetting",    JSON.stringify(data.Maindata ?? []));
           console.log(data.Maindata?? []);
-        }
+      //  }
 
         console.log("✅ Login OK | userid:", user.UserId,
                     "| Comid:", user.Comid,
@@ -150,7 +165,7 @@ localStorage.removeItem("lastBillAmt");
         navigate("/dashboard");
 
       } else {
-        alert(data.message ?? data.Message ?? "Invalid Username or Password");
+        await showLoginFailedPopup();
       }
 
     } catch (err) {
@@ -166,6 +181,28 @@ localStorage.removeItem("lastBillAmt");
 
   return (
     <div className="login-main">
+      {loginFailedOpen && (
+        <div style={modalStyles.overlay}>
+          <div style={modalStyles.modal} role="dialog" aria-modal="true">
+            <div style={modalStyles.icon}>?</div>
+            <p style={{ ...modalStyles.msg, fontWeight: "700", marginBottom: "8px" }}>
+              Login Failed
+            </p>
+            <p style={modalStyles.msg}>
+              Invalid User ID or Password. Please try again.
+            </p>
+            <div style={modalStyles.btns}>
+              <button
+                autoFocus
+                style={{ ...modalStyles.btn, ...modalStyles.yes }}
+                onClick={closeLoginFailedPopup}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── LEFT: FORM ── */}
       <div className="login-right">
