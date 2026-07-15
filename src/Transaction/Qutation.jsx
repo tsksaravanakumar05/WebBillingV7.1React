@@ -775,6 +775,17 @@ export default function Quotation() {
   const [f12Open,     setF12Open]     = useState(false);
   const visCols = colSettings.filter(c => c.visible);
 
+  const focusEnabledCols = useMemo(() => {
+    const defaultCols = visCols
+      .map(vc => CC.SB_COLUMNS?.find(c => c.key === vc.key))
+      .filter(Boolean)
+      .filter(cd => !cd.readOnly)
+      .map(cd => cd.key);
+
+    if (focusCols.length === 0) return defaultCols;
+    return defaultCols.filter(k => focusCols.includes(k));
+  }, [visCols, focusCols]);
+
   const loadColCfg = useCallback(async (comid) => {
     try {
       const url = `Content/Appdata/Visible/${comid}/Quotation.json?v=${Date.now()}`;

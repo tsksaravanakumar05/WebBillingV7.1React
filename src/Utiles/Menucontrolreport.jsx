@@ -386,7 +386,7 @@ export default function Menucontrolreport() {
                 type="radio"
                 name="reportType"
                 checked={reportType === "Crystal Report"}
-                onChange={() => selectReportType("Crystal Report")}
+                onChange={() => selectReportType("Crystal Report1")}
               />
               Crystal Report
             </label>

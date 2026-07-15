@@ -409,60 +409,105 @@ function PwModal({ title, comid, onOk, onClose }) {
 }
 
 // ─── PRODUCT SEARCH POPUP ─────────────────────────────────────────────────────
-function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
-  const [q, setQ]   = useState("");
-  const [hi, setHi] = useState(0);
+function ProductSearchPopup({ products, onSelect, onClose, anchorPos,isTamil }) {
+  const [q, setQ] = useState("");
+  const [hilite, setHilite] = useState(0);
   const inputRef = useRef(null);
-  const listRef  = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 30); }, []);
+
   const filtered = products.filter(p =>
-    String(p.PName || p.ProductName || "").toLowerCase().includes(q.toLowerCase()) ||
-    String(p.Prod_Code || p.ProductCode || "").toLowerCase().includes(q.toLowerCase())
+    String(p.PName || "").toLowerCase().includes(q.toLowerCase()) ||
+    String(p.Prod_code || "").toLowerCase().includes(q.toLowerCase())
   ).slice(0, 120);
 
-  useEffect(() => { setHi(0); }, [q]);
+  useEffect(() => { setHilite(0); }, [q]);
   useEffect(() => {
-    const el = listRef.current?.querySelector(`[data-idx="${hi}"]`);
+    const el = listRef.current?.querySelector(`[data-idx="${hilite}"]`);
     if (el) el.scrollIntoView({ block: "nearest" });
-  }, [hi]);
+  }, [hilite]);
 
   return (
-    <div className="sb-prod-search" style={{ top: anchorPos?.top || 160, left: anchorPos?.left || 20 }}>
+    <div className="sb-prod-search" style={{ top: anchorPos?.top || 160, left: anchorPos?.left+250 || 20 }}>
       <div className="sb-prod-search-hdr">
-        <span className="sb-ps-title">🔍 Product Search</span>
+        <span className="sb-ps-title">Product Search</span>
         <span className="sb-ps-count">{filtered.length} items</span>
-        <button className="sb-ps-close" onClick={onClose}>✕</button>
+        <button className="sb-ps-close" onClick={onClose} title="Close (Esc)">✕</button>
       </div>
       <div className="sb-ps-input-wrap">
         <span className="sb-ps-icon">⌕</span>
-        <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
-          placeholder="Type code or name…" className="sb-ps-input"
+        <input
+          ref={inputRef}
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Type code or name…"
+          className="sb-ps-input"
           onKeyDown={e => {
-            if (e.key === "ArrowDown") { e.preventDefault(); setHi(h => Math.min(h + 1, filtered.length - 1)); }
-            if (e.key === "ArrowUp")   { e.preventDefault(); setHi(h => Math.max(h - 1, 0)); }
-            if (e.key === "Enter")     { e.preventDefault(); if (filtered[hi]) onSelect(filtered[hi]); }
-            if (e.key === "Escape")    { e.preventDefault(); onClose(); }
+            if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+            if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
+            if (e.key === "Enter")      { e.preventDefault(); if (filtered[hilite]) onSelect(filtered[hilite]); }
+            if (e.key === "Escape")     { e.preventDefault(); onClose(); }
           }}
         />
       </div>
-      <div className="sb-ps-cols">
-        <span style={{ width: 90 }}>Code</span>
-        <span style={{ flex: 1 }}>Product Name</span>
-        <span style={{ width: 72, textAlign: "right" }}>Sale Rate</span>
-        <span style={{ width: 60, textAlign: "right" }}>Stock</span>
-      </div>
+      {isTamil ? (
+        <div className="sb-ps-cols">
+          <span style={{ width: 90 }}>Code</span>
+          <span style={{ flex: 1 }}>Description</span>
+          <span style={{ width: 140 }}>TamilName</span>
+        </div>
+      ) : (
+        <div className="sb-ps-cols">
+          <span style={{ width: 80 }}>Code</span>
+          <span style={{ flex: 1 }}>Description</span>
+          <span style={{ width: 50, textAlign: "center" }}>UOM</span>
+          <span style={{ width: 65, textAlign: "right" }}>MRP</span>
+          <span style={{ width: 65, textAlign: "right" }}>SaleRate</span>
+          <span style={{ width: 50, textAlign: "right" }}>GST%</span>
+        </div>
+      )}
       <div ref={listRef} className="sb-prod-list">
         {filtered.length === 0
           ? <div className="sb-ps-empty">No products found</div>
           : filtered.map((p, idx) => (
             <div key={p.Id} data-idx={idx}
-              className={`sb-prod-item${idx === hi ? " hi" : ""}`}
-              onClick={() => onSelect(p)} onMouseEnter={() => setHi(idx)}>
-              <span className="sb-prod-code">{p.Prod_Code || p.ProductCode}</span>
-              <span className="sb-prod-name">{p.PName || p.ProductName}</span>
-              <span className="sb-prod-rate">₹{f2(vn(p.SaleRate || p.SalesRate)).toFixed(2)}</span>
-              <span className="sb-prod-stock">{vn(p.Stock).toFixed(0)}</span>
+              className={`sb-prod-item${idx === hilite ? " hi" : ""}`}
+              onClick={() => onSelect(p)} onMouseEnter={() => setHilite(idx)}>
+               {isTamil ? (
+                                           <>
+                                             <span className="sb-prod-code" style={{ width: 90 }}>
+                                               {p.Prod_Code ? p.Prod_Code : p.ProductCode}
+                                             </span>
+                                             <span className="sb-prod-name" style={{ flex: 1 }}>
+                                               {p.PName ? p.PName : p.ProductName}
+                                             </span>
+                                             <span style={{ width: 140, color: "#1f65de", fontWeight: 600 }}>
+                                               {p.PrinterName || "—"}
+                                             </span>
+                                           </>
+                                         ) : (
+                                           <>
+                                             <span className="sb-prod-code" style={{ width: 80 }}>
+                                               {p.Prod_Code ? p.Prod_Code : p.ProductCode}
+                                             </span>
+                                             <span className="sb-prod-name" style={{ flex: 1 }}>
+                                               {p.PName ? p.PName : p.ProductName}
+                                             </span>
+                                             <span style={{ width: 50, textAlign: "center", fontSize: 10.5, color: "#6b7a99" }}>
+                                               {p.UOM || "—"}
+                                             </span>
+                                             <span style={{ width: 65, textAlign: "right", color: "#475569" }}>
+                                               ₹{CC.f2(CC.vn(p.MRP)).toFixed(2)}
+                                             </span>
+                                             <span className="sb-prod-rate" style={{ width: 65, textAlign: "right" }}>
+                                               ₹{CC.f2(CC.vn(p.SaleRate ? p.SaleRate : p.SalesRate)).toFixed(2)}
+                                             </span>
+                                             <span style={{ width: 50, textAlign: "right", color: "#8b5cf6" }}>
+                                               {CC.f2(CC.vn(p.GST)).toFixed(2)}
+                                             </span>
+                                           </>
+                                         )}
             </div>
           ))
         }
@@ -490,7 +535,7 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
 
   return (
     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box sb-f5-modal" style={{ width: 1000, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+      <div className="mp-modal-box sb-f5-modal" style={{ width: 1000, height: "85vh", display: "flex", flexDirection: "column" }}>
         <div className="mp-modal-hdr">
           <span>📋 Sale Order View (F5)</span>
           <button onClick={onClose}>✕</button>
@@ -844,6 +889,19 @@ export default function SaleOrder() {
   const [f12Open,     setF12Open]     = useState(false);
   const [ctrlGOpen,   setCtrlGOpen]   = useState(false);
   const visCols = colSettings.filter(c => c.visible);
+  const [focusCols, setFocusCols] = useState([]);
+  const focusColsRef = useRef([]);
+  useEffect(() => { focusColsRef.current = focusCols; }, [focusCols]);
+  const focusEnabledCols = useMemo(() => {
+    const defaultCols = visCols
+      .map(vc => SO_COLUMNS?.find(c => c.key === vc.key))
+      .filter(Boolean)
+      .filter(cd => !cd.readOnly)
+      .map(cd => cd.key);
+
+    if (focusCols.length === 0) return defaultCols;
+    return defaultCols.filter(k => focusCols.includes(k));
+  }, [visCols, focusCols]);
 
   const loadColCfg = useCallback(async (comid) => {
     try {
@@ -860,9 +918,7 @@ export default function SaleOrder() {
   }, []);
 
   // ── Focus cols (SaleOrderFocus.json) ──────────────────────────────────────
-  const [focusCols, setFocusCols] = useState([]);
-  const focusColsRef = useRef([]);
-  useEffect(() => { focusColsRef.current = focusCols; }, [focusCols]);
+
 
   const loadFocusCols = useCallback(async (mcomid) => {
     try {
@@ -1297,6 +1353,11 @@ export default function SaleOrder() {
   const handleCellChange = useCallback((rid, colKey, value) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
+      if (colKey === "ItemQty") {
+        if (r.UOMDecimal === 0 && String(value).includes(".")) {
+          return r;
+        }
+      }
       let updated = { ...r, [colKey]: value, _dirty: true };
 
       // NOMS logic (mirrors gridsale keypress for grdNOMS)
@@ -2058,6 +2119,7 @@ export default function SaleOrder() {
       {prodPopup && (
         <ProductSearchPopup
           products={prodList}
+          isTamil={settings.Tamil}
           onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
           onClose={() => setProdPopup(null)}
           anchorPos={prodPopup.pos}

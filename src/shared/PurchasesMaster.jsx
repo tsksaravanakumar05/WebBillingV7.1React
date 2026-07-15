@@ -2493,6 +2493,7 @@ if (col.key === "Bat_No") {
           serialNoList={serialNoList}
           setSerialNoList={setSerialNoList}
           setGridRows={setGridRows}
+          calcRow={calcRow}
         />
       )}
 
@@ -4013,7 +4014,7 @@ function BatchPopup({ batchPopup, setBatchPopup, onConfirm }) {
 //  • On close: ItemQty on the grid row = number of confirmed serials
 //  • After close: focus returns to the triggering row (mirrors jQuery behavior)
 // ─────────────────────────────────────────────────────────────────────────────
-function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSerialNoList, setGridRows }) {
+function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSerialNoList, setGridRows, calcRow }) {
   // ── uid helper: CC.uid is not in scope outside Purchase component ──────────
   const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -4043,9 +4044,18 @@ function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSeria
   }, [rowKey, returnColKey]);
 
   const close = useCallback(() => {
+    if (typeof calcRow === 'function') {
+      setGridRows((prev) => {
+        const idx = prev.findIndex((r) => r._key === rowKey);
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = calcRow(updated[idx]);
+        return updated;
+      });
+    }
     setSerialNoPopup({ open: false, rowKey: null, textRefId: "", list: [], returnColKey: "ItemQty" });
     restoreFocusToGrid();
-  }, [setSerialNoPopup, restoreFocusToGrid]);
+  }, [setSerialNoPopup, restoreFocusToGrid, setGridRows, rowKey, calcRow]);
 
   const handleDone = useCallback(() => {
     const cleaned = rows.filter((r, i) =>
@@ -4089,14 +4099,14 @@ function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSeria
       const idx = prev.findIndex((r) => r._key === rowKey);
       if (idx === -1) return prev;
       const updated = [...prev];
-      updated[idx] = { ...updated[idx], ItemQty: String(values.length) };
+      updated[idx] = calcRow({ ...updated[idx], ItemQty: String(values.length) });
       return updated;
     });
 
     // Close popup and restore grid focus
     setSerialNoPopup({ open: false, rowKey: null, textRefId: "", list: [], returnColKey: "ItemQty" });
     restoreFocusToGrid();
-  }, [rows, serialNoList, textRefId, rowKey, setSerialNoList, setGridRows, setSerialNoPopup, restoreFocusToGrid]);
+  }, [rows, serialNoList, textRefId, rowKey, setSerialNoList, setGridRows, setSerialNoPopup, restoreFocusToGrid, calcRow]);
 
   const handleKeyDown = useCallback((e, idx) => {
     if (e.key === "Enter") {

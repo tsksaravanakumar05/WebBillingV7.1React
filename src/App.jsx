@@ -7,6 +7,7 @@ import ItemMaster from "./components/Itemmaster";
 import Companycreation from "./components/Companycreation";
 // MASTER
 
+
 import BrandMaster from "./Master/Brandmaster";
 // import Area from "./Master/AreaMaster";
 // import CustomerCardTypeMaster from "./Master/CustomerCardTypeMaster";
@@ -34,6 +35,7 @@ import PurchaseMasterPage from "./presentation/pages/PurchaseMasterPage";
 
 // TRANSACTIONS
 
+
 import Estimate from "./Transaction/EstimateBill";
 import SaleReturn from "./Transaction/SaleReturn";
 import SaleOrder from "./Transaction/Saleorder";
@@ -42,6 +44,12 @@ import CustomerReceipt from "./Transaction/Customerreceipt";
 import PurchaseReturn from "./Transaction/Purchasereturn";
 import Supplierpayment from "./Transaction/Supplierpayment";
 import StockInward from "./Transaction/Stockinward";
+
+
+
+
+
+import PhysicalStock from "./Transaction/PhysicalStock";
 
 
 

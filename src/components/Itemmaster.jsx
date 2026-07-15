@@ -9,6 +9,7 @@ import "../Itemmaster.css";
 import * as CC from "../Master/Common";
 import * as CC1 from "../components/Common";
 import Topbar from "./Topbar";
+import OpeningBalance from "../Master/Openingbalance";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 const COLUMNS = [
@@ -80,7 +81,7 @@ const ITEM_CURSOR_KEY = "itemmaster_cursor";
 const CALC_KEYS = new Set(["PurchaseRate","GST","CESS","TransPer","MRP","GSTAmt","CESSAmt","TransAmt"]);
 const UPPER_KEYS      = new Set(["ProductCode","SecondCode","ProductName","PrinterName","HSNCode","Brand","Category","Department","Supplier","UOM","LocationMaster","Remarks"]);
 const FILTER_KEYS     = new Set(["ProductCode","SecondCode","ProductName","PrinterName","HSNCode","Brand","Category","Department","Supplier","UOM","LocationMaster","Remarks"]);
-const COMBO_NAV       = { Brand:"/brand-master", Category:"/category-master", Department:"/department-master", Supplier:"/supplier-master", UOM:"/uom-master", LocationMaster:"/location-master" };
+const COMBO_NAV       = { Brand:"/Brand", Category:"/Category", Department:"/Department", Supplier:"/Supplier", UOM:"/UOM", LocationMaster:"/location" };
 // ── State — add these near your other state declarations ──────────────────
 
 let _rid = 1000;
@@ -111,32 +112,80 @@ const fmtRow = obj => {
 
 function calcRow(row, sess, changedKey) {
   const PR=vn(row.PurchaseRate), MRP=vn(row.MRP), PP=vn(row.ProfitPer);
-  let GST,GSTAmt; if(changedKey==="GSTAmt"){GSTAmt=vn(row.GSTAmt);GST=PR>0?ro(GSTAmt/PR*100):0;}else{GST=vn(row.GST);GSTAmt=ro(PR*GST/100);}
+  let GST,GSTAmt;
+  if(changedKey==="GSTAmt"){
+    GSTAmt=row.GSTAmt===""?"":vn(row.GSTAmt);
+    GST=PR>0?ro(vn(GSTAmt)/PR*100):(row.GST===""?"":0);
+  }else{
+    GST=row.GST===""?"":vn(row.GST);
+    GSTAmt=ro(PR*vn(GST)/100);
+  }
   let CESS,CessAmt; if(changedKey==="CESSAmt"){CessAmt=vn(row.CESSAmt);CESS=PR>0?ro(CessAmt/PR*100):0;}else{CESS=vn(row.CESS);CessAmt=ro(PR*CESS/100);}
   let TP,TrAmt; if(changedKey==="TransAmt"){TrAmt=vn(row.TransAmt);TP=PR>0?ro(TrAmt/PR*100):0;}else{TP=vn(row.TransPer);TrAmt=ro(PR*TP/100);}
   const LC=ro(PR+GSTAmt+CessAmt+TrAmt), PA=ro(LC*PP/100);
 
-  // ── PurchaseProfitSaleRateChange logic (same as JS) ──
   let SR;
-  if(sess?.PurchaseProfitSaleRateChange){
-    // if ProfitAmt is 0 → keep MRP for new rows, keep existing SalesRate for saved rows
-    if(PA === 0){
-      SR = !row.Id ? f2(MRP) : (vn(row.SalesRate) || f2(MRP));
-    } else {
-      SR = f2(LC + PA);  // LC + ProfitAmt
-    }
+  if (changedKey === "SalesRate") {
+    SR = row.SalesRate === "" ? "" : row.SalesRate;
   } else {
-    // original logic
-    SR = PA!==0 ? f2(LC+PA) : (!row.Id ? f2(MRP) : (vn(row.SalesRate)||f2(MRP)));
+    const defaultSR = row.SalesRate === "" ? "" : (vn(row.SalesRate) || (vn(MRP) === 0 ? "" : f2(MRP)));
+    const newRowSR = vn(MRP) === 0 ? (row.SalesRate === "" ? "" : 0) : f2(MRP);
+
+    if(sess?.PurchaseProfitSaleRateChange){
+      if(PA === 0) SR = !row.Id ? newRowSR : defaultSR;
+      else SR = f2(LC + PA);
+    } else {
+      SR = PA !== 0 ? f2(LC+PA) : (!row.Id ? newRowSR : defaultSR);
+    }
   }
 
   return {
-    GST:f2(GST), GSTAmt:f2(GSTAmt), CESS:f2(CESS), CESSAmt:f2(CessAmt),
+    GST: GST === "" ? "" : f2(GST), GSTAmt:f2(GSTAmt), CESS:f2(CESS), CESSAmt:f2(CessAmt),
     TransPer:f2(TP), TransAmt:f2(TrAmt), LandingCost:f2(LC),
     DMAmt:f2(ro(MRP-LC)), DMPer:MRP>0?f2(ro((MRP-LC)/MRP*100)):0,
-    ProfitAmt:f2(PA), SalesRate:SR,
+    ProfitAmt:f2(PA), SalesRate: SR === "" ? "" : f2(SR),
     ...(sess?.univercell?{MRP:f2(ro(SR))}:{})
   };
+}
+
+// ── PrinterName IME Wrapper ──────────────────────────────────────────────────
+function PrinterNameInput({ inputRef, val, editMode, cellInputStyle, onChange, onKeyDown, onFocus, placeholder, isAG }) {
+  const [localVal, setLocalVal] = useState(val || "");
+  const composing = useRef(false);
+
+  useEffect(() => {
+    if (!composing.current) setLocalVal(val || "");
+  }, [val]);
+
+  return (
+    <input ref={inputRef} type="text"
+      value={localVal}
+      className="mp-cell-input"
+      style={cellInputStyle}
+      readOnly={editMode === 0 || isAG}
+      onCompositionStart={() => { composing.current = true; }}
+      onCompositionEnd={(e) => {
+        composing.current = false;
+        const finalVal = e.target.value;
+        setLocalVal(finalVal);
+        onChange(finalVal.toUpperCase());
+      }}
+      onChange={(e) => {
+        if (editMode !== 1) return;
+        if (composing.current) {
+          setLocalVal(e.target.value);
+          return;
+        }
+        CC.applyUppercase(e, v => {
+          setLocalVal(v);
+          onChange(v);
+        });
+      }}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
+      placeholder={placeholder}
+    />
+  );
 }
 
 // ── Toggle component (same as CashierMaster) ─────────────────────────────────
@@ -198,7 +247,7 @@ const applyChange = (prev, colKey, value) => {
   if (colKey === "SalesRate") {
     const LC = vn(u.LandingCost), SR = vn(fv), d = SR - LC;
     u.ProfitPer = LC > 0 && d > 0 ? f2(ro(d / LC * 100)) : 0;
-    u = { ...u, ...calcRow(u, sess, "SalesRate"), SalesRate: f2(vn(fv)) };
+    u = { ...u, ...calcRow(u, sess, "SalesRate"), SalesRate: fv === "" ? "" : f2(vn(fv)) };
   }
 
   // ── ProfitAmt → update ProfitPer, but protect SalesRate if setting OFF ──
@@ -288,7 +337,7 @@ function ComboPopup({ ddPop, ddQ, setDdQ, ddFilt, ddHilite, setDdHilite, ddHilit
           <button onClick={onClose}>✕</button>
         </div>
         <input ref={srchRef} value={ddQ}
-          onChange={e => { setDdQ(e.target.value); setDdHilite(0); }}
+          onChange={e => { setDdQ(e.target.value.toUpperCase()); setDdHilite(0); }}
           onKeyDown={e => {
             if (e.key==="ArrowDown")  { e.preventDefault(); setDdHilite(h=>Math.min(h+1,ddFilt.length-1)); }
             if (e.key==="ArrowUp")    { e.preventDefault(); setDdHilite(h=>Math.max(h-1,0)); }
@@ -351,6 +400,7 @@ function PwModal({ title, comid, onOk, onClose }) {
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 export default function ItemMaster() {
   const navigate = useNavigate();
+  const [obOpen, setObOpen] = useState(false);
 
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
@@ -398,7 +448,18 @@ const [isAuthorized, setIsAuthorized] = useState(false);
     }
   });
     const focusEntry = useCallback(colKey => {
-    setTimeout(() => { const el=entryRefs.current[colKey]; if(el){el.focus();el.select?.();} }, 0);
+    setTimeout(() => { 
+      const el=entryRefs.current[colKey]; 
+      if(el){
+        el.focus();
+        try { 
+          if(el.setSelectionRange && el.type !== "number") {
+            const len = el.value.length;
+            el.setSelectionRange(len, len);
+          }
+        } catch(e) {}
+      } 
+    }, 0);
   }, []);
   const handleMultiMRP = useCallback(async (colKey, value) => {
   if (!sess.MulipleMRP) return false;
@@ -530,27 +591,32 @@ const saveBarcodes = useCallback(async () => {
   if (!bcItemId) return;
   // Validate — no empty barcodes
   if (bcRows.some(r => !r.barcode.trim())) {
-    toast("❌ Enter all barcode values.", true);
+    await showAlert("Validation Failed\n\n❌ Enter all barcode values.");
     return;
   }
   // Check duplicates
   const vals = bcRows.map(r => r.barcode.trim().toUpperCase());
   if (new Set(vals).size !== vals.length) {
-    toast("❌ Duplicate barcodes found.", true);
+    await showAlert("Validation Failed\n\n❌ Duplicate barcodes found.");
     return;
   }
   setLoading(true); setLdMsg("Saving barcodes...");
   const payload = bcRows.map(r => ({ Barcode: r.barcode.trim().toUpperCase(), Id: r.Id || 0 }));
-  const res = await CC.insertapi(CC.ItemBarcodeInsert, payload, {
-    "ItemId":    String(bcItemId),
-    "MComid":    String(sess.MComid),
-    "MirrorTable": String(sess.MirrorTable),
-    "IdComList": String(sess.IdComList),
-  });
-  setLoading(false);
-  if (res.ok ?? res.IsSuccess) { toast("✅ Barcodes saved"); setBcOpen(false); }
-  else toast(`❌ ${res.message || "Save failed"}`, true);
-}, [bcItemId, bcRows, sess, toast]);
+  try {
+    const res = await CC.insertapi(CC.ItemBarcodeInsert, payload, {
+      "ItemId":    String(bcItemId),
+      "MComid":    String(sess.MComid),
+      "MirrorTable": String(sess.MirrorTable),
+      "IdComList": String(sess.IdComList),
+    });
+    setLoading(false);
+    if (res.ok ?? res.IsSuccess) { toast("✅ Barcodes saved"); setBcOpen(false); }
+    else { await showAlert("Save Failed\n\n" + (res.message || "Unable to save the item. Please try again.")); }
+  } catch (err) {
+    setLoading(false);
+    await showAlert("Save Failed\n\n" + (err?.message || "Unable to save the item. Please try again."));
+  }
+}, [bcItemId, bcRows, sess, toast, showAlert]);
  useEffect(() => {
     const menuStr = localStorage.getItem("menulist");
 
@@ -561,30 +627,30 @@ const saveBarcodes = useCallback(async () => {
       return;
     }
 
-    const menulist = JSON.parse(menuStr);
-    const menudata = menulist.filter(obj => obj.PageName === "Cashier");
+    // const menulist = JSON.parse(menuStr);
+    // const menudata = menulist.filter(obj => obj.PageName === "Cashier");
 
-    // 2. Check if page exists in user's menu
-    if (!menudata || menudata.length === 0) {
-      alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/"); }, 3000);
-      return;
-    }
+    // // 2. Check if page exists in user's menu
+    // if (!menudata || menudata.length === 0) {
+    //   alert("Page Access Permission Denied !!!.");
+    //   setTimeout(() => { navigate("/"); }, 3000);
+    //   return;
+    // }
 
-    // 3. Check if View permission is 0
-    if (menudata[0].View === 0) {
-      alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/"); }, 3000);
-      return;
-    }
+    // // 3. Check if View permission is 0
+    // if (menudata[0].View === 0) {
+    //   alert("Page Access Permission Denied !!!.");
+    //   setTimeout(() => { navigate("/"); }, 3000);
+    //   return;
+    // }
 
-    // 4. User is valid, set permissions and allow rendering
-    setPerm({
-      View: menudata[0].View,
-      Add: menudata[0].Add,
-      Edit: menudata[0].Edit,
-      Delete: menudata[0].Delete
-    });
+    // // 4. User is valid, set permissions and allow rendering
+    // setPerm({
+    //   View: menudata[0].View,
+    //   Add: menudata[0].Add,
+    //   Edit: menudata[0].Edit,
+    //   Delete: menudata[0].Delete
+    // });
     
     setIsAuthorized(true);
 
@@ -611,9 +677,12 @@ const saveBarcodes = useCallback(async () => {
   const [gcOpen,setGcOpen]=useState(false);const[gcRows,setGcRows]=useState([]);
   const [tnOpen,setTnOpen]=useState(false);const[tnVal,setTnVal]=useState("");
   const [adminOpen,setAdminOpen]=useState(false);const adminRef=useRef(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const gRef      = useRef(null);
   const drag      = useRef({ on:false,x:0,y:0,sl:0,st:0 });
+  const pendingReturnRef = useRef(null);
+  const pendingSelectRef = useRef(null);
   const rowsRef      = useRef(rows);
   const entryRowRef  = useRef(entryRow);
   const entryRefs = useRef({});
@@ -659,7 +728,18 @@ const redirectIfDualLogin = useCallback((res) => {
 
 
   const focusCell = useCallback((rid, colKey) => {
-    setTimeout(() => { const el=cellRefs.current[rid]?.[colKey]; if(el){el.focus();el.select?.();} }, 0);
+    setTimeout(() => { 
+      const el=cellRefs.current[rid]?.[colKey]; 
+      if(el){
+        el.focus();
+        try { 
+          if(el.setSelectionRange && el.type !== "number") {
+            const len = el.value.length;
+            el.setSelectionRange(len, len);
+          }
+        } catch(e) {}
+      } 
+    }, 0);
   }, []);
 
   const regRef = useCallback((rid, colKey, el) => {
@@ -837,8 +917,8 @@ setPage(Math.max(1, Math.ceil(fmt.length / ROWS_PER_PAGE)));
     setDdPop({...cfg,list,field:colKey}); setDdCtx({rid,colKey,isEntry:false}); setDdQ(ns(row?.[cfg.fName])); setDdHilite(0);
   }, [comboCfg,rows,deptAll,redirectIfDualLogin]);
 
-  const ddFilt    = ddPop ? ddPop.list.filter(x=>String(x[ddPop.nameKey]||"").toLowerCase().includes(ddQ.toLowerCase())) : [];
-  const isNewVal  = ddPop && ddQ.trim() && !ddPop.list.some(i=>String(i[ddPop.nameKey]||"").toLowerCase()===ddQ.trim().toLowerCase());
+  const ddFilt    = ddPop ? ddPop.list.filter(x=>String(x[ddPop.nameKey]||"").toUpperCase().includes(ddQ.toUpperCase())) : [];
+  const isNewVal  = ddPop && ddQ.trim() && !ddPop.list.some(i=>String(i[ddPop.nameKey]||"").toUpperCase()===ddQ.trim().toUpperCase());
   const ddHiliteC = Math.min(ddHilite, Math.max(0,ddFilt.length-1));
 
   const selectDd = useCallback(item => {
@@ -861,16 +941,16 @@ setPage(Math.max(1, Math.ceil(fmt.length / ROWS_PER_PAGE)));
     const match=ddPop.list.find(i=>String(i[ddPop.nameKey]||"").toLowerCase()===typed);
     if(match){selectDd(match);return;}
     const nav=COMBO_NAV[ddPop.field];
-    if(nav){sessionStorage.setItem("masterPrefill",ddQ.trim());try{sessionStorage.setItem(ITEM_DRAFT_KEY,JSON.stringify({entryRow,rows}));sessionStorage.setItem(ITEM_CURSOR_KEY,JSON.stringify({rid:ddCtx.rid,colKey:ddCtx.colKey,isEntry:ddCtx.isEntry}));}catch{}setDdPop(null);setDdQ("");setDdCtx(null);setDdHilite(0);navigate(nav);}
+    if(nav){sessionStorage.setItem("masterPrefill",ddQ.trim());try{sessionStorage.setItem("masterReturnField",ddCtx.colKey);sessionStorage.setItem(ITEM_DRAFT_KEY,JSON.stringify({entryRow,rows}));sessionStorage.setItem(ITEM_CURSOR_KEY,JSON.stringify({rid:ddCtx.rid,colKey:ddCtx.colKey,isEntry:ddCtx.isEntry}));}catch{}setDdPop(null);setDdQ("");setDdCtx(null);setDdHilite(0);navigate(nav);}
   },[ddPop,ddCtx,ddQ,selectDd,navigate,entryRow,rows]);
 
   const closeDd = () => { setDdPop(null);setDdQ("");setDdCtx(null);setDdHilite(0); };
 
   const applyChange = (prev, colKey, value) => {
-    let fv = UPPER_KEYS.has(colKey)&&typeof value==="string" ? value.toUpperCase() : value;
+    let fv = value;
     let u = { ...prev, [colKey]:fv, _dirty:true };
     if(CALC_KEYS.has(colKey)) u={...u,...calcRow(u,sess,colKey)};
-    if(colKey==="SalesRate"){const LC=vn(u.LandingCost),SR=vn(fv),d=SR-LC;u.ProfitPer=LC>0&&d>0?f2(ro(d/LC*100)):0;u={...u,...calcRow(u,sess,"SalesRate"),SalesRate:f2(vn(fv))};}
+    if(colKey==="SalesRate"){const LC=vn(u.LandingCost),SR=vn(fv),d=SR-LC;u.ProfitPer=LC>0&&d>0?f2(ro(d/LC*100)):0;u={...u,...calcRow(u,sess,"SalesRate"),SalesRate:fv===""?"":f2(vn(fv))};}
     if(colKey==="ProfitAmt"){const LC=vn(u.LandingCost),PA=vn(fv);u.ProfitPer=LC>0?f2(PA/LC*100):0;u={...u,...calcRow(u,sess,"ProfitAmt")};}
     if(colKey==="DMAmt"){const M=vn(u.MRP),DA=vn(fv);u.DMPer=M>0?f2(ro(DA/M*100)):0;}
     if(colKey==="DMPer"){const M=vn(u.MRP),DP=vn(fv);u.DMAmt=f2(ro(M*DP/100));}
@@ -896,25 +976,36 @@ setPage(Math.max(1, Math.ceil(fmt.length / ROWS_PER_PAGE)));
   }, [sess]);
 
 const validateRow = useCallback(async row => {
-  if(!String(row.ProductCode||"").trim()){setVErr("❌ Product Code required.");return false;}
-  if(!String(row.ProductName||"").trim()){setVErr("❌ Description required.");return false;}
+  if(!String(row.ProductCode||"").trim()){await showAlert("Validation Failed\n\n❌ Product Code required.");return false;}
+  if(!String(row.ProductName||"").trim()){await showAlert("Validation Failed\n\n❌ Description required.");return false;}
+
+  if(vn(row.SalesRate) > vn(row.MRP)){
+    await showAlert("Validation Failed\n\n❌ Sale Rate cannot be greater than MRP.");
+    if (row._isNew) {
+      focusEntry("SalesRate");
+      setTimeout(() => { try { entryRefs.current["SalesRate"]?.select(); } catch(e){} }, 10);
+    } else {
+      focusCell(row._rid, "SalesRate");
+      setTimeout(() => { try { cellRefs.current[row._rid]?.["SalesRate"]?.select(); } catch(e){} }, 10);
+    }
+    return false;
+  }
 
   if(sess.LandingCostCompare){
-    if(vn(row.SalesRate)&&vn(row.LandingCost)>vn(row.SalesRate)){setVErr("❌ Sale Rate < Landing Cost.");return false;}
-    if(vn(row.MRP)&&vn(row.SalesRate)&&vn(row.MRP)<vn(row.SalesRate)){setVErr("❌ Sale Rate > MRP.");return false;}
+    if(vn(row.SalesRate)&&vn(row.LandingCost)>vn(row.SalesRate)){await showAlert("Validation Failed\n\n❌ Sale Rate < Landing Cost.");return false;}
   }
 
   if(vn(row.LandingCost)&&vn(row.MRP)&&vn(row.LandingCost)>vn(row.MRP)){
     await showAlert(
-      `Landing Cost (${vn(row.LandingCost).toFixed(2)}) is greater than MRP (${vn(row.MRP).toFixed(2)}) for "${row.ProductCode}".`
+      `Validation Failed\n\nLanding Cost (${vn(row.LandingCost).toFixed(2)}) is greater than MRP (${vn(row.MRP).toFixed(2)}) for "${row.ProductCode}".`
     );
     return false;
   }
 
-  if(vn(row.MRP)&&vn(row.PurchaseRate)&&vn(row.MRP)<vn(row.PurchaseRate)){setVErr("❌ Purchase Rate > MRP.");return false;}
+  if(vn(row.MRP)&&vn(row.PurchaseRate)&&vn(row.MRP)<vn(row.PurchaseRate)){await showAlert("Validation Failed\n\n❌ Purchase Rate > MRP.");return false;}
 
   setVErr(""); return true;
-}, [sess, showAlert]); // ← add showAlert here
+}, [sess, showAlert, focusEntry, focusCell]); // ← add showAlert here
   const buildPayload = useCallback(row => {
     const n=v=>parseFloat(v)||0,ni=v=>parseInt(v)||0,bi=v=>(v===true||v==="true"||v===1||v==="1")?1:0,b=v=>v===true||v==="true"||v===1||v==="1",s=v=>String(v==null?"":v);
     return { Id:ni(row.Id),ProductCode:s(row.ProductCode).trim(),SecondCode:s(row.SecondCode),ProductName:s(row.ProductName).trim(),PrinterName:s(row.PrinterName),HSNCode:s(row.HSNCode),Brand:s(row.Brand),BrandId:ni(row.BrandId),Category:s(row.Category),CategoryId:ni(row.CategoryId),Department:s(row.Department),DepartmentId:ni(row.DepartmentId),Supplier:s(row.Supplier),SupplierId:ni(row.SupplierId),UOM:s(row.UOM),UOMId:ni(row.UOMId),LocationMaster:s(row.LocationMaster),LocationMasterId:ni(row.LocationMasterId),NomsQty:ni(row.NomsQty),MRP:n(row.MRP),DMPer:n(row.DMPer),DMAmt:n(row.DMAmt),PurchaseRate:n(row.PurchaseRate),GST:n(row.GST),GSTAmt:n(row.GSTAmt),TransPer:n(row.TransPer),TransAmt:n(row.TransAmt),CESS:n(row.CESS),CESSAmt:n(row.CESSAmt),SPLCESS:n(row.SPLCESS),LandingCost:n(row.LandingCost),ProfitPer:n(row.ProfitPer),ProfitAmt:n(row.ProfitAmt),SalesRate:n(row.SalesRate),CardRate:n(row.CardRate),WholeSaleRate:n(row.WholeSaleRate),NomsPCRate:n(row.NomsPCRate),SalesRateType:b(row.SalesRateType),SaleDiscountPer:n(row.SaleDiscountPer),SaleDiscountAmt:n(row.SaleDiscountAmt),ReorderLevelMin:n(row.ReorderLevelMin),ReorderLevelMax:n(row.ReorderLevelMax),MaxSaleQty:n(row.MaxSaleQty),LessAmt:n(row.LessAmt),StockNeed:bi(row.StockNeed),ExpriyDate:bi(row.ExpriyDate),OnlineShow:bi(row.OnlineShow),BrandType:bi(row.BrandType),ModelType:bi(row.ModelType),ColorType:bi(row.ColorType),SizeType:bi(row.SizeType),SerialNoType:bi(row.SerialNoType),BatchwiseStock:bi(row.BatchwiseStock),Active:bi(row.Active),NegativetStock:b(row.NegativetStock),Repacking:b(row.Repacking),ExpriyDays:ni(row.ExpriyDays),ExpiryBeforeDays:ni(row.ExpiryBeforeDays),NetWeight:n(row.NetWeight),CRMPoints:n(row.CRMPoints),Remarks:s(row.Remarks),ProductImage:s(row.ProductImage) };
@@ -922,7 +1013,7 @@ const validateRow = useCallback(async row => {
 
   const doDeleteRow = useCallback(async rid => {
     const row=rows.find(r=>r._rid===rid); if(!row)return;
-    if(!perm.Delete){toast("❌ Delete Permission Denied",true);return;}
+    if(!perm.Delete){await showAlert("Validation Failed\n\n❌ Delete Permission Denied");return;}
     const ok=await confirm(`Delete "${row.ProductName||"this row"}"?`); if(!ok)return;
     setLoading(true);setLdMsg("Deleting...");
     const res=await CC.api(CC.ItemDelete,null,{"IdComList":String(sess.IdComList)},{Id:row.Id,Comid:sess.Comid,MirrorTable:sess.MirrorTable});
@@ -931,10 +1022,10 @@ const validateRow = useCallback(async row => {
     if(res._netErr){toast(`❌ ${res.message}`,true);return;}
     if(res.ok){toast("✅ "+(res.message||"Deleted"));setRows(prev=>prev.filter(r=>r._rid!==rid));if(selRid===rid)setSelRid(null);}
     else toast(`❌ ${res.message||"Delete failed"}`,true);
-  }, [rows,perm,confirm,toast,sess,selRid,redirectIfDualLogin]);
+  }, [rows,perm,confirm,toast,sess,selRid,redirectIfDualLogin,showAlert]);
 
   const doSave = useCallback(async () => {
-    if (!perm.Add && !perm.Edit) { toast("❌ Page Add & Update Permission Denied !!!", true); return; }
+    if (!perm.Add && !perm.Edit) { await showAlert("Validation Failed\n\n❌ Page Add & Update Permission Denied !!!"); return; }
     const latestRows  = rowsRef.current;
     const latestEntry = entryRowRef.current;
     const eHas = String(latestEntry?.ProductCode || "").trim() || String(latestEntry?.ProductName  || "").trim();
@@ -943,127 +1034,222 @@ const validateRow = useCallback(async row => {
     const toSave = [];
     if (latestEntry?._dirty && entryComplete) toSave.push(latestEntry);
     toSave.push(...dirtyRows);
-    if (!toSave.length) { toast("⚠️ No modified data to save.", true); return; }
+    if (!toSave.length) { await showAlert("Validation Failed\n\n⚠️ No modified data to save."); return; }
    for (const row of toSave) { if (!(await validateRow(row))) return; }
     const ok = await confirm("Do you want to Save Item Master Details?");
     if (!ok) return;
     setLoading(true); setLdMsg("Saving...");
     const hdrs = { "Comid":String(sess.Comid),"Commoncompany":String(sess.CommonCompany),"CommoncompanyDiffStock":String(sess.CommonCompanyDiffStock),"SupplierMulitipleAllow":String(sess.SupplierMulitipleAllow),"MulipleMRP":String(sess.MulipleMRP),"MirrorTable":String(sess.MirrorTable),"Tamil":String(sess.Tamil),"IdComList":String(sess.IdComList),"ApiType":"0" };
     const payload = toSave.map(buildPayload);
-    const res = await CC.insertapi(CC.ItemInsert, payload, hdrs);
-    setLoading(false);
-     if (redirectIfDualLogin(res)) return;
-    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
-    if (res.ok ?? res.IsSuccess) {
-      dirtyIds.current.clear();
-      toast("✅ " + (res.message || "Saved successfully"));
-      try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
-      if (entryComplete && latestEntry?._dirty) {
-        const saved = { ...latestEntry, _dirty:false, _isNew:false, _editMode:0, Id:res.Id||latestEntry.Id||latestEntry._rid };
-        setRows(prev => [...prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r), saved]);
-        resetEntry();
-      } else {
-        setRows(prev => prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r));
-      }
-    } else { toast(`❌ ${res.message || "Save failed"}`, true); }
-  }, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry,redirectIfDualLogin]);
+    try {
+      const res = await CC.insertapi(CC.ItemInsert, payload, hdrs);
+      setLoading(false);
+      if (redirectIfDualLogin(res)) return;
+      if (res._netErr) { await showAlert(res.Message ); return; }
+      if (res.ok ?? res.IsSuccess) {
+        dirtyIds.current.clear();
+        toast("✅ " + (res.message || "Saved successfully"));
+        try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
+        if (entryComplete && latestEntry?._dirty) {
+          const saved = { ...latestEntry, _dirty:false, _isNew:false, _editMode:0, Id:res.Id||latestEntry.Id||latestEntry._rid };
+          setRows(prev => [...prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r), saved]);
+          resetEntry();
+        } else {
+          setRows(prev => prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r));
+        }
+      } else { await showAlert(res.Message || "Unable to save the item. Please try again."); }
+    } catch (err) {
+      setLoading(false);
+      await showAlert("Save Failed\n\n" + (err?.message || "Unable to save the item. Please try again."));
+    }
+  }, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry,redirectIfDualLogin, showAlert]);
 
   const entryRowIndex = rows.length;
-  const doExcelUpload = useCallback(() => {
+const doExcelUpload = useCallback(() => {
   const inp = document.createElement("input");
-  inp.type = "file"; inp.accept = ".csv,.xlsx";
+  inp.type = "file"; inp.accept = ".csv,.xlsx,.tsv";
   inp.onchange = async e => {
     const file = e.target.files[0]; if (!file) return;
-    const text = await file.text();
 
-    // Parse CSV — handle quoted fields
-    const parseCSV = raw => {
-      const lines = raw.split(/\r?\n/).filter(Boolean);
-      if (lines.length < 2) return [];
-      const splitLine = line => {
-        const result = []; let cur = ""; let inQ = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') {
-            if (inQ && line[i+1] === '"') { cur += '"'; i++; }
-            else inQ = !inQ;
-          } else if (ch === ',' && !inQ) { result.push(cur.trim()); cur = ""; }
-          else cur += ch;
-        }
-        result.push(cur.trim()); return result;
-      };
-      const hdrs = splitLine(lines[0]);
-      return lines.slice(1).map(line => {
-        const vals = splitLine(line);
+    let records = [];
+
+    // ── XLSX ──────────────────────────────────────────────────────────────
+    if (file.name.toLowerCase().endsWith(".xlsx")) {
+      const XLSX = await import("xlsx");
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      records = XLSX.utils.sheet_to_json(worksheet, { defval: "" }).map(row => {
         const obj = {};
-        hdrs.forEach((h, i) => { obj[h.trim()] = (vals[i] || "").trim(); });
+        Object.entries(row).forEach(([k, v]) => {
+          obj[k.trim()] = typeof v === "string" ? v.trim() : String(v).trim();
+        });
         return obj;
       });
-    };
 
-    const records = parseCSV(text).filter(o => o["Product Code"] || o["ProductCode"]);
-    if (!records.length) { toast("❌ No valid rows found. Check file format.", true); return; }
+    // ── CSV / TSV ─────────────────────────────────────────────────────────
+    } else {
+      const text = await file.text();
 
-    // Map CSV columns → payload fields
-    const labelToKey = {};
-    COLUMNS.forEach(c => { labelToKey[c.label] = c.key; });
-    labelToKey["Id"] = "Id";
-    labelToKey["Product Code"] = "ProductCode";
+      const parseDelimited = raw => {
+        const lines = raw.split(/\r?\n/).map(l => l.replace(/\r$/, "")).filter(Boolean);
+        if (lines.length < 2) return [];
 
-    const toSave = records.map(row => {
-      const mapped = {};
-      Object.entries(row).forEach(([h, v]) => {
-        const key = labelToKey[h] || h;
-        mapped[key] = v;
-      });
-      // Build proper payload
-      const n  = v => parseFloat(v)  || 0;
-      const ni = v => parseInt(v)    || 0;
-      const bi = v => (v === "true" || v === "1" || v === true) ? 1 : 0;
-      const b  = v => v === "true" || v === "1" || v === true;
-      const s  = v => String(v == null ? "" : v);
-      return {
-        Id:              ni(mapped.Id),   // 0 = insert, >0 = update
-        ProductCode:     s(mapped.ProductCode).trim(),
-        SecondCode:      s(mapped.SecondCode),
-        ProductName:     s(mapped.ProductName).trim(),
-        PrinterName:     s(mapped.PrinterName),
-        HSNCode:         s(mapped.HSNCode),
-        Brand:           s(mapped.Brand),           BrandId:          ni(mapped.BrandId),
-        Category:        s(mapped.Category),        CategoryId:       ni(mapped.CategoryId),
-        Department:      s(mapped.Department),      DepartmentId:     ni(mapped.DepartmentId),
-        Supplier:        s(mapped.Supplier),        SupplierId:       ni(mapped.SupplierId),
-        UOM:             s(mapped.UOM),             UOMId:            ni(mapped.UOMId),
-        LocationMaster:  s(mapped.LocationMaster),  LocationMasterId: ni(mapped.LocationMasterId),
-        NomsQty:         ni(mapped.NomsQty),
-        MRP:             n(mapped.MRP),             DMPer:            n(mapped.DMPer),
-        DMAmt:           n(mapped.DMAmt),           PurchaseRate:     n(mapped.PurchaseRate),
-        GST:             n(mapped.GST),             GSTAmt:           n(mapped.GSTAmt),
-        TransPer:        n(mapped.TransPer),        TransAmt:         n(mapped.TransAmt),
-        CESS:            n(mapped.CESS),            CESSAmt:          n(mapped.CESSAmt),
-        SPLCESS:         n(mapped.SPLCESS),         LandingCost:      n(mapped.LandingCost),
-        ProfitPer:       n(mapped.ProfitPer),       ProfitAmt:        n(mapped.ProfitAmt),
-        SalesRate:       n(mapped.SalesRate),       CardRate:         n(mapped.CardRate),
-        WholeSaleRate:   n(mapped.WholeSaleRate),   NomsPCRate:       n(mapped.NomsPCRate),
-        SalesRateType:   b(mapped.SalesRateType),
-        SaleDiscountPer: n(mapped.SaleDiscountPer), SaleDiscountAmt:  n(mapped.SaleDiscountAmt),
-        ReorderLevelMin: n(mapped.ReorderLevelMin), ReorderLevelMax:  n(mapped.ReorderLevelMax),
-        MaxSaleQty:      n(mapped.MaxSaleQty),      LessAmt:          n(mapped.LessAmt),
-        StockNeed:       bi(mapped.StockNeed),      ExpriyDate:       bi(mapped.ExpriyDate),
-        OnlineShow:      bi(mapped.OnlineShow),     BrandType:        bi(mapped.BrandType),
-        ModelType:       bi(mapped.ModelType),      ColorType:        bi(mapped.ColorType),
-        SizeType:        bi(mapped.SizeType),       SerialNoType:     bi(mapped.SerialNoType),
-        BatchwiseStock:  bi(mapped.BatchwiseStock), Active:           bi(mapped.Active),
-        NegativetStock:  b(mapped.NegativetStock),  Repacking:        b(mapped.Repacking),
-        ExpriyDays:      ni(mapped.ExpriyDays),     ExpiryBeforeDays: ni(mapped.ExpiryBeforeDays),
-        NetWeight:       n(mapped.NetWeight),       CRMPoints:        n(mapped.CRMPoints),
-        Remarks:         s(mapped.Remarks),         ProductImage:     s(mapped.ProductImage),
-        GenderType:      bi(mapped.GenderType),
+        // Auto-detect delimiter: tab takes priority, then comma
+        const delim = lines[0].includes("\t") ? "\t" : ",";
+
+        const splitLine = line => {
+          if (delim === "\t") {
+            return line.split("\t").map(v => v.trim());
+          }
+          // Quoted-CSV split
+          const result = []; let cur = ""; let inQ = false;
+          for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+              if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+              else inQ = !inQ;
+            } else if (ch === "," && !inQ) { result.push(cur.trim()); cur = ""; }
+            else cur += ch;
+          }
+          result.push(cur.trim());
+          return result;
+        };
+
+        const hdrs = splitLine(lines[0]);
+        return lines.slice(1).map(line => {
+          const vals = splitLine(line);
+          const obj = {};
+          hdrs.forEach((h, i) => { obj[h.trim()] = (vals[i] ?? "").trim(); });
+          return obj;
+        });
       };
+
+      records = parseDelimited(text);
+    }
+
+    // ── Build label → key map (column label OR key name both accepted) ────
+    const labelToKey = { Id: "Id" };
+    COLUMNS.forEach(c => {
+      labelToKey[c.label] = c.key;   // e.g. "Description" → "ProductName"
+      labelToKey[c.key]   = c.key;   // e.g. "ProductName" → "ProductName"
+    });
+    // Extra aliases that differ between export label and common usage
+    labelToKey["Product Code"]   = "ProductCode";
+    labelToKey["Second Code"]    = "SecondCode";
+    labelToKey["Printer Name"]   = "PrinterName";
+    labelToKey["HSN Code"]       = "HSNCode";
+    labelToKey["Noms Qty"]       = "NomsQty";
+    labelToKey["DM%"]            = "DMPer";
+    labelToKey["DM Amt"]         = "DMAmt";
+    labelToKey["Purchase Rate"]  = "PurchaseRate";
+    labelToKey["GST%"]           = "GST";
+    labelToKey["GST Amt"]        = "GSTAmt";
+    labelToKey["Transport%"]     = "TransPer";
+    labelToKey["Transport Amt"]  = "TransAmt";
+    labelToKey["CESS%"]          = "CESS";
+    labelToKey["CESS Amt"]       = "CESSAmt";
+    labelToKey["SPL CESS"]       = "SPLCESS";
+    labelToKey["Landing Cost"]   = "LandingCost";
+    labelToKey["Profit%"]        = "ProfitPer";
+    labelToKey["Profit Amt"]     = "ProfitAmt";
+    labelToKey["Sale Rate"]      = "SalesRate";
+    labelToKey["Card Rate"]      = "CardRate";
+    labelToKey["Whole Sale"]     = "WholeSaleRate";
+    labelToKey["Noms PC Rate"]   = "NomsPCRate";
+    labelToKey["Fixed Rate"]     = "SalesRateType";
+    labelToKey["Sale Disc%"]     = "SaleDiscountPer";
+    labelToKey["Sale Disc Amt"]  = "SaleDiscountAmt";
+    labelToKey["Reorder Min"]    = "ReorderLevelMin";
+    labelToKey["Reorder Max"]    = "ReorderLevelMax";
+    labelToKey["Max Sale Qty"]   = "MaxSaleQty";
+    labelToKey["Less Amt"]       = "LessAmt";
+    labelToKey["Stock Need"]     = "StockNeed";
+    labelToKey["Expiry Date"]    = "ExpriyDate";
+    labelToKey["Online Show"]    = "OnlineShow";
+    labelToKey["Expiry Days"]    = "ExpriyDays";
+    labelToKey["Exp Before Days"]= "ExpiryBeforeDays";
+    labelToKey["Mfg Date"]       = "ManufactureDate";
+    labelToKey["Net Weight"]     = "NetWeight";
+    labelToKey["Brand Type"]     = "BrandType";
+    labelToKey["Model Type"]     = "ModelType";
+    labelToKey["Color Type"]     = "ColorType";
+    labelToKey["Size Type"]      = "SizeType";
+    labelToKey["Gender Type"]    = "GenderType";
+    labelToKey["Serial No Type"] = "SerialNoType";
+    labelToKey["CRM Points"]     = "CRMPoints";
+    labelToKey["Neg Stock"]      = "NegativetStock";
+    labelToKey["Batchwise"]      = "BatchwiseStock";
+    labelToKey["Location"]       = "LocationMaster";  // header alias
+
+    // ── Normalize records: map every header → internal key ────────────────
+    const normalized = records.map(row => {
+      const obj = {};
+      Object.entries(row).forEach(([h, v]) => {
+        const key = labelToKey[h.trim()] ?? h.trim();
+        obj[key] = v;
+      });
+      return obj;
     });
 
+    // ── Filter out blank rows (must have at least ProductCode) ────────────
+    const valid = normalized.filter(o =>
+      String(o["ProductCode"] || o["Product Code"] || "").trim()
+    );
+
+    if (!valid.length) {
+      await showAlert("Validation Failed\n\n❌ No valid rows found.\n\nMake sure the file has a 'Product Code' column with data.");
+      return;
+    }
+
+    // ── Map to API payload ────────────────────────────────────────────────
+    const n  = v => parseFloat(v)  || 0;
+    const ni = v => parseInt(v)    || 0;
+    const bi = v => (v === "true" || v === "1" || v === true || v === 1) ? 1 : 0;
+    const b  = v => v === "true"   || v === "1" || v === true || v === 1;
+    const s  = v => String(v == null ? "" : v);
+
+    const toSave = valid.map(m => ({
+      Id:              ni(m.Id),
+      ProductCode:     s(m.ProductCode).trim().toUpperCase(),
+      SecondCode:      s(m.SecondCode),
+      ProductName:     s(m.ProductName).trim().toUpperCase(),
+      PrinterName:     s(m.PrinterName),
+      HSNCode:         s(m.HSNCode),
+      Brand:           s(m.Brand),            BrandId:          ni(m.BrandId),
+      Category:        s(m.Category),         CategoryId:       ni(m.CategoryId),
+      Department:      s(m.Department),       DepartmentId:     ni(m.DepartmentId),
+      Supplier:        s(m.Supplier),         SupplierId:       ni(m.SupplierId),
+      UOM:             s(m.UOM),              UOMId:            ni(m.UOMId),
+      LocationMaster:  s(m.LocationMaster),   LocationMasterId: ni(m.LocationMasterId),
+      NomsQty:         ni(m.NomsQty),
+      MRP:             n(m.MRP),              DMPer:            n(m.DMPer),
+      DMAmt:           n(m.DMAmt),            PurchaseRate:     n(m.PurchaseRate),
+      GST:             n(m.GST),              GSTAmt:           n(m.GSTAmt),
+      TransPer:        n(m.TransPer),         TransAmt:         n(m.TransAmt),
+      CESS:            n(m.CESS),             CESSAmt:          n(m.CESSAmt),
+      SPLCESS:         n(m.SPLCESS),          LandingCost:      n(m.LandingCost),
+      ProfitPer:       n(m.ProfitPer),        ProfitAmt:        n(m.ProfitAmt),
+      SalesRate:       n(m.SalesRate),        CardRate:         n(m.CardRate),
+      WholeSaleRate:   n(m.WholeSaleRate),    NomsPCRate:       n(m.NomsPCRate),
+      SalesRateType:   b(m.SalesRateType),
+      SaleDiscountPer: n(m.SaleDiscountPer),  SaleDiscountAmt:  n(m.SaleDiscountAmt),
+      ReorderLevelMin: n(m.ReorderLevelMin),  ReorderLevelMax:  n(m.ReorderLevelMax),
+      MaxSaleQty:      n(m.MaxSaleQty),       LessAmt:          n(m.LessAmt),
+      StockNeed:       bi(m.StockNeed),       ExpriyDate:       bi(m.ExpriyDate),
+      OnlineShow:      bi(m.OnlineShow),      BrandType:        bi(m.BrandType),
+      ModelType:       bi(m.ModelType),       ColorType:        bi(m.ColorType),
+      SizeType:        bi(m.SizeType),        SerialNoType:     bi(m.SerialNoType),
+      BatchwiseStock:  bi(m.BatchwiseStock),  Active:           bi(m.Active),
+      NegativetStock:  b(m.NegativetStock),   Repacking:        b(m.Repacking),
+      GenderType:      bi(m.GenderType),      ManufactureDate:  bi(m.ManufactureDate),
+      ExpriyDays:      ni(m.ExpriyDays),      ExpiryBeforeDays: ni(m.ExpiryBeforeDays),
+      NetWeight:       n(m.NetWeight),        CRMPoints:        n(m.CRMPoints),
+      Remarks:         s(m.Remarks),          ProductImage:     s(m.ProductImage),
+    }));
+
     const newCount  = toSave.filter(r => !r.Id || r.Id === 0).length;
-    const editCount = toSave.filter(r => r.Id  && r.Id > 0).length;
+    const editCount = toSave.filter(r =>  r.Id  && r.Id > 0).length;
 
     const ok = window.confirm(
       `Upload ${toSave.length} rows?\n➕ New: ${newCount}\n✏️ Edit: ${editCount}\n\nProceed?`
@@ -1072,74 +1258,194 @@ const validateRow = useCallback(async row => {
 
     setLoading(true); setLdMsg(`Uploading ${toSave.length} rows...`);
     const hdrs = {
-      "Comid": String(sess.Comid),
-      "Commoncompany": String(sess.CommonCompany),
-      "CommoncompanyDiffStock": String(sess.CommonCompanyDiffStock),
-      "SupplierMulitipleAllow": String(sess.SupplierMulitipleAllow),
-      "MulipleMRP": String(sess.MulipleMRP),
-      "MirrorTable": String(sess.MirrorTable),
-      "Tamil": String(sess.Tamil),
-      "IdComList": String(sess.IdComList),
-      "ApiType": "0",
+      "Comid":                    String(sess.Comid),
+      "Commoncompany":            String(sess.CommonCompany),
+      "CommoncompanyDiffStock":   String(sess.CommonCompanyDiffStock),
+      "SupplierMulitipleAllow":   String(sess.SupplierMulitipleAllow),
+      "MulipleMRP":               String(sess.MulipleMRP),
+      "MirrorTable":              String(sess.MirrorTable),
+      "Tamil":                    String(sess.Tamil),
+      "IdComList":                String(sess.IdComList),
+      "ApiType":                  "0",
     };
-    const res = await CC.insertapi(CC.ItemInsert, toSave, hdrs);
-    setLoading(false);
-    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
-    if (res.ok ?? res.IsSuccess) {
-      toast(`✅ ${res.message || `Uploaded — ${newCount} added, ${editCount} updated`}`);
-      await loadItems("", "", true);
-    } else {
-      toast(`❌ ${res.message || "Upload failed"}`, true);
+
+    try {
+      const res = await CC.insertapi(CC.ItemInsert, toSave, hdrs);
+      setLoading(false);
+      if (redirectIfDualLogin(res)) return;
+      if (res._netErr) {
+        await showAlert("Upload Failed\n\n" + (res.message || "Network error. Please try again."));
+        return;
+      }
+      if (res.ok ?? res.IsSuccess) {
+        toast(`✅ ${res.message || `Uploaded — ${newCount} added, ${editCount} updated`}`);
+        await loadItems("", "", true);
+      } else {
+        await showAlert("Upload Failed\n\n" + (res.message || "Unable to save. Please try again."));
+      }
+    } catch (err) {
+      setLoading(false);
+      await showAlert("Upload Failed\n\n" + (err?.message || "Unexpected error. Please try again."));
     }
   };
   inp.click();
-}, [sess, toast, loadItems,redirectIfDualLogin]);
+}, [sess, toast, loadItems, redirectIfDualLogin, showAlert]);
 const doExcelDownload = useCallback(async () => {
-  setLoading(true); setLdMsg("Preparing Excel...");
+  setLoading(true);
+  setLdMsg("Preparing Excel...");
+
   const res = await CC.api(
-    CC.ItemSelect, null,
+    CC.ItemSelect,
+    null,
     { "Download": "1" },
-    { Comid: sess.Comid, Startindex: 0, PageCount: 99999, Keyword: "", Column: "" }
+    {
+      Comid: sess.Comid,
+      Startindex: 0,
+      PageCount: 99999,
+      Keyword: "",
+      Column: ""
+    }
   );
+
   setLoading(false);
-   if (redirectIfDualLogin(res)) return;
+
+  if (redirectIfDualLogin(res)) return;
+
   const data1 = (res.data || res.Data1 || rows.filter(r => r.Id));
-  if (!data1?.length) { toast("No records to export", true); return; }
+
+  if (!data1?.length) {
+    await showAlert("Validation Failed\n\nNo records to export");
+    return;
+  }
 
   // Columns to export — Id first, then all COLUMNS
   const exportCols = [
-    { key: "Id",          label: "Id" },
+    { key: "Id", label: "Id" },
     { key: "ProductCode", label: "Product Code" },
-    ...COLUMNS.filter(c => c.key !== "ProductCode").map(c => ({ key: c.key, label: c.label })),
+    ...COLUMNS
+      .filter(c => c.key !== "ProductCode")
+      .map(c => ({
+        key: c.key,
+        label: c.label
+      })),
   ];
 
-const fmt = data1.map((o) => {
-  const out = {};
-  exportCols.forEach(c => { out[c.label] = o[c.key] ?? ""; });
-  return out;
-});
+  const fmt = data1.map((o) => {
+    const out = {};
 
-  const hdr  = Object.keys(fmt[0]).join(",");
-  const body = fmt.map(r =>
-    Object.values(r).map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
-  ).join("\n");
+    exportCols.forEach(c => {
+      out[c.label] = o[c.key] ?? "";
+    });
 
-  const blob = new Blob(["\uFEFF" + hdr + "\n" + body], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href = url; a.download = "itemmaster.csv"; a.click();
+    return out;
+  });
+
+  // CSV header
+  const hdr = Object.keys(fmt[0])
+    .map(v => `"${String(v).replace(/"/g, '""')}"`)
+    .join(",");
+
+  // CSV body
+  const body = fmt.map(row =>
+    Object.values(row)
+      .map(v => `"${String(v).replace(/"/g, '""')}"`)
+      .join(",")
+  ).join("\r\n");
+
+  const csvContent = hdr + "\r\n" + body;
+
+  // Force UTF-8 encoding with BOM bytes for Excel Tamil support
+  const bom = new Uint8Array([
+    0xEF,
+    0xBB,
+    0xBF
+  ]);
+
+  const csvBytes = new TextEncoder().encode(csvContent);
+
+  const blob = new Blob(
+    [bom, csvBytes],
+    {
+      type: "text/csv;charset=utf-8"
+    }
+  );
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "itemmaster.csv";
+
+  document.body.appendChild(a);
+  a.click();
+
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
   toast("✅ Excel downloaded");
-}, [sess.Comid, rows, toast]);
+
+}, [
+  sess.Comid,
+  rows,
+  toast,
+  showAlert
+]);
+// const doExcelDownload = useCallback(async () => {
+//   setLoading(true); setLdMsg("Preparing Excel...");
+//   const res = await CC.api(
+//     CC.ItemSelect, null,
+//     { "Download": "1" },
+//     { Comid: sess.Comid, Startindex: 0, PageCount: 99999, Keyword: "", Column: "" }
+//   );
+//   setLoading(false);
+//    if (redirectIfDualLogin(res)) return;
+//   const data1 = (res.data || res.Data1 || rows.filter(r => r.Id));
+//   if (!data1?.length) { await showAlert("Validation Failed\n\nNo records to export"); return; }
+
+//   // Columns to export — Id first, then all COLUMNS
+//   const exportCols = [
+//     { key: "Id",          label: "Id" },
+//     { key: "ProductCode", label: "Product Code" },
+//     ...COLUMNS.filter(c => c.key !== "ProductCode").map(c => ({ key: c.key, label: c.label })),
+//   ];
+
+// const fmt = data1.map((o) => {
+//   const out = {};
+//   exportCols.forEach(c => { out[c.label] = o[c.key] ?? ""; });
+//   return out;
+// });
+
+//   const hdr  = Object.keys(fmt[0]).join(",");
+//   const body = fmt.map(r =>
+//     Object.values(r).map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
+//   ).join("\n");
+
+//   const csvContent = hdr + "\n" + body;
+//   const blob = new Blob(["\uFEFF", csvContent], { type: "text/csv;charset=utf-8" });
+//   const url  = URL.createObjectURL(blob);
+//   const a    = document.createElement("a");
+//   a.href = url; a.download = "itemmaster.csv"; a.click();
+//   URL.revokeObjectURL(url);
+//   toast("✅ Excel downloaded");
+// }, [sess.Comid, rows, toast, showAlert]);
 const handleEntryKeyDown = useCallback((e, colKey) => {
+  if (e.nativeEvent.isComposing || e.target.dataset.composing === "true") return;
   const colIdx = editableKeys.indexOf(colKey);
 
   if (e.key === "ArrowRight") {
-    e.preventDefault();
-    if (colIdx < editableKeys.length - 1) focusEntry(editableKeys[colIdx + 1]);
+    let atEnd = false;
+    try { atEnd = e.target.selectionStart === e.target.value.length; } catch(err) {}
+    if (e.target.readOnly || atEnd) {
+      e.preventDefault();
+      if (colIdx < editableKeys.length - 1) focusEntry(editableKeys[colIdx + 1]);
+    }
   } else if (e.key === "ArrowLeft") {
-    e.preventDefault();
-    if (colIdx > 0) focusEntry(editableKeys[colIdx - 1]);
+    let atStart = false;
+    try { atStart = e.target.selectionStart === 0; } catch(err) {}
+    if (e.target.readOnly || atStart) {
+      e.preventDefault();
+      if (colIdx > 0) focusEntry(editableKeys[colIdx - 1]);
+    }
   } else if (e.key === "Enter") {
     // Keep your existing multi-mrp logic here
     if (colKey === "ProductCode" && sess.MulipleMRP) {
@@ -1182,28 +1488,37 @@ const handleEntryKeyDown = useCallback((e, colKey) => {
   })();
 
 const handleCellKeyDown = useCallback((e, rid, colKey) => {
+  if (e.nativeEvent.isComposing || e.target.dataset.composing === "true") return;
   const rowIdx = pagedRows.findIndex(r => r._rid === rid);
   const colIdx = editableKeys.indexOf(colKey);
 
   // 1. RIGHT ARROW: Next column, or first column of next row
   if (e.key === "ArrowRight") {
-    e.preventDefault();
-    if (colIdx < editableKeys.length - 1) {
-      focusCell(rid, editableKeys[colIdx + 1]);
-    } else if (rowIdx < pagedRows.length - 1) {
-      focusCell(pagedRows[rowIdx + 1]._rid, editableKeys[0]);
+    let atEnd = false;
+    try { atEnd = e.target.selectionStart === e.target.value.length; } catch(err) {}
+    if (e.target.readOnly || atEnd) {
+      e.preventDefault();
+      if (colIdx < editableKeys.length - 1) {
+        focusCell(rid, editableKeys[colIdx + 1]);
+      } else if (rowIdx < pagedRows.length - 1) {
+        focusCell(pagedRows[rowIdx + 1]._rid, editableKeys[0]);
+      }
     }
   }
 
   // 2. LEFT ARROW: Previous column, or last column of previous row
   if (e.key === "ArrowLeft") {
-    e.preventDefault();
-    if (colIdx > 0) {
-      console.log("Moving from row:", rid, "to:", pagedRows[rowIdx - 1]._rid);
-      focusCell(rid, editableKeys[colIdx - 1]);
-    } else if (rowIdx > 0) {
-      console.log("Moving from row:", rid, "to:", pagedRows[rowIdx - 1]._rid);
-      focusCell(pagedRows[rowIdx - 1]._rid, editableKeys[editableKeys.length - 1]);
+    let atStart = false;
+    try { atStart = e.target.selectionStart === 0; } catch(err) {}
+    if (e.target.readOnly || atStart) {
+      e.preventDefault();
+      if (colIdx > 0) {
+        console.log("Moving from row:", rid, "to:", pagedRows[rowIdx - 1]._rid);
+        focusCell(rid, editableKeys[colIdx - 1]);
+      } else if (rowIdx > 0) {
+        console.log("Moving from row:", rid, "to:", pagedRows[rowIdx - 1]._rid);
+        focusCell(pagedRows[rowIdx - 1]._rid, editableKeys[editableKeys.length - 1]);
+      }
     }
   }
 
@@ -1224,15 +1539,20 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
 
   const anyOpen = f12Open||ddPop||bsrOpen||gcOpen||tnOpen||pw||adminOpen;
   useEffect(() => {
-    const onKey = e => {
+    const onKey = async e => {
+      if (obOpen) {
+        if (e.key === "Escape") { e.preventDefault(); setObOpen(false); }
+        return; 
+      }
       if (anyOpen) return;
+      if (e.key === "F3") { e.preventDefault(); setObOpen(true); }
       if (e.key==="F1")     { e.preventDefault(); doSave(); }
        if (e.key === "F4")     { e.preventDefault(); pwOkRef.current = doExcelDownload; setPw({title:"F4 Password"}); }
     if (e.key === "F7")     { e.preventDefault(); pwOkRef.current = doExcelUpload;   setPw({title:"F7 Password"}); }
     if (e.key === "F9") {
   e.preventDefault();
   const r = rowsRef.current.find(x => x._rid === selRid);
-  if (!r?.Id) { toast("Select a saved item first", true); return; }
+  if (!r?.Id) { await showAlert("Validation Failed\n\nSelect a saved item first"); return; }
   loadBarcodes(r.Id);
 }
       if (e.key==="F12")    { e.preventDefault(); setF12Open(true); }
@@ -1242,7 +1562,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line
-  }, [anyOpen, doSave, doExcelDownload, doExcelUpload, selRid, doDeleteRow]);
+  }, [anyOpen, doSave, doExcelDownload, doExcelUpload, selRid, doDeleteRow, obOpen]);
 
   useEffect(()=>{
     (async()=>{
@@ -1261,6 +1581,20 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
           }
         }
       }catch{}
+
+      const retId = sessionStorage.getItem("masterReturnValue");
+      if (retId) {
+        sessionStorage.removeItem("masterReturnValue");
+        sessionStorage.removeItem("masterReturnName");
+        const curSaved = sessionStorage.getItem(ITEM_CURSOR_KEY);
+        if (curSaved) {
+          pendingReturnRef.current = { retId, cur: JSON.parse(curSaved) };
+          sessionStorage.removeItem(ITEM_CURSOR_KEY);
+        }
+      } else {
+        try { sessionStorage.removeItem(ITEM_CURSOR_KEY); } catch{}
+      }
+
       if(!draftRestored){
         await loadItems("","",true);
         if(sess.Productcodeautogen){const r=await autoGenCode(mkEmpty());setEntryRow(r);}
@@ -1269,10 +1603,34 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
   await loadItems("", "", true); // ← இதை add பண்ணு (always load)
 }
       draftOk.current=true;
-      setTimeout(()=>focusEntry(editableKeys[0]),500);
+      if (!retId) setTimeout(()=>focusEntry(editableKeys[0]),500);
+      setDataLoaded(true);
     })();
   // eslint-disable-next-line
   },[]);
+
+  useEffect(() => {
+    if (dataLoaded && pendingReturnRef.current) {
+      const { retId, cur } = pendingReturnRef.current;
+      pendingSelectRef.current = retId;
+      pendingReturnRef.current = null;
+      if (cur.isEntry) openComboEntry(cur.colKey);
+      else openCombo(cur.rid, cur.colKey);
+    }
+  }, [dataLoaded, openCombo, openComboEntry]);
+
+  useEffect(() => {
+    if (ddPop && pendingSelectRef.current) {
+      const match = ddPop.list.find(x => String(x[ddPop.idKey]) === String(pendingSelectRef.current));
+      if (match) {
+        pendingSelectRef.current = null;
+        selectDd(match);
+      } else {
+        pendingSelectRef.current = null;
+        toast("⚠️ Newly created record could not be automatically selected.", true);
+      }
+    }
+  }, [ddPop, selectDd, toast]);
 
   useEffect(()=>{
     setCols(prev=>prev.map(col=>(col.key==="DMPer"||col.key==="DMAmt")?{...col,visible:sess.MulipleMRP}:col));
@@ -1311,7 +1669,9 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
     const cd=COLUMNS.find(c=>c.key===col.key); if(!cd) return null;
     const rid=row._rid, val=row[cd.key];
     const colIdx=editableKeys.indexOf(cd.key);
-    const onFocus=()=>setSelRid(rid);
+    const onFocus = () => {
+      setSelRid(rid);
+    };
     const editMode = row._editMode ?? 0;
 
     const regRowRef = el => {
@@ -1357,7 +1717,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
     // CHANGE 9: f2/f3 — view mode shows formatted decimal (55 → 55.00), edit mode shows raw value
     // மாற்றம் 9: f2/f3 — view mode-ல் "55.00" காட்டும், edit mode-ல் raw value
     if(cd.type==="f2"||cd.type==="f3") return (
-      <input ref={regRowRef} type={editMode === 1 ? "number" : "text"}
+      <input ref={regRowRef} type="text" inputMode="decimal"
         step={cd.type==="f3"?"0.001":"0.01"}
         value={editMode === 0 ? fmtDisplay(val, cd.type) : (val===""||val===undefined?"":val)}
         className="mp-cell-input"
@@ -1365,13 +1725,16 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
         readOnly={editMode === 0}
         onChange={e => editMode === 1 && handleCellChange(rid, cd.key, e.target.value)}
         onKeyDown={e => editMode === 1 && handleCellKeyDown(e, rid, cd.key)}
-        onFocus={onFocus}
+        onFocus={e => {
+          onFocus();
+          if (cd.key === "SalesRate" && editMode === 1) e.target.select();
+        }}
         placeholder={editMode === 1 ? "0.00" : ""}
       />
     );
 
     if(cd.type==="int") return (
-      <input ref={regRowRef} type={editMode === 1 ? "number" : "text"} step="1"
+      <input ref={regRowRef} type="text" inputMode="numeric" step="1"
         value={editMode === 0 ? (val||"0") : (val===""||val===undefined?"":val)}
         className="mp-cell-input"
         style={cellInputStyle(editMode)}
@@ -1383,12 +1746,33 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
       />
     );
 
+    if (cd.key === "PrinterName") {
+      return (
+        <PrinterNameInput
+          inputRef={regRowRef}
+          val={ns(val)}
+          editMode={editMode}
+          cellInputStyle={cellInputStyle(editMode)}
+          onChange={v => handleCellChange(rid, cd.key, v)}
+          onKeyDown={e => editMode === 1 && handleCellKeyDown(e, rid, cd.key)}
+          onFocus={onFocus}
+          placeholder={editMode === 1 ? cd.label : ""}
+          isAG={false}
+        />
+      );
+    }
+
     return (
       <input ref={regRowRef} type="text" value={ns(val)}
         className="mp-cell-input"
         style={cellInputStyle(editMode)}
         readOnly={editMode === 0}
-        onChange={e => editMode === 1 && handleCellChange(rid, cd.key, e.target.value)}
+        onChange={e => {
+          if (editMode !== 1) return;
+          UPPER_KEYS.has(cd.key)
+            ? CC.applyUppercase(e, v => handleCellChange(rid, cd.key, v))
+            : handleCellChange(rid, cd.key, e.target.value);
+        }}
         onKeyDown={e => editMode === 1 && handleCellKeyDown(e, rid, cd.key)}
         onFocus={onFocus}
         placeholder={editMode === 1 ? cd.label : ""}
@@ -1424,23 +1808,44 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
     );
 
     if(cd.type==="f2"||cd.type==="f3") return (
-      <input ref={reg} type="number" step={cd.type==="f3"?"0.001":"0.01"}
-        value={val===""||val===undefined?"":val} className="mp-cell-input"
+      <input ref={reg} type="text" inputMode="decimal" step={cd.type==="f3"?"0.001":"0.01"}
+        value={entryRow[cd.key]??""} className="mp-cell-input entry"
         onChange={e=>handleEntryChange(cd.key,e.target.value)}
-        onKeyDown={e=>handleEntryKeyDown(e,cd.key)} placeholder="0.00" />
+        onKeyDown={e=>handleEntryKeyDown(e,cd.key)} placeholder="0.00"
+        onFocus={e => { if (cd.key === "SalesRate") e.target.select(); }} />
     );
 
     if(cd.type==="int") return (
-      <input ref={reg} type="number" step="1"
-        value={val===""||val===undefined?"":val} className="mp-cell-input"
+      <input ref={reg} type="text" inputMode="numeric" step="1"
+        value={entryRow[cd.key]??""} className="mp-cell-input entry"
         onChange={e=>handleEntryChange(cd.key,e.target.value)}
         onKeyDown={e=>handleEntryKeyDown(e,cd.key)} placeholder="0" />
     );
 
+    if (cd.key === "PrinterName") {
+      return (
+        <PrinterNameInput
+          inputRef={reg}
+          val={ns(val)}
+          editMode={1}
+          cellInputStyle={{}}
+          onChange={v => handleEntryChange(cd.key, v)}
+          onKeyDown={e => handleEntryKeyDown(e, cd.key)}
+         // onFocus={onFocus}
+          placeholder={cd.label}
+          isAG={false}
+        />
+      );
+    }
+
     const isAG=cd.key==="ProductCode"&&sess.Productcodeautogen;
     return (
       <input ref={reg} type="text" value={ns(val)} className="mp-cell-input"
-        onChange={e=>handleEntryChange(cd.key,e.target.value)}
+        onChange={e => {
+          UPPER_KEYS.has(cd.key)
+            ? CC.applyUppercase(e, v => handleEntryChange(cd.key, v))
+            : handleEntryChange(cd.key, e.target.value);
+        }}
         onKeyDown={e=>handleEntryKeyDown(e,cd.key)}
         placeholder={isAG?"Auto Generated":cd.label}
         readOnly={isAG} />
@@ -1694,10 +2099,10 @@ if (!isAuthorized) return null;
                             onClick={e => {
                               e.stopPropagation();
                               selectRow(row._rid);
-                              if (editMode === 1) {
+                              if (editMode === 1 && e.target.tagName !== "INPUT" && e.target.tagName !== "SELECT") {
                                 setTimeout(() => {
                                   const el = cellRefs.current[row._rid]?.[col.key];
-                                  if (el) { el.focus(); el.select?.(); }
+                                  if (el) { el.focus(); }
                                 }, 20);
                               }
                             }}
@@ -1749,7 +2154,8 @@ if (!isAuthorized) return null;
           <button className="mp-btn sv" onClick={doSave}    disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={resetEntry} disabled={loading}>➕ New Entry</button>
                     <button className="mp-btn"    onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
-          <button className="mp-btn"    onClick={async () => { await loadItems("","",true); resetEntry(); }} disabled={loading}>🔄 Reload</button>
+          <button className="mp-btn"    onClick={async () => { await loadItems("","",true); resetEntry(); }} disabled={loading}>🔄 Refresh</button>
+          <button className="mp-btn"    onClick={() => setObOpen(true)} disabled={loading}>⚖ F3 Opening Balance</button>
    
 <button className="mp-btn ex" onClick={() => { pwOkRef.current = doExcelDownload; setPw({title:"F4 Password"}); }}>
   📥 F4 Excel↓
@@ -1758,9 +2164,9 @@ if (!isAuthorized) return null;
   📤 F7 Excel↑
 </button>
 
-<button className="mp-btn" onClick={() => {
+<button className="mp-btn" onClick={async () => {
   const r = rows.find(x => x._rid === selRid);
-  if (!r?.Id) { toast("Select a saved item first", true); return; }
+  if (!r?.Id) { await showAlert("Validation Failed\n\nSelect a saved item first"); return; }
   loadBarcodes(r.Id);
 }} disabled={!selRid}>🔖 F9 Barcode</button>
 {pw && (
@@ -1771,9 +2177,9 @@ if (!isAuthorized) return null;
     onClose={() => setPw(null)}
   />
 )}
-          {sess.GroupCommission && <button className="mp-btn" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);if(!r?.Id){toast("Select a saved row first",true);return;}const res=await CC.api(CC.ItemGroupCommission,null,{},{Id:r.Id,Comid:sess.Comid});setGcRows(!res._netErr&&(res.data||res.Data1)?res.data||res.Data1:[]);setGcOpen(true);}} disabled={!selRid}>💰 Group Commission</button>}
-          <button className="mp-btn"    onClick={()=>{const r=rows.find(x=>x._rid===selRid);setTnVal(r?ns(r.PrinterName):"");setTnOpen(true);}} disabled={!selRid}>🌐 F6 Tamil Name</button>
-          <button className="mp-btn dl" onClick={()=>selRid?doDeleteRow(selRid):toast("Select a row to delete",true)} disabled={!selRid||loading}>🗑 Delete</button>
+          {sess.GroupCommission && <button className="mp-btn" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);if(!r?.Id){await showAlert("Validation Failed\n\nSelect a saved row first");return;}const res=await CC.api(CC.ItemGroupCommission,null,{},{Id:r.Id,Comid:sess.Comid});setGcRows(!res._netErr&&(res.data||res.Data1)?res.data||res.Data1:[]);setGcOpen(true);}} disabled={!selRid}>💰 Group Commission</button>}
+
+          <button className="mp-btn dl" onClick={async ()=>selRid?doDeleteRow(selRid):await showAlert("Validation Failed\n\nSelect a row to delete")} disabled={!selRid||loading}>🗑 Delete</button>
           <button className="mp-btn dl" onClick={()=>navigate(-1)}>✕ Esc Cancel</button>
         </div>
 
@@ -1818,7 +2224,7 @@ if (!isAuthorized) return null;
             </div>
             <div className="mp-modal-ftr">
               <button className="mp-btn" onClick={()=>setBsrOpen(false)}>Cancel</button>
-              <button className="mp-btn sv" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);setLoading(true);const res=await CC.api(CC.ItemBranchRateUpdate,bsrRows,{},{ItemId:r.Id});setLoading(false);if(res.ok){toast("✅ Saved");setBsrOpen(false);}else toast(`❌ ${res.message||"Failed"}`,true);}} disabled={loading}>💾 Save</button>
+              <button className="mp-btn sv" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);setLoading(true);try{const res=await CC.api(CC.ItemBranchRateUpdate,bsrRows,{},{ItemId:r.Id});setLoading(false);if(res.ok){toast("✅ Saved");setBsrOpen(false);}else await showAlert("Save Failed\n\n"+(res.message||"Unable to save the item. Please try again."));}catch(err){setLoading(false);await showAlert("Save Failed\n\n"+(err?.message||"Unable to save the item. Please try again."));}}} disabled={loading}>💾 Save</button>
             </div>
           </div>
         </div>
@@ -1849,7 +2255,7 @@ if (!isAuthorized) return null;
             </div>
             <div className="mp-modal-ftr">
               <button className="mp-btn" onClick={()=>setGcOpen(false)}>Cancel</button>
-              <button className="mp-btn sv" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);setLoading(true);const res=await CC.insertapi(CC.ItemGroupCommissionInsert,gcRows,{"ItemId":String(r.Id),...CC.authHeaders()});setLoading(false);if(res.ok??res.IsSuccess){toast("✅ Saved");setGcOpen(false);}else toast(`❌ ${res.message||"Failed"}`,true);}} disabled={loading}>💾 Save</button>
+              <button className="mp-btn sv" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);setLoading(true);try{const res=await CC.insertapi(CC.ItemGroupCommissionInsert,gcRows,{"ItemId":String(r.Id),...CC.authHeaders()});setLoading(false);if(res.ok??res.IsSuccess){toast("✅ Saved");setGcOpen(false);}else await showAlert("Save Failed\n\n"+(res.message||"Unable to save the item. Please try again."));}catch(err){setLoading(false);await showAlert("Save Failed\n\n"+(err?.message||"Unable to save the item. Please try again."));}}} disabled={loading}>💾 Save</button>
             </div>
           </div>
         </div>
@@ -1860,6 +2266,7 @@ if (!isAuthorized) return null;
           <div className="mp-modal-box" style={{width:380,padding:"20px 24px"}}>
             <div style={{fontSize:14,fontWeight:700,marginBottom:12,color:"#1f65de"}}>🌐 Tamil / Printer Name</div>
             <input autoFocus value={tnVal} onChange={e=>setTnVal(e.target.value)}
+              onFocus={e => { try { if(e.target.setSelectionRange && e.target.type !== "number") { const len = e.target.value.length; e.target.setSelectionRange(len, len); } } catch(err) {} }}
               onKeyDown={e=>{if(e.key==="Enter"){if(selRid)setRows(p=>p.map(r=>r._rid===selRid?{...r,PrinterName:tnVal,_dirty:true}:r));setTnOpen(false);toast("✅ Tamil name updated");}if(e.key==="Escape")setTnOpen(false);}}
               placeholder="Enter Tamil name..."
               style={{width:"100%",padding:"7px 10px",border:"1px solid #c5d8f8",borderRadius:4,fontSize:13,marginBottom:14,outline:"none",boxSizing:"border-box"}}/>
@@ -1868,6 +2275,12 @@ if (!isAuthorized) return null;
               <button className="mp-btn sv" onClick={()=>{if(selRid)setRows(p=>p.map(r=>r._rid===selRid?{...r,PrinterName:tnVal,_dirty:true}:r));setTnOpen(false);toast("✅ Tamil name updated");}}>✅ Apply</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {obOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "#f1f5f9", overflow: "auto" }}>
+          <OpeningBalance />
         </div>
       )}
     </div>

@@ -189,6 +189,7 @@ const mkRow = () => ({
   PurchaseRate: 0, StockQty: 0,StockQtyNew:0, BatchRefid: null, NegativetStock: false,
   SalesRateType: true, WithoutTaxRate: 0, FreeQty: 0, Remarks: "",
   PrinterName: "", NStock: 0, SRDetailsId: 0, Bat_No: "",
+  ExpDate: "", MfgDate: "",
   CRMPoints: 0, SalesManCode: 0, SalesManComm: 0,
 });
 
@@ -607,7 +608,7 @@ const handleSave = async () => {
       toast?.("⚠️ " + (res?.message || "Saved locally")); 
       onSave(local); 
     }
-  } catch (err) {
+  }catch  (err) {
     console.error("F12 Save error:", err);
     onSave(local);
   }
@@ -687,9 +688,9 @@ function PwModal({ title, comid, onOk, onClose }) {
     </div>
   );
 }
-
 // ─── PRODUCT SEARCH POPUP ────────────────────────────────────────────────────
-function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
+// ─── PRODUCT SEARCH POPUP ────────────────────────────────────────────────────
+function ProductSearchPopup({ products, onSelect, onClose, anchorPos, isTamil }) {
   const [q, setQ]           = useState("");
   const [hilite, setHilite] = useState(0);
   const inputRef = useRef(null);
@@ -731,12 +732,24 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
           }}
         />
       </div>
-      <div className="sb-ps-cols">
-        <span style={{ width: 90 }}>Code</span>
-        <span style={{ flex: 1 }}>ProductName</span>
-        <span style={{ width: 72, textAlign: "right" }}>SaleRate</span>
-        <span style={{ width: 60, textAlign: "right" }}>Stock</span>
-      </div>
+
+      {isTamil ? (
+        <div className="sb-ps-cols">
+          <span style={{ width: 90 }}>Code</span>
+          <span style={{ flex: 1 }}>Description</span>
+          <span style={{ width: 140 }}>TamilName</span>
+        </div>
+      ) : (
+        <div className="sb-ps-cols">
+          <span style={{ width: 80 }}>Code</span>
+          <span style={{ flex: 1 }}>Description</span>
+          <span style={{ width: 50, textAlign: "center" }}>UOM</span>
+          <span style={{ width: 65, textAlign: "right" }}>MRP</span>
+          <span style={{ width: 65, textAlign: "right" }}>SaleRate</span>
+          <span style={{ width: 50, textAlign: "right" }}>GST%</span>
+        </div>
+      )}
+
       <div ref={listRef} className="sb-prod-list">
         {filtered.length === 0
           ? <div className="sb-ps-empty">No products found</div>
@@ -745,10 +758,41 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
               className={`sb-prod-item${idx === hilite ? " hi" : ""}`}
               onClick={() => onSelect(p)}
               onMouseEnter={() => setHilite(idx)}>
-              <span className="sb-prod-code">{p.Prod_Code ? p.Prod_Code : p.ProductCode}</span>
-              <span className="sb-prod-name">{p.PName ? p.PName : p.ProductName}</span>
-              <span className="sb-prod-rate">₹{CC.f2(CC.vn(p.SaleRate ? p.SaleRate : p.SalesRate)).toFixed(2)}</span>
-              <span className="sb-prod-stock">{CC.vn(p.Stock).toFixed(0)}</span>
+
+              {isTamil ? (
+                <>
+                  <span className="sb-prod-code" style={{ width: 90 }}>
+                    {p.Prod_Code ? p.Prod_Code : p.ProductCode}
+                  </span>
+                  <span className="sb-prod-name" style={{ flex: 1 }}>
+                    {p.PName ? p.PName : p.ProductName}
+                  </span>
+                  <span style={{ width: 140, color: "#1f65de", fontWeight: 600 }}>
+                    {p.PrinterName || "—"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="sb-prod-code" style={{ width: 80 }}>
+                    {p.Prod_Code ? p.Prod_Code : p.ProductCode}
+                  </span>
+                  <span className="sb-prod-name" style={{ flex: 1 }}>
+                    {p.PName ? p.PName : p.ProductName}
+                  </span>
+                  <span style={{ width: 50, textAlign: "center", fontSize: 10.5, color: "#6b7a99" }}>
+                    {p.UOM || "—"}
+                  </span>
+                  <span style={{ width: 65, textAlign: "right", color: "#475569" }}>
+                    ₹{CC.f2(CC.vn(p.MRP)).toFixed(2)}
+                  </span>
+                  <span className="sb-prod-rate" style={{ width: 65, textAlign: "right" }}>
+                    ₹{CC.f2(CC.vn(p.SaleRate ? p.SaleRate : p.SalesRate)).toFixed(2)}
+                  </span>
+                  <span style={{ width: 50, textAlign: "right", color: "#8b5cf6" }}>
+                    {CC.f2(CC.vn(p.GST)).toFixed(2)}
+                  </span>
+                </>
+              )}
             </div>
           ))
         }
@@ -761,6 +805,79 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
     </div>
   );
 }
+// ─── PRODUCT SEARCH POPUP ────────────────────────────────────────────────────
+// function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
+//   const [q, setQ]           = useState("");
+//   const [hilite, setHilite] = useState(0);
+//   const inputRef = useRef(null);
+//   const listRef  = useRef(null);
+
+//   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 30); }, []);
+
+//   const filtered = products.filter(p =>
+//     String(p.PName || "").toLowerCase().includes(q.toLowerCase()) ||
+//     String(p.Prod_code || "").toLowerCase().includes(q.toLowerCase())
+//   ).slice(0, 120);
+
+//   useEffect(() => { setHilite(0); }, [q]);
+//   useEffect(() => {
+//     const el = listRef.current?.querySelector(`[data-idx="${hilite}"]`);
+//     if (el) el.scrollIntoView({ block: "nearest" });
+//   }, [hilite]);
+
+//   return (
+//     <div className="sb-prod-search" style={{ top: anchorPos?.top || 160, left: anchorPos?.left+250 || 20 }}>
+//       <div className="sb-prod-search-hdr">
+//         <span className="sb-ps-title">Product Search</span>
+//         <span className="sb-ps-count">{filtered.length} items</span>
+//         <button className="sb-ps-close" onClick={onClose} title="Close (Esc)">✕</button>
+//       </div>
+//       <div className="sb-ps-input-wrap">
+//         <span className="sb-ps-icon">⌕</span>
+//         <input
+//           ref={inputRef}
+//           value={q}
+//           onChange={e => setQ(e.target.value)}
+//           placeholder="Type code or name…"
+//           className="sb-ps-input"
+//           onKeyDown={e => {
+//             if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+//             if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
+//             if (e.key === "Enter")      { e.preventDefault(); if (filtered[hilite]) onSelect(filtered[hilite]); }
+//             if (e.key === "Escape")     { e.preventDefault(); onClose(); }
+//           }}
+//         />
+//       </div>
+//       <div className="sb-ps-cols">
+//         <span style={{ width: 90 }}>Code</span>
+//         <span style={{ flex: 1 }}>ProductName</span>
+//         <span style={{ width: 72, textAlign: "right" }}>SaleRate</span>
+//         <span style={{ width: 60, textAlign: "right" }}>Stock</span>
+//       </div>
+//       <div ref={listRef} className="sb-prod-list">
+//         {filtered.length === 0
+//           ? <div className="sb-ps-empty">No products found</div>
+//           : filtered.map((p, idx) => (
+//             <div key={p.Id} data-idx={idx}
+//               className={`sb-prod-item${idx === hilite ? " hi" : ""}`}
+//               onClick={() => onSelect(p)}
+//               onMouseEnter={() => setHilite(idx)}>
+//               <span className="sb-prod-code">{p.Prod_Code ? p.Prod_Code : p.ProductCode}</span>
+//               <span className="sb-prod-name">{p.PName ? p.PName : p.ProductName}</span>
+//               <span className="sb-prod-rate">₹{CC.f2(CC.vn(p.SaleRate ? p.SaleRate : p.SalesRate)).toFixed(2)}</span>
+//               <span className="sb-prod-stock">{CC.vn(p.Stock).toFixed(0)}</span>
+//             </div>
+//           ))
+//         }
+//       </div>
+//       <div className="sb-ps-footer">
+//         <span><kbd>↑↓</kbd> Navigate</span>
+//         <span><kbd>Enter</kbd> Select</span>
+//         <span><kbd>Esc</kbd> Close</span>
+//       </div>
+//     </div>
+//   );
+// }
 
 // ─── F5 VIEW MODAL ────────────────────────────────────────────────────────────
 function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDate, onSearch }) {
@@ -1053,6 +1170,7 @@ export default function SaleBill() {
   const [focusCols, setFocusCols]             = useState([]);
   const [f5AmtDetails, setF5AmtDetails]       = useState([]);
   const focusColsRef                          = useRef([]);
+  const focusConfiguredRef  = useRef(false);
   const [f5Details, setF5Details]             = useState([]);
   const pendingRateInputRef                   = useRef({});
 
@@ -1123,6 +1241,8 @@ export default function SaleBill() {
         DayClose:     !!main0.DayClose,
         TaxName:      com0.POSTax || "Exclusive",
         BillPrintClosingBalance: !!main0.BillPrintClosingBalance,
+        CRMValueSingle: CC.vn(com0.CRMPointValue) || 0,
+        ItemwiseCRMPoint: !!main0.ItemwiseCRMPoint,
         // ── Print settings from Companysetting ──────────────────────────────
         BillFormatName: com0.SaleBillFormat || "Default",
         CompanyName:    com0.Companyname    || "",
@@ -1159,15 +1279,41 @@ export default function SaleBill() {
       };
     }
   });
+// const loadFocusCols = useCallback(async (mcomid) => {
+//   try {
+//      const url =  CC.GetFocusColumnsUrl;
+//     const res = await CC.api(
+//       url,
+//       null,
+//       {},
+//       { comid: sess.Comid, filename: "SaleFocus" }
+//     );
+
+//     if (!res || res._netErr) return;
+
+//     const saved = Array.isArray(res) ? res
+//                 : Array.isArray(res?.data)  ? res.data
+//                 : Array.isArray(res?.Data1) ? res.Data1
+//                 : [];
+
+//     if (!Array.isArray(saved) || saved.length === 0) return;
+
+//     const ordered = saved
+//       .filter(s => s.Focus === true)
+//       .sort((a, b) => (a.Index ?? 99) - (b.Index ?? 99))
+//       .map(s => s.column);
+
+//     focusColsRef.current = ordered;
+//     setFocusCols(ordered);
+//   }catch  (err) {
+//     console.error("F12 Save error:", err);
+    
+//   }
+// }, [sess.Comid]);
 const loadFocusCols = useCallback(async (mcomid) => {
   try {
-     const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=SaleFocus`;
-    const res = await CC.api(
-      url,
-      null,
-      {},
-      { comid: sess.Comid, filename: "SaleFocus" }
-    );
+    const url = CC.GetFocusColumnsUrl;
+    const res = await CC.api(url, null, {}, { comid: sess.Comid, filename: "SaleFocus" });
 
     if (!res || res._netErr) return;
 
@@ -1176,16 +1322,20 @@ const loadFocusCols = useCallback(async (mcomid) => {
                 : Array.isArray(res?.Data1) ? res.Data1
                 : [];
 
-    if (!Array.isArray(saved) || saved.length === 0) return;
+    if (!Array.isArray(saved) || saved.length === 0) return; // settings இதுவரை save ஆகல -> fallback behavior தொடரும்
+
+    focusConfiguredRef.current = true;   // ✅ settings இருக்கு (எல்லாம் OFF ஆனாலும் சரி) என்று mark பண்ணு
 
     const ordered = saved
       .filter(s => s.Focus === true)
       .sort((a, b) => (a.Index ?? 99) - (b.Index ?? 99))
       .map(s => s.column);
 
-    focusColsRef.current = ordered;
+    focusColsRef.current = ordered;   // [] ஆகவும் இருக்கலாம் — அதுவும் valid state
     setFocusCols(ordered);
-  } catch {}
+  } catch (err) {
+    console.error("F12 Save error:", err);
+  }
 }, [sess.Comid]);
   const [perm,         setPerm]         = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -1204,6 +1354,11 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   const [crmValue,   setCrmValue]   = useState("0.00");
   const [curBal,     setCurBal]     = useState("0.00");
+  const [custCardRefId, setCustCardRefId] = useState("0");
+  const [crmPointRate, setCrmPointRate] = useState(0);
+  const [crmValueRate, setCrmValueRate] = useState(0);
+  const [custOpCrmPoints, setCustOpCrmPoints] = useState(0);
+  const [custOpCrmValue, setCustOpCrmValue] = useState(0);
   const [stockLbl,   setStockLbl]   = useState("0.00");
 
   const [rows,       setRows]       = useState([mkRow()]);
@@ -1241,6 +1396,26 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   const rowsRef  = useRef(rows);
   const cellRefs = useRef({});
+  const origCrmRef = useRef({ OpeningPoint: 0, OpeningValue: 0 });
+  const custMetaRef = useRef({
+    curBal: 0,
+    custCardRefId: "0",
+    crmPointRate: 0,
+    crmValueRate: 0,
+    custOpCrmPoints: 0,
+    custOpCrmValue: 0
+  });
+
+  useEffect(() => {
+    custMetaRef.current = {
+      curBal,
+      custCardRefId,
+      crmPointRate,
+      crmValueRate,
+      custOpCrmPoints,
+      custOpCrmValue
+    };
+  }, [curBal, custCardRefId, crmPointRate, crmValueRate, custOpCrmPoints, custOpCrmValue]);
   const custRef  = useRef(null);
   const smRef    = useRef(null);
   const ratePasswordVerifiedRef = useRef(false);
@@ -1498,13 +1673,14 @@ const loadFocusCols = useCallback(async (mcomid) => {
         Amount: "",
         Scharge: CC.vn(c.Scharge),
         SchargeAmt: 0,
+        BankRefid: c.BankRefid || null,
       })));
     } else {
       setPayRows([
-        { CardAccountRefId: 0, Saletype: "CASH",   CardType: "CASH",   Amount: "", Scharge: 0, SchargeAmt: 0 },
-        { CardAccountRefId: 1, Saletype: "CARD",   CardType: "CARD",   Amount: "", Scharge: 0, SchargeAmt: 0 },
-        { CardAccountRefId: 2, Saletype: "UPI",    CardType: "UPI",    Amount: "", Scharge: 0, SchargeAmt: 0 },
-        { CardAccountRefId: 3, Saletype: "CREDIT", CardType: "CREDIT", Amount: "", Scharge: 0, SchargeAmt: 0 },
+        { CardAccountRefId: 0, Saletype: "CASH",   CardType: "CASH",   Amount: "", Scharge: 0, SchargeAmt: 0, BankRefid: null },
+        { CardAccountRefId: 1, Saletype: "CARD",   CardType: "CARD",   Amount: "", Scharge: 0, SchargeAmt: 0, BankRefid: null },
+        { CardAccountRefId: 2, Saletype: "UPI",    CardType: "UPI",    Amount: "", Scharge: 0, SchargeAmt: 0, BankRefid: null },
+        { CardAccountRefId: 3, Saletype: "CREDIT", CardType: "CREDIT", Amount: "", Scharge: 0, SchargeAmt: 0, BankRefid: null },
       ]);
     }
   // eslint-disable-next-line
@@ -1552,6 +1728,18 @@ const loadFocusCols = useCallback(async (mcomid) => {
     setCustMobile(custObj.MobileNo || "");
     setCustPopup(false);
 
+    setCustCardRefId(String(custObj.customercardtypeRefId || "0"));
+    if (sess.ItemwiseCRMPoint) {
+      setCrmPointRate(1);
+      setCrmValueRate(sess.CRMValueSingle);
+    } else {
+      setCrmPointRate(CC.vn(custObj.CRMPoint));
+      setCrmValueRate(CC.vn(custObj.CRMValue));
+    }
+
+    setCustOpCrmPoints(0);
+    setCustOpCrmValue(0);
+
     const [crmRes, balRes] = await Promise.all([
       CC.api(CC.SO_CRMBalanceUrl, null, {}, { Id: cid, Fromdate: billDate, Comid: sess.Comid, MComid: sess.MComid }),
       CC.api(CC.SO_CurrentBalanceUrl, null, {}, { Id: cid, MComid: sess.MComid, TillDate: billDate, Comid: sess.Comid, AccountType: "CUSTOMER" }),
@@ -1560,6 +1748,14 @@ const loadFocusCols = useCallback(async (mcomid) => {
     if (!crmRes._netErr && (crmRes.ok ?? crmRes.IsSuccess)) {
       const arr = Array.isArray(crmRes.data) ? crmRes.data : [];
       setCrmValue(arr.length > 0 ? CC.f2(CC.vn(arr[0].Value)).toFixed(2) : "0.00");
+      if (arr.length > 0) {
+        const data = arr[0];
+        setCustOpCrmPoints(CC.vn(data.Points));
+        setCustOpCrmValue(CC.vn(data.Value));
+      } else {
+        setCustOpCrmPoints(0);
+        setCustOpCrmValue(0);
+      }
     }
     if (balRes && !balRes._netErr) {
       const bal = parseFloat(balRes.Data1 ?? balRes.data ?? 0);
@@ -1573,7 +1769,26 @@ const loadFocusCols = useCallback(async (mcomid) => {
     setCustId(cid);
     const found = customers.find(c => String(c.Id) === cid);
     setCustMobile(found?.MobileNo || "");
+    
+    if (found) {
+      setCustCardRefId(String(found.customercardtypeRefId || "0"));
+      if (sess.ItemwiseCRMPoint) {
+        setCrmPointRate(1);
+        setCrmValueRate(sess.CRMValueSingle);
+      } else {
+        setCrmPointRate(CC.vn(found.CRMPoint));
+        setCrmValueRate(CC.vn(found.CRMValue));
+      }
+    } else {
+      setCustCardRefId("0");
+      setCrmPointRate(0);
+      setCrmValueRate(0);
+    }
+    
     if (!cid) { setCrmValue("0.00"); setCurBal("0.00"); return; }
+
+    setCustOpCrmPoints(0);
+    setCustOpCrmValue(0);
 
     const [crmRes, balRes] = await Promise.all([
       CC.api(CC.SO_CRMBalanceUrl, null, {}, { Id: cid, Fromdate: billDate, Comid: sess.Comid, MComid: sess.MComid }),
@@ -1583,6 +1798,14 @@ const loadFocusCols = useCallback(async (mcomid) => {
     if (!crmRes._netErr && (crmRes.ok ?? crmRes.IsSuccess)) {
       const arr = Array.isArray(crmRes.data) ? crmRes.data : [];
       setCrmValue(arr.length > 0 ? CC.f2(CC.vn(arr[0].Value)).toFixed(2) : "0.00");
+      if (arr.length > 0) {
+        const data = arr[0];
+        setCustOpCrmPoints(CC.vn(data.Points));
+        setCustOpCrmValue(CC.vn(data.Value));
+      } else {
+        setCustOpCrmPoints(0);
+        setCustOpCrmValue(0);
+      }
     }
     if (balRes && !balRes._netErr) {
       const bal = parseFloat(balRes.Data1 ?? balRes.data ?? 0);
@@ -1591,6 +1814,152 @@ const loadFocusCols = useCallback(async (mcomid) => {
       setCurBal("0.00");
     }
   }, [sess, billDate, customers]);
+  // ── getRowEnabledCols — FIXED ──────────────────────────────────────────────
+// Ctrl+G order is now the ONLY basis for ordering. Overrides (SaleRate /
+// ItemQty) are injected exactly once, immediately after "ProductCode", and
+// only if that field is not already part of the user's Ctrl+G focus list.
+// Everything after the override continues from the very next Ctrl+G column
+// — it never restarts and never re-inserts the override again.
+  // const getRowEnabledCols = useCallback((rid) => {
+  //   const defaultCols = visCols
+  //     .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
+  //     .filter(Boolean)
+  //     .filter(cd => !cd.readOnly)
+  //     .map(cd => cd.key);
+
+  //   // The user's actual Ctrl+G order (fallback to default visible order if none configured)
+  //   const ctrlGOrder = focusConfiguredRef.current === true
+  //     ? focusColsRef.current.filter(k => defaultCols.includes(k))
+  //     : defaultCols;
+
+  //   const baseOrder = ["ProductCode", ...ctrlGOrder.filter(k => k !== "ProductCode")];
+
+  //   const row = rowsRef.current.find(r => r._rid === rid);
+  //   if (!row) return baseOrder;
+
+  //   const isOpenRate = !row.SalesRateType;
+  //   const isFracQty  = CC.vn(row.UOMDecimal) > 0;   // Rule 2: UOMDecimal > 0 (not UOM text)
+
+  //   // Only force a field if the business rule applies AND it isn't already
+  //   // part of the Ctrl+G order (if it's already there, normal order handles it).
+  //   const overrides = defaultCols.filter(k => {
+  //     if (k === "SaleRate") return isOpenRate && !ctrlGOrder.includes("SaleRate");
+  //     if (k === "ItemQty")  return isFracQty  && !ctrlGOrder.includes("ItemQty");
+  //     return false;
+  //   });
+
+  //   if (overrides.length === 0) return baseOrder;
+
+  //   const rest = baseOrder.filter(k => k !== "ProductCode");
+  //   // ProductCode -> (temporary overrides, once) -> rest of Ctrl+G order, untouched
+  //   return ["ProductCode", ...overrides, ...rest];
+  // }, [visCols]);
+const getRowEnabledCols = useCallback((rid) => {
+    const defaultCols = visCols
+      .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
+      .filter(Boolean)
+      .filter(cd => !cd.readOnly)
+      .map(cd => cd.key);
+
+    const ctrlGOrder = focusConfiguredRef.current === true
+      ? focusColsRef.current.filter(k => defaultCols.includes(k))
+      : defaultCols;
+
+    const baseOrder = ["ProductCode", ...ctrlGOrder.filter(k => k !== "ProductCode")];
+
+    const row = rowsRef.current.find(r => r._rid === rid);
+    if (!row) return baseOrder;
+
+    const isOpenRate = !row.SalesRateType;
+
+    // ✅ FIX — UOMDecimal>0 ஆனாலும், அல்லது UOM text "KG"/"KGS" ஆனாலும் — ரெண்டையும் accept பண்ணு
+    const uomUpper  = (row.UOM || "").toUpperCase();
+    const isFracQty = CC.vn(row.UOMDecimal) > 0 || uomUpper === "KG" || uomUpper === "KGS";
+
+    const overrides = defaultCols.filter(k => {
+      if (k === "SaleRate") return isOpenRate && !ctrlGOrder.includes("SaleRate");
+      if (k === "ItemQty")  return isFracQty  && !ctrlGOrder.includes("ItemQty");
+      return false;
+    });
+
+    if (overrides.length === 0) return baseOrder;
+
+    const rest = baseOrder.filter(k => k !== "ProductCode");
+    return ["ProductCode", ...overrides, ...rest];
+  }, [visCols]);
+  const goToNextField = useCallback((rid, fromColKey) => {
+    const COLS = getRowEnabledCols(rid);
+    const colIdx = COLS.indexOf(fromColKey);
+    const rowIdx = rowsRef.current.findIndex(r => r._rid === rid);
+
+    const focusCell = (targetRid, targetKey) => {
+      if (targetKey === "ItemQty") {
+        const r = rowsRef.current.find(x => x._rid === targetRid);
+        if (r && CC.vn(r.ItemQty) === 0) {
+          setRows(prev => prev.map(row =>
+            row._rid === targetRid
+              ? calcSaleRow({ ...row, ItemQty: "1", _dirty: true })
+              : row
+          ));
+        }
+      }
+      setTimeout(() => {
+        const el = cellRefs.current[targetRid]?.[targetKey];
+        if (el) { el.focus(); el.select?.(); }
+      }, 10);
+    };
+
+    if (colIdx >= 0 && colIdx < COLS.length - 1) {
+      focusCell(rid, COLS[colIdx + 1]);
+    } else {
+      const curRows = rowsRef.current;
+      const curRow  = curRows.find(r => r._rid === rid);
+      const isLast  = rowIdx === curRows.length - 1;
+      const firstCol = COLS.length > 0 ? COLS[0] : "ProductCode";
+      
+      if (isLast) {
+        if (curRow?.ProductRefId) {
+          const newRow = mkRow();
+          setRows(prev => [...prev, newRow]);
+          setTimeout(() => { cellRefs.current[newRow._rid]?.[firstCol]?.focus(); }, 80);
+        } else {
+          focusCell(rid, firstCol);
+        }
+      } else {
+        const nextRow = curRows[rowIdx + 1];
+        setTimeout(() => {
+          const el = cellRefs.current[nextRow._rid]?.[firstCol];
+          if (el) { el.focus(); el.select?.(); }
+        }, 20);
+      }
+    }
+  }, [getRowEnabledCols]);
+  // const getRowEnabledCols = useCallback((rid) => {
+  //   const defaultCols = visCols
+  //     .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
+  //     .filter(Boolean)
+  //     .filter(cd => !cd.readOnly)
+  //     .map(cd => cd.key);
+
+  //   const ALL_COLS = focusColsRef.current.length > 0
+  //     ? focusColsRef.current.filter(k => defaultCols.includes(k))
+  //     : defaultCols;
+
+  //   const row = rowsRef.current.find(r => r._rid === rid);
+  //   if (!row) return ["ProductCode", ...ALL_COLS.filter(k => k !== "ProductCode")];
+
+  //   const isKgs = row.UOM?.toUpperCase() === "KG" || row.UOM?.toUpperCase() === "KGS";
+  //   const isOpenRate = !!row.SalesRateType;
+
+  //   const rowCols = defaultCols.filter(k => {
+  //     if (ALL_COLS.includes(k)) return true;
+  //     if (isKgs && k === "ItemQty") return true;
+  //     if (isOpenRate && k === "SaleRate") return true;
+  //     return false;
+  //   });
+
+  //   return ["ProductCode", ...rowCols.filter(k => k !== "ProductCode")];
+  // }, [visCols]);
 
   // ── Fill item into row ─────────────────────────────────────────────────────
   const fillItemIntoRow = useCallback((rid, item) => {
@@ -1613,37 +1982,38 @@ const loadFocusCols = useCallback(async (mcomid) => {
         UOMDecimal:      item.UOMDecimal || 0,
         HSNCode:         item.HSNCode || "",
         StockQty:        CC.vn(item.Stock),
-        SalesRateType:   !!item.SaleRateType,
+        SalesRateType:   item.SaleRateType,
         NegativetStock:  !!item.NegativetStock,
         NStock:          item.Nstock || 0,
         DiscountPercent: CC.f2(CC.vn(item.SaleDiscountPer)),
-        CRMPoints:       CC.vn(item.CRMPoints),
-       StockQtyNew: item.UOMDecimal === 0 ? "1" : "",
-        ItemQty:         item.UOMDecimal === 0 ? "1" : "",
+        CRMPoints:       item.CRMPoints ? 1 : 0,
+       StockQtyNew: "1",
+        ItemQty:         "1",
         _dirty: true,
       };
       setStockLbl(CC.vn(item.Stock).toFixed(0));
-      return newRow;
+     return calcSaleRow(newRow); 
     }));
     setProdPopup(null);
 
-    setTimeout(() => {
-      const defaultCols = visCols
-        .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
-        .filter(Boolean)
-        .filter(cd => !cd.readOnly)
-        .map(cd => cd.key);
+    // setTimeout(() => {
+    //   const defaultCols = visCols
+    //     .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
+    //     .filter(Boolean)
+    //     .filter(cd => !cd.readOnly)
+    //     .map(cd => cd.key);
 
-      const COLS = focusColsRef.current.length > 0
-        ? focusColsRef.current.filter(k => defaultCols.includes(k))
-        : defaultCols;
+    //   const COLS = focusColsRef.current.length > 0
+    //     ? focusColsRef.current.filter(k => defaultCols.includes(k))
+    //     : defaultCols;
 
-      const pcIdx  = COLS.indexOf("ProductCode");
-      const nextCol = pcIdx >= 0 && pcIdx < COLS.length - 1 ? COLS[pcIdx + 1] : "ItemQty";
-      const el = cellRefs.current[rid]?.[nextCol];
-      if (el) { el.focus(); el.select?.(); }
-    }, 50);
-  }, [sess, visCols]);
+    //   const pcIdx  = COLS.indexOf("ProductCode");
+    //   const nextCol = pcIdx >= 0 && pcIdx < COLS.length - 1 ? COLS[pcIdx + 1] : "ItemQty";
+    //   const el = cellRefs.current[rid]?.[nextCol];
+    //   if (el) { el.focus(); el.select?.(); }
+    // }, 50);
+    setTimeout(() => goToNextField(rid, "ProductCode"), 50);
+  }, [sess, visCols, goToNextField]);
 
   // ── Fetch product by code ──────────────────────────────────────────────────
   const fetchProductByCode = useCallback(async (rid, code) => {
@@ -1707,12 +2077,14 @@ const loadFocusCols = useCallback(async (mcomid) => {
         StockQty:        CC.vn(batchItem.Stock),
         BatchRefid:      batchItem.Batchid || null,
         Bat_No:          batchItem.BatchNo || "",
+        SalesRateType:   batchItem.SaleRateType,
         DiscountPercent: CC.f2(CC.vn(batchItem.SaleDiscountPer)),
-        ItemQty:         batchItem.UOMDecimal === 0 ? "1" : "",
+        CRMPoints:       batchItem.CRMPoints ? 1 : 0,
+        ItemQty:         "1",
         _dirty: true,
       };
       setStockLbl(CC.vn(batchItem.Stock).toFixed(0));
-      return newRow;
+       return calcSaleRow(newRow); 
     }));
     setBatchPopup(null);
 
@@ -1725,24 +2097,18 @@ const loadFocusCols = useCallback(async (mcomid) => {
       } catch {}
     }
 
-    setTimeout(() => {
-      const defaultCols = visCols
-        .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
-        .filter(Boolean).filter(cd => !cd.readOnly).map(cd => cd.key);
-      const COLS = focusColsRef.current.length > 0
-        ? focusColsRef.current.filter(k => defaultCols.includes(k))
-        : defaultCols;
-      const pcIdx  = COLS.indexOf("ProductCode");
-      const nextCol = pcIdx >= 0 && pcIdx < COLS.length - 1 ? COLS[pcIdx + 1] : "ItemQty";
-      const el = cellRefs.current[rid]?.[nextCol];
-      if (el) { el.focus(); el.select?.(); }
-    }, 50);
-  }, [sess, visCols]);
+    setTimeout(() => goToNextField(rid, "ProductCode"), 50);
+  }, [sess, visCols, goToNextField]);
 
   // ── Cell change ────────────────────────────────────────────────────────────
   const handleCellChange = useCallback((rid, colKey, value) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
+      if (colKey === "ItemQty") {
+        if (r.UOMDecimal === 0 && value.includes(".")) {
+          return r;
+        }
+      }
       const updated = { ...r, [colKey]: value, _dirty: true };
       if (["ItemQty","SaleRate","TaxPercent","CESSPer","SPLCESS","DiscountPercent","CDPercent"].includes(colKey)) {
         return calcSaleRow(updated);
@@ -1797,29 +2163,37 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   // ── Cell keydown ───────────────────────────────────────────────────────────
   const handleCellKeyDown = useCallback((e, rid, colKey) => {
-    const defaultCols = visCols
-      .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
-      .filter(Boolean)
-      .filter(cd => !cd.readOnly)
-      .map(cd => cd.key);
-
-    const ALL_COLS = focusColsRef.current.length > 0
-      ? focusColsRef.current.filter(k => defaultCols.includes(k))
-      : defaultCols;
-
-    const COLS   = ["ProductCode", ...ALL_COLS.filter(k => k !== "ProductCode")];
+    const COLS = getRowEnabledCols(rid);
     const colIdx = COLS.indexOf(colKey);
     const rowIdx = rowsRef.current.findIndex(r => r._rid === rid);
 
-    const focusCell = (targetRid, targetKey) => {
-      setTimeout(() => {
-        const el = cellRefs.current[targetRid]?.[targetKey];
-        if (el) { el.focus(); el.select?.(); }
-      }, 10);
-    };
+    // const focusCell = (targetRid, targetKey) => {
+    //   setTimeout(() => {
+    //     const el = cellRefs.current[targetRid]?.[targetKey];
+    //     if (el) { el.focus(); el.select?.(); }
+    //   }, 10);
+    // };
+   const focusCell = (targetRid, targetKey) => {
+  if (targetKey === "ItemQty") {
+    const r = rowsRef.current.find(x => x._rid === targetRid);
+    if (r && CC.vn(r.ItemQty) === 0) {
+      setRows(prev => prev.map(row =>
+        row._rid === targetRid
+          ? calcSaleRow({ ...row, ItemQty: "1", _dirty: true })
+          : row
+      ));
+    }
+  }
+  setTimeout(() => {
+    const el = cellRefs.current[targetRid]?.[targetKey];
+    if (el) { el.focus(); el.select?.(); }
+  }, 10);
+};
 
-    // SaleRate Tab/ArrowRight — password check
-    if ((e.key === "Tab" || e.key === "ArrowRight") && colKey === "SaleRate") {
+    const advanceFocus = () => {}; // REMOVED
+
+    // SaleRate ArrowRight — password check
+    if (e.key === "ArrowRight" && colKey === "SaleRate") {
       const curRow = rowsRef.current.find(r => r._rid === rid);
       if (curRow?.SalesRateType) {
         const newRate  = CC.f2(CC.vn(curRow.SaleRate));
@@ -1835,10 +2209,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
             }));
             pendingRateChangeRef.current = null;
             setTimeout(() => {
-              if (colIdx >= 0 && colIdx < COLS.length - 1) {
-                const el = cellRefs.current[rid]?.[COLS[colIdx + 1]];
-                if (el) { el.focus(); el.select?.(); }
-              }
+              goToNextField(rid, colKey);
             }, 30);
           };
           setRows(prev => prev.map(r => {
@@ -1851,18 +2222,18 @@ const loadFocusCols = useCallback(async (mcomid) => {
       }
     }
 
-    // SaleRate Enter — password check
-    if (e.key === "Enter" && colKey === "SaleRate") {
+    // SaleRate Enter/Tab — password check
+    if ((e.key === "Enter" || e.key === "Tab") && colKey === "SaleRate") {
       e.preventDefault();
       const curRow = rowsRef.current.find(r => r._rid === rid);
       if (!curRow?.SalesRateType) {
-        focusCell(rid, COLS[colIdx + 1] ?? COLS[0]);
+        goToNextField(rid, colKey);
         return;
       }
       const newRate  = CC.f2(CC.vn(curRow.SaleRate));
       const origRate = CC.f2(CC.vn(curRow._origSaleRate ?? curRow.SaleRate));
       if (newRate === origRate) {
-        if (colIdx >= 0 && colIdx < COLS.length - 1) focusCell(rid, COLS[colIdx + 1]);
+        goToNextField(rid, colKey);
         return;
       }
       pendingRateChangeRef.current = { rid, value: newRate, origRate };
@@ -1874,10 +2245,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
         }));
         pendingRateChangeRef.current = null;
         setTimeout(() => {
-          if (colIdx >= 0 && colIdx < COLS.length - 1) {
-            const el = cellRefs.current[rid]?.[COLS[colIdx + 1]];
-            if (el) { el.focus(); el.select?.(); }
-          }
+          goToNextField(rid, colKey);
         }, 30);
       };
       setRows(prev => prev.map(r => {
@@ -1888,8 +2256,8 @@ const loadFocusCols = useCallback(async (mcomid) => {
       return;
     }
 
-    // ItemQty Enter — same-line merge check
-    if (e.key === "Enter" && colKey === "ItemQty") {
+    // ItemQty Enter/Tab — same-line merge check
+    if ((e.key === "Enter" || e.key === "Tab") && colKey === "ItemQty") {
       e.preventDefault();
       const curRow = rowsRef.current.find(r => r._rid === rid);
       if (!curRow?.ProductRefId) return;
@@ -1920,7 +2288,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
       }
     }
 
-    if (e.key === "Enter") {
+    if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
       if (colKey === "ProductCode") {
         const row = rowsRef.current.find(r => r._rid === rid);
@@ -1928,29 +2296,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
         else loadProductsForPopup(rid);
         return;
       }
-
-      if (colIdx >= 0 && colIdx < COLS.length - 1) {
-        focusCell(rid, COLS[colIdx + 1]);
-      } else {
-        const curRows = rowsRef.current;
-        const curRow  = curRows.find(r => r._rid === rid);
-        const isLast  = rowIdx === curRows.length - 1;
-        if (isLast) {
-          if (curRow?.ProductRefId) {
-            const newRow = mkRow();
-            setRows(prev => [...prev, newRow]);
-            setTimeout(() => { cellRefs.current[newRow._rid]?.["ProductCode"]?.focus(); }, 80);
-          } else {
-            focusCell(rid, "ProductCode");
-          }
-        } else {
-          const nextRow = curRows[rowIdx + 1];
-          setTimeout(() => {
-            const el = cellRefs.current[nextRow._rid]?.["ProductCode"];
-            if (el) { el.focus(); el.select?.(); }
-          }, 20);
-        }
-      }
+      goToNextField(rid, colKey);
       return;
     }
 
@@ -1971,7 +2317,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
       e.preventDefault(); loadProductsForPopup(rid);
     }
   // eslint-disable-next-line
-  }, [visCols, fetchProductByCode, loadProductsForPopup]);
+  }, [visCols, fetchProductByCode, loadProductsForPopup, goToNextField, getRowEnabledCols]);
 
   // ── Delete row ────────────────────────────────────────────────────────────
   const doDeleteRow = useCallback(async (rid) => {
@@ -1995,11 +2341,14 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   // ── Clear form ────────────────────────────────────────────────────────────
   const clearForm = useCallback(async () => {
+    origCrmRef.current = { OpeningPoint: 0, OpeningValue: 0 };
     unlockedRidRef.current = null;
     setEditId(0);
     setCustId(""); setCustMobile(""); setSmId(""); setRemarks(""); setBillHoldName("");
     setOtherPlus(""); setOtherMinus(""); setDiscPer("");
     setCrmValue("0.00"); setCurBal("0.00"); setStockLbl("0.00");
+    setCustCardRefId("0"); setCrmPointRate(0); setCrmValueRate(0);
+    setCustOpCrmPoints(0); setCustOpCrmValue(0);
     setRows([mkRow()]);
     setPayRows(pr => pr.map(r => ({ ...r, Amount: "" })));
     setSelRid(null);
@@ -2139,173 +2488,360 @@ const openReportViewer = useCallback((
 }, [buildPrintDetails]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
-  const doSave = useCallback(async (isCashBill = false) => {
-    if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
-    const validRows = rows.filter(r => r.ProductRefId && CC.vn(r.ItemQty) > 0);
+// ── Save ──────────────────────────────────────────────────────────────────
+const doSave = useCallback(async (isCashBill = false, overridePayRows = null) => {
+  if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
+  const validRows = rows.filter(r => r.ProductRefId && CC.vn(r.ItemQty) > 0);
 
-    if (validRows.length === 0) { toast("❌ Add at least one item", true); return; }
-const stockDetails = editId > 0
-  ? validRows
-      .filter(r => r._origItemQty && CC.vn(r._origItemQty) > 0)  // edit-ல load ஆன rows மட்டும்
-      .map(r => ({
-        ProductRefid: r.ProductRefId,
-        Batchid: r._origBatchRefid || 0,
-        RealQty: CC.f2(CC.vn(r._origItemQty)),   // old qty-ஐ stock-க்கு add back பண்ண
-        Qty: 0.0,
-        MfDate: r._origMfgDate ? String(r._origMfgDate).slice(0,10).split("-").reverse().join("/") : "",
-        ExpDate: r._origExpiryDate ? String(r._origExpiryDate).slice(0,10).split("-").reverse().join("/") : "",
-        SerialNoStatus: 0,
-        AdjustType: 0,
-        PDRefid: r._origPDRefid || null,
-        ItemQty: CC.f2(CC.vn(r._origItemQty)),
-        Bags: CC.vn(r._origBags) || 0,
-      }))
-  : [];
-    const totalPay   = payRows.reduce((s, r) => s + CC.vn(r.Amount), 0);
-    const nonCashPay = payRows.filter(r => r.CardType !== "CASH").reduce((s, r) => s + CC.vn(r.Amount), 0);
-    const cashOnly   = nonCashPay === 0;
+  if (validRows.length === 0) { toast("❌ Add at least one item", true); return; }
+  const stockDetails = editId > 0
+    ? validRows
+        .filter(r => r._origItemQty && CC.vn(r._origItemQty) > 0)
+        .map(r => ({
+          ProductRefid: r.ProductRefId,
+          Batchid: r._origBatchRefid || 0,
+          RealQty: CC.f2(CC.vn(r._origItemQty)),
+          Qty: 0.0,
+          MfDate: toMMDDYYYY(r._origMfgDate),
+          ExpDate: toMMDDYYYY(r._origExpiryDate),
+          SerialNoStatus: 0,
+          AdjustType: 0,
+          PDRefid: r._origPDRefid || null,
+          ItemQty: CC.f2(CC.vn(r._origItemQty)),
+          Bags: CC.vn(r._origBags) || 0,
+        }))
+    : [];
 
-    let effectivePayRows = payRows;
-    if (totalPay === 0 || isCashBill || cashOnly) {
-      const cashIdx = payRows.findIndex(r => r.CardType === "CASH");
-      const idx     = cashIdx >= 0 ? cashIdx : 0;
-      effectivePayRows = payRows.map((r, i) =>
-        i === idx ? { ...r, Amount: totals.NetAmt.toFixed(2) } : { ...r, Amount: "" }
-      );
-      setPayRows(effectivePayRows);
+  // ✅ FIX: overridePayRows வந்தா அதையே base-ஆ எடு, பழைய payRows state வேண்டாம்
+  const basePayRows = overridePayRows || payRows;
+  const totalPay   = basePayRows.reduce((s, r) => s + CC.vn(r.Amount), 0);
+  const nonCashPay = basePayRows.filter(r => r.CardType !== "CASH").reduce((s, r) => s + CC.vn(r.Amount), 0);
+  const cashOnly   = nonCashPay === 0;
+
+  let effectivePayRows = basePayRows;
+
+  // ✅ FIX: overridePayRows explicit-ஆ கொடுக்கப்பட்டா (F7 credit போன்ற cases),
+  // auto-cash-fill logic-ஐ SKIP பண்ணு — caller already deliberate-ஆ set பண்ணிட்டாங்க
+  if (!overridePayRows && (totalPay === 0 || isCashBill || cashOnly)) {
+    const cashIdx = basePayRows.findIndex(r => r.CardType === "CASH");
+    const idx     = cashIdx >= 0 ? cashIdx : 0;
+    effectivePayRows = basePayRows.map((r, i) =>
+      i === idx ? { ...r, Amount: totals.NetAmt.toFixed(2) } : { ...r, Amount: "" }
+    );
+    setPayRows(effectivePayRows);
+  }
+
+  const ok = await confirm("Do you want to Save Sale Bill Details?");
+  if (!ok) return;
+
+  setLoading(true); setLdMsg("Saving...");
+  const username = localStorage.getItem("username") || "";
+  const custObj  = customers.find(c => String(c.Id) === String(custId));
+
+  const saledetails = validRows.map(r => ({
+    SDId: r.SDId || 0, ProductRefId: r.ProductRefId, ProductCode: r.ProductCode,
+    ProductName: r.ProductName, PrintName: r.PrinterName || r.ProductName,
+    MRP: CC.f2(CC.vn(r.MRP)), SaleRate: CC.f2(CC.vn(r.SaleRate)), ItemQty: CC.f2(CC.vn(r.ItemQty)),
+    Amount: CC.f2(CC.vn(r.Amount)), TaxPercent: CC.f2(CC.vn(r.TaxPercent)), TaxAmt: CC.f2(CC.vn(r.TaxAmt)),
+    CESSPer: CC.f2(CC.vn(r.CESSPer)), CESSAmount: CC.f2(CC.vn(r.CESSAmount)),
+    SPLCESS: CC.f2(CC.vn(r.SPLCESS)), SPLCESSAmount: CC.f2(CC.vn(r.SPLCESSAmount)),
+    DiscountPercent: CC.f2(CC.vn(r.DiscountPercent)), DiscountAmt: CC.f2(CC.vn(r.DiscountAmt)),
+    cdpercent: CC.f2(CC.vn(r.CDPercent)), cdAmount: CC.f2(CC.vn(r.CDAmount)),
+    Landingcost: CC.f2(CC.vn(r.LandingCost)), CTAmount: CC.f2(CC.vn(r.CTAmount)),
+    STAmount: CC.f2(CC.vn(r.STAmount)), PurchaseRate: CC.f2(CC.vn(r.PurchaseRate)),
+    UOM: r.UOM || "", HSNcode: r.HSNCode || "", StockQty: CC.vn(r.StockQty),StockQtyNew:CC.f2(CC.vn(r.ItemQty)),
+    BatchRefid: r.BatchRefid || null,
+    ExpiryDate: r.ExpDate || r.ExpiryDate || null,
+    MfgDate: r.MfgDate || null,
+    SalesmanRefid: r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : null),
+    SalesManCode:  r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : 0),
+    FreeQty: 0, NOMS: 0, NOMSQty: 0,
+    SaleRate_org: CC.f2(CC.vn(r.OrgRate)), remarks: r.Remarks || "",
+     CRMPoints: CC.vn(r.CRMPoints) === 1 ? 1 : 0,
+    SRDetailsId: r.SRDetailsId || 0, Bat_No: r.Bat_No || "",
+  }));
+
+  const payFiltered = effectivePayRows.filter(p => CC.vn(p.Amount) > 0).map(p => ({
+    CardAccountRefId: p.CardAccountRefId, Saletype: p.Saletype,
+    CardType: p.CardType, Amount: CC.f2(CC.vn(p.Amount)), SchargeAmt: CC.f2(CC.vn(p.SchargeAmt)),
+    CustomerRefid: custId ? parseInt(custId) : parseInt(sess.CashId),
+    BankRefid: p.BankRefid || null,
+  }));
+
+  let saleType     = "CASH";
+  const hasCard    = payFiltered.some(p => p.CardType === "CARD"   && p.Amount > 0);
+  const hasUPI     = payFiltered.some(p => p.CardType === "UPI"    && p.Amount > 0);
+  const hasCredit  = payFiltered.some(p => p.CardType === "CREDIT" && p.Amount > 0);
+  const hasCash    = payFiltered.some(p => p.CardType === "CASH"   && p.Amount > 0);
+  const typeCount  = [hasCard, hasUPI, hasCredit, hasCash].filter(Boolean).length;
+  if (typeCount > 1)  saleType = "SPLIT";
+  else if (hasCard)   saleType = "CARD";
+  else if (hasUPI)    saleType = "UPI";
+  else if (hasCredit) saleType = "CREDIT";
+// ✅ சரி — Sale.js logic exact-ஆ replicate பண்ணுங்க
+// row-level CRMPoints flag ==1 ஆன rows மட்டும் சேருங்க (ItemwiseCRMPoint setting இங்க பொருந்தாது)
+const crmBillAmount = validRows.reduce(
+  (sum, r) => sum + (CC.vn(r.CRMPoints) === 1 ? CC.vn(r.Amount) : 0),
+  0
+);
+  // const crmBillAmount = sess.ItemwiseCRMPoint
+  //   ? validRows.reduce((sum, r) => sum + (CC.vn(r.CRMPoints) > 0 ? CC.vn(r.Amount) : 0), 0)
+  //   : validRows.reduce((sum, r) => sum + CC.vn(r.Amount), 0);
+  const {
+    curBal: refCurBal,
+    custCardRefId: refCustCardRefId,
+    crmPointRate: refCrmPointRate,
+    crmValueRate: refCrmValueRate,
+    custOpCrmPoints: refCustOpCrmPoints,
+    custOpCrmValue: refCustOpCrmValue
+  } = custMetaRef.current;
+
+  const usedCRMPointRow = payFiltered.find(p => String(p.CardType).toUpperCase() === "CRMPOINTS");
+  const usedValue = usedCRMPointRow ? CC.vn(usedCRMPointRow.Amount) : 0;
+  const usedPoint = refCrmValueRate > 0 ? CC.f2((usedValue * refCrmPointRate) / refCrmValueRate) : 0;
+  
+  const paidAmount = payFiltered.reduce((sum, p) => sum + CC.vn(p.Amount), 0);
+
+  const subSalemasterFlag = (
+    refCrmPointRate !== 0 ||
+    sess.BillPrintClosingBalance ||
+    sess.PrintA4 ||
+    sess.SaleSubMaster
+  ) ? "1" : "0";
+
+const saleMaster1 = subSalemasterFlag === "1" ? {
+    OpeningBalance: CC.vn(refCurBal),
+    ClosingBalance: CC.vn(refCurBal) + totals.NetAmt - paidAmount,
+    PaidAmount: 0,
+    BillAmount: 0,
+    DriverName: "",
+    CourierName: "",
+    CourierNo: "",
+    VehicleNo: "",
+    DCustomerName: "",
+    DAddress1: "",
+    DAddress2: "",
+    DCity: "",
+    DPhoneNo: "",
+    DPincode: "",
+    CustomerName: custObj?.AccountName || "",
+    Address1: custObj?.Address1 || "",
+    Address2: custObj?.Address2 || "",
+    City: custObj?.City || "",
+    Email: custObj?.Email || "",
+    PhoneNo: custObj?.MobileNo || "",
+    Pincode: custObj?.Pincode || "",
+    TinNo: custObj?.GSTINNo || "",
+    IGSTBill: custObj?.IGSTBill || "GST",
+    PONO: "",
+    DCNo: "",
+    DCDate: "",
+    WorkingDate: "",
+    LRDate: "",
+    TransportName: "",
+    Through: "",
+    BillSaleType: "",
+    PONoDateNew: "",
+    OpeningPoint: refCustOpCrmPoints - origCrmRef.current.OpeningPoint,
+    OpeningValue: refCustOpCrmValue - origCrmRef.current.OpeningValue,
+    UsedPoint: usedPoint,
+    UsedValue: usedValue,
+    CRMPoint: refCrmPointRate,
+    CRMValue: refCrmValueRate,
+    CRMValueSingle: sess.CRMValueSingle,
+    CRMBillAmount: crmBillAmount,
+    ShippingName: "",
+    ShippingAddress1: "",
+    ShippingAddress2: "",
+    ShippingCity: "",
+    ShippingPhone: "",
+    ShippingPincode: "",
+    TCSPer: 0,
+    TCSAmt: 0,
+    LorryNo: "",
+    EwbNo: "",
+    LRNo: "",
+} : undefined;
+const cdAmountTotal = validRows.reduce((s, r) => s + CC.vn(r.CDAmount), 0);
+
+const payload = [{
+    Id: editId, SRId: 0,
+    CustomerCardRefid: refCustCardRefId ? parseInt(refCustCardRefId) : 0,
+    ...(saleMaster1 ? { SaleMaster1: saleMaster1 } : {}),
+    CustomerRefId: custId ? parseInt(custId) : parseInt(sess.CashId),
+    SaleNo: 0, CompanyRefId: parseInt(sess.Comid),
+    SaleNoDisplay: billNo, SaleDate: billDate, SaleType: saleType,
+    OthersplusAmt: CC.vn(otherPlus), OtherssubAmt: CC.vn(otherMinus),
+    Grossamt: totals.GrossAmt, taxamount: totals.GSTAmt,
+    CESSAmount: totals.CESSAmt, SPLCESSAmount: 0,
+    SalesReturnAmt: 0,
+    DeleteStatus: 1,
+    ShiftCode: 0,
+    OpeningBalCmbt: CC.vn(refCurBal),
+    Duedate: billDate,
+    disper: CC.vn(discPer), discamount: totals.DiscAmt,
+    cdamount: CC.f2(cdAmountTotal),
+    Cashtender: paidAmount.toFixed(2),
+    Cashrecevier: paidAmount.toFixed(2),
+    schargePer: 0,
+    OldBillAmount: 0,
+    TodaySaving: 0,
+    NetAmount: Math.round(CC.vn(totals.NetAmt)), coinage: 0, Remarks: remarks,
+    CashierRefId: parseInt(sess.CashierId) || 0,
+    salesmanRefId: smId ? parseInt(smId) : null,
+    BillFormatName: sess.BillFormatName,
+    BillHoldName: billHoldName,
+    CustomerName: custObj?.AccountName || "",
+    Address1: custObj?.Address1 || "", Address2: custObj?.Address2 || "",
+    City: custObj?.City || "", Email: custObj?.Email || "",
+    PhoneNo: custObj?.MobileNo || "", Pincode: custObj?.Pincode || "",
+    StateCode: custObj?.StateCode || "", StateName: custObj?.StateName || "",
+    MobileNo: sess.Phone || "",
+    TinNo: custObj?.GSTINNo || "", IGSTBill: custObj?.IGSTBill || "GST",
+    Credit: hasCredit ? payFiltered.find(p => p.CardType === "CREDIT")?.Amount || 0 : 0,
+    Modified_By: username,
+    ModifiedStatus: editId > 0 ? 1 : 0, Modified_Date: billDate,
+    SaleDetails: saledetails, SaleAmountDetails: payFiltered,
+    StockDetails: stockDetails, srstockdetails: [],
+}];
+  // const payload = [{
+  //   Id: editId, SRId: 0,
+  //   CustomerCardRefid: refCustCardRefId ? parseInt(refCustCardRefId) : 0,
+  //   ...(saleMaster1 ? { SaleMaster1: saleMaster1 } : {}),
+  //   CustomerRefId: custId ? parseInt(custId) : parseInt(sess.CashId),
+  //   SaleNo: 0, CompanyRefId: parseInt(sess.Comid),
+  //   SaleNoDisplay: billNo, SaleDate: billDate, SaleType: saleType,
+  //   OthersplusAmt: CC.vn(otherPlus), OtherssubAmt: CC.vn(otherMinus),
+  //   Grossamt: totals.GrossAmt, taxamount: totals.GSTAmt,
+  //   CESSAmount: totals.CESSAmt, SPLCESSAmount: 0,
+  //   disper: CC.vn(discPer), discamount: totals.DiscAmt,
+  //   NetAmount: totals.NetAmt, coinage: 0, Remarks: remarks,
+  //   CashierRefId: parseInt(sess.CashierId) || 0,
+  //   salesmanRefId: smId ? parseInt(smId) : null,
+  //   DeleteStatus: true, BillHoldName: billHoldName,
+  //   CustomerName: custObj?.AccountName || "",
+  //   Address1: custObj?.Address1 || "", Address2: custObj?.Address2 || "",
+  //   City: custObj?.City || "", Email: custObj?.Email || "",
+  //   PhoneNo: custObj?.MobileNo || "", Pincode: custObj?.Pincode || "",
+  //   TinNo: custObj?.GSTINNo || "", IGSTBill: custObj?.IGSTBill || "GST",
+  //   Credit: hasCredit ? payFiltered.find(p => p.CardType === "CREDIT")?.Amount || 0 : 0,
+  //   Modified_By: username,
+  //   ModifiedStatus: editId > 0 ? 1 : 0, Modified_Date: billDate,
+  //   SaleDetails: saledetails, SaleAmountDetails: payFiltered, StockDetails:stockDetails,
+  // }];
+
+  const headers = {
+    "Comid":      String(sess.Comid), "ApiType": "1", "LocalV7": "0",
+    "cashid":     String(sess.CashId), "BillType": sess.BillNoType,
+    "BillPerfix": sess.BillNoPrefix, "BillHoldName": billHoldName,
+    "BillDigit":  String(sess.BillNoDigit), "EncashAmt": "0", "EncashPoint": "0",
+    "SubSalemaster":             subSalemasterFlag,
+    "React":                     1,
+    "Commoncompany":             sess.CommonCompany ? "true" : "false",
+    "CommoncompanyDiffStock":    sess.CommonCompanyDiffStock ? "true" : "false",
+    "MulipleMRP":                sess.MulipleMRP ? "true" : "false",
+    "Herballife":                sess.Herbalife ? "1" : "0", "Estimate": "0",
+    "PrintA4Invoice":            sess.PrintA4 ? "1" : "0",
+    "SmallPrint":                sess.PrintSmall ? "1" : "0",
+    "BillFormat":                sess.BillFormatName,
+    "DayClose":                  sess.DayClose ? "1" : "0",
+    "MirrorTable": "0", "LocalDB": "0", "RO": "0",
+  };
+  console.log(payload);
+  console.log("stockDetails going to payload:", stockDetails);
+  const res = await CC.insertapi(CC.SaleInsertUrl, payload, headers);
+  setLoading(false);
+  if (redirectIfDualLogin(res)) return;
+
+  if (res.ok ?? res.IsSuccess) {
+    localStorage.setItem("lastBillNo",  billNo);
+    const roundedNet = Math.round(CC.vn(totals.NetAmt));
+    localStorage.setItem("lastBillAmt", roundedNet.toString());
+    setLastBillNo(billNo);
+    setLastBillAmt(roundedNet);
+    toast("✅ Bill Saved");
+
+    const cacheKey = res.Data15 || "";
+    setPrintDialog({
+      billNo:   res.BillNo || res.Data2 || billNo,
+      netAmt:   roundedNet,
+      cacheKey: cacheKey,
+    });
+
+    await clearForm();
+  } else {
+    toast("❌ " + (res.Message || res.message || "Save Failed"), true);
+  }
+// eslint-disable-next-line
+}, [perm, confirm, clearForm, sess, payRows, totals, rows,
+    custId, smId, remarks, billNo, billDate, editId, otherPlus, otherMinus,
+    discPer, customers, billHoldName, callA4PrintApi]);
+    
+
+  const doCreditSave = useCallback(async () => {
+    if (totals.NetAmt <= 0) {
+      toast("❌ Add at least one item", true);
+      return;
     }
 
-    const ok = await confirm("Do you want to Save Sale Bill Details?");
-    if (!ok) return;
+    let creditIdx = payRows.findIndex(r => r.CardType === "CREDIT");
+    if (creditIdx === -1) creditIdx = payRows.length - 1;
 
-    setLoading(true); setLdMsg("Saving...");
-    const username = localStorage.getItem("username") || "";
-    const custObj  = customers.find(c => String(c.Id) === String(custId));
-
-    const saledetails = validRows.map(r => ({
-      SDId: r.SDId || 0, ProductRefId: r.ProductRefId, ProductCode: r.ProductCode,
-      ProductName: r.ProductName, PrintName: r.PrinterName || r.ProductName,
-      MRP: CC.f2(CC.vn(r.MRP)), SaleRate: CC.f2(CC.vn(r.SaleRate)), ItemQty: CC.f2(CC.vn(r.ItemQty)),
-      Amount: CC.f2(CC.vn(r.Amount)), TaxPercent: CC.f2(CC.vn(r.TaxPercent)), TaxAmt: CC.f2(CC.vn(r.TaxAmt)),
-      CESSPer: CC.f2(CC.vn(r.CESSPer)), CESSAmount: CC.f2(CC.vn(r.CESSAmount)),
-      SPLCESS: CC.f2(CC.vn(r.SPLCESS)), SPLCESSAmount: CC.f2(CC.vn(r.SPLCESSAmount)),
-      DiscountPercent: CC.f2(CC.vn(r.DiscountPercent)), DiscountAmt: CC.f2(CC.vn(r.DiscountAmt)),
-      cdpercent: CC.f2(CC.vn(r.CDPercent)), cdAmount: CC.f2(CC.vn(r.CDAmount)),
-      Landingcost: CC.f2(CC.vn(r.LandingCost)), CTAmount: CC.f2(CC.vn(r.CTAmount)),
-      STAmount: CC.f2(CC.vn(r.STAmount)), PurchaseRate: CC.f2(CC.vn(r.PurchaseRate)),
-      UOM: r.UOM || "", HSNcode: r.HSNCode || "", StockQty: CC.vn(r.StockQty),StockQtyNew:CC.f2(CC.vn(r.ItemQty)),
-      BatchRefid: r.BatchRefid || null,
-      SalesmanRefid: r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : null),
-      SalesManCode:  r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : 0),
-      FreeQty: 0, NOMS: 0, NOMSQty: 0,
-      SaleRate_org: CC.f2(CC.vn(r.OrgRate)), remarks: r.Remarks || "",
-      SRDetailsId: r.SRDetailsId || 0, Bat_No: r.Bat_No || "",
-    }));
-
-    const payFiltered = effectivePayRows.filter(p => CC.vn(p.Amount) > 0).map(p => ({
-      CardAccountRefId: p.CardAccountRefId, Saletype: p.Saletype,
-      CardType: p.CardType, Amount: CC.f2(CC.vn(p.Amount)), SchargeAmt: CC.f2(CC.vn(p.SchargeAmt)),
-      CustomerRefid: custId ? parseInt(custId) : parseInt(sess.CashId),
-    }));
-
-    let saleType     = "CASH";
-    const hasCard    = payFiltered.some(p => p.CardType === "CARD"   && p.Amount > 0);
-    const hasUPI     = payFiltered.some(p => p.CardType === "UPI"    && p.Amount > 0);
-    const hasCredit  = payFiltered.some(p => p.CardType === "CREDIT" && p.Amount > 0);
-    const hasCash    = payFiltered.some(p => p.CardType === "CASH"   && p.Amount > 0);
-    const typeCount  = [hasCard, hasUPI, hasCredit, hasCash].filter(Boolean).length;
-    if (typeCount > 1)  saleType = "SPLIT";
-    else if (hasCard)   saleType = "CARD";
-    else if (hasUPI)    saleType = "UPI";
-    else if (hasCredit) saleType = "CREDIT";
-
-    const payload = [{
-      Id: editId, SRId: 0,
-      CustomerRefId: custId ? parseInt(custId) : parseInt(sess.CashId),
-      SaleNo: 0, CompanyRefId: parseInt(sess.Comid),
-      SaleNoDisplay: billNo, SaleDate: billDate, SaleType: saleType,
-      OthersplusAmt: CC.vn(otherPlus), OtherssubAmt: CC.vn(otherMinus),
-      Grossamt: totals.GrossAmt, taxamount: totals.GSTAmt,
-      CESSAmount: totals.CESSAmt, SPLCESSAmount: 0,
-      disper: CC.vn(discPer), discamount: totals.DiscAmt,
-      NetAmount: totals.NetAmt, coinage: 0, Remarks: remarks,
-      CashierRefId: parseInt(sess.CashierId) || 0,
-      salesmanRefId: smId ? parseInt(smId) : null,
-      DeleteStatus: true, BillHoldName: billHoldName,
-      CustomerName: custObj?.AccountName || "",
-      Address1: custObj?.Address1 || "", Address2: custObj?.Address2 || "",
-      City: custObj?.City || "", Email: custObj?.Email || "",
-      PhoneNo: custObj?.MobileNo || "", Pincode: custObj?.Pincode || "",
-      TinNo: custObj?.GSTINNo || "", IGSTBill: custObj?.IGSTBill || "GST",
-      Credit: hasCredit ? payFiltered.find(p => p.CardType === "CREDIT")?.Amount || 0 : 0,
-      Modified_By: username,
-      ModifiedStatus: editId > 0 ? 1 : 0, Modified_Date: billDate,
-      SaleDetails: saledetails, SaleAmountDetails: payFiltered, StockDetails:stockDetails,
-    }];
-
-    const headers = {
-      "Comid":      String(sess.Comid), "ApiType": "1", "LocalV7": "0",
-      "cashid":     String(sess.CashId), "BillType": sess.BillNoType,
-      "BillPerfix": sess.BillNoPrefix, "BillHoldName": billHoldName,
-      "BillDigit":  String(sess.BillNoDigit), "EncashAmt": "0", "EncashPoint": "0",
-      "SubSalemaster":             sess.SaleSubMaster ? "1" : "0",
-      "React":                     1,
-      "Commoncompany":             sess.CommonCompany ? "true" : "false",
-      "CommoncompanyDiffStock":    sess.CommonCompanyDiffStock ? "true" : "false",
-      "MulipleMRP":                sess.MulipleMRP ? "true" : "false",
-      "Herballife":                sess.Herbalife ? "1" : "0", "Estimate": "0",
-      "PrintA4Invoice":            sess.PrintA4 ? "1" : "0",
-      "SmallPrint":                sess.PrintSmall ? "1" : "0",
-      "BillFormat":                sess.BillFormatName,
-      "DayClose":                  sess.DayClose ? "1" : "0",
-      "MirrorTable": "0", "LocalDB": "0", "RO": "0",
-    };
-
-    const res = await CC.insertapi(CC.SaleInsertUrl, payload, headers);
-    setLoading(false);
-    if (redirectIfDualLogin(res)) return;
-
-   if (res.ok ?? res.IsSuccess) {
-  localStorage.setItem("lastBillNo",  billNo);
-  localStorage.setItem("lastBillAmt", totals.NetAmt.toString());
-  setLastBillNo(billNo);
-  setLastBillAmt(totals.NetAmt);
-  toast("✅ Bill Saved");
-
-  // ✅ InsertSale-லயே CacheKey வருது
-  const cacheKey = res.Data15 || "";
-  console.log("CacheKey from InsertSale:", cacheKey);
-
-  setPrintDialog({
-    billNo:   res.BillNo || res.Data2 || billNo,
-    netAmt:   totals.NetAmt,
-    cacheKey: cacheKey,   // ← இது use பண்ணு
-  });
-
-  await clearForm();
-} else {
-      toast("❌ " + (res.Message || res.message || "Save Failed"), true);
+    if (!custId || String(custId) === "0" || String(custId) === String(sess.CashId)) {
+      toast("❌ Select Any One Customer !!!", true);
+      if (custRef.current) custRef.current.focus();
+      return;
     }
-  // eslint-disable-next-line
-  }, [perm, confirm, clearForm, sess, payRows, totals, rows,
-      custId, smId, remarks, billNo, billDate, editId, otherPlus, otherMinus,
-      discPer, customers, billHoldName, callA4PrintApi]);
+
+    const updated = payRows.map((r, idx) =>
+      idx === creditIdx
+        ? { ...r, Amount: totals.NetAmt.toFixed(2) }
+        : { ...r, Amount: "" }
+    );
+
+    setPayRows(updated);
+    await doSave(false, updated);
+  }, [totals.NetAmt, payRows, custId, sess.CashId, toast, doSave]);
 
   // ── Delete bill ───────────────────────────────────────────────────────────
+  // ── Date formatter: yyyy-MM-dd (or ISO date) -> MM/dd/yyyy ────────────────
+  const toMMDDYYYY = (dateStr) => {
+    if (!dateStr) return "";
+
+    const parts = String(dateStr).slice(0, 10).split("-");
+
+    if (parts.length !== 3) return "";
+
+    const [yyyy, mm, dd] = parts;
+
+    return `${mm}/${dd}/${yyyy}`;
+  };
+
+  const buildStockRestoreDetails = useCallback((sourceRows) => {
+    return sourceRows
+      .filter(r => CC.vn(r._origItemQty ?? r.ItemQty) > 0)
+      .map(r => ({
+        ProductRefid: r.ProductRefId || 0,
+        Batchid: r._origBatchRefid || r.BatchRefid || 0,
+        RealQty: CC.f2(CC.vn(r._origItemQty ?? r.ItemQty)),
+        Qty: 0.0,
+        MfDate: toMMDDYYYY(r._origMfgDate || r.MfgDate),
+        ExpDate: toMMDDYYYY(r._origExpiryDate || r.ExpiryDate),
+        SerialNoStatus: 0,
+        AdjustType: 0,
+        PDRefid: r._origPDRefid || r.PDRefid || null,
+        ItemQty: CC.f2(CC.vn(r._origItemQty ?? r.ItemQty)),
+        Bags: CC.vn(r._origBags ?? r.Pcs) || 0,
+      }));
+  }, []);
+
   const doDeleteBill = useCallback(async () => {
     if (!editId) { toast("No bill to delete", true); return; }
     if (!perm.Delete) { toast("❌ Delete Permission Denied", true); return; }
     const ok = await confirm("Do you want to Cancel this Bill?");
     if (!ok) return;
     setLoading(true);
-    const stockBody = rows
-      .filter(r => r.ProductRefId && CC.vn(r.ItemQty) > 0)
-      .map(r => ({
-        ProductRefId: r.ProductRefId, ProductCode: r.ProductCode,
-        ItemQty: CC.f2(CC.vn(r.ItemQty)), SaleRate: CC.f2(CC.vn(r.SaleRate)),
-        Amount: CC.f2(CC.vn(r.Amount)), StockQty: CC.vn(r.StockQty),
-        BatchRefid: r.BatchRefid || null, Bat_No: r.Bat_No || "",
-      }));
+    const stockDetails = buildStockRestoreDetails(rows);
     const headers = {
       Comid: String(sess.Comid), Cid: String(sess.CashierId), SRId: "0",
       BillType: sess.BillNoType, SRStockDetails: JSON.stringify(srdetailsRef.current),
@@ -2313,13 +2849,13 @@ const stockDetails = editId > 0
       LocalDB: "0", DayClose: sess.DayClose ? "1" : "0",
       SaleDate: billDate, Id: String(editId),
     };
-    const res = await CC.api(CC.SaleDeleteUrl, stockBody, headers, null);
+    const res = await CC.api(CC.SaleDeleteUrl, stockDetails, headers, null);
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     if (res.ok ?? res.IsSuccess) { toast("✅ Bill Deleted Successfully"); await clearForm(); }
     else toast("❌ " + (res.message || res.Message || "Delete Failed"), true);
   // eslint-disable-next-line
-  }, [editId, perm, confirm, sess, clearForm, rows, billDate]);
+  }, [editId, perm, confirm, sess, clearForm, rows, billDate, buildStockRestoreDetails]);
 
   // ── F5 view ───────────────────────────────────────────────────────────────
   const openF5 = useCallback(async (from = billDate, to = billDate) => {
@@ -2342,8 +2878,6 @@ const stockDetails = editId > 0
     setF5AmtDetails(amtDetails);
     setF5Open(true);
   }, [sess, billDate, perm, redirectIfDualLogin]);
-
-  // ── Edit bill ─────────────────────────────────────────────────────────────
   const doEditBill = useCallback(async (id) => {
     setF5Open(false);
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
@@ -2358,6 +2892,7 @@ const stockDetails = editId > 0
     const data = Array.isArray(res.Data) ? res.Data[0] : res.data;
     if (!data) { toast("❌ No data found", true); return; }
     const saledetails = data[0].SaleDetails || [];
+    console.log("Raw saledetails from API:", saledetails[0]);
     setEditId(data[0].Id || id);
     srdetailsRef.current = data[0].srdetails || [];
     setBillNo(CC.ns(data[0].SaleNoDisplay || data[0].SaleNo));
@@ -2383,15 +2918,48 @@ const stockDetails = editId > 0
 })));
 setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
+
+    const sm = data[0].SaleMaster1 || data[0].salemaster1 || data[0].Salemaster1;
+    const smObj = Array.isArray(sm) ? sm[0] : sm;
+    if (smObj) {
+      const p = CC.vn(smObj.BillPoint !== undefined ? smObj.BillPoint : smObj.OpeningPoint);
+      const uP = CC.vn(smObj.UsedPoint);
+      const v = CC.vn(smObj.BillValue !== undefined ? smObj.BillValue : smObj.OpeningValue);
+      const uV = CC.vn(smObj.UsedValue);
+      origCrmRef.current = {
+        OpeningPoint: p - uP,
+        OpeningValue: v - uV
+      };
+    } else {
+      origCrmRef.current = { OpeningPoint: 0, OpeningValue: 0 };
+    }
+
     const saleAmts = (data[0].SaleAmountDetails || []).length > 0
       ? data[0].SaleAmountDetails
       : f5AmtDetails.filter(a => a != null && String(a.SaleRefId) === String(id));
     setPayRows(pr => pr.map(p => {
       const found = saleAmts.find(a => a.CardAccountRefId === p.CardAccountRefId);
-      return found ? { ...p, Amount: found.Amount > 0 ? CC.f2(found.Amount).toFixed(2) : "" } : { ...p, Amount: "" };
+      return found 
+        ? { 
+            ...p, 
+            Amount: found.Amount > 0 ? CC.f2(found.Amount).toFixed(2) : "",
+            BankRefid: found.BankRefid ?? p.BankRefid,
+          } 
+        : { 
+            ...p, 
+            Amount: "" 
+          };
     }));
   // eslint-disable-next-line
   }, [sess, billDate, perm, customers]);
+  const handleF5EditRequest = useCallback((id) => {
+    setF5Open(false);
+    pwOkRef.current = () => doEditBill(id);
+    setPw({ title: "Edit Bill Password" });
+  }, [doEditBill]);
+
+  // ── Edit bill ─────────────────────────────────────────────────────────────
+
 
   const handleF5Delete = useCallback((id, billNo) => {
     pwOkRef.current = async () => {
@@ -2413,7 +2981,8 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
         LocalDB: "0", DayClose: sess.DayClose ? "1" : "0",
         SaleDate: saleDate, Id: String(id),
       };
-      const res = await CC.api(CC.SaleDeleteUrl, [], headers, null);
+      const stockDetails = buildStockRestoreDetails(data?.[0]?.SaleDetails || []);
+      const res = await CC.api(CC.SaleDeleteUrl, stockDetails, headers, null);
       setLoading(false);
       if (redirectIfDualLogin(res)) return;
       if (res.ok ?? res.IsSuccess) {
@@ -2426,7 +2995,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       }
     };
     setPw({ title: "Delete Password" });
-  }, [sess, billDate, confirm, toast, redirectIfDualLogin, f5Rows, openF5]);
+  }, [sess, billDate, confirm, toast, redirectIfDualLogin, f5Rows, openF5, buildStockRestoreDetails]);
 
   // ── Bill hold ─────────────────────────────────────────────────────────────
   const doBillHold = useCallback(async () => {
@@ -2487,6 +3056,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
 
       if (e.key === "F1")  { e.preventDefault(); doSave(true); }
       if (e.key === "F2")  { e.preventDefault(); doSave(false); }
+      if (e.key === "F7")  { e.preventDefault(); doCreditSave(); }
       if (e.key === "F4")  { e.preventDefault(); doBillHold(); }
       if (e.key === "F5")  { e.preventDefault(); openF5(); }
       if (e.key === "F8")  { e.preventDefault(); navigate("/EstimateBill"); }
@@ -2500,7 +3070,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line
   }, [prodPopup, holdOpen, f5Open, pw, f12Open, custPopup, ctrlGOpen,
-      doSave, doBillHold, openF5, doDeleteBill, clearForm, editId]);
+      doSave, doCreditSave, doBillHold, openF5, doDeleteBill, clearForm, editId]);
 
   if (!isAuthorized) return null;
 
@@ -2544,6 +3114,7 @@ onView={() => {
           <div className="sb-action-btns">
             <button className="sb-action-btn" onClick={() => doSave(true)}   title="F1 Cash Bill"><span className="btn-icon">🖨</span><span>F1</span></button>
             <button className="sb-action-btn" onClick={() => doSave(false)}  title="F2 Split Bill"><span className="btn-icon">💳</span><span>F2</span></button>
+            <button className="sb-action-btn" onClick={doCreditSave} title="F7 Credit Bill"><span className="btn-icon">🧾</span><span>F7</span></button>
             <button className="sb-action-btn" onClick={() => { if (!editId) return; pwOkRef.current = doDeleteBill; setPw({ title: "F9 Delete" }); }} title="F9 Delete">
               <span className="btn-icon" style={{ color: "#dc2626" }}>🗑</span><span style={{ color: "#dc2626" }}>F9</span>
             </button>
@@ -2628,7 +3199,7 @@ onView={() => {
           <div className="sb-divider" />
 
           <div className="sb-bill-info">
-            <div className="sb-bill-amount">₹{totals.NetAmt.toFixed(2)}</div>
+            <div className="sb-bill-amount">₹{Math.round(CC.vn(totals.NetAmt))}</div>
             <div className="sb-bill-row"><label>Bill No</label><span>{billNo || "—"}</span></div>
             <div className="sb-bill-row">
               <label>Bill Date</label>
@@ -2827,7 +3398,7 @@ onView={() => {
                   value={otherMinus} onChange={e => setOtherMinus(e.target.value)} placeholder="0.00" />
               </div>
               <div className="sb-total-sep" />
-              <div className="sb-total-row net"><label>Net Total</label><span>₹{totals.NetAmt.toFixed(2)}</span></div>
+              <div className="sb-total-row net"><label>Net Total</label><span>₹{Math.round(CC.vn(totals.NetAmt))}</span></div>
             </div>
 
             {/* ── GST SPLIT ── */}
@@ -2900,7 +3471,7 @@ onView={() => {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontWeight: 600, color: "#4a5568", fontSize: 11 }}>Last Bill Amount</span>
                 <span style={{ fontWeight: 700, color: "#16a34a", fontSize: 11 }}>
-                  {lastBillAmt > 0 ? `₹${lastBillAmt.toFixed(2)}` : "None"}
+                  {lastBillAmt > 0 ? `₹${Math.round(CC.vn(lastBillAmt))}` : "None"}
                 </span>
               </div>
             </div>
@@ -2911,6 +3482,7 @@ onView={() => {
         <div className="sb-toolbar">
           <button className="sb-btn sv" onClick={() => doSave(true)}  disabled={loading}>💾 F1 Cash Bill</button>
           <button className="sb-btn sv" onClick={() => doSave(false)} disabled={loading}>💳 F2 Split Bill</button>
+          <button className="sb-btn sv" onClick={doCreditSave} disabled={loading}>🧾 F7 Credit Bill</button>
           <button className="sb-btn"   onClick={openF5}>📋 F5 View</button>
           <button className="sb-btn"   onClick={() => navigate("/EstimateBill")}
             style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#ea580c", fontWeight: 700 }}>
@@ -2999,8 +3571,8 @@ onView={() => {
             setRows(prev => prev.map(r =>
               r._rid !== rid ? r : {
                 ...r,
-                MfgDate:    item.MFDate  || "",
-                ExpDate:    item.ExpDate || "",
+                MfgDate:    item.MFdate  || "",
+                ExpDate:    item.Expdate || "",
                 Bat_No:     item.BatchNo || r.Bat_No || "",
                 BatchRefid: item.Batchid || r.BatchRefid || null,
                 StockQty:   CC.vn(item.Stock),
@@ -3047,20 +3619,21 @@ onView={() => {
         />
       )}
 
-      {prodPopup && (
-        <ProductSearchPopup
-          products={prodList}
-          onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
-          onClose={() => setProdPopup(null)}
-          anchorPos={prodPopup.pos}
-        />
-      )}
+     {prodPopup && (
+  <ProductSearchPopup
+    products={prodList}
+    isTamil={sess.Tamil}
+    onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
+    onClose={() => setProdPopup(null)}
+    anchorPos={prodPopup.pos}
+  />
+)}
 
       {f5Open && (
         <F5ViewModal
           rows={f5Rows}
           details={f5Details}
-          onEdit={id => { setF5Open(false); doEditBill(id); }}
+          onEdit={handleF5EditRequest}
           onDelete={handleF5Delete}
           onClose={() => setF5Open(false)}
           fromDate={billDate}
@@ -3082,3 +3655,6 @@ onView={() => {
     </div>
   );
 }
+
+
+

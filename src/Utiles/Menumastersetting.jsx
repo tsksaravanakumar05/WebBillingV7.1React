@@ -57,23 +57,23 @@ function PasswordModal({ open, onConfirm, onCancel, busy }) {
   };
 
   return (
-    <div className="mp-modal-ov">
-      <div className="mp-pwd-modal">
-        <h3>Password Verification</h3>
+    <div className="mp-ov" style={{ zIndex: 99999 }}>
+      <div className="mp-modal-box" style={{ width: 280, padding: "20px 24px" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#1f65de" }}>🔐 Password Verification</div>
         <input
           ref={inputRef}
           type="password"
-          className="mp-pwd-input"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Enter password"
+          style={{ width: "100%", padding: "6px 10px", border: "1px solid #c5d8f8", borderRadius: 4, fontSize: 13, marginBottom: 14, outline: "none" }}
+          placeholder="Enter password…"
           disabled={busy}
           autoComplete="off"
         />
-        <div className="mp-modal-btns" style={{ marginTop: 14 }}>
-          <button className="mp-modal-btn no"  onClick={onCancel}                disabled={busy}>Cancel</button>
-          <button className="mp-modal-btn yes" onClick={() => onConfirm(password)} disabled={busy}>Verify</button>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="mp-btn" onClick={onCancel} disabled={busy}>Cancel</button>
+          <button className="mp-btn sv" onClick={() => onConfirm(password)} disabled={busy}>Verify</button>
         </div>
       </div>
     </div>
@@ -188,17 +188,25 @@ function buildHierarchy(flatData) {
   const byId = new Map();
   flatData.forEach((row) => {
     byId.set(row.Id, {
-      id:      row.Id,
-      label:   row.AccountName,
-      value:   row.ParentId,
-      checked: !!row.Status,
-      items:   [],
+      id:            row.Id,
+      label:         row.AccountName,
+      value:         row.ParentId,
+      checked:       !!row.Status,
+      // ── Preserve all original API fields so updateMenuSetting can use them
+      PageAdd:       row.PageAdd       ?? 0,
+      PageEdit:      row.PageEdit      ?? 0,
+      PageDelete:    row.PageDelete    ?? 0,
+      PageView:      row.PageView      ?? 0,
+      CompanyRefid:  row.CompanyRefid  ?? 0,
+      ParentId:      row.ParentId      ?? 0,
+      FormText:      row.FormText      ?? "",
+      items: [],
     });
   });
 
   const roots = [];
   byId.forEach((node) => {
-    const parentId = node.value;
+    const parentId = node.ParentId;
     if (parentId && byId.has(parentId) && parentId !== node.id) {
       byId.get(parentId).items.push(node);
     } else {
@@ -265,9 +273,6 @@ export default function Menumastersetting() {
   }, []);
 
   // ── loadTree ──────────────────────────────────────────────────────────
-  // FIX: Use query string (?Type=All&Comid=65) instead of JSON body.
-  // ASP.NET Web API binds primitive params (string, Int32) from the query
-  // string — NOT from a JSON body — unless [FromBody] is on the parameter.
   const loadTree = useCallback(
     async (type) => {
       if (!type) {
@@ -279,11 +284,10 @@ export default function Menumastersetting() {
       setLoaderMessage("Loading menu tree...");
 
       try {
-        // ✅ FIX: Build query string — matches C# signature:
-        //    SelectMenuMaster(string Type, Int32 Comid)
+        const userid = localStorage.getItem("userid");
         const params = {
           Type:  type,
-          Comid: String(Number(comid)),   // ensure numeric string, e.g. "65"
+          Comid: String(Number(userid)),
         };
 
         const result = await api(SelectMenuMaster, null, {}, params);
@@ -291,8 +295,6 @@ export default function Menumastersetting() {
         if (result._http404 || result._netErr || result.message?.startsWith("Server error")) {
           throw new Error(result.message);
         }
-        console.log("FULL RESPONSE =", result);
-        console.log("DATA1 =", result.Data1);
 
         if (result.IsSuccess) {
           setTreeData(buildHierarchy(result.Data1 || []));
@@ -308,43 +310,50 @@ export default function Menumastersetting() {
         setLoading(false);
       }
     },
-    [comid, showAlert]   // ✅ FIX: added comid (was missing), removed unused userid
+    [comid, showAlert]
   );
 
   // ── updateMenuSetting ─────────────────────────────────────────────────
+  // Receives the full node object + the new visibility status (0 or 1).
+  // Sets PageView = newStatus so the API knows to show/hide the page.
   const updateMenuSetting = useCallback(
-    async (row) => {
-  
+    async (node, newStatus) => {
       const payload = [
         {
-          Id: row.Id,
-          PageAdd: row.PageAdd,
-          PageEdit: row.PageEdit,
-          PageDelete: row.PageDelete,
-          PageView: row.PageView,
-          CompanyRefid: row.CompanyRefid || 0,
-          ParentId: row.ParentId || 0,
-          FormText: row.FormText || ""
-        }
+          Id:           node.id,
+          PageAdd:      node.PageAdd    ?? 0,
+          PageEdit:     node.PageEdit   ?? 0,
+          PageDelete:   node.PageDelete ?? 0,
+          PageView:     newStatus,          // ← 1 = visible, 0 = hidden
+          CompanyRefid: node.CompanyRefid  ?? 0,
+          ParentId:     node.ParentId      ?? 0,
+          FormText:     node.FormText      ?? "",
+        },
       ];
-  
+
       setLoading(true);
-  
+      setLoaderMessage("Updating...");
+
       try {
-        const data = await insertapi(UpdateMenuMaster, payload);
-  
-        if (data.ok === false && data.message && (data.message.startsWith("HTTP Error") || data.message.startsWith("Server error") || data._netErr)) {
+        const data = await insertapi(UpdateMenuMaster+`?Id=${node.id}&status=${newStatus}`, null,{});
+
+        if (
+          data.ok === false &&
+          data.message &&
+          (data.message.startsWith("HTTP Error") ||
+            data.message.startsWith("Server error") ||
+            data._netErr)
+        ) {
           throw new Error(data.message);
         }
-  
+
         if (data.IsSuccess || data.isSuccess || data.ok) {
-          pushToast(data.Message || data.message, "ok");
+          pushToast( "Updated successfully", "ok");
           return true;
         }
-  
+
         showAlert(data.Message || data.message);
         return false;
-  
       } catch (err) {
         showAlert(`Error\n${err?.message ?? "Update failed."}`);
         return false;
@@ -363,6 +372,8 @@ export default function Menumastersetting() {
           ...n,
           items:   n.items ? clone(n.items) : [],
           checked: n.id === nodeId ? makeVisible : n.checked,
+          // Keep PageView in sync with checked so next toggle reads correctly
+          PageView: n.id === nodeId ? (makeVisible ? 1 : 0) : n.PageView,
         }));
       return clone(prev);
     });
@@ -373,20 +384,28 @@ export default function Menumastersetting() {
     const node = contextMenu.node;
     setContextMenu((s) => ({ ...s, open: false }));
     if (!node) return;
-    setPwdModal({ open: true, pendingNode: node, pendingStatus: node.checked ? 0 : 1 });
+    // pendingStatus: toggle current visibility
+    const newStatus = node.checked ? 0 : 1;
+    setPwdModal({ open: true, pendingNode: node, pendingStatus: newStatus });
   }, [contextMenu.node]);
 
+  // ── Password confirm: pass full node + newStatus to updateMenuSetting ─
   const handlePasswordConfirm = useCallback(
     async (password) => {
       if (!password) { showAlert("Password is required!!!"); return; }
       setPwdBusy(true);
       try {
         const { pendingNode, pendingStatus } = pwdModal;
-        const success = await updateMenuSetting(pendingNode.id, pendingStatus);
+
+        // ✅ FIX: pass the full node object and the new status
+        const success = await updateMenuSetting(pendingNode, pendingStatus);
+
         if (success) {
           applyVisibilityToggle(pendingNode.id, pendingStatus === 1);
           setSelectedNode((prev) =>
-            prev?.id === pendingNode.id ? { ...prev, checked: pendingStatus === 1 } : prev
+            prev?.id === pendingNode.id
+              ? { ...prev, checked: pendingStatus === 1, PageView: pendingStatus }
+              : prev
           );
         }
         setPwdModal({ open: false, pendingNode: null, pendingStatus: null });
@@ -537,13 +556,6 @@ export default function Menumastersetting() {
             Clear
           </button>
         </div>
-
-        {/* Hint bar */}
-        {/* <div className="mp-hint">
-          Press <kbd>Esc</kbd> to quit this page &nbsp;|&nbsp;
-          Press <kbd>F5</kbd> to view selected item &nbsp;|&nbsp;
-          Right-click a row to toggle visibility
-        </div> */}
 
         {/* Tree */}
         <div className="mp-grid-wrap mp-tree-wrap">

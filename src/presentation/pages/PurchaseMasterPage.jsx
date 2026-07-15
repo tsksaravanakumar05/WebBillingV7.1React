@@ -246,38 +246,9 @@ const COLS = [
   { key: 'SalesRate',        label: 'SaleRate',       w: 78,  align: 'right', editable: true,  type: 'num'  },
 ];
 
-const FOCUS_KEYS = ['Productcode', 'MRP', 'PurchaseRate', 'ItemQty', 'DiscountPercent', 'TaxPercent', 'SalesRate'];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Focus Config Constants
 // ─────────────────────────────────────────────────────────────────────────────
-const FORM_COLUMNS = [
-  { key: 'purchaseDate',  label: 'Purchase Date' },
-  { key: 'purchaseType',  label: 'Purchase Type' },
-  { key: 'dueDate',       label: 'Due Date' },
-  { key: 'supplier',      label: 'Supplier' },
-  { key: 'invoiceNo',     label: 'Invoice No' },
-  { key: 'invoiceDate',   label: 'Invoice Date' },
-  { key: 'invoiceAmt',    label: 'Invoice Amount' },
-  { key: 'gridPurchase',  label: 'Grid Purchase' },
-  { key: 'otherPlus',     label: 'Others (+)' },
-  { key: 'otherSub',      label: 'Others (-)' },
-  { key: 'remarks',       label: 'Remarks' },
-];
-
-const GRID_COLUMNS_CONFIG = [
-  { key: 'Productcode',     label: 'Product Code' },
-  { key: 'MRP',             label: 'MRP' },
-  { key: 'PurchaseRate',    label: 'Pur.Rate' },
-  { key: 'ItemQty',         label: 'Quantity' },
-  { key: 'DiscountPercent', label: 'Disc(%)' },
-  { key: 'TaxPercent',      label: 'GST(%)' },
-  { key: 'SalesRate',       label: 'Sale Rate' },
-  { key: 'CDPercent',       label: 'C.D(%)' },
-  { key: 'CESSPer',         label: 'CESS(%)' },
-  { key: 'TransPer',        label: 'Trans(%)' },
-];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Form field Enter-nav index map:
 //   0 → purchaseDate    1 → purchaseType    2 → dueDate
@@ -554,15 +525,21 @@ const SupplierDropdown = React.forwardRef(
   const wrapperRef = useRef(null);
   const searchRef = useRef(null);
   const listRef = useRef(null);
-useImperativeHandle(ref, () => ({
-  focus: () => {
-    setIsOpen(true);
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      setIsOpen(true);
+      setTimeout(() => {
+        searchRef.current?.focus();
+      }, 0);
+    },
+    focusSupplier: () => {
+      setIsOpen(true);
+      setTimeout(() => {
+        searchRef.current?.focus();
+      }, 40);
+    }
+  }));
 
-    setTimeout(() => {
-      searchRef.current?.focus();
-    }, 0);
-  }
-}));
   useEffect(() => {
     if (isOpen && searchRef.current) {
       searchRef.current.focus();
@@ -580,15 +557,7 @@ useImperativeHandle(ref, () => ({
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
-useImperativeHandle(ref, () => ({
-  focusSupplier() {
-    setIsOpen(true);
 
-    setTimeout(() => {
-      searchRef.current?.focus();
-    }, 40);
-  }
-}));
   const selectedSupplier = suppliers.find(s => s.Id === supplierId);
   const filtered = searchVal
     ? suppliers.filter(s => s.AccountName.toLowerCase().includes(searchVal.toLowerCase()))
@@ -705,35 +674,14 @@ useImperativeHandle(ref, () => ({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Focus Config Modal (Ctrl+F = form, Ctrl+G = grid)
+// Grid Column Reorder Modal (Ctrl+G)
 // ─────────────────────────────────────────────────────────────────────────────
-function FocusConfigModal({ type, onClose, onSave }) {
-  const defaultCols = type === 'form' ? FORM_COLUMNS : GRID_COLUMNS_CONFIG;
-  const storageKey  = type === 'form' ? 'PurchaseFormFocus' : 'PurchaseGridFocus';
-
-  const [cols, setCols] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      if (saved.length) {
-        const merged = saved
-          .map(s => ({ ...defaultCols.find(d => d.key === s.key), focus: s.focus }))
-          .filter(Boolean);
-        defaultCols.forEach(d => {
-          if (!merged.find(m => m.key === d.key)) merged.push({ ...d, focus: true });
-        });
-        return merged;
-      }
-    } catch {}
-    return defaultCols.map(c => ({ ...c, focus: true }));
-  });
-
+function GridColumnReorderModal({ currentCols, onClose, onSave }) {
+  const [cols, setCols] = useState(currentCols);
   const [dragIdx, setDragIdx] = useState(null);
 
-  const toggleFocus = (idx) => {
-    setCols(prev => prev.map((c, i) => i === idx ? { ...c, focus: !c.focus } : c));
-  };
-
-  const handleDrop = (idx) => {
+  const handleDrop = (e, idx) => {
+    e.preventDefault();
     if (dragIdx === null || dragIdx === idx) return;
     setCols(prev => {
       const next = [...prev];
@@ -745,11 +693,9 @@ function FocusConfigModal({ type, onClose, onSave }) {
   };
 
   const handleSave = () => {
-    const toSave = cols.map((c, i) => ({ key: c.key, focus: c.focus, index: i }));
-    localStorage.setItem(storageKey, JSON.stringify(toSave));
-    onSave(toSave);
+    onSave(cols);
     onClose();
-    showToast(`${type === 'form' ? 'Form' : 'Grid'} focus order saved!`, 'success');
+    showToast('Grid column order saved!', 'success');
   };
 
   return (
@@ -763,20 +709,25 @@ function FocusConfigModal({ type, onClose, onSave }) {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           fontSize: 13, fontWeight: 600
         }}>
-          {type === 'form' ? '⌨️ Form Focus Order (Ctrl+F)' : '⌨️ Grid Focus Order (Ctrl+G)'}
+          ⌨️ Grid Column Order (Ctrl+G)
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'white', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
         <div style={{ padding: '6px 12px', fontSize: 11, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
-          Drag to reorder • Checkbox to enable/disable focus
+          Drag to reorder grid columns
         </div>
         <div style={{ maxHeight: 380, overflowY: 'auto', padding: '4px 0' }}>
           {cols.map((col, idx) => (
             <div
               key={col.key}
-              draggable
-              onDragStart={() => setDragIdx(idx)}
+              draggable="true"
+              onDragStart={(e) => {
+                setDragIdx(idx);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', idx.toString());
+              }}
               onDragOver={e => e.preventDefault()}
-              onDrop={() => handleDrop(idx)}
+              onDragEnter={e => e.preventDefault()}
+              onDrop={e => handleDrop(e, idx)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '6px 12px', cursor: 'grab',
@@ -785,8 +736,7 @@ function FocusConfigModal({ type, onClose, onSave }) {
               }}
             >
               <span style={{ color: '#94a3b8', fontSize: 11 }}>⠿</span>
-              <input type="checkbox" checked={col.focus} onChange={() => toggleFocus(idx)} style={{ cursor: 'pointer' }} />
-              <span style={{ color: col.focus ? '#0f172a' : '#94a3b8' }}>
+              <span style={{ color: '#0f172a' }}>
                 {idx + 1}. {col.label}
               </span>
             </div>
@@ -830,8 +780,21 @@ export  default function PurchaseMasterPage() {
 };
   // ── Grid items
   const [items, setItems] = useState([newRow()]);
-const [formFocusOrder, setFormFocusOrder] = useState([]);
-  const [gridFocusOrder, setGridFocusOrder] = useState(FOCUS_KEYS);
+  const [gridCols, setGridCols] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('PurchaseGridOrder'));
+      if (saved && saved.length > 0) {
+        const mapped = saved.map(k => COLS.find(c => c.key === k)).filter(Boolean);
+        COLS.forEach(c => {
+          if (!mapped.some(m => m.key === c.key)) {
+            mapped.push(c);
+          }
+        });
+        return mapped;
+      }
+    } catch {}
+    return COLS;
+  });
   // ── Override fields
   const [overrides, setOverrides] = useState({
     grossAmt: '', transAmt: '', displayAmt: '', cdAmt: '', discAmt: '', 
@@ -847,7 +810,7 @@ const [formFocusOrder, setFormFocusOrder] = useState([]);
   const [confirmDlg,      setConfirmDlg]      = useState(null);
   const [prodModal,       setProdModal]       = useState({ open:false, rowIdx:0, query:'' });
   const [showF5,          setShowF5]          = useState(false);
-  const [showFocusConfig, setShowFocusConfig] = useState(null);
+  const [showGridReorder, setShowGridReorder] = useState(false);
 
   // ── Grid cell refs
   const cellRefs = useRef({});
@@ -861,107 +824,87 @@ const [formFocusOrder, setFormFocusOrder] = useState([]);
 
   const formRefs    = useRef([]);
   const setFormRef  = idx => el => { if (el) formRefs.current[idx] = el; };
-const handleFormEnter = useCallback((e, idx) => {
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
-  e.stopPropagation();
-
-  const activeField = formRefs.current[idx]?.dataset.field;
-  if (!activeField) return;
-
-// Build enabled refs array from current config
-  console.log('=== ENTER DIAGNOSIS ===');
-  console.log('formFocusOrder:', formFocusOrder);
-  console.log('formRefs length:', formRefs.current?.length);
-  console.log('formRefs keys:', formRefs.current?.map((r,i) => ({i, key:r?.dataset?.field})));
-  const enabledRefs = formFocusOrder
-    .map(key => formRefs.current.find(ref => ref?.dataset?.field === key))
-    .filter(Boolean);
-  console.log('enabledRefs:', enabledRefs.map(r => r?.dataset?.field));
-  console.log('activeField:', activeField, 'idx:', idx);
-
-  const currentPos = enabledRefs.findIndex(ref => ref?.contains(document.activeElement) || ref === formRefs.current[idx]);
-  if (currentPos === -1) return;
-  console.log('currentPos:', currentPos, 'enabled length:', enabledRefs.length);
-
-  const nextPos = (currentPos + 1) % enabledRefs.length;
-  const nextRef = enabledRefs[nextPos];
-  console.log('nextPos:', nextPos, 'nextRef field:', nextRef?.dataset?.field);
-
-  // Special routing
-  if (activeField === 'dueDate') {
-    setTimeout(() => supplierRef.current?.focusSupplier?.(), 0);
-    return;
-  }
-  if (activeField === 'invoiceAmt') {
-    setTimeout(() => focusCell(0, 'Productcode'), 0);
-    return;
-  }
-if (activeField === 'supplier') {
-    setTimeout(() => {
-      const el = formRefs.current[4];
-      if (el) { el.focus(); el.select?.(); }
-    }, 60);
-    return;
-  }
-
-  // Normal next focus
-  console.log('FOCUSING nextRef:', nextRef);
-  setTimeout(() => {
-    nextRef?.focus();
-    const inp = nextRef?.querySelector('input, select');
-    console.log('Found input:', inp);
-    inp?.select?.();
-  }, 50);
-}, [formFocusOrder, focusCell]);
-  // const handleFormEnter = useCallback((e, idx) => {
-  //   if (e.key !== 'Enter') return;
-  //   e.preventDefault();
-
-
-  //     if (idx === 2) {
-  //   supplierRef.current?.focusSupplier();
-  //   return;
-  // }
-  // // Invoice amount → grid
-  // if (idx === 6) {
-  //   focusCell(0, 'Productcode');
-  //   return;
-  // }
-
-  //   const next = formRefs.current[idx + 1];
-  //   if (next) {
-  //     next.focus();
-  //     next.select?.();
-  //   }
-  // }, [focusCell]);
-
-  // Supplier Enter → focus Invoice No (formRefs[4])
-  const handleSupplierEnter = useCallback(() => {
-    setTimeout(() => {
-      const el = formRefs.current[4];
-      if (el) { el.focus(); el.select?.(); }
-    }, 60);
+  const getEnabledFormFields = useCallback(() => {
+    const fields = [];
+    for (let i = 0; i < formRefs.current.length; i++) {
+      if (i === 3) {
+        fields.push({ type: 'supplier', ref: supplierRef, idx: i });
+        continue;
+      }
+      const el = formRefs.current[i];
+      if (!el) continue;
+      let inp = el.matches('input, select, textarea, button') ? el : el.querySelector('input, select, textarea, button');
+      if (inp && !inp.disabled && !inp.readOnly && inp.style.display !== 'none' && !inp.hidden) {
+        fields.push({ type: 'input', el: inp, idx: i });
+      }
+    }
+    return fields;
   }, []);
+
+  const handleFormEnter = useCallback((e, idx) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const fields = getEnabledFormFields();
+    const currentIndex = fields.findIndex(f => f.idx === idx);
+    if (currentIndex === -1) return;
+
+    let nextField = fields[currentIndex + 1];
+
+    if (idx <= 6 && (!nextField || nextField.idx > 6)) {
+      setTimeout(() => {
+        const firstCol = gridCols.find(c => c.editable)?.key || 'Productcode';
+        focusCell(0, firstCol);
+      }, 0);
+      return;
+    }
+
+    if (!nextField) {
+      setTimeout(() => {
+        const firstCol = gridCols.find(c => c.editable)?.key || 'Productcode';
+        focusCell(0, firstCol);
+      }, 0);
+      return;
+    }
+
+    if (nextField.type === 'supplier') {
+      setTimeout(() => nextField.ref.current?.focusSupplier?.(), 0);
+    } else {
+      setTimeout(() => {
+        nextField.el.focus();
+        nextField.el.select?.();
+      }, 50);
+    }
+  }, [getEnabledFormFields, focusCell, gridCols]);
+
+  const handleSupplierEnter = useCallback(() => {
+    const fields = getEnabledFormFields();
+    const currentIndex = fields.findIndex(f => f.idx === 3);
+    if (currentIndex === -1) return;
+    let nextField = fields[currentIndex + 1];
+
+    if (!nextField || nextField.idx > 6) {
+      setTimeout(() => {
+        const firstCol = gridCols.find(c => c.editable)?.key || 'Productcode';
+        focusCell(0, firstCol);
+      }, 0);
+      return;
+    }
+
+    if (nextField.type === 'supplier') {
+       setTimeout(() => nextField.ref.current?.focusSupplier?.(), 0);
+    } else {
+       setTimeout(() => {
+         nextField.el.focus();
+         nextField.el.select?.();
+       }, 50);
+    }
+  }, [getEnabledFormFields, focusCell, gridCols]);
 
   // ── Computed totals (Destructuring base for placeholders, effective as totals)
   const { base, effective: totals } = useMemo(() => calcTotals(items, overrides, igst), [items, overrides, igst]);
   const gstRows = useMemo(() => buildGstRows(items, igst),          [items, igst]);
-useEffect(() => {
-  // Load form config
-  const savedForm = JSON.parse(localStorage.getItem("PurchaseFormFocus") || "[]");
-  if (savedForm.length) {
-    const enabledForm = savedForm.filter(s => s.focus).sort((a, b) => a.index - b.index).map(s => s.key);
-    setFormFocusOrder(enabledForm);
-  }
-
-  // Load grid config  
-  const savedGrid = JSON.parse(localStorage.getItem("PurchaseGridFocus") || "[]");
-  if (savedGrid.length) {
-    const enabledGrid = savedGrid.filter(s => s.focus).sort((a, b) => a.index - b.index).map(s => s.key);
-    setGridFocusOrder(enabledGrid);
-  }
-}, []);
 
 
   // ─── Init: load suppliers + purchase no ─────────────────────────────────
@@ -1078,11 +1021,40 @@ useEffect(() => {
   }, [applyProduct]);
 
   // ─── Grid cell keyboard handler ──────────────────────────────────────────
-const handleCellKey = useCallback((e, rowIdx, colKey) => {
+  const handleCellKey = useCallback((e, rowIdx, colKey) => {
+    const editableCols = gridCols.filter(c => c.editable).map(c => c.key);
+    const colPos = editableCols.indexOf(colKey);
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (rowIdx > 0) focusCell(rowIdx - 1, colKey);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (rowIdx < items.length - 1) focusCell(rowIdx + 1, colKey);
+      return;
+    }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const el = e.target;
+      if (e.key === 'ArrowRight' && el.selectionEnd === el.value.length) {
+        if (colPos !== -1 && colPos < editableCols.length - 1) {
+          e.preventDefault();
+          focusCell(rowIdx, editableCols[colPos + 1]);
+        }
+      }
+      if (e.key === 'ArrowLeft' && el.selectionStart === 0) {
+        if (colPos > 0) {
+          e.preventDefault();
+          focusCell(rowIdx, editableCols[colPos - 1]);
+        }
+      }
+      return;
+    }
+
     if (e.key !== 'Enter') return;
     e.preventDefault();
     e.stopPropagation();
-    console.log('Grid ENTER:', colKey, 'row:', rowIdx);
     
     if (colKey === 'Productcode') {
       const code = items[rowIdx].Productcode?.trim();
@@ -1099,24 +1071,18 @@ const handleCellKey = useCallback((e, rowIdx, colKey) => {
       return;
     }
     
-    // Configured column nav
-    const colPos = gridFocusOrder.indexOf(colKey);
-    console.log('Grid ENTER - colKey:', colKey, 'colPos:', colPos, 'order:', gridFocusOrder);
-    
-    if (colPos !== -1 && colPos < gridFocusOrder.length - 1) {
-      const nextCol = gridFocusOrder[colPos + 1];
+    if (colPos !== -1 && colPos < editableCols.length - 1) {
+      const nextCol = editableCols[colPos + 1];
       focusCell(rowIdx, nextCol);
     } else {
-      // End of config → next row first config OR Productcode
       const nextRow = rowIdx + 1;
       if (nextRow >= items.length) {
         setItems(p => [...p, newRow()]);
       }
-      const firstCol = gridFocusOrder[0] || 'Productcode';
+      const firstCol = editableCols[0] || 'Productcode';
       focusCell(nextRow, firstCol);
     }
-    return;
-  }, [items.length, gridFocusOrder, handleProductcodeEnter, focusCell]);
+  }, [items.length, gridCols, handleProductcodeEnter, focusCell]);
 
   // ─── Delete row ──────────────────────────────────────────────────────────
   const deleteRow = useCallback(idx => {
@@ -1342,12 +1308,12 @@ const handleCellKey = useCallback((e, rowIdx, colKey) => {
   // ─── Keyboard Shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const anyModalOpen = prodModal.open || showF5 || showFocusConfig || confirmDlg;
+      const anyModalOpen = prodModal.open || showF5 || showGridReorder || confirmDlg;
 
       if (e.key === 'Escape') {
         e.preventDefault();
         if (prodModal.open)   { setProdModal({ open:false, rowIdx:0, query:'' }); return; }
-        if (showFocusConfig)  { setShowFocusConfig(null); return; }
+        if (showGridReorder)  { setShowGridReorder(false); return; }
         if (showF5)           { setShowF5(false); return; }
         if (confirmDlg)       { setConfirmDlg(null); return; }
         setConfirmDlg({
@@ -1392,13 +1358,28 @@ const handleCellKey = useCallback((e, rowIdx, colKey) => {
 
       if (e.key === 'F5') { e.preventDefault(); setShowF5(true); return; }
       if (e.key === 'F9') { e.preventDefault(); handleDelete(); return; }
-      if (e.ctrlKey && e.key === 'f') { e.preventDefault(); setShowFocusConfig('form'); return; }
-      if (e.ctrlKey && e.key === 'g') { e.preventDefault(); setShowFocusConfig('grid'); return; }
+      if (e.ctrlKey && (e.code === 'KeyF' || e.key.toLowerCase() === 'f')) { 
+        e.preventDefault(); 
+        const fields = getEnabledFormFields();
+        if (fields.length > 0) {
+          const first = fields[0];
+          if (first.type === 'supplier') {
+            first.ref.current?.focusSupplier?.();
+          } else {
+            setTimeout(() => {
+              first.el.focus();
+              first.el.select?.();
+            }, 50);
+          }
+        }
+        return; 
+      }
+      if (e.ctrlKey && (e.code === 'KeyG' || e.key.toLowerCase() === 'g')) { e.preventDefault(); setShowGridReorder(true); return; }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [prodModal, showF5, showFocusConfig, confirmDlg, handleSave, handleDelete, igst]);
+  }, [prodModal, showF5, showGridReorder, confirmDlg, handleSave, handleDelete, igst, getEnabledFormFields]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -1584,13 +1565,13 @@ ref={setFormRef(6)} data-field="invoiceAmt"
             <table style={{ width:'100%', borderCollapse:'collapse', tableLayout:'fixed' }}>
               <colgroup>
                 <col style={{ width:42 }} />
-                {COLS.map(c => <col key={c.key} style={{ width:c.w }} />)}
+                {gridCols.map(c => <col key={c.key} style={{ width:c.w }} />)}
                 <col style={{ width:34 }} />
               </colgroup>
               <thead>
                 <tr>
                   <th style={TH}>S.No</th>
-                  {COLS.map(c => <th key={c.key} style={{ ...TH, textAlign:c.align }}>{c.label}</th>)}
+                  {gridCols.map(c => <th key={c.key} style={{ ...TH, textAlign:c.align }}>{c.label}</th>)}
                   <th style={TH}>Del</th>
                 </tr>
               </thead>
@@ -1598,7 +1579,7 @@ ref={setFormRef(6)} data-field="invoiceAmt"
                 {items.map((item, idx) => (
                   <tr key={item._id} style={{ background:item.FreeQtyStatus===1?'#fef9c3':item.EditMode?'#f0fdf4':'#ffffff', borderBottom:'1px solid #f0f4ff' }}>
                     <td style={{ ...TD, textAlign:'center', color:'#8099be', fontSize:11 }}>{idx+1}</td>
-                    {COLS.map(col => (
+                    {gridCols.map(col => (
                       <td key={col.key} style={{ ...TD, padding:'1px 3px' }}>
                         {col.editable ? (
                           <input
@@ -1788,15 +1769,13 @@ ref={setFormRef(6)} data-field="invoiceAmt"
         />
       )}
 
-      {showFocusConfig && (
-        <FocusConfigModal
-          type={showFocusConfig}
-          onClose={() => setShowFocusConfig(null)}
-onSave={(config) => {
-            const enabled = config.filter(c => c.focus).sort((a,b)=>a.index-b.index).map(c=>c.key);
-            if(showFocusConfig==='form') setFormFocusOrder(enabled);
-            else setGridFocusOrder(enabled);
-            localStorage.setItem(showFocusConfig==='form'?'PurchaseFormFocus':'PurchaseGridFocus', JSON.stringify(config));
+      {showGridReorder && (
+        <GridColumnReorderModal
+          currentCols={gridCols}
+          onClose={() => setShowGridReorder(false)}
+          onSave={(newCols) => {
+            setGridCols(newCols);
+            localStorage.setItem('PurchaseGridOrder', JSON.stringify(newCols.map(c => c.key)));
           }}
         />
       )}

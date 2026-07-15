@@ -119,7 +119,7 @@ export default function Menucontrol() {
     const res = await CC.api(
       CC.SelectUserMenuHeading,
       null,
-      {},
+      {MobileApp:0},
       { Id: Number(id) }
     );
     if (redirectIfDualLogin(res)) return [];
@@ -343,17 +343,17 @@ export default function Menucontrol() {
         </div>
 
         {/* ── Grid ── */}
-        <div className="mp-grid-wrap" ref={gridWrapRef} tabIndex={-1}>
+        <div className="mp-grid-wrap" ref={gridWrapRef} tabIndex={-1} style={{ overflowY: "auto", maxHeight: "calc(100vh - 220px)" }}>
           <table className="mp-tbl">
-            <thead>
+            <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
               <tr>
-                <th style={{ width: 50 }}>S.No</th>
-                <th style={{ width: 250 }}>FormName</th>
-                <th style={{ width: 100, textAlign: "center" }}>Add</th>
-                <th style={{ width: 100, textAlign: "center" }}>Edit</th>
-                <th style={{ width: 100, textAlign: "center" }}>Delete</th>
-                <th style={{ width: 100, textAlign: "center" }}>View/Hide</th>
-                <th style={{ width: 100, textAlign: "center" }}>Active</th>
+                <th style={{ width: 50, position: "sticky", top: 0, zIndex: 10 }}>S.No</th>
+                <th style={{ width: 250, position: "sticky", top: 0, zIndex: 10 }}>FormName</th>
+                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>Add</th>
+                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>Edit</th>
+                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>Delete</th>
+                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>View/Hide</th>
+                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>Active</th>
               </tr>
             </thead>
 

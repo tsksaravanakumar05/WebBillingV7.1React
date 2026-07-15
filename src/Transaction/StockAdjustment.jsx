@@ -158,7 +158,7 @@ function PopupWindow({ title, children, onClose, width = 700, height = 460 }) {
     <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.45)",zIndex:8500,
       display:"flex",alignItems:"center",justifyContent:"center" }} onClick={onClose}>
       <div style={{ background:"#fff",borderRadius:8,boxShadow:"0 8px 32px rgba(0,0,0,0.22)",
-        width,maxHeight:height,display:"flex",flexDirection:"column",overflow:"hidden" }}
+        width,height,display:"flex",flexDirection:"column",overflow:"hidden" }}
         onClick={e=>e.stopPropagation()}>
         <div style={{ padding:"9px 14px",background:"#1a2e4a",color:"#fff",fontWeight:700,
           fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
@@ -511,7 +511,7 @@ function F5ViewWindow({ comid, onClose, onSelectRow, onEditRow, onDeleteRow, loa
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.5)",
       zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center" }}>
-      <div style={{ background:"#fff",borderRadius:8,width:"60vw",maxHeight:"88vh",
+      <div style={{ background:"#fff",borderRadius:8,width:"60vw",height:"88vh",
         display:"flex",flexDirection:"column",boxShadow:"0 16px 48px rgba(0,0,0,.3)" }}>
         {/* header */}
         <div style={{ background:"#1a2e4a",color:"#fff",padding:"10px 16px",fontSize:13,
@@ -1380,7 +1380,10 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
           style={numStyle}
           onFocus={() => setSelIdx(realIdx)}
           onKeyDown={e => handleCellKeyDown(e, realIdx, field)}
-          onChange={e => updateCell(realIdx, field, e.target.value)}
+          onChange={e => {
+            if (row[grdUOMDecimal] === 0 && e.target.value.includes(".")) return;
+            updateCell(realIdx, field, e.target.value);
+          }}
           onBlur={e => updateCell(realIdx, field, fmtByDecimal(e.target.value, row[grdUOMDecimal]))} />
       );
     }
@@ -1394,6 +1397,9 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
         onFocus={() => setSelIdx(realIdx)}
         onKeyDown={e => handleCellKeyDown(e, realIdx, field)}
         onChange={e => {
+          if (field === grdQuantity) {
+            if (row[grdUOMDecimal] === 0 && e.target.value.includes(".")) return;
+          }
           if (isNum) updateCell(realIdx, field, e.target.value);
           else CC.applyUppercase(e, v => updateCell(realIdx, field, v));
         }}
@@ -1507,7 +1513,7 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
 
       {/* ── Item Description Popup ── */}
       {itemPopup.open && (
-        <PopupWindow title="Item Description" width={700} onClose={() => setItemPopup({ open:false,rowIdx:null,prefill:"" })}>
+        <PopupWindow title="Item Description" width={820} height="80vh" onClose={() => setItemPopup({ open:false,rowIdx:null,prefill:"" })}>
           <SearchableList items={productList} labelField="ProductName" codeField="ProductCode" prefill={itemPopup.prefill}
             placeholder="Search Description Name…" onChange={onItemSelect}
             onClose={() => setItemPopup({ open:false,rowIdx:null,prefill:"" })} />

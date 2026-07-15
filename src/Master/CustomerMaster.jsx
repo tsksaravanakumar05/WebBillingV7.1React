@@ -26,7 +26,12 @@ import "./SupplierMaster.css";   // reuse supplier CSS (100% width layout)
 
 import Topbar from "../components/Topbar";
 import * as CC from "../Master/Common";
+import * as CC1 from "../components/Common";
 import * as MSG from "../components/Messages";
+
+// ─── Constants for Drafts ─────────────────────────────────────────────────────
+const CUSTOMER_DRAFT_KEY = "customermaster_draft";
+const CUSTOMER_CURSOR_KEY = "customermaster_cursor";
 
 // ─── Column field-name constants ──────────────────────────────────────────────
 const grdId                   = "Id";
@@ -121,16 +126,16 @@ const makeNewRow = (prefillName = "", prefillMobile = "") => ({
   [grdPhone]:             "",
   [grdGSTINNo]:           "",
   [grdEmail]:             "",
-  [grdCreditBillDays]:    "0",
-  [grdCreditBillLimit]:   "0.00",
-  [grdOpeningBalance]:    "0.00",
+  [grdCreditBillDays]:    "",
+  [grdCreditBillLimit]:   "",
+  [grdOpeningBalance]:    "",
   [grdPANNo]:             "",
   [grdPANNo1]:            "",
   [grdPlaceofSupply]:     "",
   [grdIGSTBill]:          "GST",
   [grdCRMNo]:             "",
-  [grdCRMPoint]:          "0.00",
-  [grdCRMValue]:          "0.00",
+  [grdCRMPoint]:          "",
+  [grdCRMValue]:          "",
   [grdcustomercardtype]:  "",
   [grdcustomercardtypeId]:null,
   [grdContactPersonName]: "",
@@ -158,7 +163,7 @@ function PopupWindow({ title, children, onClose, width = 280 }) {
 }
 
 // ─── SearchableList inside popup ──────────────────────────────────────────────
-function SearchableList({ items, labelField, prefill, onChange, onClose, onEnterEmpty, searchPlaceholder }) {
+function SearchableList({ items, labelField, prefill, onChange, onClose, onEnterEmpty, searchPlaceholder, onCreateNew }) {
   const [search, setSearch]   = useState(prefill || "");
   const [focIdx, setFocIdx]   = useState(-1);
   const inputRef  = useRef(null);
@@ -181,7 +186,7 @@ function SearchableList({ items, labelField, prefill, onChange, onClose, onEnter
       e.preventDefault();
       if (search.trim() === "") { onEnterEmpty?.(); return; }
       const target = focIdx >= 0 ? filtered[focIdx] : filtered[0];
-      if (target) onChange(target); else onEnterEmpty?.();
+      if (target) onChange(target); else if (onCreateNew) onCreateNew(search.trim()); else onEnterEmpty?.();
     }
     if (e.key === "Escape") onClose();
   };
@@ -207,8 +212,13 @@ function SearchableList({ items, labelField, prefill, onChange, onClose, onEnter
         />
       </div>
       <div ref={listRef} style={{ overflowY:"auto",flex:1 }}>
-        {filtered.length === 0 && (
+        {filtered.length === 0 && !onCreateNew && (
           <div style={{ padding:12,color:"#94a3b8",fontSize:12,textAlign:"center" }}>No results</div>
+        )}
+        {filtered.length === 0 && onCreateNew && search.trim() !== "" && (
+          <div className="sm-picker-item focused" onClick={() => onCreateNew(search.trim())}>
+            ➕ Create new: <strong>"{search.trim()}"</strong>
+          </div>
         )}
         {filtered.map((item, i) => (
           <div
@@ -237,7 +247,11 @@ export default function CustomerMaster() {
   const dirtyIds  = useRef(new Set());
   const gridRef   = useRef([]);
   const [pw,setPw]=useState(null);
-    const pwOkRef = useRef(null);
+  const pwOkRef = useRef(null);
+  const pendingReturnRef = useRef(null);
+  const pendingSelectRef = useRef(null);
+  const draftOk = useRef(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   // ── MSG hooks ──────────────────────────────────────────────────────────────
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast,   toasts    } = MSG.useToast();
@@ -314,7 +328,7 @@ export default function CustomerMaster() {
   const [pageLen,      setPageLen     ] = useState(1);
   const [filterSearch, setFilterSearch] = useState("");
   const [filterColumn, setFilterColumn] = useState(grdSupplierName);
-  const [activeFilter, setActiveFilter] = useState("all");
+
 
   // ── Popup states ──────────────────────────────────────────────────────────
   const [areaPopup,    setAreaPopup   ] = useState({ open:false, items:[], rowIdx:null, prefill:"" });
@@ -635,6 +649,7 @@ const doExcelDownload = useCallback(async () => {
   URL.revokeObjectURL(url);
   toast("✅ Excel downloaded");
 }, [sess.Comid, grid, toast]);
+const ZERO_EMPTY_FIELDS = new Set([grdCreditBillDays, grdCreditBillLimit, grdOpeningBalance]);
   // ── selectRow ─────────────────────────────────────────────────────────────
   const selectRow = useCallback((newIdx) => {
     setGrid(prev => prev.map((r, i) => {
@@ -653,7 +668,35 @@ const [colSettings, setColSettings] = useState(() => {
   return ALL_COLUMNS.map(c => ({ field: c.field, label: c.label, hidden: c.hidden, width: c.width }));
 });
 const [f12Open, setF12Open] = useState(false);
+useEffect(() => {
+  const loadColSettings = async () => {
+    try {
+      const url = CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.MComid}&filename=Customer`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...CC.authHeaders() },
+      });
+      if (!res.ok) return;
 
+      const serverData = await res.json();
+      if (!Array.isArray(serverData) || !serverData.length) return;
+
+      const merged = ALL_COLUMNS.map(c => {
+        const s = serverData.find(d => d.column === c.field);
+        return {
+          field:  c.field,
+          label:  c.label,
+          hidden: s ? !s.Visible : c.hidden,
+          width:  s ?  s.Width   : c.width,
+        };
+      });
+      setColSettings(merged);
+    } catch {
+      // no server file yet — keep defaults/localStorage
+    }
+  };
+  loadColSettings();
+}, [sess.MComid]);
 const visibleColumns = ALL_COLUMNS.filter(c => {
   if (c.field === grdCustomerNameTamil && !sess.CustomerNameTamil) return false;
   const cs = colSettings.find(s => s.field === c.field);
@@ -662,21 +705,116 @@ const visibleColumns = ALL_COLUMNS.filter(c => {
   const cs = colSettings.find(s => s.field === c.field);
   return { ...c, width: cs?.width ?? c.width };
 });
-const saveColSettings = useCallback((localSettings) => {
-  try { localStorage.setItem("customer_colSettings", JSON.stringify(localSettings)); } catch {}
-  setColSettings(localSettings);
+// const saveColSettings = useCallback((localSettings) => {
+//   try { localStorage.setItem("customer_colSettings", JSON.stringify(localSettings)); } catch {}
+//   setColSettings(localSettings);
+//   setF12Open(false);
+//   toast("✅ Column settings saved");
+// }, [toast]);
+const saveColSettings = useCallback(async (localSettings) => {
   setF12Open(false);
-  toast("✅ Column settings saved");
-}, [toast]);
+  setLoading(true);
+  const newCols = localSettings ?? colSettings;
+  const payload = newCols.map(s => ({
+    Comid:    parseInt(sess.MComid),
+    filename: "Customer",
+    column:   s.field,
+    Visible:  s.hidden !== true,
+    Width:    parseInt(s.width || 120),
+  }));
+  try {
+    const res = await fetch(CC.BASE_URL + CC.VisibleColumnsUrl, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() },
+      body:    JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast("✅ Column settings saved.");
+      try { localStorage.setItem("customer_colSettings", JSON.stringify(newCols)); } catch {}
+      setColSettings(newCols);
+    } else {
+      toast(`❌ ${data.message || "Failed"}`, true);
+    }
+  } catch (err) {
+    console.error("saveColSettings error:", err);
+    toast(`❌ Error saving columns: ${err.message || err}`, true);
+  } finally {
+    setLoading(false);
+  }
+}, [colSettings, sess.MComid, toast]);
   // ── loadCounter ───────────────────────────────────────────────────────────
   
 
-  useEffect(() => { loadCounter(-1, sess.pagecount, "", "", 1); }, []); // eslint-disable-line
+  useEffect(() => {
+    (async () => {
+      let draftRestored = false;
+      try {
+        const savedDraft = sessionStorage.getItem(CUSTOMER_DRAFT_KEY);
+        if (savedDraft) {
+          const parsed = JSON.parse(savedDraft);
+          if (parsed && Array.isArray(parsed)) {
+            setGrid(parsed);
+            gridRef.current = parsed;
+            draftRestored = true;
+            toast("📋 Draft restored.");
+          }
+        }
+      } catch {}
+
+      const retId = sessionStorage.getItem("masterReturnValue");
+      if (retId) {
+        sessionStorage.removeItem("masterReturnValue");
+        sessionStorage.removeItem("masterReturnName");
+        const curSaved = sessionStorage.getItem(CUSTOMER_CURSOR_KEY);
+        if (curSaved) {
+          pendingReturnRef.current = { retId, cur: JSON.parse(curSaved) };
+          sessionStorage.removeItem(CUSTOMER_CURSOR_KEY);
+        }
+      } else {
+        try { sessionStorage.removeItem(CUSTOMER_CURSOR_KEY); } catch{}
+      }
+
+      if (!draftRestored) {
+        await loadCounter(-1, sess.pagecount, "", "", 1);
+      }
+      
+      draftOk.current = true;
+      setDataLoaded(true);
+    })();
+    // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    if (dataLoaded && pendingReturnRef.current) {
+      const { retId, cur } = pendingReturnRef.current;
+      pendingSelectRef.current = retId;
+      pendingReturnRef.current = null;
+      if (cur.colKey === grdArea) {
+        openAreaPopup(cur.rowIdx);
+      } else if (cur.colKey === grdSalesMan) {
+        openSalesManPopup(cur.rowIdx);
+      } else if (cur.colKey === grdcustomercardtype) {
+        openCardPopup(cur.rowIdx);
+      }
+    }
+  }, [dataLoaded]); // Note: openAreaPopup and openSalesManPopup depend on load so we omit them to avoid loops or define them safely.
+
 
   // ── addRow ─────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
-    const blank = makeNewRow();
     setGrid(prev => {
+      if (prev.length > 0) {
+        const lastRow = prev[prev.length - 1];
+        if (!String(lastRow[grdSupplierName] || "").trim()) {
+          const lastIdx = prev.length - 1;
+          setSelIdx(lastIdx);
+          focusCell(lastIdx, grdSupplierName);
+          return prev;
+        }
+      }
+      
+      const blank = makeNewRow();
       const next = [...prev, blank];
       gridRef.current = next;
       const idx = next.length - 1;
@@ -844,6 +982,28 @@ const vn = v => parseFloat(v) || 0;
       if (!checkDuplicate(cleaned, grdSupplierName, "Customer Name")) return;
     }
 
+    for (let i = 0; i < dirty.length; i++) {
+      const row = dirty[i];
+      const crmNo = String(row[grdCRMNo] || "").trim().toLowerCase();
+      if (crmNo) {
+        const dupIdx = cleaned.findIndex(r => 
+          String(r[grdCRMNo] || "").trim().toLowerCase() === crmNo &&
+          r._uid !== row._uid
+        );
+
+        if (dupIdx !== -1) {
+          toast("❌ CRM Number already exists. Please enter a unique CRM Number.", true);
+          const gridIdx = cleaned.findIndex(r => r._uid === row._uid);
+          if (gridIdx !== -1) {
+            setSelIdx(gridIdx);
+            focusCell(gridIdx, grdCRMNo);
+            setTimeout(() => { try { inputRefs.current[`${gridIdx}-${grdCRMNo}`]?.select(); } catch(e){} }, 60);
+          }
+          return;
+        }
+      }
+    }
+
     const hasNew      = dirty.some(r => r[grdId] == null || r[grdId] === 0);
     const hasExisting = dirty.some(r => r[grdId] != null && r[grdId] !== 0);
     let confirmMsg    = "Do you want to save the Customer details?";
@@ -905,22 +1065,44 @@ const vn = v => parseFloat(v) || 0;
   }, [tamilPopup.open, confirm, navigate]);
 
   // ── Popup loaders ──────────────────────────────────────────────────────────
+
+  const handleCreateNew = useCallback((typed, type, rowIdx) => {
+    let nav = "";
+    let colKey = "";
+    if (type === "Area") { nav = "/Area"; colKey = grdArea; }
+    else if (type === "Salesman") { nav = "/SalesMan"; colKey = grdSalesMan; }
+    else if (type === "CardType") { nav = "/CustomerCardTypeMaster"; colKey = grdcustomercardtype; }
+    
+    if (nav) {
+      sessionStorage.setItem("masterPrefill", typed.trim());
+      try {
+        sessionStorage.setItem("masterReturnField", colKey);
+        sessionStorage.setItem(CUSTOMER_DRAFT_KEY, JSON.stringify(gridRef.current));
+        sessionStorage.setItem(CUSTOMER_CURSOR_KEY, JSON.stringify({ rowIdx, colKey }));
+      } catch {}
+      setAreaPopup(p => ({ ...p, open: false }));
+      setSalesmanPopup(p => ({ ...p, open: false }));
+      setCardPopup(p => ({ ...p, open: false }));
+      navigate(nav);
+    }
+  }, [navigate]);
+
   const openAreaPopup = useCallback(async (rowIdx) => {
-    const res   = await CC.api(CC.AreaSelect, { Comid: Number(sess.MComid) });
+    const res   = await CC.api(CC1.AreaSelect,null,{}, { Comid: Number(sess.MComid) });
     if (redirectIfDualLogin(res)) return;
     const items = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
     setAreaPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdArea] || "" });
   }, [sess.MComid, redirectIfDualLogin]);
 
   const openSalesManPopup = useCallback(async (rowIdx) => {
-    const res   = await CC.api(CC.SalesManSelect, { Comid: Number(sess.MComid) });
+    const res   = await CC.api(CC.SalesManSelect,null,{}, { Comid: Number(sess.MComid) });
     if (redirectIfDualLogin(res)) return;
-    const items = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    const items = Array.isArray(res) ? res : Array.isArray(res.Data1) ? res.Data1 : [];
     setSalesmanPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdSalesMan] || "" });
   }, [sess.MComid, redirectIfDualLogin]);
 
   const openCardPopup = useCallback(async (rowIdx) => {
-    const res   = await CC.api(CC.CustomerCardSelect, { Comid: Number(sess.MComid) });
+    const res   = await CC.api(CC1.CustomerCardTypeSelect,null,{}, { Comid: Number(sess.MComid) });
     if (redirectIfDualLogin(res)) return;
     const items = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
     setCardPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdcustomercardtype] || "" });
@@ -973,6 +1155,48 @@ const vn = v => parseFloat(v) || 0;
     setTamilPopup({ open:false, rowIdx:null, value:"" });
     focusCell(tamilPopup.rowIdx, grdSupplierName);
   }, [tamilPopup, updateCells, focusCell]);
+
+  // Auto-select newly created Area
+  useEffect(() => {
+    if (areaPopup.open && areaPopup.items.length > 0 && pendingSelectRef.current) {
+      const match = areaPopup.items.find(x => String(x.Id) === String(pendingSelectRef.current));
+      if (match) {
+        pendingSelectRef.current = null;
+        onAreaSelect(match);
+      } else {
+        pendingSelectRef.current = null;
+        toast("⚠️ Newly created Area could not be automatically selected.", true);
+      }
+    }
+  }, [areaPopup.open, areaPopup.items, onAreaSelect, toast]);
+
+  // Auto-select newly created SalesMan
+  useEffect(() => {
+    if (salesmanPopup.open && salesmanPopup.items.length > 0 && pendingSelectRef.current) {
+      const match = salesmanPopup.items.find(x => String(x.Id) === String(pendingSelectRef.current));
+      if (match) {
+        pendingSelectRef.current = null;
+        onSalesManSelect(match);
+      } else {
+        pendingSelectRef.current = null;
+        toast("⚠️ Newly created Salesman could not be automatically selected.", true);
+      }
+    }
+  }, [salesmanPopup.open, salesmanPopup.items, onSalesManSelect, toast]);
+
+  // Auto-select newly created Card Type
+  useEffect(() => {
+    if (cardPopup.open && cardPopup.items.length > 0 && pendingSelectRef.current) {
+      const match = cardPopup.items.find(x => String(x.Id) === String(pendingSelectRef.current));
+      if (match) {
+        pendingSelectRef.current = null;
+        onCardSelect(match);
+      } else {
+        pendingSelectRef.current = null;
+        toast("⚠️ Newly created Card Type could not be automatically selected.", true);
+      }
+    }
+  }, [cardPopup.open, cardPopup.items, onCardSelect, toast]);
 
   // ── Column navigation order ────────────────────────────────────────────────
 const columnNavOrder = visibleColumns
@@ -1086,16 +1310,25 @@ const columnNavOrder = visibleColumns
   return (
     <input ref={ref} className="mp-cell-input" type="text"
       maxLength={maxLen || 200}
-      value={String(value)}
+      value={ZERO_EMPTY_FIELDS.has(field) && vn(value) === 0 ? "" : String(value)}
       readOnly={!!inViewMode}
       style={{ ...cellStyle, ...(isNum ? { textAlign:"right" } : {}) }}
       onFocus={() => selectRow(realIdx)}
       onKeyDown={e => !inViewMode && handleCellKeyDown(e, realIdx, field)}
-      onChange={e => {
-        if (inViewMode) return;
-        if (isNum) updateCell(realIdx, field, e.target.value);
-        else CC.applyUppercase(e, v => updateCell(realIdx, field, v));
-      }}
+     onChange={e => {
+  if (inViewMode) return;
+  if (isNum) {
+    updateCell(realIdx, field, e.target.value);
+  } else {
+    CC.applyUppercase(e, v => {
+      if (field === grdMobileNo) {
+        updateCells(realIdx, { [grdMobileNo]: v, [grdCRMNo]: v });
+      } else {
+        updateCell(realIdx, field, v);
+      }
+    });
+  }
+}}
       onBlur={e => {
         if (inViewMode) return;
         if (type === "float") updateCell(realIdx, field, parseFloat(parseFloat(e.target.value) || 0).toFixed(2));
@@ -1143,7 +1376,7 @@ const handlePageClick = useCallback((page) => {
 
   // ── Display grid (active filter) ───────────────────────────────────────────
   const displayGrid = grid.filter(row => {
-    if (activeFilter === "active" && row[grdActive] === false) return false;
+
     return true;
   });
   function PwModal({ title, comid, onOk, onClose }) {
@@ -1208,10 +1441,10 @@ const handlePageClick = useCallback((page) => {
           </table>
         </div>
         <div style={{ padding:"10px 14px",display:"flex",gap:8,justifyContent:"flex-end",borderTop:"1px solid #e5e7eb" }}>
-          <button onClick={() => saveColSettings(local)}
-            style={{ background:"#1a2e4a",color:"#fff",border:"none",borderRadius:4,padding:"6px 18px",fontSize:12,fontWeight:700,cursor:"pointer" }}>
-            💾 Save
-          </button>
+         <button onClick={() => { setColSettings(local); saveColSettings(local); }}
+  style={{ background:"#1a2e4a",color:"#fff",border:"none",borderRadius:4,padding:"6px 18px",fontSize:12,fontWeight:700,cursor:"pointer" }}>
+  💾 Save
+</button>
           <button onClick={() => setF12Open(false)}
             style={{ background:"#fff",color:"#6b7280",border:"1px solid #d1d5db",borderRadius:4,padding:"6px 14px",fontSize:12,cursor:"pointer" }}>
             Cancel
@@ -1250,6 +1483,7 @@ const handlePageClick = useCallback((page) => {
   setAreaPopup(p => ({ ...p, open:false }));
   moveNext(areaPopup.rowIdx, grdArea);  // <-- use moveNext
 }}
+            onCreateNew={(val) => handleCreateNew(val, "Area", areaPopup.rowIdx)}
             searchPlaceholder="Search Area…" />
         </PopupWindow>
       )}
@@ -1260,6 +1494,7 @@ const handlePageClick = useCallback((page) => {
           <SearchableList items={salesmanPopup.items} labelField="SalesManName" prefill={salesmanPopup.prefill}
             onChange={onSalesManSelect} onClose={() => setSalesmanPopup(p => ({ ...p, open:false }))}
             onEnterEmpty={() => { setSalesmanPopup(p => ({ ...p, open:false })); focusCell(salesmanPopup.rowIdx, grdAddress1); }}
+            onCreateNew={(val) => handleCreateNew(val, "Salesman", salesmanPopup.rowIdx)}
             searchPlaceholder="Search Sales Man…" />
         </PopupWindow>
       )}
@@ -1273,6 +1508,7 @@ const handlePageClick = useCallback((page) => {
   setCardPopup(p => ({ ...p, open:false }));
   moveNext(cardPopup.rowIdx, grdcustomercardtype);  // <-- use moveNext
 }}
+            onCreateNew={(val) => handleCreateNew(val, "CardType", cardPopup.rowIdx)}
             searchPlaceholder="Search Card Type…" />
         </PopupWindow>
       )}
@@ -1327,32 +1563,33 @@ const handlePageClick = useCallback((page) => {
   <div className="mp-toolbar-title">Customer Master</div>
 
   {/* Search filter — pushed to the right */}
-  <div style={{ display: "flex", gap: 4, alignItems: "center", marginLeft: "auto" }}>
-    <select className="mp-cell-select" style={{ width: 140, height: 28 }}
-      value={filterColumn} onChange={e => setFilterColumn(e.target.value)}>
-      <option value={grdSupplierName}>Customer Name</option>
-      <option value={grdMobileNo}>Mobile No</option>
-      <option value={grdGSTINNo}>GSTIN No</option>
-      <option value={grdArea}>Area</option>
-      <option value={grdCity}>City</option>
-      <option value={grdCode}>Code</option>
-    </select>
+  <div style={{ display: "flex", gap: 12, alignItems: "center", marginLeft: "auto" }}>
+    <div style={{ display: "flex", gap: 12, alignItems: "center", fontSize: "13px", fontWeight: 500 }}>
+      <label style={{ display: "flex", gap: 4, alignItems: "center", cursor: "pointer", color: "#475569" }}>
+        <input type="radio" name="customerFilter" value={grdSupplierName}
+          checked={filterColumn === grdSupplierName}
+          onChange={e => setFilterColumn(e.target.value)} />
+        Customer Name
+      </label>
+      <label style={{ display: "flex", gap: 4, alignItems: "center", cursor: "pointer", color: "#475569" }}>
+        <input type="radio" name="customerFilter" value={grdMobileNo}
+          checked={filterColumn === grdMobileNo}
+          onChange={e => setFilterColumn(e.target.value)} />
+        Mobile No
+      </label>
+    </div>
     <input className="mp-cell-input" style={{ width: 160, height: 28 }}
       placeholder="Search… (Enter)"
       value={filterSearch}
       onChange={e => setFilterSearch(e.target.value)}
       onKeyDown={handleFilterSearch}
     />
-    <select className="mp-cell-select" style={{ width: 100, height: 28 }}
-      value={activeFilter} onChange={e => setActiveFilter(e.target.value)}>
-      <option value="all">All</option>
-      <option value="active">Active Only</option>
-    </select>
   </div>
 </div>
 
         {/* ── Grid ── */}
-       <div className="mp-grid-wrap" style={{ overflowX:"auto", overflowY:"auto" }}>
+        
+       {/* <div className="mp-grid-wrap" style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
   <table className="mp-tbl" style={{
     minWidth: visibleColumns.reduce((a, c) => a + c.width, 150) + "px",
     tableLayout: "fixed", width: "100%"
@@ -1386,7 +1623,7 @@ const handlePageClick = useCallback((page) => {
             <td className="sno">{idx + 1}</td>
 
             {/* Edit icon */}
-            <td style={{ textAlign:"center", whiteSpace:"nowrap" }}>
+            {/* <td style={{ textAlign:"center", whiteSpace:"nowrap" }}>
               {row[grdId] && row[grdEditMode] === 0 && (
                 <button className="mp-edit-btn" title="Edit row"
                   onClick={e => { e.stopPropagation(); enableEdit(realIdx); }}>✏️</button>
@@ -1407,7 +1644,7 @@ const handlePageClick = useCallback((page) => {
                   if (!inViewMode) {
                     setTimeout(() => {
                       const el = inputRefs.current[`${realIdx}-${colDef.field}`];
-                      if (el) { el.focus(); el.select?.(); }
+                      if (el) { el.focus(); }
                     }, 20);
                   }
                 }}>
@@ -1433,7 +1670,92 @@ const handlePageClick = useCallback((page) => {
   </table>
   {displayGrid.length === 0 && !loading && (
     <div className="mp-empty">No records. Press ➕ to add a customer.</div>
-  )}
+  )} 
+</div> */}
+<div className="mp-grid-wrap">
+  <div className="mp-gscroll" style={{ overflowX: "auto" }}>
+    <table className="mp-tbl" style={{
+      minWidth: visibleColumns.reduce((a, c) => a + c.width, 150) + "px",
+      tableLayout: "fixed", width: "100%"
+    }}>
+      <thead>
+        <tr>
+          <th style={{ width:45 }}>S.No</th>
+          <th style={{ width:44 }}></th>
+          {visibleColumns.map(c => (
+            <th key={c.field} style={{ width:c.width, minWidth:c.width,
+              textAlign: c.field === grdActive ? "center" : undefined }}>
+              {c.label}{c.required ? " *" : ""}
+            </th>
+          ))}
+          <th style={{ width:70, textAlign:"center" }}></th>
+        </tr>
+      </thead>
+      <tbody>
+        {displayGrid.map((row, idx) => {
+          const realIdx = grid.indexOf(row);
+          const isInact = row[grdActive] === false || row[grdActive] === 0;
+          const isMod   = row[grdEditMode] === 1;
+          const isSel   = selIdx === realIdx;
+          const inViewMode = row[grdEditMode] === 0 && row[grdId];
+
+          return (
+            <tr key={row._uid}
+              className={[isSel?"sel":"", isInact?"inact":"", isMod?"mod":""].filter(Boolean).join(" ")}
+              onClick={() => selectRow(realIdx)}>
+
+              <td className="sno">{idx + 1}</td>
+
+              {/* Edit icon */}
+              <td style={{ textAlign:"center", whiteSpace:"nowrap" }}>
+                {row[grdId] && row[grdEditMode] === 0 && (
+                  <button className="mp-edit-btn" title="Edit row"
+                    onClick={e => { e.stopPropagation(); enableEdit(realIdx); }}>✏️</button>
+                )}
+                {row[grdId] && row[grdEditMode] === 1 && (
+                  <button className="mp-edit-btn active" title="Editing…"
+                    style={{ color:"#16a34a", cursor:"default" }}>✏️</button>
+                )}
+              </td>
+
+              {visibleColumns.map(colDef => (
+                <td key={colDef.field}
+                  style={{ padding:"2px 4px",
+                    textAlign: colDef.field === grdActive ? "center" : undefined }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    selectRow(realIdx);
+                    if (!inViewMode) {
+                      setTimeout(() => {
+                        const el = inputRefs.current[`${realIdx}-${colDef.field}`];
+                        if (el) { el.focus(); }
+                      }, 20);
+                    }
+                  }}>
+                  {renderCell(row, realIdx, colDef, inViewMode)}
+                </td>
+              ))}
+
+              <td style={{ textAlign:"center", padding:"2px 4px", whiteSpace:"nowrap" }}>
+                {row[grdId] && row[grdEditMode] === 0 && (
+                  <button className="mp-edit-btn" title="Edit row"
+                    onClick={e => { e.stopPropagation(); enableEdit(realIdx); }}>✏️</button>
+                )}
+                {row[grdId] && row[grdEditMode] === 1 && (
+                  <button className="mp-edit-btn active" style={{ color:"#16a34a",cursor:"default" }}>✏️</button>
+                )}
+                <button className="mp-del-btn"
+                  onClick={e => { e.stopPropagation(); deleteRow(realIdx); }}>🗑</button>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+    {displayGrid.length === 0 && !loading && (
+      <div className="mp-empty">No records. Press ➕ to add a customer.</div>
+    )}
+  </div>
 </div>
 {/* ── BOTTOM TOOLBAR: Action buttons ── */}
 <div className="mp-toolbar" style={{
@@ -1457,18 +1779,7 @@ const handlePageClick = useCallback((page) => {
     onClick={() => setF12Open(true)}>
     ⚙ F12 Columns
   </button>
-  <button className="mp-btn"
-    onClick={() => loadCounter(-1, sess.pagecount, "Active", "Active", 1)}
-    disabled={loading}
-    style={{ background: "#0891b2", color: "#fff", borderColor: "#0891b2" }}>
-    🔍 F2 Active
-  </button>
-  <button className="mp-btn"
-    onClick={() => { const i = selIdx ?? (gridRef.current.length - 1); openBranchPopup(i); }}
-    disabled={loading}
-    style={{ background: "#7c3aed", color: "#fff", borderColor: "#7c3aed" }}>
-    🏢 F5 Branch
-  </button>
+  
   {sess.CustomerNameTamil && (
     <button className="mp-btn"
       onClick={() => { const i = selIdx ?? (gridRef.current.length - 1); openTamilPopup(i); }}

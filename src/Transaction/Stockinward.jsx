@@ -10,6 +10,13 @@
 //
 //  BatchWise Stock: Brand / Model / Color / Size / Gender / ToSize columns
 //  mirrored from stockinward.js loadgrid() combobox column definitions.
+//
+//  FIX: removed the broken `focusEnabledCols` useMemo block. It referenced an
+//  undeclared `focusCols` state variable (only `focusColsRef`, a useRef, exists
+//  in this file), which threw a ReferenceError on every render and crashed the
+//  component. The memo's output was also never consumed anywhere else — grid
+//  navigation (handleCellKeyDown) already reads focusColsRef.current directly —
+//  so removing it is safe and fixes the crash with no behavior change.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, {
@@ -428,7 +435,7 @@ function ProductSearchPopup({ products, onSelect, onClose }) {
     <div style={{
       position: "fixed", top: 120, left: 80, zIndex: 9800,
       background: "#fff", border: "1px solid #c5d8f8", borderRadius: 8,
-      width: 700, maxHeight: 460, display: "flex", flexDirection: "column",
+      width: 820, height: "80vh", display: "flex", flexDirection: "column",
       boxShadow: "0 16px 48px rgba(31,101,222,.2)",
     }}>
       <div style={{
@@ -497,7 +504,7 @@ function F5ViewModal({ rows, mode, onEdit, onDelete, onClose, fromDate, toDate, 
 
   return (
     <div className="si-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="si-modal" style={{ width: 1000, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+      <div className="si-modal" style={{ width: 1000, height: "85vh", display: "flex", flexDirection: "column" }}>
         <div className="si-modal-hdr">
           <span>📋 Stock {modeLabel} View (F5)</span>
           <button onClick={onClose}>✕</button>
@@ -1067,6 +1074,11 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   const handleCellChange = useCallback((rid, colKey, value) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
+      if (colKey === "ItemQty") {
+        if (r.UOMDecimal === 0 && String(value).includes(".")) {
+          return r;
+        }
+      }
       const updated = { ...r, [colKey]: value, _dirty: true };
       if (colKey === "ProfitPer") {
         updated.ProfitAmt = f2(vn(updated.landingCost) * (vn(value) / 100));

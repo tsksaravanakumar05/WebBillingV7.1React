@@ -4,10 +4,11 @@
 //                SalesManCode column, Ctrl+G Focus/Reorder — all from SaleBill
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
+import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef,useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import "../TransactionStyle/SaleBill.css";
 import "../Master/MasterPage.css";
+
 import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";
 
@@ -501,7 +502,7 @@ function ExpiryDateListPopup({ expiryList, onSelect, onClose }) {
 }
 
 // ─── PRODUCT SEARCH POPUP ────────────────────────────────────────────────────
-function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
+function ProductSearchPopup({ products, onSelect, onClose, anchorPos, isTamil }) {
   const [q, setQ] = useState("");
   const [hilite, setHilite] = useState(0);
   const inputRef = useRef(null);
@@ -533,12 +534,22 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
             if (e.key === "Escape")     { e.preventDefault(); onClose(); }
           }} />
       </div>
-      <div className="sb-ps-cols">
-        <span style={{ width: 90 }}>Code</span>
-        <span style={{ flex: 1 }}>Product Name</span>
-        <span style={{ width: 72, textAlign: "right" }}>Rate</span>
-        <span style={{ width: 60, textAlign: "right" }}>Stock</span>
-      </div>
+      {isTamil ? (
+        <div className="sb-ps-cols">
+          <span style={{ width: 90 }}>Code</span>
+          <span style={{ flex: 1 }}>Description</span>
+          <span style={{ width: 140 }}>TamilName</span>
+        </div>
+      ) : (
+        <div className="sb-ps-cols">
+          <span style={{ width: 80 }}>Code</span>
+          <span style={{ flex: 1 }}>Description</span>
+          <span style={{ width: 50, textAlign: "center" }}>UOM</span>
+          <span style={{ width: 65, textAlign: "right" }}>MRP</span>
+          <span style={{ width: 65, textAlign: "right" }}>SaleRate</span>
+          <span style={{ width: 50, textAlign: "right" }}>GST%</span>
+        </div>
+      )}
       <div ref={listRef} className="sb-prod-list">
         {filtered.length === 0
           ? <div className="sb-ps-empty">No products found</div>
@@ -546,10 +557,40 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
             <div key={p.Id} data-idx={idx}
               className={`sb-prod-item${idx === hilite ? " hi" : ""}`}
               onClick={() => onSelect(p)} onMouseEnter={() => setHilite(idx)}>
-              <span className="sb-prod-code">{p.Prod_Code || p.ProductCode}</span>
-              <span className="sb-prod-name">{p.PName || p.ProductName}</span>
-              <span className="sb-prod-rate">₹{f2(vn(p.SaleRate || p.SalesRate)).toFixed(2)}</span>
-              <span className="sb-prod-stock">{vn(p.Stock).toFixed(0)}</span>
+                {isTamil ? (
+                                           <>
+                                             <span className="sb-prod-code" style={{ width: 90 }}>
+                                               {p.Prod_Code ? p.Prod_Code : p.ProductCode}
+                                             </span>
+                                             <span className="sb-prod-name" style={{ flex: 1 }}>
+                                               {p.PName ? p.PName : p.ProductName}
+                                             </span>
+                                             <span style={{ width: 140, color: "#1f65de", fontWeight: 600 }}>
+                                               {p.PrinterName || "—"}
+                                             </span>
+                                           </>
+                                         ) : (
+                                           <>
+                                             <span className="sb-prod-code" style={{ width: 80 }}>
+                                               {p.Prod_Code ? p.Prod_Code : p.ProductCode}
+                                             </span>
+                                             <span className="sb-prod-name" style={{ flex: 1 }}>
+                                               {p.PName ? p.PName : p.ProductName}
+                                             </span>
+                                             <span style={{ width: 50, textAlign: "center", fontSize: 10.5, color: "#6b7a99" }}>
+                                               {p.UOM || "—"}
+                                             </span>
+                                             <span style={{ width: 65, textAlign: "right", color: "#475569" }}>
+                                               ₹{CC.f2(CC.vn(p.MRP)).toFixed(2)}
+                                             </span>
+                                             <span className="sb-prod-rate" style={{ width: 65, textAlign: "right" }}>
+                                               ₹{CC.f2(CC.vn(p.SaleRate ? p.SaleRate : p.SalesRate)).toFixed(2)}
+                                             </span>
+                                             <span style={{ width: 50, textAlign: "right", color: "#8b5cf6" }}>
+                                               {CC.f2(CC.vn(p.GST)).toFixed(2)}
+                                             </span>
+                                           </>
+                                         )}
             </div>
           ))
         }
@@ -686,24 +727,49 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
   useEffect(() => {
     (async () => {
       try {
-          const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=EstimateFocus`;
-        //const url = `/Content/Appdata/Visible/${mcomid}/EstimateFocus.json?v=${Date.now()}`;
-        const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
-        let saved = [];
-        if (res.ok) { try { saved = await res.json(); } catch {} }
-        const base = colSettings.filter(c => c.visible).map((c, i) => {
-          const sv = Array.isArray(saved) ? saved.find(s => s.column === c.key) : null;
-          return { key: c.key, label: c.label, focus: sv ? sv.Focus === true : true, index: sv ? (sv.Index ?? i) : i };
-        });
+         const url = `${CC.GetFocusColumnsUrl}`;
+        //const url = `/Content/Appdata/Visible/${mcomid}/SaleFocus.json?v=${Date.now()}`;
+       const res = await CC.api(
+      url,
+      null,
+      {},
+      { comid:comid, filename: "SaleFocus" }
+    );
+
+    if (!res || res._netErr) return;
+
+    const saved = Array.isArray(res) ? res
+                : Array.isArray(res?.data)  ? res.data
+                : Array.isArray(res?.Data1) ? res.Data1
+                : [];
+        // let saved = [];
+        // if (res.ok) { try { saved = await res.json(); } catch {} }
+
+        const base = colSettings
+          .filter(c => c.visible)
+          .map((c, i) => {
+            const sv = Array.isArray(saved) ? saved.find(s => s.column === c.key) : null;
+            return {
+              key:   c.key,
+              label: c.label,
+              focus: sv ? sv.Focus === true : true,
+              index: sv ? (sv.Index ?? i) : i,
+            };
+          });
         base.sort((a, b) => a.index - b.index);
         setItems(base);
-      } catch {
-        setItems(colSettings.filter(c => c.visible).map((c, i) => ({ key: c.key, label: c.label, focus: true, index: i })));
-      } finally { setLoading(false); }
+      } catch (err){
+        setItems(colSettings.filter(c => c.visible).map((c, i) => ({
+          key: c.key, label: c.label, focus: true, index: i,
+        })));
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [colSettings, mcomid]);
+  }, [colSettings, comid]);
 
   const toggleFocus = key => setItems(prev => prev.map(it => it.key === key ? { ...it, focus: !it.focus } : it));
+
   const onDragStart = (e, idx) => { setDragIdx(idx); e.dataTransfer.effectAllowed = "move"; };
   const onDragOver  = (e, idx) => { e.preventDefault(); setOverIdx(idx); };
   const onDrop      = (e, idx) => {
@@ -718,57 +784,121 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
     setDragIdx(null); setOverIdx(null);
   };
 
-  const handleSave = async () => {
-    const payload = items.map((it, i) => ({
-      filename: "EstimateFocus", column: it.key, Index: i, Focus: it.focus, Comid: parseInt(comid) || 1,
-    }));
-    try {
-      const res = await fetch(FocusColumnsUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8", ...CC.authHeaders() },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.ok) { toast?.("✅ Focus/Reorder saved."); onSaved?.(); onClose(); }
-      else { toast?.("⚠️ " + (data.message || "Save failed")); onClose(); }
-    } catch (err) { toast?.("⚠️ Save failed: " + err.message); }
-  };
+const handleSave = async () => {
+  const payload = items.map((it, i) => ({
+    filename: "SaleFocus",
+    column:   it.key,
+    Index:    i,
+    Focus:    it.focus,
+    Comid:    parseInt(comid) || 1,
+  }));
+
+  try {
+    const res = await CC.insertapi(CC.SO_FocusColumnsUrl, payload);
+
+    if (res?.ok || res?.IsSuccess) {
+      toast?.("✅ Focus/Reorder saved.");
+      onSaved?.();
+      onClose();
+    } else {
+      toast?.("⚠️ " + (res?.message || "Save failed"));
+      onClose();
+    }
+  } catch (err) {
+    toast?.("⚠️ Save failed: " + err.message);
+  }
+};
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(10,20,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8700 }}>
-      <div style={{ background: "#fff", borderRadius: 10, width: 420, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 16px 48px rgba(31,101,222,.22)", border: "1px solid #d0ddf5" }}>
-        <div style={{ background: "linear-gradient(135deg,#1b3a8f 0%,#1f65de 100%)", padding: "10px 14px", display: "flex", alignItems: "center" }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", flex: 1 }}>⚡ Ctrl+G — Column Focus & Reorder</span>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,.15)", border: "none", color: "#fff", width: 22, height: 22, borderRadius: "50%", cursor: "pointer", fontSize: 11 }}>✕</button>
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(10,20,40,.45)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8700,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 10, width: 420, maxHeight: "80vh",
+        display: "flex", flexDirection: "column", overflow: "hidden",
+        boxShadow: "0 16px 48px rgba(31,101,222,.22)", border: "1px solid #d0ddf5",
+      }}>
+        <div style={{
+          background: "linear-gradient(135deg,#1b3a8f 0%,#1f65de 100%)",
+          padding: "10px 14px", display: "flex", alignItems: "center",
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", flex: 1 }}>
+            ⚡ Ctrl+G — Column Focus & Reorder
+          </span>
+          <button onClick={onClose} style={{
+            background: "rgba(255,255,255,.15)", border: "none", color: "#fff",
+            width: 22, height: 22, borderRadius: "50%", cursor: "pointer", fontSize: 11,
+          }}>✕</button>
         </div>
-        <div style={{ background: "#f0f7ff", borderBottom: "1px solid #dde6f5", padding: "6px 12px", fontSize: 10.5, color: "#4a5568" }}>
+        <div style={{
+          background: "#f0f7ff", borderBottom: "1px solid #dde6f5",
+          padding: "6px 12px", fontSize: 10.5, color: "#4a5568",
+        }}>
           🖱 <strong>Drag rows</strong> to reorder &nbsp;|&nbsp; ☑ <strong>Check</strong> to enable focus navigation
         </div>
         <div style={{ overflowY: "auto", flex: 1, padding: "6px 0" }}>
           {loading
             ? <div style={{ textAlign: "center", padding: 20, color: "#94a3b8", fontSize: 12 }}>Loading...</div>
             : items.map((it, idx) => (
-              <div key={it.key} draggable
+              <div
+                key={it.key}
+                draggable
                 onDragStart={e => onDragStart(e, idx)}
                 onDragOver={e => onDragOver(e, idx)}
                 onDrop={e => onDrop(e, idx)}
                 onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 14px", cursor: "grab", background: overIdx === idx ? "#deeafb" : dragIdx === idx ? "#e8f0fe" : idx % 2 === 0 ? "#fff" : "#fafbff", borderBottom: "1px solid #f0f4fc", borderLeft: overIdx === idx ? "3px solid #1f65de" : "3px solid transparent", userSelect: "none" }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "6px 14px", cursor: "grab",
+                  background: overIdx === idx ? "#deeafb" : dragIdx === idx ? "#e8f0fe" : idx % 2 === 0 ? "#fff" : "#fafbff",
+                  borderBottom: "1px solid #f0f4fc",
+                  borderLeft: overIdx === idx ? "3px solid #1f65de" : "3px solid transparent",
+                  transition: "background .07s",
+                  userSelect: "none",
+                }}
               >
-                <span style={{ color: "#94a3b8", fontSize: 14 }}>⠿</span>
-                <span style={{ width: 22, height: 22, borderRadius: 4, background: "#f0f4fc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#6b7a99", fontWeight: 700, flexShrink: 0 }}>{idx + 1}</span>
+                <span style={{ color: "#94a3b8", fontSize: 14, cursor: "grab" }}>⠿</span>
+                <span style={{
+                  width: 22, height: 22, borderRadius: 4,
+                  background: "#f0f4fc", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: 11, color: "#6b7a99", fontWeight: 700,
+                  flexShrink: 0,
+                }}>{idx + 1}</span>
                 <span style={{ flex: 1, fontSize: 12, color: "#1a2e4a", fontWeight: 500 }}>{it.label}</span>
-                <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
-                  <input type="checkbox" checked={!!it.focus} onChange={() => toggleFocus(it.key)} style={{ width: 14, height: 14, accentColor: "#1f65de" }} />
-                  <span style={{ fontSize: 10.5, color: it.focus ? "#1f65de" : "#94a3b8", fontWeight: 600 }}>{it.focus ? "Focus ON" : "Focus OFF"}</span>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!it.focus} onChange={() => toggleFocus(it.key)} style={{ display: "none" }} />
+                  <div style={{
+                    width: 34, height: 18, borderRadius: 9,
+                    background: it.focus ? "#1f65de" : "#d0d8ea",
+                    position: "relative", cursor: "pointer",
+                    transition: "background .2s",
+                  }}>
+                    <div style={{
+                      width: 14, height: 14, borderRadius: "50%",
+                      background: "#fff", position: "absolute",
+                      top: 2, left: it.focus ? 18 : 2,
+                      transition: "left .2s",
+                      boxShadow: "0 1px 3px rgba(0,0,0,.2)",
+                    }} />
+                  </div>
                 </label>
               </div>
             ))
           }
         </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "10px 14px", borderTop: "1px solid #eaecf4", background: "#f8faff" }}>
-          <button onClick={onClose} style={{ padding: "6px 16px", borderRadius: 4, border: "1px solid #c5d8f8", background: "#fff", color: "#1a2e4a", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-          <button onClick={handleSave} style={{ padding: "6px 16px", borderRadius: 4, border: "none", background: "#1f65de", color: "#fff", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>💾 Save & Apply</button>
+        <div style={{
+          display: "flex", gap: 8, justifyContent: "flex-end",
+          padding: "10px 14px", borderTop: "1px solid #eaecf4", background: "#f8faff",
+        }}>
+          <button onClick={onClose} style={{
+            padding: "6px 16px", borderRadius: 4, border: "1px solid #c5d8f8",
+            background: "#fff", color: "#1a2e4a", fontSize: 12, cursor: "pointer",
+          }}>Cancel</button>
+          <button onClick={handleSave} style={{
+            padding: "6px 16px", borderRadius: 4, border: "none",
+            background: "#1f65de", color: "#fff", fontSize: 12, cursor: "pointer", fontWeight: 700,
+          }}>💾 Save & Apply</button>
         </div>
       </div>
     </div>
@@ -782,7 +912,7 @@ export default function EstimateBill() {
   const navigate = useNavigate();
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
-
+  const focusConfiguredRef  = useRef(false);
   const isEstimate = true; // This page is always Estimate mode; F8 navigates to SaleBill
 
   // ── Refs ──────────────────────────────────────────────────────────────────
@@ -850,6 +980,17 @@ export default function EstimateBill() {
 
   const visCols = colSettings.filter(c => c.visible);
 
+  const focusEnabledCols = useMemo(() => {
+    const defaultCols = visCols
+      .map(vc => SALE_COLUMNS?.find(c => c.key === vc.key))
+      .filter(Boolean)
+      .filter(cd => !cd.readOnly)
+      .map(cd => cd.key);
+
+    if (focusCols.length === 0) return defaultCols;
+    return defaultCols.filter(k => focusCols.includes(k));
+  }, [visCols, focusCols]);
+
   const validRows = rows.filter(r => r.ProductRefId && vn(r.ItemQty) > 0);
   const itemCount = validRows.length;
   const totalQty  = validRows.reduce((s, r) => s + vn(r.ItemQty), 0);
@@ -886,7 +1027,7 @@ export default function EstimateBill() {
   // ── Load column config ────────────────────────────────────────────────────
   const loadColCfg = useCallback(async (comid) => {
     try {
-            const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Estimate`;
+            const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Sale`;
       //const url = `/Content/Appdata/Visible/${comid}/Estimate.json?v=${Date.now()}`;
       const res = await fetch(url, { headers: CC.authHeaders() });
       if (!res.ok) return;
@@ -899,22 +1040,33 @@ export default function EstimateBill() {
     } catch {}
   }, []);
 
-  const loadFocusCols = useCallback(async (mcomid) => {
-    try {
-       const url =  CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=EstimateFocus`;
-     // const url = `/Content/Appdata/Visible/${mcomid}/EstimateFocus.json?v=${Date.now()}`;
-      const res = await fetch(url, { headers: CC.authHeaders?.() || {} });
-      if (!res.ok) return;
-      const saved = await res.json();
-      if (!Array.isArray(saved)) return;
-      const ordered = saved
-        .filter(s => s.Focus === true)
-        .sort((a, b) => (a.Index ?? 99) - (b.Index ?? 99))
-        .map(s => s.column);
-      focusColsRef.current = ordered;
-      setFocusCols(ordered);
-    } catch {}
-  }, []);
+const loadFocusCols = useCallback(async (mcomid) => {
+  try {
+    const url = CC.GetFocusColumnsUrl;
+    const res = await CC.api(url, null, {}, { comid: sess.Comid, filename: "SaleFocus" });
+
+    if (!res || res._netErr) return;
+
+    const saved = Array.isArray(res) ? res
+                : Array.isArray(res?.data)  ? res.data
+                : Array.isArray(res?.Data1) ? res.Data1
+                : [];
+
+    if (!Array.isArray(saved) || saved.length === 0) return; // settings இதுவரை save ஆகல -> fallback behavior தொடரும்
+
+    focusConfiguredRef.current = true;   // ✅ settings இருக்கு (எல்லாம் OFF ஆனாலும் சரி) என்று mark பண்ணு
+
+    const ordered = saved
+      .filter(s => s.Focus === true)
+      .sort((a, b) => (a.Index ?? 99) - (b.Index ?? 99))
+      .map(s => s.column);
+
+    focusColsRef.current = ordered;   // [] ஆகவும் இருக்கலாம் — அதுவும் valid state
+    setFocusCols(ordered);
+  } catch (err) {
+    console.error("F12 Save error:", err);
+  }
+}, [sess.Comid]);
 
   // ── Permission check ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -1091,16 +1243,95 @@ export default function EstimateBill() {
       };
     }));
     setProdPopup(null);
-    setTimeout(() => {
-      const defaultCols = visCols.map(vc => SALE_COLUMNS.find(c => c.key === vc.key)).filter(Boolean).filter(cd => !cd.readOnly).map(cd => cd.key);
-      const COLS = focusColsRef.current.length > 0 ? focusColsRef.current.filter(k => defaultCols.includes(k)) : defaultCols;
-      const pcIdx = COLS.indexOf("ProductCode");
-      const nextCol = pcIdx >= 0 && pcIdx < COLS.length - 1 ? COLS[pcIdx + 1] : "ItemQty";
-      const el = cellRefs.current[rid]?.[nextCol];
-      if (el) { el.focus(); el.select?.(); }
-    }, 50);
-  }, [sess, visCols]);
+    // setTimeout(() => {
+    //   const COLS = ["ProductCode", ...focusEnabledCols.filter(k => k !== "ProductCode")];
+    //   const pcIdx = COLS.indexOf("ProductCode");
+    //   const nextCol = pcIdx >= 0 && pcIdx < COLS.length - 1 ? COLS[pcIdx + 1] : "ItemQty";
+    //   const el = cellRefs.current[rid]?.[nextCol];
+    //   if (el) { el.focus(); el.select?.(); }
+    // }, 50);
+     setTimeout(() => goToNextField(rid, "ProductCode"), 50);
+  }, [sess, focusEnabledCols]);
+  const getRowEnabledCols = useCallback((rid) => {
+      const defaultCols = visCols
+        .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
+        .filter(Boolean)
+        .filter(cd => !cd.readOnly)
+        .map(cd => cd.key);
+  
+      const ctrlGOrder = focusConfiguredRef.current === true
+        ? focusColsRef.current.filter(k => defaultCols.includes(k))
+        : defaultCols;
+  
+      const baseOrder = ["ProductCode", ...ctrlGOrder.filter(k => k !== "ProductCode")];
+  
+      const row = rowsRef.current.find(r => r._rid === rid);
+      if (!row) return baseOrder;
+  
+      const isOpenRate = !row.SalesRateType;
+  
+      // ✅ FIX — UOMDecimal>0 ஆனாலும், அல்லது UOM text "KG"/"KGS" ஆனாலும் — ரெண்டையும் accept பண்ணு
+      const uomUpper  = (row.UOM || "").toUpperCase();
+      const isFracQty = CC.vn(row.UOMDecimal) > 0 || uomUpper === "KG" || uomUpper === "KGS";
+  
+      const overrides = defaultCols.filter(k => {
+        if (k === "SaleRate") return isOpenRate && !ctrlGOrder.includes("SaleRate");
+        if (k === "ItemQty")  return isFracQty  && !ctrlGOrder.includes("ItemQty");
+        return false;
+      });
+  
+      if (overrides.length === 0) return baseOrder;
+  
+      const rest = baseOrder.filter(k => k !== "ProductCode");
+      return ["ProductCode", ...overrides, ...rest];
+    }, [visCols]);
+  const goToNextField = useCallback((rid, fromColKey) => {
+    const COLS = getRowEnabledCols(rid);
+    const colIdx = COLS.indexOf(fromColKey);
+    const rowIdx = rowsRef.current.findIndex(r => r._rid === rid);
 
+    const focusCell = (targetRid, targetKey) => {
+      if (targetKey === "ItemQty") {
+        const r = rowsRef.current.find(x => x._rid === targetRid);
+        if (r && CC.vn(r.ItemQty) === 0) {
+          setRows(prev => prev.map(row =>
+            row._rid === targetRid
+              ? calcSaleRow({ ...row, ItemQty: "1", _dirty: true })
+              : row
+          ));
+        }
+      }
+      setTimeout(() => {
+        const el = cellRefs.current[targetRid]?.[targetKey];
+        if (el) { el.focus(); el.select?.(); }
+      }, 10);
+    };
+
+    if (colIdx >= 0 && colIdx < COLS.length - 1) {
+      focusCell(rid, COLS[colIdx + 1]);
+    } else {
+      const curRows = rowsRef.current;
+      const curRow  = curRows.find(r => r._rid === rid);
+      const isLast  = rowIdx === curRows.length - 1;
+      const firstCol = COLS.length > 0 ? COLS[0] : "ProductCode";
+      
+      if (isLast) {
+        if (curRow?.ProductRefId) {
+          const newRow = mkRow();
+          setRows(prev => [...prev, newRow]);
+          setTimeout(() => { cellRefs.current[newRow._rid]?.[firstCol]?.focus(); }, 80);
+        } else {
+          focusCell(rid, firstCol);
+        }
+      } else {
+        const nextRow = curRows[rowIdx + 1];
+        setTimeout(() => {
+          const el = cellRefs.current[nextRow._rid]?.[firstCol];
+          if (el) { el.focus(); el.select?.(); }
+        }, 20);
+      }
+    }
+  }, [getRowEnabledCols]);
   // ── Fill batch item into row ──────────────────────────────────────────────
   const fillBatchItemIntoRow = useCallback(async (rid, batchItem) => {
     setRows(prev => prev.map(r => {
@@ -1142,14 +1373,13 @@ export default function EstimateBill() {
     }
 
     setTimeout(() => {
-      const defaultCols = visCols.map(vc => SALE_COLUMNS.find(c => c.key === vc.key)).filter(Boolean).filter(cd => !cd.readOnly).map(cd => cd.key);
-      const COLS = focusColsRef.current.length > 0 ? focusColsRef.current.filter(k => defaultCols.includes(k)) : defaultCols;
+      const COLS = ["ProductCode", ...focusEnabledCols.filter(k => k !== "ProductCode")];
       const pcIdx = COLS.indexOf("ProductCode");
       const nextCol = pcIdx >= 0 && pcIdx < COLS.length - 1 ? COLS[pcIdx + 1] : "ItemQty";
       const el = cellRefs.current[rid]?.[nextCol];
       if (el) { el.focus(); el.select?.(); }
     }, 50);
-  }, [sess, visCols]);
+  }, [sess, focusEnabledCols]);
 
   // ── Fetch product by code ─────────────────────────────────────────────────
   const fetchProductByCode = useCallback(async (rid, code) => {
@@ -1432,108 +1662,153 @@ export default function EstimateBill() {
   }, [loadBillNo]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
-  const doSave = useCallback(async () => {
-    if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
-    const validRows = rows.filter(r => r.ProductRefId && vn(r.ItemQty) > 0);
-    if (validRows.length === 0) { toast("❌ Add at least one item", true); return; }
+// ── Save ──────────────────────────────────────────────────────────────────
+const doSave = useCallback(async (overridePayRows = null) => {
+  if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
+  const validRows = rows.filter(r => r.ProductRefId && vn(r.ItemQty) > 0);
+  if (validRows.length === 0) { toast("❌ Add at least one item", true); return; }
 
-    const totalPay = payRows.reduce((s, r) => s + vn(r.Amount), 0);
-    let effectivePayRows = payRows;
-    if (totalPay === 0) {
-      const cashIdx = payRows.findIndex(r => r.CardType === "CASH");
-      const idx = cashIdx >= 0 ? cashIdx : 0;
-      effectivePayRows = payRows.map((r, i) => i === idx ? { ...r, Amount: totals.NetAmt.toFixed(2) } : { ...r, Amount: "" });
-      setPayRows(effectivePayRows);
-    }
+  // ✅ overridePayRows வந்தா அதையே base-ஆ எடு (F7 Credit போன்ற cases)
+  const basePayRows = overridePayRows || payRows;
+  const totalPay = basePayRows.reduce((s, r) => s + vn(r.Amount), 0);
+  let effectivePayRows = basePayRows;
 
-    const ok = await confirm("Do you want to Save Estimate Bill?");
-    if (!ok) return;
+  // ✅ overridePayRows கொடுக்கப்பட்டா, auto-cash-fill logic-ஐ SKIP பண்ணு
+  if (!overridePayRows && totalPay === 0) {
+    const cashIdx = basePayRows.findIndex(r => r.CardType === "CASH");
+    const idx = cashIdx >= 0 ? cashIdx : 0;
+    effectivePayRows = basePayRows.map((r, i) =>
+      i === idx ? { ...r, Amount: totals.NetAmt.toFixed(2) } : { ...r, Amount: "" }
+    );
+    setPayRows(effectivePayRows);
+  }
 
-    setLoading(true); setLdMsg("Saving...");
-    const custObj = customers.find(c => String(c.Id) === String(custId));
+  const ok = await confirm("Do you want to Save Estimate Bill?");
+  if (!ok) return;
 
-    const saledetails = validRows.map(r => ({
-      SDId: r.SDId || 0, ProductRefId: r.ProductRefId, ProductCode: r.ProductCode,
-      ProductName: r.ProductName, PrintName: r.PrinterName || r.ProductName,
-      MRP: f2(vn(r.MRP)), SaleRate: f2(vn(r.SaleRate)), ItemQty: f2(vn(r.ItemQty)),
-      Amount: f2(vn(r.Amount)), TaxPercent: f2(vn(r.TaxPercent)), TaxAmt: f2(vn(r.TaxAmt)),
-      CESSPer: f2(vn(r.CESSPer)), CESSAmount: f2(vn(r.CESSAmount)),
-      SPLCESS: f2(vn(r.SPLCESS)), SPLCESSAmount: f2(vn(r.SPLCESSAmount)),
-      DiscountPercent: f2(vn(r.DiscountPercent)), DiscountAmt: f2(vn(r.DiscountAmt)),
-      cdpercent: f2(vn(r.CDPercent)), cdAmount: f2(vn(r.CDAmount)),
-      Landingcost: f2(vn(r.LandingCost)), CTAmount: f2(vn(r.CTAmount)), STAmount: f2(vn(r.STAmount)),
-      PurchaseRate: f2(vn(r.PurchaseRate)), UOM: r.UOM || "", HSNcode: r.HSNCode || "",
-      StockQty: vn(r.StockQty), BatchRefid: r.BatchRefid || null,
-      SalesmanRefid: r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : null),
-      SalesManCode:  r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : 0),
-      FreeQty: 0, NOMS: 0, NOMSQty: 0,
-      SaleRate_org: f2(vn(r.OrgRate)), remarks: r.Remarks || "",
-      SRDetailsId: r.SRDetailsId || 0, Bat_No: r.Bat_No || "",
-    }));
+  setLoading(true); setLdMsg("Saving...");
+  const custObj = customers.find(c => String(c.Id) === String(custId));
 
-    const payFiltered = effectivePayRows.filter(p => vn(p.Amount) > 0).map(p => ({
-      CardAccountRefId: p.CardAccountRefId, Saletype: p.Saletype,
-      CardType: p.CardType, Amount: f2(vn(p.Amount)), SchargeAmt: f2(vn(p.SchargeAmt)),
-      CustomerRefid: custId ? parseInt(custId) : parseInt(sess.CashId),
-    }));
+  const saledetails = validRows.map(r => ({
+    SDId: r.SDId || 0, ProductRefId: r.ProductRefId, ProductCode: r.ProductCode,
+    ProductName: r.ProductName, PrintName: r.PrinterName || r.ProductName,
+    MRP: f2(vn(r.MRP)), SaleRate: f2(vn(r.SaleRate)), ItemQty: f2(vn(r.ItemQty)),
+    Amount: f2(vn(r.Amount)), TaxPercent: f2(vn(r.TaxPercent)), TaxAmt: f2(vn(r.TaxAmt)),
+    CESSPer: f2(vn(r.CESSPer)), CESSAmount: f2(vn(r.CESSAmount)),
+    SPLCESS: f2(vn(r.SPLCESS)), SPLCESSAmount: f2(vn(r.SPLCESSAmount)),
+    DiscountPercent: f2(vn(r.DiscountPercent)), DiscountAmt: f2(vn(r.DiscountAmt)),
+    cdpercent: f2(vn(r.CDPercent)), cdAmount: f2(vn(r.CDAmount)),
+    Landingcost: f2(vn(r.LandingCost)), CTAmount: f2(vn(r.CTAmount)), STAmount: f2(vn(r.STAmount)),
+    PurchaseRate: f2(vn(r.PurchaseRate)), UOM: r.UOM || "", HSNcode: r.HSNCode || "",
+    StockQty: vn(r.StockQty), BatchRefid: r.BatchRefid || null,
+    SalesmanRefid: r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : null),
+    SalesManCode:  r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : 0),
+    FreeQty: 0, NOMS: 0, NOMSQty: 0,
+    SaleRate_org: f2(vn(r.OrgRate)), remarks: r.Remarks || "",
+    SRDetailsId: r.SRDetailsId || 0, Bat_No: r.Bat_No || "",
+  }));
 
-    const payload = [{
-      Id: editId, SRId: 0,
-      CustomerRefId: custId ? parseInt(custId) : parseInt(sess.CashId),
-      SaleNo: 0, CompanyRefId: parseInt(sess.Comid),
-      SaleNoDisplay: billNo, SaleDate: billDate, SaleType: "CASH",
-      OthersplusAmt: vn(otherPlus), OtherssubAmt: vn(otherMinus),
-      Grossamt: totals.GrossAmt, taxamount: totals.GSTAmt,
-      CESSAmount: totals.CESSAmt, SPLCESSAmount: 0,
-      disper: vn(discPer), discamount: totals.DiscAmt,
-      NetAmount: totals.NetAmt, coinage: 0, Remarks: remarks,
-      CashierRefId: parseInt(sess.CashierId) || 0,
-      salesmanRefId: smId ? parseInt(smId) : null,
-      DeleteStatus: true, BillHoldName: "",
-      CustomerName: custObj?.AccountName || "",
-      Address1: custObj?.Address1 || "", Address2: custObj?.Address2 || "",
-      City: custObj?.City || "", Email: custObj?.Email || "",
-      PhoneNo: custObj?.MobileNo || "", Pincode: custObj?.Pincode || "",
-      TinNo: custObj?.GSTINNo || "", IGSTBill: custObj?.IGSTBill || "GST",
-      Modified_By: localStorage.getItem("username") || "",
-      ModifiedStatus: editId > 0 ? 1 : 0, Modified_Date: billDate,
-      SaleDetails: saledetails, SaleAmountDetails: payFiltered, StockDetails: [],
-    }];
+  const payFiltered = effectivePayRows.filter(p => vn(p.Amount) > 0).map(p => ({
+    CardAccountRefId: p.CardAccountRefId, Saletype: p.Saletype,
+    CardType: p.CardType, Amount: f2(vn(p.Amount)), SchargeAmt: f2(vn(p.SchargeAmt)),
+    CustomerRefid: custId ? parseInt(custId) : parseInt(sess.CashId),
+  }));
 
-    const headers = {
-      "Comid": String(sess.Comid), "ApiType": "1", "LocalV7": "2",
-      "cashid": String(sess.CashId), "BillType": sess.BillNoType,
-      "BillPerfix": sess.BillNoPrefix, "BillHoldName": "",
-      "BillDigit": String(sess.BillNoDigit), "EncashAmt": "0", "EncashPoint": "0",
-      "SubSalemaster": sess.SaleSubMaster ? "1" : "0",
-      "Commoncompany": sess.CommonCompany ? "true" : "false",
-      "CommoncompanyDiffStock": sess.CommonCompanyDiffStock ? "true" : "false",
-      "MulipleMRP": sess.MulipleMRP ? "true" : "false",
-      "Herballife": sess.Herbalife ? "1" : "0",
-      "Estimate": "1",   // ← Always 1 for EstimateBill
-      "PrintA4Invoice": "1", "SmallPrint": "0", "BillFormat": "Default",
-      "DayClose": sess.DayClose ? "1" : "0", "MirrorTable": "0",
-      "LocalDB": "0", "RO": "0",
-    };
+  // ✅ புதுசா சேர்த்தது — Payment type அடிப்படையில் SaleType கண்டுபிடிக்கிறோம்
+  let saleType = "CASH";
+  const hasCard   = payFiltered.some(p => p.CardType === "CARD"   && p.Amount > 0);
+  const hasUPI    = payFiltered.some(p => p.CardType === "UPI"    && p.Amount > 0);
+  const hasCredit = payFiltered.some(p => p.CardType === "CREDIT" && p.Amount > 0);
+  const hasCash   = payFiltered.some(p => p.CardType === "CASH"   && p.Amount > 0);
+  const typeCount = [hasCard, hasUPI, hasCredit, hasCash].filter(Boolean).length;
+  if (typeCount > 1)  saleType = "SPLIT";
+  else if (hasCard)   saleType = "CARD";
+  else if (hasUPI)    saleType = "UPI";
+  else if (hasCredit) saleType = "CREDIT";
 
-    const res = await CC.insertapi(SaleInsertUrl, payload, headers);
-    setLoading(false);
-    if (redirectIfDualLogin(res)) return;
-    if (res.ok ?? res.IsSuccess) {
-      localStorage.setItem("lastEstimateNo",  billNo);
-      localStorage.setItem("lastEstimateAmt", totals.NetAmt.toString());
-      setLastBillNo(billNo);
-      setLastBillAmt(totals.NetAmt);
-      toast("✅ Estimate Saved Successfully");
-      await clearForm();
-    } else {
-      toast("❌ " + (res.Message || res.message || "Save Failed"), true);
-    }
-  // eslint-disable-next-line
-  }, [perm, confirm, clearForm, sess, payRows, totals, rows,
-      custId, smId, remarks, billNo, billDate, editId, otherPlus, otherMinus,
-      discPer, customers]);
+  const payload = [{
+    Id: editId, SRId: 0,
+    CustomerRefId: custId ? parseInt(custId) : parseInt(sess.CashId),
+    SaleNo: 0, CompanyRefId: parseInt(sess.Comid),
+    SaleNoDisplay: billNo, SaleDate: billDate, SaleType: saleType,   // ← "CASH" hardcode போய், saleType வந்துச்சு
+    OthersplusAmt: vn(otherPlus), OtherssubAmt: vn(otherMinus),
+    Grossamt: totals.GrossAmt, taxamount: totals.GSTAmt,
+    CESSAmount: totals.CESSAmt, SPLCESSAmount: 0,
+    disper: vn(discPer), discamount: totals.DiscAmt,
+    NetAmount: totals.NetAmt, coinage: 0, Remarks: remarks,
+    CashierRefId: parseInt(sess.CashierId) || 0,
+    salesmanRefId: smId ? parseInt(smId) : null,
+    DeleteStatus: true, BillHoldName: "",
+    CustomerName: custObj?.AccountName || "",
+    Address1: custObj?.Address1 || "", Address2: custObj?.Address2 || "",
+    City: custObj?.City || "", Email: custObj?.Email || "",
+    PhoneNo: custObj?.MobileNo || "", Pincode: custObj?.Pincode || "",
+    TinNo: custObj?.GSTINNo || "", IGSTBill: custObj?.IGSTBill || "GST",
+    Credit: hasCredit ? payFiltered.find(p => p.CardType === "CREDIT")?.Amount || 0 : 0,
+    Modified_By: localStorage.getItem("username") || "",
+    ModifiedStatus: editId > 0 ? 1 : 0, Modified_Date: billDate,
+    SaleDetails: saledetails, SaleAmountDetails: payFiltered, StockDetails: [],
+  }];
 
+  const headers = {
+    "Comid": String(sess.Comid), "ApiType": "1", "LocalV7": "2",
+    "cashid": String(sess.CashId), "BillType": sess.BillNoType,
+    "BillPerfix": sess.BillNoPrefix, "BillHoldName": "",
+    "BillDigit": String(sess.BillNoDigit), "EncashAmt": "0", "EncashPoint": "0",
+    "SubSalemaster": sess.SaleSubMaster ? "1" : "0",
+    "Commoncompany": sess.CommonCompany ? "true" : "false",
+    "CommoncompanyDiffStock": sess.CommonCompanyDiffStock ? "true" : "false",
+    "MulipleMRP": sess.MulipleMRP ? "true" : "false",
+    "Herballife": sess.Herbalife ? "1" : "0",
+    "Estimate": "1",
+    "PrintA4Invoice": "1", "SmallPrint": "0", "BillFormat": "Default",
+    "DayClose": sess.DayClose ? "1" : "0", "MirrorTable": "0",
+    "LocalDB": "0", "RO": "0",
+  };
+
+  const res = await CC.insertapi(SaleInsertUrl, payload, headers);
+  setLoading(false);
+  if (redirectIfDualLogin(res)) return;
+  if (res.ok ?? res.IsSuccess) {
+    localStorage.setItem("lastEstimateNo",  billNo);
+    localStorage.setItem("lastEstimateAmt", totals.NetAmt.toString());
+    setLastBillNo(billNo);
+    setLastBillAmt(totals.NetAmt);
+    toast("✅ Estimate Saved Successfully");
+    await clearForm();
+  } else {
+    toast("❌ " + (res.Message || res.message || "Save Failed"), true);
+  }
+// eslint-disable-next-line
+}, [perm, confirm, clearForm, sess, payRows, totals, rows,
+    custId, smId, remarks, billNo, billDate, editId, otherPlus, otherMinus,
+    discPer, customers]);
+
+
+    const doCreditSave = useCallback(async () => {
+  if (totals.NetAmt <= 0) {
+    toast("❌ Add at least one item", true);
+    return;
+  }
+
+  let creditIdx = payRows.findIndex(r => r.CardType === "CREDIT");
+  if (creditIdx === -1) creditIdx = payRows.length - 1;
+
+  if (!custId || String(custId) === "0" || String(custId) === String(sess.CashId)) {
+    toast("❌ Select Any One Customer !!!", true);
+    if (custRef.current) custRef.current.focus();
+    return;
+  }
+
+  const updated = payRows.map((r, idx) =>
+    idx === creditIdx
+      ? { ...r, Amount: totals.NetAmt.toFixed(2) }
+      : { ...r, Amount: "" }
+  );
+
+  setPayRows(updated);
+  await doSave(updated);
+}, [totals.NetAmt, payRows, custId, sess.CashId, toast, doSave]);
   // ── Delete bill ───────────────────────────────────────────────────────────
   const doDeleteBill = useCallback(async () => {
     if (!editId) { toast("No bill to delete", true); return; }
@@ -1606,24 +1881,25 @@ export default function EstimateBill() {
   }, [sess, billDate, perm, customers]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  useEffect(() => {
-    const onKey = e => {
-      if (prodPopup || f5Open || pw || f12Open || custPopup || ctrlGOpen || batchPopup || expiryListPopup) return;
-      if (e.key === "F1")  { e.preventDefault(); doSave(); }
-      if (e.key === "F2")  { e.preventDefault(); doSave(); }
-      if (e.key === "F5")  { e.preventDefault(); openF5(); }
-      if (e.key === "F8")  { e.preventDefault(); navigate("/Sale"); }
-      if (e.key === "F9")  { e.preventDefault(); if (!editId) return; pwOkRef.current = doDeleteBill; setPw({ title: "F9 Delete Password" }); }
-      if (e.key === "F10") { e.preventDefault(); confirm("Do You Want To Clear?").then(ok => ok && clearForm()); }
-      if (e.key === "F12") { e.preventDefault(); setF12Open(true); }
-      if (e.key === "Escape") { e.preventDefault(); confirm("Do You Want To Quit?").then(ok => ok && navigate(-1)); }
-      if (e.ctrlKey && e.key === "g") { e.preventDefault(); setCtrlGOpen(true); }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  // eslint-disable-next-line
-  }, [prodPopup, f5Open, pw, f12Open, custPopup, ctrlGOpen, batchPopup, expiryListPopup,
-      doSave, openF5, doDeleteBill, clearForm, editId]);
+    useEffect(() => {
+      const onKey = e => {
+        if (prodPopup || f5Open || pw || f12Open || custPopup || ctrlGOpen || batchPopup || expiryListPopup) return;
+        if (e.key === "F1")  { e.preventDefault(); doSave(); }
+        if (e.key === "F7")  { e.preventDefault(); doCreditSave(); }
+        if (e.key === "F2")  { e.preventDefault(); doSave(); }
+        if (e.key === "F5")  { e.preventDefault(); openF5(); }
+        if (e.key === "F8")  { e.preventDefault(); navigate("/Sale"); }
+        if (e.key === "F9")  { e.preventDefault(); if (!editId) return; pwOkRef.current = doDeleteBill; setPw({ title: "F9 Delete Password" }); }
+        if (e.key === "F10") { e.preventDefault(); confirm("Do You Want To Clear?").then(ok => ok && clearForm()); }
+        if (e.key === "F12") { e.preventDefault(); setF12Open(true); }
+        if (e.key === "Escape") { e.preventDefault(); confirm("Do You Want To Quit?").then(ok => ok && navigate(-1)); }
+        if (e.ctrlKey && e.key === "g") { e.preventDefault(); setCtrlGOpen(true); }
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line
+    }, [prodPopup, f5Open, pw, f12Open, custPopup, ctrlGOpen, batchPopup, expiryListPopup,
+        doSave, openF5, doDeleteBill, doCreditSave, clearForm, editId]);
 
   if (!isAuthorized) return null;
 
@@ -1646,6 +1922,10 @@ export default function EstimateBill() {
             <button className="sb-action-btn" onClick={doSave} title="F1 Save Estimate">
               <span className="btn-icon">💾</span><span>F1</span>
             </button>
+            
+            <button className="sb-action-btn" onClick={doCreditSave} title="F7 Credit Bill">
+  <span className="btn-icon">🧾</span><span>F7</span>
+</button>
             <button className="sb-action-btn" onClick={() => navigate("/Sale")} title="F8 Sale Bill">
               <span className="btn-icon">🧾</span>
               <span style={{ color: "#1f65de", fontWeight: 700 }}>F8</span>
@@ -1968,6 +2248,7 @@ export default function EstimateBill() {
           <button className="sb-btn sv" onClick={doSave} disabled={loading} style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#ea580c" }}>
             💾 F1 Save Estimate
           </button>
+          <button className="sb-btn sv" onClick={doCreditSave} disabled={loading}>🧾 F7 Credit Bill</button>
           <button className="sb-btn" onClick={openF5}>📋 F5 View</button>
           <button className="sb-btn" onClick={() => navigate("/Sale")}
             style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#16a34a", fontWeight: 700 }}>
@@ -2065,7 +2346,7 @@ export default function EstimateBill() {
       )}
 
       {prodPopup && (
-        <ProductSearchPopup products={prodList} onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }} onClose={() => setProdPopup(null)} anchorPos={prodPopup.pos} />
+        <ProductSearchPopup products={prodList} isTamil={sess.Tamil} onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }} onClose={() => setProdPopup(null)} anchorPos={prodPopup.pos} />
       )}
 
       {f5Open && (

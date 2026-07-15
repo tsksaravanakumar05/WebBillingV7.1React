@@ -132,7 +132,7 @@ const makeNewRow = () => ({
   [grdChequeDate]:     "",
   [grdBankName]:       "",
   [grdBankId]:         null,
-  [grdChequeStatus]:   false,
+  [grdChequeStatus]:   true,
   [grdDiscountAmount]: "0.00",
   [grdNarration]:      "",
   [grdAmount]:         "0.00",

@@ -114,6 +114,16 @@ const EMPTY_TOTALS = {
   totalQty:     "0.000",
 };
 
+const FORM_COLUMNS = [
+  { column: "dtppurchasedate", text: "ReturnDate" },
+  { column: "cmbpurchaseType", text: "PurchaseType" },
+  { column: "cmbsupplier",     text: "Supplier"     },
+  { column: "gridpurchase",    text: "GridPurchase" },
+  { column: "txtotherplus",    text: "Others(+)"    },
+  { column: "txtothersub",     text: "Others(-)"    },
+  { column: "txtremarks",      text: "Remarks"      },
+];
+
 // ─── BASE_COLUMNS mirrors jQuery InVisibleColumns ────────────────────────────
 const BASE_COLUMNS = [
   { key: "ProductCode",     label: "Product Code",  defaultWidth: 110, align: "left",  editable: true,  defaultVisible: true  },
@@ -410,6 +420,11 @@ export default function PurchaseReturn() {
   const [ctrlGOpen,      setCtrlGOpen     ] = useState(false);
   const [ctrlGCols,      setCtrlGCols     ] = useState([]);
   const [ctrlGSaving,    setCtrlGSaving   ] = useState(false);
+
+  // ── Focus Form Columns (Ctrl+F) ──
+  const [focusFormColDraft, setFocusFormColDraft] = useState([]);
+  const [focusFormColOpen,  setFocusFormColOpen ] = useState(false);
+  const [focusFormDragIdx,  setFocusFormDragIdx ] = useState(null);
   // LoadPM Popup (Purchase bills of supplier)
   const [loadPmOpen,  setLoadPmOpen ] = useState(false);
   const [loadPmList,  setLoadPmList ] = useState([]);
@@ -450,6 +465,7 @@ export default function PurchaseReturn() {
     if (!isAuthorized) return;
     loadSupplierList();
     loadFocusColumns();
+    loadFocusFormColumns();
     loadVisibleColumns();
     fetchMaxNo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -504,6 +520,94 @@ export default function PurchaseReturn() {
       );
     } catch { /* silently ignore */ }
   }, [sess.MComid]);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  FOCUS FORM COLUMNS (Ctrl+F)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const loadFocusFormColumns = useCallback(async () => {
+    let draft = FORM_COLUMNS.map((c, i) => ({
+      filename: "PurchaseReturnFormFocus",
+      column:   c.column,
+      label:    c.text,
+      Index:    i,
+      Focus:    true,
+      Comid:    sess.MComid,
+    }));
+    try {
+      const url = CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=PurchaseReturnFormFocus`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...CC.authHeaders() },
+        body: JSON.stringify({ comid: sess.Comid, filename: "PurchaseReturnFormFocus" }),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        if (Array.isArray(saved) && saved.length > 0) {
+          saved.forEach((s) => {
+            const idx = draft.findIndex((d) => d.column === s.column);
+            if (idx !== -1) {
+              draft[idx].Focus = s.Focus === true || s.Focus === "true" || s.Focus === 1;
+              draft[idx].Index = s.Index;
+            }
+          });
+          draft.sort((a, b) => a.Index - b.Index);
+        }
+      }
+    } catch { /* first use */ }
+    setFocusFormColDraft(draft);
+  }, [sess.MComid, sess.Comid]);
+
+  const handleFocusFormColOpen = useCallback(async () => {
+    await loadFocusFormColumns();
+    setFocusFormColOpen(true);
+  }, [loadFocusFormColumns]);
+
+  const handleFocusFormColSave = useCallback(async () => {
+    const payload = focusFormColDraft.map((d, i) => ({
+      filename: "PurchaseReturnFormFocus",
+      column:   d.column,
+      Index:    i,
+      Focus:    d.Focus,
+      Comid:    sess.MComid,
+    }));
+    try {
+      setLoading(true);
+      const res = await CC.insertapi(CC.FocusColumns, payload);
+      setLoading(false);
+      if (redirectIfDualLogin(res)) return;
+      if (res?.ok || res?.IsSuccess) {
+        setFocusFormColOpen(false);
+        toast("✅ Form Columns Focus Enabled. Refreshing…");
+        setTimeout(() => window.location.reload(true), 1000);
+      } else {
+        toast(`❌ ${res?.message || "Save failed !!!."}`, true);
+      }
+    } catch {
+      setLoading(false);
+      toast("❌ Technical Fault. Contact Software Vendor !!!.", true);
+    }
+  }, [focusFormColDraft, sess.MComid, redirectIfDualLogin, toast]);
+
+  const handleFocusFormDragStart = useCallback((idx) => { setFocusFormDragIdx(idx); }, []);
+  const handleFocusFormDragOver  = useCallback((e, idx) => {
+    e.preventDefault();
+    if (focusFormDragIdx === null || focusFormDragIdx === idx) return;
+    setFocusFormColDraft((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(focusFormDragIdx, 1);
+      next.splice(idx, 0, moved);
+      return next;
+    });
+    setFocusFormDragIdx(idx);
+  }, [focusFormDragIdx]);
+  const handleFocusFormDragEnd   = useCallback(() => { setFocusFormDragIdx(null); }, []);
+  const handleFocusFormToggle    = useCallback((idx, val) => {
+    setFocusFormColDraft((prev) => prev.map((d, i) => (i === idx ? { ...d, Focus: val } : d)));
+  }, []);
+
+  const focusformcolumns = focusFormColDraft
+    .filter((d) => d.Focus)
+    .map((d) => ({ column: d.column, focus: 1 }));
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  LOAD FOCUS COLUMNS (mirrors jQuery focusgridcolumns)
@@ -565,15 +669,60 @@ export default function PurchaseReturn() {
   // ─────────────────────────────────────────────────────────────────────────────
   //  VISIBLE + EDITABLE COLUMNS (with focus columns filter)
   // ─────────────────────────────────────────────────────────────────────────────
+  const orderedGridColumns = React.useMemo(() => {
+    if (!focusgridcolumns || focusgridcolumns.length === 0) return BASE_COLUMNS;
+    const ordered = [];
+    focusgridcolumns.forEach((d) => {
+      const baseCol = BASE_COLUMNS.find((c) => c.key === d.column);
+      if (baseCol) ordered.push(baseCol);
+    });
+    BASE_COLUMNS.forEach((c) => {
+      if (!ordered.some((o) => o.key === c.key)) ordered.push(c);
+    });
+    return ordered;
+  }, [focusgridcolumns]);
+
+  const nextFocusForm = useCallback((currentColumn) => {
+    const jumpToGrid = () => {
+      const targetRow = gridRows[gridRows.length - 1];
+      if (targetRow) {
+        setTimeout(() => {
+          const firstCol = orderedGridColumns.find(c => c.editable)?.key || "ProductCode";
+          const el = document.getElementById(`cell_${targetRow._key}_${firstCol}`);
+          if (el) { el.focus(); el.select?.(); }
+        }, 50);
+      }
+    };
+
+    let next;
+    if (!currentColumn) {
+      if (focusformcolumns.length === 0) return;
+      next = focusformcolumns[0];
+    } else {
+      const idx = focusformcolumns.findIndex((c) => c.column === currentColumn);
+      if (idx === -1 || idx === focusformcolumns.length - 1) { jumpToGrid(); return; }
+      next = focusformcolumns[idx + 1];
+    }
+    if (!next) return;
+
+    if (next.column === "dtppurchasedate") setTimeout(() => purchaseDateRef.current?.focus(), 50);
+    else if (next.column === "cmbpurchaseType") setTimeout(() => purchaseTypeRef.current?.focus(), 50);
+    else if (next.column === "cmbsupplier") setTimeout(() => supplierInputRef.current?.focus(), 50);
+    else if (next.column === "txtotherplus") setTimeout(() => otherPlusRef.current?.focus(), 50);
+    else if (next.column === "txtothersub") setTimeout(() => otherSubRef.current?.focus(), 50);
+    else if (next.column === "txtremarks") setTimeout(() => remarksRef.current?.focus(), 50);
+    else if (next.column === "gridpurchase") jumpToGrid();
+  }, [focusformcolumns, gridRows, orderedGridColumns]);
+
   const getVisibleCols = useCallback(() => {
-    return BASE_COLUMNS.filter((c) => {
+    return orderedGridColumns.filter((c) => {
       const cfg = colConfigRef.current.find((x) => x.key === c.key);
       return cfg ? cfg.visible : c.defaultVisible;
     });
-  }, []);
+  }, [orderedGridColumns]);
 
   const getEditableFocusCols = useCallback(() => {
-    const visible = BASE_COLUMNS.filter((c) => {
+    const visible = orderedGridColumns.filter((c) => {
       const cfg = colConfigRef.current.find((x) => x.key === c.key);
       return c.editable && (cfg ? cfg.visible : c.defaultVisible);
     });
@@ -583,7 +732,7 @@ export default function PurchaseReturn() {
       const fc = live.find((f) => f.column === c.key);
       return fc ? fc.focus === 1 : true;
     });
-  }, []);
+  }, [orderedGridColumns]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  SUPPLIER SELECTION (mirrors jQuery SupplierDetailsLoad + cmbsupplier)
@@ -663,7 +812,7 @@ export default function PurchaseReturn() {
         else toast("❌ Select Valid Supplier !!!.", true);
         return;
       }
-      if (supplierId) { purchaseDateRef.current?.focus(); return; }
+      if (supplierId) { nextFocusForm("cmbsupplier"); return; }
       if (supplierQuery.trim()) {
         const exact = supplierList.find((s) =>
           (s.AccountName || "").toLowerCase() === supplierQuery.toLowerCase()
@@ -672,7 +821,7 @@ export default function PurchaseReturn() {
       }
       toast("❌ Select Vaild Supplier !!!.", true);
     }
-  }, [supplierDDOpen, supplierDD, supplierSelIdx, supplierId, supplierQuery, supplierList, openSupplierDD, handleSupplierSelect, toast]);
+  }, [supplierDDOpen, supplierDD, supplierSelIdx, supplierId, supplierQuery, supplierList, openSupplierDD, handleSupplierSelect, toast, nextFocusForm]);
 
   // Sync supplier text when id changes externally (e.g., edit load)
   useEffect(() => {
@@ -737,7 +886,13 @@ export default function PurchaseReturn() {
     setGridRows((prev) => {
       const idx = prev.findIndex((r) => r._key === rowKey);
       if (idx === -1) return prev;
-      const row = { ...prev[idx], [colKey]: value };
+      let row = { ...prev[idx] };
+      if (colKey === "ItemQty") {
+        if (row.UOMDecimal === 0 && String(value).includes(".")) {
+          return prev;
+        }
+      }
+      row[colKey] = value;
       const updated = [...prev];
       if (CALC_KEYS.has(colKey) && nullStr(row.ProductCode)) {
         updated[idx] = calcRow(row, igstStatus);
@@ -1149,7 +1304,7 @@ const res = await CC.api(url);
   // ─────────────────────────────────────────────────────────────────────────────
   //  SAVE (mirrors jQuery methods.PurchaseSave)
   // ─────────────────────────────────────────────────────────────────────────────
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (paymentConfirmed = false) => {
     if (perm.Add === 0) { toast("❌ Page Add Permission Denied !!!.", true); return; }
     if (!gridEmptyCheck()) return;
 
@@ -1415,59 +1570,117 @@ const res = await CC.insertapi(
   //  DELETE (mirrors jQuery F9 → EditPasswordWindow → DeletePurchaseReturn)
   // ─────────────────────────────────────────────────────────────────────────────
   const handleDelete = useCallback(async (overrideId, overridePno, overrideUpdateId) => {
-    const targetId       = overrideId       !== undefined ? overrideId       : editId;
-    const displayPno     = overridePno      !== undefined ? overridePno      : purchaseNo;
-    const targetUpdateId = overrideUpdateId !== undefined ? overrideUpdateId : updateIdEdit;
+  const targetId       = overrideId       !== undefined ? overrideId       : editId;
+  const displayPno     = overridePno      !== undefined ? overridePno      : purchaseNo;
+  const targetUpdateId = overrideUpdateId !== undefined ? overrideUpdateId : updateIdEdit;
 
-    if (perm.Delete === 0) { toast("❌ Page Delete Permission Denied !!!.", true); return; }
-    if (!targetId) { toast("❌ No Delete Id !!!.", true); return; }
+  if (perm.Delete === 0) { toast("❌ Page Delete Permission Denied !!!.", true); return; }
+  if (!targetId) { toast("❌ No Delete Id !!!.", true); return; }
 
-    const str = `Do You Want TO Delete Purchase Return.This is Return No ${displayPno}?`;
-    const ok = await confirm(str);
-    if (!ok) return;
+  const str = `Do You Want TO Delete Purchase Return.This is Return No ${displayPno}?`;
+  const ok = await confirm(str);
+  if (!ok) return;
 
-    setLoading(true);
+  setLoading(true);
 
-    // const res = await CC.deleteapi(
-    //   CC.PR_Delete,
-    //   realStockList || [],
-    //   {
-    //     Comid: String(sess.Comid),
-    //     Id: String(targetId),
-    //     MirrorTable: String(sess.MirrorTable || 0),
-    //     Updateid: String(targetUpdateId || ""),
-    //     LocalDB: String(sess.LocalDB || 0),
-    //     Year: String(FYear || ""),
-    //   }
-    // );
-
-    const res = await CC.deleteapi(
-      CC.PR_Delete,
-      realStockList ?? [],
-      {
-        Comid: String(sess.Comid),
-        Id: String(targetId),
-        MirrorTable: String(sess.MirrorTable ?? 0),
-        Updateid: String(targetUpdateId ?? ""),
-        LocalDB: String(sess.LocalDB ?? 0),
-        Year: String(FYear ?? ""),
-        BillMaster: String(sess.BillMaster ?? 0),
+  // ── FIX: always fetch fresh StockDetails right before delete, mirroring
+  // PurchasesMaster.handleDelete. realStockList can be stale/empty when
+  // Delete is triggered straight from the F5 list without handleEdit first.
+  let stockDetailsForDelete = realStockList;
+  try {
+    const editRes = await CC.api(CC.PR_Edit, null, {}, {
+      Id: Number(targetId), PNo: Number(displayPno) || 0, Comid: Number(sess.Comid),
+    });
+    if (redirectIfDualLogin(editRes)) return;
+    if (editRes?.ok) {
+      const data = editRes.Data ?? editRes.data ?? [];
+      if (Array.isArray(data) && data.length > 0) {
+        stockDetailsForDelete = data[0].StockDetails || [];
       }
-    );
-    
-    setLoading(false);
-    if (redirectIfDualLogin(res)) return;
-    if (res?.IsSuccess) {
-      toast(`✔ ${res.Message || "Deleted Successfully."}`);
-      handleClear();
-    
-      if (f5Open) {
-        setTimeout(() => openF5ViewRef.current?.(), 300);
-      }
-    } else {
-      toast(`❌ ${res?.Message || "Delete Failed."}`, true);
     }
-  }, [perm.Delete, editId, purchaseNo, updateIdEdit, confirm, realStockList, FYear, sess, redirectIfDualLogin, toast, handleClear, f5Open]);
+  } catch (err) {
+    console.error("Stock fetch before delete failed:", err);
+    // fall back to whatever realStockList currently has
+  }
+
+  const res = await CC.deleteapi(
+    CC.PR_Delete,
+    stockDetailsForDelete ?? [],
+    {
+      Comid: String(sess.Comid),
+      Id: String(targetId),
+      MirrorTable: String(sess.MirrorTable ?? 0),
+      Updateid: String(targetUpdateId ?? ""),
+      LocalDB: String(sess.LocalDB ?? 0),
+      Year: String(FYear ?? ""),
+      BillMaster: String(sess.BillMaster ?? 0),
+    }
+  );
+
+  setLoading(false);
+  if (redirectIfDualLogin(res)) return;
+  if (res?.IsSuccess) {
+    toast(`✔ ${res.Message || "Deleted Successfully."}`);
+    handleClear();
+    if (f5Open) setTimeout(() => openF5ViewRef.current?.(), 300);
+  } else {
+    toast(`❌ ${res?.Message || "Delete Failed."}`, true);
+  }
+}, [perm.Delete, editId, purchaseNo, updateIdEdit, confirm, realStockList, FYear, sess, redirectIfDualLogin, toast, handleClear, f5Open]);
+  // const handleDelete = useCallback(async (overrideId, overridePno, overrideUpdateId) => {
+  //   const targetId       = overrideId       !== undefined ? overrideId       : editId;
+  //   const displayPno     = overridePno      !== undefined ? overridePno      : purchaseNo;
+  //   const targetUpdateId = overrideUpdateId !== undefined ? overrideUpdateId : updateIdEdit;
+
+  //   if (perm.Delete === 0) { toast("❌ Page Delete Permission Denied !!!.", true); return; }
+  //   if (!targetId) { toast("❌ No Delete Id !!!.", true); return; }
+
+  //   const str = `Do You Want TO Delete Purchase Return.This is Return No ${displayPno}?`;
+  //   const ok = await confirm(str);
+  //   if (!ok) return;
+
+  //   setLoading(true);
+
+  //   // const res = await CC.deleteapi(
+  //   //   CC.PR_Delete,
+  //   //   realStockList || [],
+  //   //   {
+  //   //     Comid: String(sess.Comid),
+  //   //     Id: String(targetId),
+  //   //     MirrorTable: String(sess.MirrorTable || 0),
+  //   //     Updateid: String(targetUpdateId || ""),
+  //   //     LocalDB: String(sess.LocalDB || 0),
+  //   //     Year: String(FYear || ""),
+  //   //   }
+  //   // );
+
+  //   const res = await CC.deleteapi(
+  //     CC.PR_Delete,
+  //     realStockList ?? [],
+  //     {
+  //       Comid: String(sess.Comid),
+  //       Id: String(targetId),
+  //       MirrorTable: String(sess.MirrorTable ?? 0),
+  //       Updateid: String(targetUpdateId ?? ""),
+  //       LocalDB: String(sess.LocalDB ?? 0),
+  //       Year: String(FYear ?? ""),
+  //       BillMaster: String(sess.BillMaster ?? 0),
+  //     }
+  //   );
+    
+  //   setLoading(false);
+  //   if (redirectIfDualLogin(res)) return;
+  //   if (res?.IsSuccess) {
+  //     toast(`✔ ${res.Message || "Deleted Successfully."}`);
+  //     handleClear();
+    
+  //     if (f5Open) {
+  //       setTimeout(() => openF5ViewRef.current?.(), 300);
+  //     }
+  //   } else {
+  //     toast(`❌ ${res?.Message || "Delete Failed."}`, true);
+  //   }
+  // }, [perm.Delete, editId, purchaseNo, updateIdEdit, confirm, realStockList, FYear, sess, redirectIfDualLogin, toast, handleClear, f5Open]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  F5 VIEW (mirrors jQuery methods.F5View)
@@ -1915,6 +2128,13 @@ const res = await CC.insertapi(
         return;
       }
 
+      // Ctrl+F — Form Focus Columns
+      if (e.ctrlKey && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        handleFocusFormColOpen();
+        return;
+      }
+
       // Escape — close popups / confirm quit
       if (e.key === "Escape") {
         e.preventDefault();
@@ -1926,6 +2146,7 @@ const res = await CC.insertapi(
         if (payPopupOpen){ setPayPopupOpen(false); return; }
         if (f12Open)     { setF12Open(false);      return; }
         if (ctrlGOpen)   { setCtrlGOpen(false);    return; }
+        if (focusFormColOpen) { setFocusFormColOpen(false); return; }
         if (editPwdOpen) { setEditPwdOpen(false);  return; }
         confirm("Do You Want To Quit?").then((ok) => { if (ok) navigate("/Home"); });
         return;
@@ -1936,9 +2157,9 @@ const res = await CC.insertapi(
     return () => document.removeEventListener("keydown", handler);
   }, [
     isAuthorized, editId, perm.Delete, f5Open, loadPmOpen, loadPdOpen,
-    mrpPopup.open, productPopup.open, payPopupOpen, f12Open, ctrlGOpen, editPwdOpen,
-    handleSave, handleClear, handleDelete, openF5View, openF12, openCtrlG,
-    openEditPassword, confirm, navigate, toast,
+    mrpPopup.open, productPopup.open, payPopupOpen, f12Open, ctrlGOpen, editPwdOpen, focusFormColOpen,
+    handleSave, handleClear, handleDelete, openF5View, openF12, openCtrlG, handleFocusFormColOpen,
+    openEditPassword, toast, confirm, navigate
   ]);
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -2003,6 +2224,49 @@ const res = await CC.insertapi(
       {/* Topbar */}
       <Topbar />
 
+      {/* ── Form Focus (Ctrl+F) Popup ───────────────────────────────────────── */}
+      {focusFormColOpen && (
+        <div className="popup-overlay" style={{ zIndex: 1200 }}>
+          <div className="popup-window f12-popup" style={{ width: 520, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+            <div className="popup-header">
+              <span>Form Columns Focus Enabled (Ctrl+F)</span>
+              <button className="popup-close" onClick={() => setFocusFormColOpen(false)}>✕</button>
+            </div>
+            <div className="popup-body" style={{ overflowY: "auto", flex: 1 }}>
+              <table className="popup-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 80, textAlign: "center" }}>Position</th>
+                    <th style={{ textAlign: "left" }}>Column Name</th>
+                    <th style={{ width: 90, textAlign: "center" }}>Focus</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {focusFormColDraft.map((d, idx) => (
+                    <tr key={d.column} draggable
+                      onDragStart={() => handleFocusFormDragStart(idx)}
+                      onDragOver={(e) => handleFocusFormDragOver(e, idx)}
+                      onDragEnd={handleFocusFormDragEnd}
+                      style={{ background: focusFormDragIdx === idx ? "#e0f2fe" : "transparent", cursor: "grab" }}>
+                      <td style={{ textAlign: "center", userSelect: "none", fontWeight: 600 }}>{idx + 1}</td>
+                      <td>{d.label || d.column}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, cursor: "pointer" }}>
+                          <input type="checkbox" checked={!!d.Focus} onChange={() => handleFocusFormToggle(idx, !d.Focus)} style={{ width: 14, height: 14, accentColor: "#1f65de" }} />
+                        </label>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="popup-footer">
+              <button className="btn btn-primary btn-sm" onClick={handleFocusFormColSave} disabled={loading}>💾 Save</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setFocusFormColOpen(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MASTER FORM ──────────────────────────────────────────────────────── */}
       <div className="pr-master">
@@ -2021,7 +2285,7 @@ const res = await CC.insertapi(
               className="form-ctrl"
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") purchaseTypeRef.current?.focus(); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("dtppurchasedate"); } }}
               style={{ minWidth: 130 }}
             />
           </div>
@@ -2033,7 +2297,7 @@ const res = await CC.insertapi(
               className="form-ctrl"
               value={purchaseType}
               onChange={(e) => setPurchaseType(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") supplierInputRef.current?.focus(); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("cmbpurchaseType"); } }}
               style={{ minWidth: 100 }}
             >
               <option value="CREDIT">CREDIT</option>
@@ -2411,7 +2675,7 @@ const res = await CC.insertapi(
             setPayPopupOpen(false);
             setPaymentStatus(true);
             setPaymentFlag(false);
-            handleSave();
+            handleSave(true);
           }}
         />
       )}
@@ -2453,7 +2717,7 @@ function ProductPopup({ list, query, selIdx, onQueryChange, onSelectIdx, onSelec
 
   return (
     <div className="popup-overlay" style={{ zIndex: 1100 }}>
-      <div className="popup-window product-popup">
+      <div className="popup-window product-popup" style={{ width: 820, height: "80vh" }}>
         <div className="popup-header">
           <span>Product Lookup</span>
           <button className="popup-close" onClick={onClose}>✕</button>
@@ -2470,16 +2734,7 @@ function ProductPopup({ list, query, selIdx, onQueryChange, onSelectIdx, onSelec
           />
           <div className="popup-list-wrap">
             <table className="popup-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Description</th>
-                  <th>MRP</th>
-                  <th>Purchase Rate</th>
-                  <th>GST%</th>
-                  <th>Stock</th>
-                </tr>
-              </thead>
+               <thead><tr><th>Code</th><th>Description</th><th>UOM</th><th>Pur.Rate</th><th>MRP</th><th>GST</th><th>LandingCost</th><th>SaleRate</th></tr></thead>
               <tbody>
                 {list.length === 0
                   ? <tr><td colSpan={6} className="no-data">No products found</td></tr>
@@ -2491,10 +2746,12 @@ function ProductPopup({ list, query, selIdx, onQueryChange, onSelectIdx, onSelec
                     >
                       <td>{p.ProductCode || p.Prod_Code}</td>
                       <td>{p.ProductName || p.PName}</td>
+                      <td>{p.UOM || p.UnitOfMeasure}</td>
                       <td className="right">{fmt2(p.MRP)}</td>
                       <td className="right">{fmt2(p.PurchaseRate)}</td>
                       <td className="right">{fmt2(p.GST)}</td>
-                      <td className="right">{fmt2(p.Stock)}</td>
+                      <td className="right">{fmt2(p.LandingCost)}</td>
+                      <td className="right">{fmt2(p.SaleRate)}</td>
                     </tr>
                   ))}
               </tbody>
@@ -2575,7 +2832,7 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
 
   return (
     <div className="popup-overlay" style={{ zIndex: 1100 }}>
-      <div className="popup-window f5-popup" style={{ maxHeight: "85vh" }}>
+      <div className="popup-window f5-popup" style={{ height: "85vh" }}>
         <div className="popup-header">
           <span>Purchase Return — List View (F5)</span>
           <button className="popup-close" onClick={onClose}>✕</button>
@@ -2965,7 +3222,7 @@ function CtrlGPopup({ cols, onColsChange, onSave, saving, onClose }) {
               <tr>
                 <th style={{ width: 80,  textAlign: "center" }}>Position</th>
                 <th style={{ textAlign: "left" }}>Column Name</th>
-                <th style={{ width: 90,  textAlign: "center" }}>Visible</th>
+                <th style={{ width: 90,  textAlign: "center" }}>Focus</th>
               </tr>
             </thead>
             <tbody>

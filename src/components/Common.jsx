@@ -9,6 +9,8 @@
 //    → removes all try/catch + fetch boilerplate from TransactionPassword.jsx
 //  • Added RateChange API endpoint constants
 //    → RateChangeSelect, RateChangeUpdate, RateChangeItemSelect, RateChangeItemByCode
+//  • MERGED: combined report-combo-loader hook (useReportCombos) with
+//    Area master endpoints + production BASE_URL from the two source copies.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -297,7 +299,10 @@ export const FormFocusCfgUrl       = (mcomid) =>
   `/Content/Appdata/Visible/${mcomid}/QuotationFormFocus.json`;
 
 export const SelectMenuMaster = "/api/loginApp/SelectMenuMaster";
-export const UpdateMenuMaster = "/api/loginApp/UpdateMenuMaster_BM";
+// NOTE: the two source copies disagreed here — one had "UpdateMenuMaster_BM",
+// the other plain "UpdateMenuMaster". Kept the plain (newer-looking) version;
+// confirm against your backend route before relying on this.
+export const UpdateMenuMaster = "/api/loginApp/UpdateMenuMaster";
 
 
 export const SelectUserMenuDetails = "/api/loginApp/SelectUserMenuDetails"; 
@@ -319,7 +324,6 @@ export const authHeaders = () => ({
   "Profile":       localStorage.getItem("Profile")    || "Admin",
   "LoginCheck":    localStorage.getItem("LoginCheck") || "1",
 });
-console.log(localStorage.getItem("token"));
 export const loadSalesmanData = async (MComid) => {
   try {
     const res = await fetch(
@@ -351,25 +355,6 @@ export const mkUrl = (path) => BASE_URL + path;
  * @param {string} pageName  - must match the PageName stored in "menulist"
  * @returns {{ Comid, MComid, IdComList, MirrorTable, menudata }}
  */
-// export const buildSession = (pageName) => {
-//   try {
-//     const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
-//     const Comid       = getStr("Comid")    || "1";
-//     const MComid      = getStr("MComid")   || Comid;
-//     const IdComList   = getStr("IdComList") || Comid;
-//     const MirrorTable = getStr("MirrorTableOnline") || "0";
-//     return {
-//       Comid:    main0.CommonCompany ? MComid : Comid,
-//       MComid,
-//       IdComList,
-//       MirrorTable,
-//       menudata: (getLocal("menulist") || []).filter(o => o.PageName === pageName),
-//     };
-//   } catch {
-//     return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: "0", menudata: [] };
-//   }
-// };
-
 // ─── 8. API HELPERS ───────────────────────────────────────────────────────────
 export const buildSession = (pageName) => {
   try {
@@ -386,20 +371,23 @@ export const buildSession = (pageName) => {
       menudata: (getLocal("menulist") || []).filter(o => o.PageName === pageName),
 
       // ── Purchase-specific settings from Mainsetting ──
-      batchstockstatus:       String(main0.batchstockstatus       ?? 0),
-   
-      ItemMasterRateUpdate:   String(main0.ItemMasterRateUpdate   ?? false),
-      Commoncompany:          String(main0.CommonCompany          ?? false),
-      CommoncompanyDiffStock: String(main0.CommonCompanyDiffStock ?? false),
-      SupplierMulitipleAllow: String(main0.SupplierMulitipleAllow ?? false),
-      MulipleMRP:             String(main0.MulipleMRP             ?? false),
-      BatchPerfix:            String(main0.BatchPerfix            ?? ""),
-      BatchDigit:             String(main0.BatchNoDigit             ?? 0),
-      LocalDB:                String(main0.LocalDB                ?? 0),
+      BatchWiseStock:            String(main0.BatchWiseStock            ?? 0),
+      
+      TextilesSerialNowiseBilling: String(main0.TextilesSerialNowiseBilling ?? false),
+      PurchaseItemmasterSave:        String(main0.PurchaseItemmasterSave        ?? false),
+      ItemMasterRateUpdate:        String(main0.ItemMasterRateUpdate        ?? false),
+      Commoncompany:                String(main0.CommonCompany              ?? false),
+      CommoncompanyDiffStock:       String(main0.CommonCompanyDiffStock      ?? false),
+      SupplierMulitipleAllow:       String(main0.SupplierMulitipleAllow      ?? false),
+      MulipleMRP:                   String(main0.MulipleMRP                 ?? false),
+      BatchPerfix:                  String(main0.BatchPerfix                ?? ""),
+      BatchDigit:                   String(main0.BatchNoDigit               ?? 0),
+      LocalDB:                      String(main0.LocalDB                    ?? 0),
     };
   } catch {
     return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: "0", menudata: [],
-             batchstockstatus: "0", ItemMasterRateUpdate: "false",
+             batchstockstatus: "0", TextilesSerialNowiseBilling: "false",
+             ItemMasterRateUpdate: "false",
              Commoncompany: "false", CommoncompanyDiffStock: "false",
              SupplierMulitipleAllow: "false", MulipleMRP: "false",
              BatchPerfix: "", BatchDigit: "0", LocalDB: "0" };
@@ -580,6 +568,93 @@ export const editPassword = async ({ password, type, Comid }) => {
  */
 export const repackingEditPassword = ({ password, type, Comid }) =>
   api(TxnEditPassword, null, {}, { password, type, Comid });
+
+// ─── 8b. REPORT COMBO LOADER (shared across all Sales/Purchase Report pages) ──
+/**
+ * extractComboList() / toComboOption()
+ * Normalises a CC.api() response into a flat array and then into
+ * { value, label } options for <select>/combo components.
+ */
+export const extractComboList = (data) =>
+  Array.isArray(data)          ? data
+  : Array.isArray(data?.data)  ? data.data
+  : Array.isArray(data?.Data1) ? data.Data1
+  : [];
+
+export const toComboOption = (row) => ({
+  value: row.value ?? row.Code ?? row.Id ?? row.code ?? row.id ?? "",
+  label: row.label ?? row.Name ?? row.name ?? row.Description ?? String(row.value ?? row.Code ?? row.Id ?? ""),
+});
+
+/**
+ * useReportCombos()
+ * Centralised Customer / Salesman / Cashier / Counter / SaleType combo loader.
+ * Used by every *Report.jsx page instead of each page re-implementing its own
+ * Promise.allSettled + extractList/toOption block.
+ *
+ * IMPORTANT: every request goes through CC.api(), so it always carries the
+ * SAME auth headers (Authorization / Userid / Profile / LoginCheck) built by
+ * authHeaders(). If the backend still answers 406, it means TokenVaildate()
+ * rejected the session (stale/invalid token, or the same user logged in
+ * elsewhere) — not a per-page header bug. This hook now detects that case
+ * (_dualLogin) and redirects to Login instead of silently leaving the combos
+ * empty, which is what was happening before.
+ *
+ * Usage:
+ *   const { customerList, salesmanList, cashierList, counterList, saleTypeList } =
+ *     CC.useReportCombos(pageAccess.ready && pageAccess.allowed, session.MComid, navigate);
+ */
+export function useReportCombos(ready, MComid, navigate) {
+  const [customerList, setCustomerList] = useState([]);
+  const [salesmanList, setSalesmanList] = useState([]);
+  const [cashierList,  setCashierList]  = useState([]);
+  const [counterList,  setCounterList]  = useState([]);
+  const [saleTypeList, setSaleTypeList] = useState([]);
+
+  useEffect(() => {
+    if (!ready || !MComid) return;
+
+    (async () => {
+      const results = await Promise.allSettled([
+        api(GetSupplierAll,   null, {}, { AccountType: "CUSTOMER", Comid: MComid }),
+        api(SalesManSelectV7, null, {}, { Comid: MComid }),
+        api(CashierSelect,    null, {}, { Comid: MComid }),
+        api(SelectCounter,    null, {}, { Comid: MComid }),
+        api(SelectSaleType,   null, {}, { Comid: MComid }),
+      ]);
+
+      // api() never throws, so every promise resolves "fulfilled" even on 406/500 —
+      // check .value.ok / ._dualLogin explicitly instead of relying on status alone.
+      const dualLogin = results.some(r => r.status === "fulfilled" && r.value?._dualLogin);
+      if (dualLogin) {
+        alert("Already Login Another User Please Login Again!!!");
+        if (navigate) navigate("/Login/Index");
+        else window.location.href = "/Login/Index";
+        return;
+      }
+
+      const [customerRes, salesmanRes, cashierRes, counterRes, saleTypeRes] = results;
+
+      if (customerRes.status === "fulfilled" && customerRes.value.ok !== false) {
+        setCustomerList(extractComboList(customerRes.value).map(toComboOption));
+      }
+      if (salesmanRes.status === "fulfilled" && salesmanRes.value.ok !== false) {
+        setSalesmanList(extractComboList(salesmanRes.value).map(toComboOption));
+      }
+      if (cashierRes.status === "fulfilled" && cashierRes.value.ok !== false) {
+        setCashierList(extractComboList(cashierRes.value).map(toComboOption));
+      }
+      if (counterRes.status === "fulfilled" && counterRes.value.ok !== false) {
+        setCounterList(extractComboList(counterRes.value).map(toComboOption));
+      }
+      if (saleTypeRes.status === "fulfilled" && saleTypeRes.value.ok !== false) {
+        setSaleTypeList(extractComboList(saleTypeRes.value).map(toComboOption));
+      }
+    })();
+  }, [ready, MComid, navigate]);
+
+  return { customerList, salesmanList, cashierList, counterList, saleTypeList };
+}
 
 // ─── 8b. REPORT COMBO LOADER (shared across all Sales/Purchase Report pages) ──
 /**
@@ -920,6 +995,11 @@ export const ST_PrintView  = "/api/StockTransferApp/PrintView";
 export const IM_ByCode      = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
 export const IM_ProductList = "/api/ItemMasterApp/GetProductListV7";
 export const IM_TransferList= "/api/ItemMasterApp/SelectStockTrasferList";
+
+// Area
+export const AreaSelect = "/api/AreaApp/SelectArea_V7";
+export const AreaInsert = "/api/AreaApp/InsertArea";
+export const AreaDelete = "/api/AreaApp/DeleteArea";
 
 // Supplier / Branch / Customer
 export const SUP_All    = "/api/SupplierApp/SelectSupplierAll";

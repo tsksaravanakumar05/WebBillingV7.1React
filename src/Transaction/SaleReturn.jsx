@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, {
-  useState, useEffect, useRef, useCallback,
+  useState, useEffect, useRef, useCallback,useMemo,
   useImperativeHandle, forwardRef,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -30,7 +30,8 @@ const GetCustomerUrl         = "/api/SupplierApp/SelectSupplierAll";
 const SalesManSelectUrl      = "/api/SalesManApp/SelectSalesMan_V7";
 const LoginPasswordUrl       = "/api/LoginApp/EditPassword";
 const VisibleColumnsUrl      = "/Login/VisibleColumns";
-const SelectSaleBillUrl      = "/api/SaleReturnApp/SelectSaleBillForReturn";
+const SelectSaleBillUrl      = "/api/SaleReturnApp/SaleReturnLoadPD";
+const BillNoCheckUrl         = "/api/SaleApp/BillNoCheck"; 
 const CRMBalanceUrl          = "/api/SalesReportApp/CRMBalanceReport";
 const CurrentBalanceUrl      = "/api/SupplierApp/CurrentBalance";
 const FocusColumnsUrl        = "/Login/FocusColumns";
@@ -40,6 +41,7 @@ const FocusColumnsUrl        = "/Login/FocusColumns";
 // ─── SALE RETURN GRID COLUMNS ─────────────────────────────────────────────────
 const SR_COLUMNS = [
   { key: "ProductCode",     label: "Product Code",  width: 130, hidden: false },
+   { key: "BillNo",          label: "Bill No",       width: 90,  hidden: false },
   { key: "ProductName",     label: "Description",   width: 240, hidden: false, readOnly: true },
   { key: "MRP",             label: "MRP",           width: 90,  hidden: true,  readOnly: true, type: "float" },
   { key: "SaleRate",        label: "Sale Rate",     width: 100, hidden: false, type: "float" },
@@ -267,17 +269,17 @@ function PwModal({ title, comid, onOk, onClose }) {
 }
 
 // ─── PRODUCT SEARCH POPUP ─────────────────────────────────────────────────────
-function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
-  const [q, setQ]           = useState("");
+function ProductSearchPopup({ products, onSelect, onClose, anchorPos,isTamil }) {
+  const [q, setQ] = useState("");
   const [hilite, setHilite] = useState(0);
   const inputRef = useRef(null);
-  const listRef  = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 30); }, []);
 
   const filtered = products.filter(p =>
     String(p.PName || "").toLowerCase().includes(q.toLowerCase()) ||
-    String(p.Prod_Code || p.ProductCode || "").toLowerCase().includes(q.toLowerCase())
+    String(p.Prod_Code || "").toLowerCase().includes(q.toLowerCase())
   ).slice(0, 120);
 
   useEffect(() => { setHilite(0); }, [q]);
@@ -289,40 +291,84 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
   return (
     <div className="sb-prod-search" style={{ top: anchorPos?.top || 160, left: anchorPos?.left + 250 || 20 }}>
       <div className="sb-prod-search-hdr">
-        <span className="sb-ps-title">🔍 Product Search</span>
+        <span className="sb-ps-title">Product Search</span>
         <span className="sb-ps-count">{filtered.length} items</span>
-        <button className="sb-ps-close" onClick={onClose}>✕</button>
+        <button className="sb-ps-close" onClick={onClose} title="Close (Esc)">✕</button>
       </div>
       <div className="sb-ps-input-wrap">
         <span className="sb-ps-icon">⌕</span>
-        <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
-          placeholder="Type code or name…" className="sb-ps-input"
+        <input
+          ref={inputRef}
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Type code or name…"
+          className="sb-ps-input"
           onKeyDown={e => {
-            if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
-            if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
-            if (e.key === "Enter")      { e.preventDefault(); if (filtered[hilite]) onSelect(filtered[hilite]); }
-            if (e.key === "Escape")     { e.preventDefault(); onClose(); }
+            if (e.key === "ArrowDown") { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+            if (e.key === "ArrowUp")   { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
+            if (e.key === "Enter")     { e.preventDefault(); if (filtered[hilite]) onSelect(filtered[hilite]); }
+            if (e.key === "Escape")    { e.preventDefault(); onClose(); }
           }}
         />
       </div>
-      <div className="sb-ps-cols">
-        <span style={{ width: 90 }}>Code</span>
-        <span style={{ flex: 1 }}>Product Name</span>
-        <span style={{ width: 72, textAlign: "right" }}>Sale Rate</span>
-        <span style={{ width: 60, textAlign: "right" }}>Stock</span>
-      </div>
+      {isTamil ? (
+        <div className="sb-ps-cols">
+          <span style={{ width: 90 }}>Code</span>
+          <span style={{ flex: 1 }}>Description</span>
+          <span style={{ width: 140 }}>TamilName</span>
+        </div>
+      ) : (
+        <div className="sb-ps-cols">
+          <span style={{ width: 80 }}>Code</span>
+          <span style={{ flex: 1 }}>Description</span>
+          <span style={{ width: 50, textAlign: "center" }}>UOM</span>
+          <span style={{ width: 65, textAlign: "right" }}>MRP</span>
+          <span style={{ width: 65, textAlign: "right" }}>SaleRate</span>
+          <span style={{ width: 50, textAlign: "right" }}>GST%</span>
+        </div>
+      )}
       <div ref={listRef} className="sb-prod-list">
         {filtered.length === 0
           ? <div className="sb-ps-empty">No products found</div>
           : filtered.map((p, idx) => (
             <div key={p.Id} data-idx={idx}
               className={`sb-prod-item${idx === hilite ? " hi" : ""}`}
-              onClick={() => onSelect(p)}
-              onMouseEnter={() => setHilite(idx)}>
-              <span className="sb-prod-code">{p.Prod_Code || p.ProductCode}</span>
-              <span className="sb-prod-name">{p.PName || p.ProductName}</span>
-              <span className="sb-prod-rate">₹{f2(vn(p.SaleRate || p.SalesRate)).toFixed(2)}</span>
-              <span className="sb-prod-stock">{vn(p.Stock).toFixed(0)}</span>
+              onClick={() => onSelect(p)} onMouseEnter={() => setHilite(idx)}>
+
+               {isTamil ? (
+                              <>
+                                <span className="sb-prod-code" style={{ width: 90 }}>
+                                  {p.Prod_Code ? p.Prod_Code : p.ProductCode}
+                                </span>
+                                <span className="sb-prod-name" style={{ flex: 1 }}>
+                                  {p.PName ? p.PName : p.ProductName}
+                                </span>
+                                <span style={{ width: 140, color: "#1f65de", fontWeight: 600 }}>
+                                  {p.PrinterName || "—"}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="sb-prod-code" style={{ width: 80 }}>
+                                  {p.Prod_Code ? p.Prod_Code : p.ProductCode}
+                                </span>
+                                <span className="sb-prod-name" style={{ flex: 1 }}>
+                                  {p.PName ? p.PName : p.ProductName}
+                                </span>
+                                <span style={{ width: 50, textAlign: "center", fontSize: 10.5, color: "#6b7a99" }}>
+                                  {p.UOM || "—"}
+                                </span>
+                                <span style={{ width: 65, textAlign: "right", color: "#475569" }}>
+                                  ₹{CC.f2(CC.vn(p.MRP)).toFixed(2)}
+                                </span>
+                                <span className="sb-prod-rate" style={{ width: 65, textAlign: "right" }}>
+                                  ₹{CC.f2(CC.vn(p.SaleRate ? p.SaleRate : p.SalesRate)).toFixed(2)}
+                                </span>
+                                <span style={{ width: 50, textAlign: "right", color: "#8b5cf6" }}>
+                                  {CC.f2(CC.vn(p.GST)).toFixed(2)}
+                                </span>
+                              </>
+                            )}
             </div>
           ))
         }
@@ -335,7 +381,61 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
     </div>
   );
 }
+// ─── BILL NO LOOKUP / LOAD SALE (mirrors LoadSDWindow + LoadSD in SaleReturn.js) ──
+function BillLoadPopup({ items, onConfirm, onClose, billNo }) {
+  const [qtyMap, setQtyMap] = useState(() =>
+    Object.fromEntries(items.map(i => [i.Indexid1 || i.Id, ""]))
+  );
+  const setQty = (key, v) => setQtyMap(prev => ({ ...prev, [key]: v }));
 
+  return (
+    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="mp-modal-box" style={{ width: 760, maxHeight: "82vh" }}>
+        <div className="mp-modal-hdr">
+          <span>📄 Load Sale Bill #{billNo} — Select Return Qty</span>
+          <button onClick={onClose}>✕</button>
+        </div>
+        <div className="mp-modal-body" style={{ overflowY: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+            <thead>
+              <tr>
+                {["Code", "Description", "SaleRate", "SaleQty", "AvailQty", "ReturnQty"].map(h => (
+                  <th key={h} style={{ background: "#1a2e4a", color: "#fff", padding: "6px 8px", textAlign: "left" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => {
+                const key = it.Indexid1 || it.Id;
+                return (
+                  <tr key={key} style={{ background: i % 2 === 0 ? "#fff" : "#fafbff" }}>
+                    <td style={{ padding: "4px 8px" }}>{it.Productcode}</td>
+                    <td style={{ padding: "4px 8px" }}>{it.ProductName}</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }}>{f2(vn(it.PurRate)).toFixed(2)}</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }}>{it.ItemQty}</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }}>{vn(it.AvaiableQty).toFixed(2)}</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                      <input type="number" step="0.01" value={qtyMap[key]}
+                        onChange={e => setQty(key, e.target.value)}
+                        style={{ width: 80, textAlign: "right", border: "1px solid #c5d8f8", borderRadius: 3, padding: "2px 6px" }} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="mp-modal-ftr">
+          <button className="mp-btn sv"
+            onClick={() => onConfirm(items.map(it => ({ ...it, ReturnQty: qtyMap[it.Indexid1 || it.Id] })))}>
+            ✅ Load Selected Qty
+          </button>
+          <button className="mp-btn" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 // ─── F5 VIEW MODAL ────────────────────────────────────────────────────────────
 function F5ViewModal({ rows, onEdit, onDelete, onClose, fromDate, toDate, onSearch }) {
   const [from, setFrom] = useState(fromDate);
@@ -344,7 +444,7 @@ function F5ViewModal({ rows, onEdit, onDelete, onClose, fromDate, toDate, onSear
 
   return (
     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box sb-f5-modal" style={{ width: 980, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+      <div className="mp-modal-box sb-f5-modal" style={{ width: 980, height: "85vh", display: "flex", flexDirection: "column" }}>
         <div className="mp-modal-hdr">
           <span>📋 Sale Return View (F5)</span>
           <button onClick={onClose}>✕</button>
@@ -533,6 +633,17 @@ const [ctrlGOpen, setCtrlGOpen] = useState(false);
   const [f12Open,     setF12Open]     = useState(false);
   const visCols = colSettings.filter(c => c.visible);
 
+  const focusEnabledCols = useMemo(() => {
+    const defaultCols = visCols
+      .map(vc => SR_COLUMNS?.find(c => c.key === vc.key))
+      .filter(Boolean)
+      .filter(cd => !cd.readOnly)
+      .map(cd => cd.key);
+
+    if (focusCols.length === 0) return defaultCols;
+    return defaultCols.filter(k => focusCols.includes(k));
+  }, [visCols, focusCols]);
+
 
   // ── Session ──────────────────────────────────────────────────────────────
   const [sess] = useState(() => {
@@ -589,7 +700,9 @@ const loadColCfg = useCallback(async (comid) => {
 
   const [customers,  setCustomers]  = useState([]);
   const [salesmen,   setSalesmen]   = useState([]);
-
+const [billLoadOpen, setBillLoadOpen] = useState(false);
+const [billLoadItems, setBillLoadItems] = useState([]); // rows fetched from original sale
+const [billLoadNo, setBillLoadNo] = useState("");
   const [returnNo,   setReturnNo]   = useState("");
   const [returnDate, setReturnDate] = useState(today());
   const [custId,     setCustId]     = useState("");
@@ -1037,7 +1150,142 @@ const fillItemIntoRow = useCallback((rid, item) => {
       setProdPopup({ rid, pos: { top: 200, left: 80 } });
     }
   }, [sess, fillItemIntoRow]);
+// ─── BillNo cell → fetch original sale bill for return (mirrors LoadSD) ─────
+// ─── BillNo cell → validate bill, then load its items (mirrors BillNoCheck → LoadSD) ──
+const fetchBillForReturn = useCallback(async (rid, billNoVal) => {
+  const billNoNum = parseInt(billNoVal, 10);
+  if (!billNoVal || !String(billNoVal).trim() || isNaN(billNoNum)) {
+    toast("❌ Enter a valid Bill No", true);
+    return;
+  }
 
+  setLoading(true); setLdMsg("Checking Bill No...");
+
+  // Step 1 — validate the bill number, matches backend:
+  // BillNoCheck(Int32 BillNo, string date, Int32 Cid, string BillType, Int32 Comid)
+  const checkRes = await CC.api(BillNoCheckUrl, null, {}, {
+    BillNo:   billNoNum,
+    date:     returnDate,                 // dd/MM/yyyy or yyyy-MM-dd per backend expectation
+    Cid:      parseInt(sess.CashierId) || 0,
+    BillType: sess.BillNoType,
+    Comid:    sess.Comid,
+  });
+
+  if (redirectIfDualLogin(checkRes)) { setLoading(false); return; }
+
+  // Backend returns "0" (string/number) for an invalid bill, otherwise the
+  // internal Sid to be used for loading the bill's items.
+  const checkVal = checkRes?.data ?? checkRes?.Data1 ?? checkRes?.Data ?? checkRes;
+  if (checkVal === "0" || checkVal === 0 || checkVal == null) {
+    setLoading(false);
+    toast("❌ Invalid Bill No !!!", true);
+    return;
+  }
+  const sid = checkVal;
+
+  // Step 2 — load the bill's items (equivalent of LoadSD(temp))
+  setLdMsg("Loading bill items...");
+  const res = await CC.api(SelectSaleBillUrl, null, {}, {
+    SMid:      sid,
+    Comid:     sess.Comid,
+    MComid:    sess.MComid,
+    Batchwise: 0,
+    Serialno:  0,
+  });
+  setLoading(false);
+  if (redirectIfDualLogin(res)) return;
+
+  const arr = Array.isArray(res.data) ? res.data
+            : Array.isArray(res.Data1) ? res.Data1
+            : Array.isArray(res.Data)  ? res.Data : [];
+  if (arr.length === 0) { toast("❌ No items found for this Bill", true); return; }
+
+  setBillLoadItems(arr);
+  setBillLoadNo(billNoVal);
+  setBillLoadOpen(true);
+  billLoadRowRef.current = rid;
+}, [sess, returnDate]);
+
+const billLoadRowRef = useRef(null);
+
+// Confirm handler: replaces current blank row(s) with the chosen return items
+// Confirm handler: replaces current blank row(s) with the chosen return items
+// Confirm handler: replaces current blank row(s) with the chosen return items
+const applyBillLoadItems = useCallback((selectedItems) => {
+  const usable = selectedItems.filter(it => vn(it.ReturnQty) > 0);
+  if (usable.length === 0) { setBillLoadOpen(false); return; }
+
+  setRows(prev => {
+    const triggerRid = billLoadRowRef.current;
+    const base = prev.filter(r => !(r._rid === triggerRid && !r.ProductRefId));
+
+    const newRows = usable.map(it => {
+      // ── Defensive field mapping: backend may return different casing
+      //    depending on endpoint (LoadSD vs SelectSaleBillUrl). Try every
+      //    known variant before falling back to 0.
+      const pick = (...keys) => {
+        for (const k of keys) {
+          if (it[k] !== undefined && it[k] !== null && it[k] !== "") return it[k];
+        }
+        return 0;
+      };
+
+      const saleRate  = f2(vn(pick("SaleRate", "PurRate", "SalesRate", "Rate", "salerate")));
+      const mrp       = f2(vn(pick("MRP", "Mrp", "mrp")));
+      const taxPer    = f2(vn(pick("TaxPercent", "TaxPer", "GST", "Gst")));
+      const discPer   = f2(vn(pick("DiscountPercent", "DiscountPer", "Discper")));
+      const cessPer   = f2(vn(pick("CESSPer", "CessPer", "CESS")));
+      const uomDec    = vn(pick("UOMDecimal", "UomDecimal")) || 0;
+      const stockQty  = vn(pick("AvaiableQty", "AvailableQty", "StockQty"));
+      const prodId    = pick("ProductId", "ProductRefId", "ProductRefid");
+      const prodCode  = pick("Productcode", "ProductCode");
+      const prodName  = pick("ProductName", "Productname");
+      const batchId   = pick("BatchRefid", "Batchid") || null;
+      const batchNo   = pick("BatchNo", "Bat_No", "BatchNo1") || "";
+      const saleRefId = pick("Id", "SaleRefId", "SDRefid");   // ← THIS LINE — links back to original sale detail row
+      const uom       = pick("UOM", "Uom") || "";
+
+      if (saleRate === 0) {
+        console.warn("⚠️ Bill load: SaleRate resolved to 0 for item", it);
+      }
+      if (!saleRefId) {
+        console.warn("⚠️ Bill load: SaleRefId/Id resolved to falsy — stock won't reduce on save", it);
+      }
+
+      const row = {
+        ...mkRow(),
+        BillNo:          billLoadNo,
+        ProductRefId:    prodId,
+        ProductCode:     prodCode,
+        ProductName:     prodName,
+        SaleRate:        saleRate,
+        MRP:             mrp,
+        ReturnQty:       ns(it.ReturnQty),
+        UOMDecimal:      uomDec,
+        UOM:             uom,
+        TaxPercent:      taxPer,
+        DiscountPercent: discPer,
+        CESSPer:         cessPer,
+        BatchRefid:      batchId,
+        Bat_No:          batchNo,
+        SaleRefId:       saleRefId,   // ← used by doSave to populate SDRefid in the payload
+        StockQty:        stockQty,
+        _origItemQty:    vn(pick("ItemQty", "SaleQty")),
+        _origBatchRefid: batchId || 0,
+        _origMfgDate:    pick("MFDate", "MfgDate") || "",
+        _origExpiryDate: pick("ExpDate", "ExpiryDate") || "",
+        _origPDRefid:    saleRefId,
+      };
+
+      return calcReturnRow(row);
+    });
+
+    return [...base, ...newRows, mkRow()];
+  });
+
+  setBillLoadOpen(false);
+  toast(`✅ ${usable.length} item(s) loaded from Bill #${billLoadNo}`);
+}, [billLoadNo]);
   // ── Load product list ─────────────────────────────────────────────────────
   const loadProductsForPopup = useCallback(async (rid) => {
     if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
@@ -1055,6 +1303,11 @@ const fillItemIntoRow = useCallback((rid, item) => {
   const handleCellChange = useCallback((rid, colKey, value) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
+      if (colKey === "ReturnQty") {
+        if (r.UOMDecimal === 0 && String(value).includes(".")) {
+          return r;
+        }
+      }
       const updated = { ...r, [colKey]: value, _dirty: true };
       if (["ReturnQty","SaleRate","TaxPercent","CESSPer","DiscountPercent"].includes(colKey)) {
         return calcReturnRow(updated);
@@ -1177,7 +1430,14 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
   const doSave = useCallback(async () => {
     if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
     if (!custId&&returnType!="CASH") { toast("❌ Select a Customer", true); return; }
-    const vRows = rows.filter(r => r.ProductRefId && vn(r.ReturnQty) > 0);
+  const vRows = rows.filter(r => r.ProductRefId && vn(r.ReturnQty) > 0);
+if (vRows.length === 0) { toast("❌ Add at least one return item", true); return; }
+
+const zeroRateRow = vRows.find(r => vn(r.SaleRate) === 0 || vn(r.Amount) === 0);
+if (zeroRateRow) {
+  toast(`❌ "${zeroRateRow.ProductName}" has SaleRate/Amount = 0 — fix before saving`, true);
+  return;
+}
     if (vRows.length === 0) { toast("❌ Add at least one return item", true); return; }
 
     const ok = await confirm("Do you want to Save Sale Return?");
@@ -1191,6 +1451,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
       ProductRefId:    r.ProductRefId,
       ProductCode:     r.ProductCode,
       ProductName:     r.ProductName,
+       SDRefid:         r.SaleRefId || 0,
       MRP:             f2(vn(r.MRP)),
       SaleRate:        f2(vn(r.SaleRate)),
       ItemQty:         f2(vn(r.ReturnQty)),
@@ -1206,10 +1467,12 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
       STAmount:        f2(vn(r.STAmount)),
       UOM:             r.UOM    || "",
       HSNcode:         r.HSNCode || "",
-      StockQty:        vn(r.StockQty),
+      StockQty:        vn(r.ReturnQty),
+      StockQtyNew:     vn(r.ReturnQty),
       BatchRefid:      r.BatchRefid || null,
       Bat_No:          r.Bat_No || "",
-      SaleRefId:       r.SaleRefId || 0,
+       BillNo:          r.BillNo || null,        // ← also include, matches jQuery's grdBillNo on the row
+  SaleRefId:       r.SaleRefId || 0, 
       remarks:         r.Remarks || "",
     }));
  const stockDetails = editId > 0
@@ -1264,7 +1527,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
       SaleDetails: returndetails,
        StockDetails: stockDetails, 
     }];
-   
+   console.log(payload);
     const headers = {
       "Comid":      String(sess.Comid),
       "cashid":     String(sess.CashId),
@@ -1301,23 +1564,43 @@ const doDeleteReturn = useCallback(async () => {
     if (!perm.Delete) { toast("❌ Delete Permission Denied", true); return; }
     const ok = await confirm("Do you want to Cancel this Return?");
     if (!ok) return;
-    setLoading(true);
+    setLoading(true); setLdMsg("Loading return details...");
 
-    // Body = List<StockDetailsModel> built from current rows
-    const body = rows
-      .filter(r => r.ProductRefId && vn(r.ReturnQty) > 0)
+    // ── FIX: mirror SaleBill.handleF5Delete / handleF5Delete in this file —
+    // fetch the SAVED record fresh from SaleReturnEditUrl right before delete,
+    // instead of trusting whatever is currently in the `rows` state (which
+    // may be a stale edit-load, or edited-but-unsaved values).
+    const editRes = await CC.api(SaleReturnEditUrl, null, {}, {
+      Id: editId, SaleReturnNo: 0, Comid: sess.Comid,
+    });
+
+    if (redirectIfDualLogin(editRes)) { setLoading(false); return; }
+    if (!editRes || !(editRes.ok ?? editRes.IsSuccess)) {
+      setLoading(false);
+      toast("❌ Failed to load return details", true);
+      return;
+    }
+
+    const data    = Array.isArray(editRes.Data) ? editRes.Data[0] : editRes.data;
+    const master  = Array.isArray(data) ? data[0] : data;
+    const details = master?.SaleReturnDetails || master?.SaleDetails || [];
+
+    // Build List<StockDetailsModel> from the FRESH, DB-saved details —
+    // exactly mirrors handleF5Delete's body-building logic below.
+    const body = details
+      .filter(r => vn(r.ItemQty || r.ReturnQty) > 0)
       .map(r => ({
-        ProductRefid:  r.ProductRefId,
-        Batchid:       r.BatchRefid || 0,
-        RealQty:       vn(r.ReturnQty),
-        Qty:           vn(r.ReturnQty),
-        MfDate:        "",
-        ExpDate:       "",
+        ProductRefid:   r.ProductRefId  || r.ProductRefid  || 0,
+        Batchid:        r.BatchRefid    || r.Batchid        || 0,
+        RealQty:        vn(r.ItemQty    || r.ReturnQty),
+        Qty:            0,
+        MfDate:         "",
+        ExpDate:        "",
         SerialNoStatus: 0,
-        AdjustType:    0,
-        PDRefid:       r.SRDId || null,
-        ItemQty:       vn(r.ReturnQty),
-        Bags:          0,
+        AdjustType:     0,
+        PDRefid:        r.SRDId         || r.PDRefid        || null,
+        ItemQty:        vn(r.ItemQty    || r.ReturnQty),
+        Bags:           0,
       }));
 
     const extraHeaders = {
@@ -1340,7 +1623,7 @@ const doDeleteReturn = useCallback(async () => {
     } else {
       toast("❌ " + (res.message || res.Message || "Delete Failed"), true);
     }
-  }, [editId, perm, confirm, sess, clearForm, returnDate, rows]);
+  }, [editId, perm, confirm, sess, clearForm, returnDate, redirectIfDualLogin, toast]);
 
   // ── F5 view ───────────────────────────────────────────────────────────────
   const openF5 = useCallback(async (from = returnDate, to = returnDate) => {
@@ -1453,16 +1736,16 @@ const handleF5Delete = useCallback((id, billNo) => {
           ProductRefid:   r.ProductRefId  || r.ProductRefid  || 0,
           Batchid:        r.BatchRefid    || r.Batchid        || 0,
           RealQty:        vn(r.ItemQty    || r.ReturnQty),
-          Qty:            vn(r.ItemQty    || r.ReturnQty),
+          Qty:            0,
           MfDate:         "",
           ExpDate:        "",
           SerialNoStatus: 0,
           AdjustType:     0,
           PDRefid:        r.SRDId         || r.PDRefid        || null,
-          ItemQty:        vn(r.ItemQty    || r.ReturnQty),
+          ItemQty:       0,
           Bags:           0,
         }));
-
+console.log("Deleting return with body:", body);
       const extraHeaders = {
         Comid:       String(sess.Comid),
         Id:          String(id),
@@ -1470,7 +1753,7 @@ const handleF5Delete = useCallback((id, billNo) => {
         DayClose:    sess.DayClose ? "1" : "0",
         MirrorTable: "0",
         Updateid:    "0",
-        LocalDB:     "2",
+        LocalDB:     "0",
       };
 
       const res = await CC.api(SaleReturnDeleteUrl, body, extraHeaders, null);
@@ -1735,7 +2018,27 @@ const handleF5Delete = useCallback((id, billNo) => {
                               }}>
                                 {isFloat && val ? f2(val).toFixed(2) : ns(val)}
                               </span>
-                            ) : col.key === "ProductCode" ? (
+                            )  : col.key === "BillNo" ? (
+  <input
+    ref={el => regCell(row._rid, col.key, el)}
+    className="sb-cell-input"
+    value={ns(val)}
+    onChange={e => handleCellChange(row._rid, col.key, e.target.value)}
+    onKeyDown={e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const v = rowsRef.current.find(r => r._rid === row._rid)?.BillNo;
+        if (v) fetchBillForReturn(row._rid, v);
+        else handleCellKeyDown(e, row._rid, col.key); // fall through to normal nav
+        return;
+      }
+      handleCellKeyDown(e, row._rid, col.key);
+    }}
+    onFocus={() => setSelRid(row._rid)}
+    placeholder="Bill No"
+    style={{ width: "100%", boxSizing: "border-box" }}
+  />
+) : col.key === "ProductCode" ? (
                               <input
                                 ref={el => regCell(row._rid, col.key, el)}
                                 className="sb-cell-input"
@@ -1999,6 +2302,7 @@ const handleF5Delete = useCallback((id, billNo) => {
       {prodPopup && (
         <ProductSearchPopup
           products={prodList}
+          isTamil={sess.Tamil}
           onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
           onClose={() => setProdPopup(null)}
           anchorPos={prodPopup.pos}
@@ -2016,7 +2320,14 @@ const handleF5Delete = useCallback((id, billNo) => {
           onSearch={openF5}
         />
       )}
-
+{billLoadOpen && (
+  <BillLoadPopup
+    items={billLoadItems}
+    billNo={billLoadNo}
+    onConfirm={applyBillLoadItems}
+    onClose={() => setBillLoadOpen(false)}
+  />
+)}
       <CC.ToastList toasts={toasts} />
     </div>
   );

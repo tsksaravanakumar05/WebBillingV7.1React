@@ -103,17 +103,20 @@
 }
 
 /* ── Grid must also scroll internally, not clip ── */
-.supplier-page .mp-grid-wrap {
+/* .supplier-page .mp-grid-wrap {
   overflow: hidden !important;    /* keep the border-radius clean */
-  overflow-y: auto !important;    /* rows scroll vertically */
-}
+  /* overflow-y: auto !important;    rows scroll vertically 
+} */
+
 
 /* ── Table scrolls horizontally inside the wrapper ── */
-.supplier-page .mp-grid-wrap > div,
+/* .supplier-page .mp-grid-wrap > div,
 .supplier-page .mp-grid-wrap > table {
   overflow-x: auto;
+} */
+.supplier-page .mp-grid-wrap {
+  overflow: hidden !important;
 }
-
 /* Table fills wrapper */
 .supplier-page .mp-tbl {
   width: 100%;
@@ -129,3 +132,9 @@
 
 .supplier-page .mp-tbl th:last-child,
 .supplier-page .mp-tbl td:last-child { text-align: center; }
+.mp-gscroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  width: 100%;
+}
