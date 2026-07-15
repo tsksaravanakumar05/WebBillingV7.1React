@@ -604,57 +604,57 @@ export const toComboOption = (row) => ({
  *   const { customerList, salesmanList, cashierList, counterList, saleTypeList } =
  *     CC.useReportCombos(pageAccess.ready && pageAccess.allowed, session.MComid, navigate);
  */
-export function useReportCombos(ready, MComid, navigate) {
-  const [customerList, setCustomerList] = useState([]);
-  const [salesmanList, setSalesmanList] = useState([]);
-  const [cashierList,  setCashierList]  = useState([]);
-  const [counterList,  setCounterList]  = useState([]);
-  const [saleTypeList, setSaleTypeList] = useState([]);
+// export function useReportCombos(ready, MComid, navigate) {
+//   const [customerList, setCustomerList] = useState([]);
+//   const [salesmanList, setSalesmanList] = useState([]);
+//   const [cashierList,  setCashierList]  = useState([]);
+//   const [counterList,  setCounterList]  = useState([]);
+//   const [saleTypeList, setSaleTypeList] = useState([]);
 
-  useEffect(() => {
-    if (!ready || !MComid) return;
+//   useEffect(() => {
+//     if (!ready || !MComid) return;
 
-    (async () => {
-      const results = await Promise.allSettled([
-        api(GetSupplierAll,   null, {}, { AccountType: "CUSTOMER", Comid: MComid }),
-        api(SalesManSelectV7, null, {}, { Comid: MComid }),
-        api(CashierSelect,    null, {}, { Comid: MComid }),
-        api(SelectCounter,    null, {}, { Comid: MComid }),
-        api(SelectSaleType,   null, {}, { Comid: MComid }),
-      ]);
+//     (async () => {
+//       const results = await Promise.allSettled([
+//         api(GetSupplierAll,   null, {}, { AccountType: "CUSTOMER", Comid: MComid }),
+//         api(SalesManSelectV7, null, {}, { Comid: MComid }),
+//         api(CashierSelect,    null, {}, { Comid: MComid }),
+//         api(SelectCounter,    null, {}, { Comid: MComid }),
+//         api(SelectSaleType,   null, {}, { Comid: MComid }),
+//       ]);
 
-      // api() never throws, so every promise resolves "fulfilled" even on 406/500 —
-      // check .value.ok / ._dualLogin explicitly instead of relying on status alone.
-      const dualLogin = results.some(r => r.status === "fulfilled" && r.value?._dualLogin);
-      if (dualLogin) {
-        alert("Already Login Another User Please Login Again!!!");
-        if (navigate) navigate("/Login/Index");
-        else window.location.href = "/Login/Index";
-        return;
-      }
+//       // api() never throws, so every promise resolves "fulfilled" even on 406/500 —
+//       // check .value.ok / ._dualLogin explicitly instead of relying on status alone.
+//       const dualLogin = results.some(r => r.status === "fulfilled" && r.value?._dualLogin);
+//       if (dualLogin) {
+//         alert("Already Login Another User Please Login Again!!!");
+//         if (navigate) navigate("/Login/Index");
+//         else window.location.href = "/Login/Index";
+//         return;
+//       }
 
-      const [customerRes, salesmanRes, cashierRes, counterRes, saleTypeRes] = results;
+//       const [customerRes, salesmanRes, cashierRes, counterRes, saleTypeRes] = results;
 
-      if (customerRes.status === "fulfilled" && customerRes.value.ok !== false) {
-        setCustomerList(extractComboList(customerRes.value).map(toComboOption));
-      }
-      if (salesmanRes.status === "fulfilled" && salesmanRes.value.ok !== false) {
-        setSalesmanList(extractComboList(salesmanRes.value).map(toComboOption));
-      }
-      if (cashierRes.status === "fulfilled" && cashierRes.value.ok !== false) {
-        setCashierList(extractComboList(cashierRes.value).map(toComboOption));
-      }
-      if (counterRes.status === "fulfilled" && counterRes.value.ok !== false) {
-        setCounterList(extractComboList(counterRes.value).map(toComboOption));
-      }
-      if (saleTypeRes.status === "fulfilled" && saleTypeRes.value.ok !== false) {
-        setSaleTypeList(extractComboList(saleTypeRes.value).map(toComboOption));
-      }
-    })();
-  }, [ready, MComid, navigate]);
+//       if (customerRes.status === "fulfilled" && customerRes.value.ok !== false) {
+//         setCustomerList(extractComboList(customerRes.value).map(toComboOption));
+//       }
+//       if (salesmanRes.status === "fulfilled" && salesmanRes.value.ok !== false) {
+//         setSalesmanList(extractComboList(salesmanRes.value).map(toComboOption));
+//       }
+//       if (cashierRes.status === "fulfilled" && cashierRes.value.ok !== false) {
+//         setCashierList(extractComboList(cashierRes.value).map(toComboOption));
+//       }
+//       if (counterRes.status === "fulfilled" && counterRes.value.ok !== false) {
+//         setCounterList(extractComboList(counterRes.value).map(toComboOption));
+//       }
+//       if (saleTypeRes.status === "fulfilled" && saleTypeRes.value.ok !== false) {
+//         setSaleTypeList(extractComboList(saleTypeRes.value).map(toComboOption));
+//       }
+//     })();
+//   }, [ready, MComid, navigate]);
 
-  return { customerList, salesmanList, cashierList, counterList, saleTypeList };
-}
+//   return { customerList, salesmanList, cashierList, counterList, saleTypeList };
+// }
 
 // ─── 8b. REPORT COMBO LOADER (shared across all Sales/Purchase Report pages) ──
 /**
