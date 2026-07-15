@@ -49,7 +49,7 @@ import StockInward from "./Transaction/Stockinward";
 
 
 
-import PhysicalStock from "./Transaction/PhysicalStock";
+
 
 
 
