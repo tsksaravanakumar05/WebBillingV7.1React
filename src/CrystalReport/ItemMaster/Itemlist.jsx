@@ -200,7 +200,7 @@ export default function ItemList() {
         const val = (r) => (r.status === "fulfilled" ? r.value : null);
 
         const productRows = CC.extractComboList(val(productRes));
-
+        console.log("Product API raw row:", productRows[0]);  
         setOptions({
           brand: CC.extractComboList(val(brandRes)).map((r) => buildComboOption(r, ["BrandName"])),
           category: CC.extractComboList(val(categoryRes)).map((r) => buildComboOption(r, ["Cat_Name"])),
@@ -210,9 +210,21 @@ export default function ItemList() {
           // Product list keeps its raw Description/Code fields since the same
           // list feeds both the Description combo and the Code combo.
           product: productRows.map((row) => ({
-            value: row.value ?? row.Code ?? row.ItemCode ?? row.Id ?? "",
-            description: row.Description ?? row.ProductName ?? row.Name ?? "",
-            code: row.Code ?? row.ItemCode ??row.Code ?? "",
+            value:
+              row.Id ??
+              row.PCode ??
+              row.Prod_Code ??
+              "",
+          
+            description:
+              row.PName ??
+              row.TamilName ??
+              "",
+          
+            code:
+              row.PCode ??
+              row.Prod_Code ??
+              "",
           })),
         });
       } catch (err) {

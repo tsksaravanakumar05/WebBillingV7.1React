@@ -49,13 +49,13 @@ import StockInward from "./Transaction/Stockinward";
 
 
 
-import PhysicalStock from "./Transaction/PhysicalStock";
+// import PhysicalStock from "./Transaction/PhysicalStock";
 
 
 
 
 
-import PhysicalStock from "./Transaction/PhysicalStock";
+// import PhysicalStock from "./Transaction/PhysicalStock";
 import Cashvoucher from "./Transaction/Cashvoucher";
 import Bankvoucher from "./Transaction/Bankvoucher";
 import Qutation from "./Transaction/Qutation";
@@ -76,10 +76,10 @@ import Mainsetting from "./Utiles/Mainsetting";
 // Reports
 //import ReportSaleOrder from "./CrystalReport/SaleReport/SaleOrderReport";
 //import SalesReportPart1 from "./CrystalReport/SaleReport/SalesReportPart1";
-// import Quotation from "./CrystalReport/SaleReport/Quotation";
+import Quotation from "./CrystalReport/SaleReport/Quotation";
 import SaleReturn1 from "./CrystalReport/SaleReport/SaleReturn";
-// import EstimateReport from "./CrystalReport/SaleReport/EstimateReport";
-// import DC from "./CrystalReport/SaleReport/DC";
+import EstimateReport from "./CrystalReport/SaleReport/EstimateReport";
+ import DC from "./CrystalReport/SaleReport/DC";
 import BranchWise from "./CrystalReport/SaleReport/BranchWise";
 
 
@@ -220,11 +220,11 @@ function App() {
         {/* Reports */}
         <Route path="/Report/SaleOrder" element={<ReportSaleOrder />} />
         <Route path="/Report/SaleReportPart1" element={<SalesReportPart1 />} />
-        {/* <Route path="/Report/Quotation" element={<Quotation />} /> */}
+         <Route path="/Report/Quotation" element={<Quotation />} /> 
 
-        {/* <Route path="/Report/Quotation" element={<EstimateReport />} /> */}
-        {/* <Route path="/Report/Quotation" element={<DC />} /> */}
-        <Route path="/Report/Quotation" element={<BranchWise />} />
+         <Route path="/Report/Estimate" element={<EstimateReport />} /> 
+         <Route path="/Report/DC" element={<DC />} /> 
+        <Route path="/Report/BranchWise" element={<BranchWise />} />
 
 
 
