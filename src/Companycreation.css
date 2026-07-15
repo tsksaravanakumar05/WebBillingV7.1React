@@ -1,0 +1,197 @@
+/* ═══════════════════════════════════════
+   COMPANY CREATION — popup dialog
+   Uses the same blue palette as index.css
+   (--blue, --blue-dark, --blue-pale, --border)
+═══════════════════════════════════════ */
+
+.cc-overlay {
+    position: fixed;
+    inset: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: linear-gradient(160deg, #eef3fb 0%, #dbe6f7 100%);
+  }
+  
+  .cc-modal {
+    width: 100%;
+    max-width: 400px;
+    background: var(--white, #ffffff);
+    border: 2px solid var(--blue, #1f65de);
+    border-radius: 8px;
+    box-shadow: 0 20px 50px rgba(15, 28, 56, 0.28);
+    overflow: hidden;
+    font-family: "DM Sans", sans-serif;
+  }
+  
+  /* ── Title bar ── */
+  .cc-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: linear-gradient(180deg, var(--blue-light, #4d8eff) 0%, var(--blue, #1f65de) 100%);
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 1.4rem;
+  }
+  
+  .cc-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #ffffff;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  
+  .cc-close-btn:hover {
+    background: var(--blue-dark, #1550b8);
+  }
+  
+  /* ── Body ── */
+  .cc-body {
+    padding: 22px 24px 20px;
+  }
+  
+  .cc-heading {
+    text-align: center;
+    color: var(--blue-dark, #1550b8);
+    font-weight: 800;
+    font-size: 2rem;
+    margin-bottom: 18px;
+  }
+  
+  /* ── Fieldset ── */
+  .cc-fieldset {
+    border: 1px solid var(--border, #dde4f0);
+    border-radius: 4px;
+    padding: 12px 16px 20px;
+    margin-bottom: 20px;
+  }
+  
+  .cc-fieldset legend {
+    padding: 0 6px;
+    font-size: 1.25rem;
+    color: var(--text-mid, #4a5568);
+  }
+  
+  .cc-field-row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  
+  .cc-field-row:first-of-type {
+    margin-top: 4px;
+  }
+  
+  .cc-field-row label {
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--text-dark, #0f1c38);
+  }
+  
+  .cc-field-row input {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 1.3rem;
+    font-family: "DM Sans", sans-serif;
+    color: var(--text-dark, #0f1c38);
+    border: 1px solid var(--blue-light, #4d8eff);
+    border-radius: 3px;
+    background: #ffffff;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  
+  .cc-field-row input:focus {
+    border-color: var(--blue, #1f65de);
+    box-shadow: 0 0 0 3px var(--blue-glow, rgba(31, 101, 222, 0.18));
+  }
+  
+  .cc-field-row input:disabled {
+    background: var(--bg-form, #f7f9ff);
+    cursor: not-allowed;
+  }
+  
+  /* ── Buttons ── */
+  .cc-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .cc-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 18px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text-dark, #0f1c38);
+    background: #ffffff;
+    border: 1.5px solid var(--blue-light, #4d8eff);
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(31, 101, 222, 0.12);
+    transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  
+  .cc-btn:hover {
+    background: var(--blue-pale, #eaf0fd);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(31, 101, 222, 0.18);
+  }
+  
+  .cc-btn:active {
+    transform: translateY(0);
+  }
+  
+  .cc-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .cc-icon-save {
+    color: #16a34a;
+  }
+  
+  .cc-icon-cancel {
+    color: #dc2626;
+  }
+  
+  /* ── Existing login link ── */
+  .cc-existing-login {
+    text-align: center;
+  }
+  
+  .cc-existing-login a {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #dc2626;
+    text-decoration: underline;
+  }
+  
+  .cc-existing-login a:hover {
+    opacity: 0.85;
+  }
+  
+  /* ── Responsive ── */
+  @media (max-width: 420px) {
+    .cc-field-row {
+      grid-template-columns: 88px 1fr;
+    }
+  }

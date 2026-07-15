@@ -18,7 +18,7 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
-export const BASE_URL = "https://billing.kassapos.co.in";
+export const BASE_URL = "http://localhost:64215";
 //export const BASE_URL = "http://localhost:64215";
 
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
@@ -62,7 +62,8 @@ export const BrandDelete = "/api/BrandApp/DeleteBrand";
 //  ADD THESE CONSTANTS TO YOUR EXISTING Common.jsx
 //  Place after the existing CashierDelete line
 // ─────────────────────────────────────────────────────────────────────────────
-
+export const CategorySelect = "/api/CategoryApp/SelectCategory";
+export const ItemSelect = "/api/ItemMasterApp/SelectItemMaster";
 // ─── SALE API CONSTANTS ───────────────────────────────────────────────────────
  // adjust to your actual endpoint
 
@@ -580,6 +581,93 @@ export const editPassword = async ({ password, type, Comid }) => {
 export const repackingEditPassword = ({ password, type, Comid }) =>
   api(TxnEditPassword, null, {}, { password, type, Comid });
 
+// ─── 8b. REPORT COMBO LOADER (shared across all Sales/Purchase Report pages) ──
+/**
+ * extractComboList() / toComboOption()
+ * Normalises a CC.api() response into a flat array and then into
+ * { value, label } options for <select>/combo components.
+ */
+export const extractComboList = (data) =>
+  Array.isArray(data)          ? data
+  : Array.isArray(data?.data)  ? data.data
+  : Array.isArray(data?.Data1) ? data.Data1
+  : [];
+
+export const toComboOption = (row) => ({
+  value: row.value ?? row.Code ?? row.Id ?? row.code ?? row.id ?? "",
+  label: row.label ?? row.Name ?? row.name ?? row.Description ?? String(row.value ?? row.Code ?? row.Id ?? ""),
+});
+
+/**
+ * useReportCombos()
+ * Centralised Customer / Salesman / Cashier / Counter / SaleType combo loader.
+ * Used by every *Report.jsx page instead of each page re-implementing its own
+ * Promise.allSettled + extractList/toOption block.
+ *
+ * IMPORTANT: every request goes through CC.api(), so it always carries the
+ * SAME auth headers (Authorization / Userid / Profile / LoginCheck) built by
+ * authHeaders(). If the backend still answers 406, it means TokenVaildate()
+ * rejected the session (stale/invalid token, or the same user logged in
+ * elsewhere) — not a per-page header bug. This hook now detects that case
+ * (_dualLogin) and redirects to Login instead of silently leaving the combos
+ * empty, which is what was happening before.
+ *
+ * Usage:
+ *   const { customerList, salesmanList, cashierList, counterList, saleTypeList } =
+ *     CC.useReportCombos(pageAccess.ready && pageAccess.allowed, session.MComid, navigate);
+ */
+export function useReportCombos(ready, MComid, navigate) {
+  const [customerList, setCustomerList] = useState([]);
+  const [salesmanList, setSalesmanList] = useState([]);
+  const [cashierList,  setCashierList]  = useState([]);
+  const [counterList,  setCounterList]  = useState([]);
+  const [saleTypeList, setSaleTypeList] = useState([]);
+
+  useEffect(() => {
+    if (!ready || !MComid) return;
+
+    (async () => {
+      const results = await Promise.allSettled([
+        api(GetSupplierAll,   null, {}, { AccountType: "CUSTOMER", Comid: MComid }),
+        api(SalesManSelectV7, null, {}, { Comid: MComid }),
+        api(CashierSelect,    null, {}, { Comid: MComid }),
+        api(SelectCounter,    null, {}, { Comid: MComid }),
+        api(SelectSaleType,   null, {}, { Comid: MComid }),
+      ]);
+
+      // api() never throws, so every promise resolves "fulfilled" even on 406/500 —
+      // check .value.ok / ._dualLogin explicitly instead of relying on status alone.
+      const dualLogin = results.some(r => r.status === "fulfilled" && r.value?._dualLogin);
+      if (dualLogin) {
+        alert("Already Login Another User Please Login Again!!!");
+        if (navigate) navigate("/Login/Index");
+        else window.location.href = "/Login/Index";
+        return;
+      }
+
+      const [customerRes, salesmanRes, cashierRes, counterRes, saleTypeRes] = results;
+
+      if (customerRes.status === "fulfilled" && customerRes.value.ok !== false) {
+        setCustomerList(extractComboList(customerRes.value).map(toComboOption));
+      }
+      if (salesmanRes.status === "fulfilled" && salesmanRes.value.ok !== false) {
+        setSalesmanList(extractComboList(salesmanRes.value).map(toComboOption));
+      }
+      if (cashierRes.status === "fulfilled" && cashierRes.value.ok !== false) {
+        setCashierList(extractComboList(cashierRes.value).map(toComboOption));
+      }
+      if (counterRes.status === "fulfilled" && counterRes.value.ok !== false) {
+        setCounterList(extractComboList(counterRes.value).map(toComboOption));
+      }
+      if (saleTypeRes.status === "fulfilled" && saleTypeRes.value.ok !== false) {
+        setSaleTypeList(extractComboList(saleTypeRes.value).map(toComboOption));
+      }
+    })();
+  }, [ready, MComid, navigate]);
+
+  return { customerList, salesmanList, cashierList, counterList, saleTypeList };
+}
+
 // ─── 9. MISC HELPERS ──────────────────────────────────────────────────────────
 
 /** Generates a unique row key */
@@ -836,6 +924,8 @@ export const IM_TransferList= "/api/ItemMasterApp/SelectStockTrasferList";
 // Supplier / Branch / Customer
 export const SUP_All    = "/api/SupplierApp/SelectSupplierAll";
 export const BRANCH_List= "/api/CompanyApp/SelectCompany";
+
+export const SelectBranchAll= "/api/StockReportApp/SelectBranchAll";
 
 // BatchWise master lists
 export const BW_Brand  = "/api/BrandApp/SelectBrandAll";

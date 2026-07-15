@@ -1,16 +1,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  SaleOrder.jsx
-//  React conversion of SaleOrder.js (jQuery) — "All Type Of SaleOrder Report"
+//  Quotation.jsx
+//  React conversion of Quotation.js (jQuery) — "All Type Of Quotation Report"
 //  Uses API helpers from Common.jsx (CC.api / CC.mkUrl / CC.authHeaders etc.)
-//  Styling: MasterPage.css only — no inline color values, no new theme colors.
+//  Design & architecture mirrored 1:1 from SaleOrderReport.jsx.
+//  Styling: scoped <style> block only — no inline color values, no new theme colors.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import * as CC from "../../components/Common"
+import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
-// Report-type identifiers (mirrors the 3 jqxRadioButtons in the original markup)
+// Report-type identifiers (mirrors the 3 jqxRadioButtons in the original markup:
+// rdbSalesRetunConsolidate / rdbSalesReturnDetails / rdbSalerReturnItemwise)
 const REPORT_TYPES = {
   CONSOLIDATE: "CONSOLIDATE",
   DETAILS: "DETAILS",
@@ -19,13 +21,13 @@ const REPORT_TYPES = {
 
 const BASE_URL = "http://localhost:64215";
 
-// API endpoints used by this screen (kept local since they are specific
-// to the SaleOrder report and are not yet defined in Common.jsx)
-const SaleOrderConsolidateReportUrl = "/api/SalesReportApp/SaleOrderConsolidateReport";
-const SaleOrderDetailsReportUrl     = "/api/SalesReportApp/SaleOrderDetailsReport";
-const SaleOrderItemwiseReportUrl    = "/api/SalesReportApp/SaleOrderItemwiseReport";
+// API endpoints used by this screen — kept EXACTLY as in the original
+// Quotation.js jQuery file ($.ajax url values). Do not change.
+const QuotationConsolidateReportUrl = "/api/SalesReportApp/QuotationConsolidateReport";
+const QuotationDetailsReportUrl     = "/api/SalesReportApp/QuotationDetailsReport";
+const QuotationItemwiseReportUrl    = "/api/SalesReportApp/QuotationItemwiseReport";
 
-const ItemGroupPopupUrl             = "/api/Report/ItemGroup";
+const ItemGroupPopupUrl             = "/Report/ItemGroup";
 
 const todayStr = () => {
   const d = new Date();
@@ -39,7 +41,7 @@ const toMMDDYYYY = (isoDate) => {
   return `${m}/${d}/${y}`;
 };
 
-export default function SaleOrder() {
+export default function Quotation() {
   const navigate = useNavigate();
 
   // ── Session / permission state ─────────────────────────────────────────
@@ -67,6 +69,7 @@ export default function SaleOrder() {
   const [chkMrp, setChkMrp] = useState(false);
 
   // ── ItemWise "Group By" state — populated via the F11 ItemGroup popup ──
+  // (mirrors SearchGroupName / SearchGroupText globals in the jQuery file)
   const [groupBy, setGroupBy] = useState("");
   const [groupByText, setGroupByText] = useState("");
   const [showGroupPopup, setShowGroupPopup] = useState(false);
@@ -88,7 +91,7 @@ export default function SaleOrder() {
       return;
     }
 
-    const menudata = menulist.filter((obj) => obj.PageName === "Sale Order Report");
+    const menudata = menulist.filter((obj) => obj.PageName === "Quotation Report");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
       setTimeout(() => navigate("/Home"), 3000);
@@ -126,10 +129,11 @@ export default function SaleOrder() {
   }, [navigate]);
 
   // ── Esc key — "Do you want to quit page?" (preserved from jQuery) ───────
+  // ── F11 key — opens ProductGroup popup, only for ItemWise report type ──
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.keyCode === 122) {
-        // F11 — only meaningful for ItemWise report
+        // F11 — only meaningful for ItemWise report (rdbSalerReturnItemwise)
         if (reportType === REPORT_TYPES.ITEMWISE) {
           e.preventDefault();
           setShowGroupPopup(true);
@@ -146,16 +150,20 @@ export default function SaleOrder() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [reportType, navigate]);
 
-  // ── Radio-button change handler — resets Daily/MRP exactly like jQuery ──
+  // ── Radio-button change handler — resets Daily exactly like jQuery ─────
+  // (all three rdb click handlers in the original reset rdodaliy to
+  //  unchecked, show it, and hide chkmrp/f11id — chkmrp/F11 visibility is
+  //  instead driven declaratively here via showItemwiseExtras)
   const handleReportTypeChange = useCallback((type) => {
     setReportType(type);
     setDaily(false);
   }, []);
 
   // ── Refresh button ───────────────────────────────────────────────────────
+  // NOTE: the original jQuery handler only re-initialises the date-picker
+  // FORMAT and resets Daily / MRP checkboxes — it does NOT reset the actual
+  // From/To date values. Preserved exactly (dates are left untouched).
   const handleRefresh = useCallback(() => {
-    setFromDate(todayStr());
-    setToDate(todayStr());
     setDaily(false);
     setChkMrp(false);
   }, []);
@@ -167,154 +175,210 @@ export default function SaleOrder() {
     setShowGroupPopup(false);
   }, []);
 
- // handleView பங்க்ஷனுக்கு மேலே இதைச் சேர்க்கவும்:
+  // ── ReportViewer opener — replicates window.open(...) + title-set exactly ──
+  const openReportViewer = useCallback((params, windowTitle) => {
+    const qs = new URLSearchParams(params).toString();
+    const url = `${BASE_URL}/../Reports/ReportViewer.aspx?${qs}`;
 
-// AFTER ✅ — SaleBill.jsx pattern exactly copy
-const openReportViewer = useCallback((params) => {
-  const qs = new URLSearchParams(params).toString();
-  const url = `${BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
-  
-  window.open(
-    url,
-    "_blank",
-    `directories=0,titlebar=0,toolbar=0,location=0,status=0,` +
-    `menubar=0,scrollbars=yes,resizable=no,` +
-    `width=${screen.width},height=${screen.height - 100}`
-  );
-}, []);
+    const w = window.open(
+      url,
+      "_blank",
+      `directories=0,titlebar=0,toolbar=0,location=0,status=0,` +
+      `menubar=0,scrollbars=yes,resizable=no,` +
+      `width=${screen.width},height=${screen.height - 100}`
+    );
+
+    if (w && windowTitle) {
+      w.addEventListener("load", function () { w.document.title = windowTitle; }, false);
+    }
+  }, []);
 
   // ── View button — replicates the three $.ajax branches exactly ─────────
   const handleView = useCallback(async () => {
-    if (!fromDate || !toDate) {
-      setMsg({ text: "Please select From Date and To Date.", isErr: true });
-      return;
-    }
-  
     const Fromdate = toMMDDYYYY(fromDate);
     const Todate = toMMDDYYYY(toDate);
-  
-    if (new Date(Fromdate) > new Date(Todate)) {
+
+    // "From Date Is Greater Than To Date!!" validation (preserved exactly)
+    const startdate = new Date(Fromdate);
+    const enddate = new Date(Todate);
+    if (startdate > enddate) {
       setMsg({ text: "From Date Is Greater Than To Date!!", isErr: true });
       return;
     }
-  
+
     const ReportTypenew = daily ? "D" : "";
     const TaxSuppressId = session.taxInclusiveDontShow === 1 ? 1 : 0;
-  
+
+    // Resolve GroupBy / GroupByText from the F11 popup selection, exactly
+    // like `if (SearchGroupName != "") GroupBy = SearchGroupName;`
+    let GroupBy = "";
+    let GroupByText = "";
+    if (groupBy !== "") GroupBy = groupBy;
+    if (groupByText !== "") GroupByText = groupByText;
+
     setLoading(true);
     setMsg(null);
-  
+
     try {
-      // Convert once and reuse
-      const Comid = parseInt(session.Comid, 10);
-      const MComid = parseInt(session.MComid, 10);
-  
+      const Comid = session.Comid;
+      const MComid = session.MComid;
+
+      // ── Quotation Consolidate ──────────────────────────────────────
       if (reportType === REPORT_TYPES.CONSOLIDATE) {
-        const ReportTitle = "SaleOrder Consolidate";
-  
-// AFTER ✅ — SaleBill.jsx போல் res.Data15 எடுங்கள்
-const res = await CC.api(SaleOrderConsolidateReportUrl, null, {}, {
-  Fromdate, Todate, Comid,
-});
-
-console.log("SaleOrder API Response:", res); // debug
-
-if (res.ok || res.IsSuccess) {
-  
-  // ✅ SaleBill.jsx-இல் உள்ளது போல் CacheKey எடு
-  const cacheKey = res.Data15 || "";
-  console.log("CacheKey:", cacheKey);
-
-  openReportViewer({
-    ReportName  : "SaleOrderConsolidateReport",
-    CacheKey    : cacheKey,          // ✅ இப்போது சரியாக போகும்
-    Daily       : daily,
-    GroupBy     : "",
-    Fromdate,
-    Todate,
-    Comid       : session.Comid,
-    ReportType  : ReportTypenew,
-    ReportTitle,
-    CName       : session.CName,
-    CAddress    : session.CAddress,
-    CPhone      : session.CPhone,
-  });
-} else {
-  setMsg({ text: "No Record !!!.", isErr: true });
-}
-      } 
-      else if (reportType === REPORT_TYPES.DETAILS) {
-        const ReportTitle = "SaleOrder Details";
-
-        const res = await CC.api(SaleOrderDetailsReportUrl, null, {}, {
-          Fromdate, Todate, Comid, MComid,
-        });
-
-        console.log("SaleOrderDetails API Response:", res); // debug
-
-        if (res.ok || res.IsSuccess) {
-          const cacheKey = res.Data15 || "";
-          console.log("CacheKey:", cacheKey);
-
-          openReportViewer({
-            ReportName: "SaleOrderDetailsReport",
-            CacheKey: cacheKey,
-            Daily: daily,
-            GroupBy: "",
+        const ReportTitle = "Quotation Consolidate";
+      
+        const res = await CC.api(
+          QuotationConsolidateReportUrl,
+          null,
+          { React: 1 },
+          {
             Fromdate,
             Todate,
-            Comid: session.Comid,
-            MComid: session.MComid,
-            ReportType: ReportTypenew,
-            ReportTitle,
-            
-            taxinclusivedontshow: session.taxInclusiveDontShow,
-            CName: session.CName,
-            CAddress: session.CAddress,
-            CPhone: session.CPhone,
-          });
+            Comid,
+            MComid,
+          }
+        );
+      
+        console.log("Quotation Consolidate API Response:", res);
+      
+        if (res.ok === true || res.IsSuccess === true) {
+          const cacheKey =
+            res.data15 ??
+            res.Data15 ??
+            res.data?.Data15 ??
+            "";
+      
+          console.log("CacheKey:", cacheKey);
+      
+          openReportViewer(
+            {
+              ReportName: "QuotationConsolidateReport",
+              CacheKey: cacheKey,
+              Daily: daily,
+              GroupBy: groupBy,
+              Fromdate,
+              Todate,
+              ReportType: ReportTypenew,
+              ReportTitle,
+              CName: session.CName,
+              CAddress: session.CAddress,
+              CPhone: session.CPhone,
+            },
+            "Quotation Consolidate"
+          );
         } else {
           setMsg({ text: "No Record !!!.", isErr: true });
         }
       }
-      else if (reportType === REPORT_TYPES.ITEMWISE) {
-        const ReportTitle = "SaleOrder ItemWise Report";
 
-        const res = await CC.api(SaleOrderItemwiseReportUrl, null, {}, {
+      // ── Quotation Details ───────────────────────────────────────────
+// ── Quotation Details ───────────────────────────────────────────
+else if (reportType === REPORT_TYPES.DETAILS) {
+    const ReportTitle = "Quotation Details";
+  
+    const res = await CC.api(
+      QuotationDetailsReportUrl,
+      null,
+      { React: 1 },
+      {
+        Fromdate,
+        Todate,
+        Comid,
+        MComid,
+      }
+    );
+  
+    console.log("Quotation Details API Response:", res);
+  
+    if (res.ok === true || res.IsSuccess === true) {
+      const cacheKey =
+        res.data15 ??
+        res.Data15 ??
+        res.data?.Data15 ??
+        "";
+  
+      console.log("CacheKey:", cacheKey);
+  
+      openReportViewer(
+        {
+          ReportName: "QuotationDetailsReport",
+          CacheKey: cacheKey,
           Daily: daily,
+          GroupBy: groupBy,
           Fromdate,
           Todate,
-          Comid,
-          MComid,
-        });
+          ReportType: ReportTypenew,
+          ReportTitle,
+          taxinclusivedontshow: TaxSuppressId,
+          CName: session.CName,
+          CAddress: session.CAddress,
+          CPhone: session.CPhone,
+        },
+        "Quotation Details-Report"
+      );
+    } else {
+      setMsg({ text: "No Record !!!.", isErr: true });
+    }
+  }
+
+      // ── Quotation ItemWise ───────────────────────────────────────────
+// ── Quotation ItemWise ───────────────────────────────────────────
+else if (reportType === REPORT_TYPES.ITEMWISE) {
+    const ReportTitle = "Quotation ItemWise Report";
   
-        if (res.ok || res.IsSuccess) {
-          const cacheKey = res.Data15 || "";
-          openReportViewer({
-            ReportName: "SaleOrderItemWiseReport",
-            CacheKey    : cacheKey,
-            Daily: daily,
-            MRP: chkMrp,
-            GroupBy: groupBy,
-            Fromdate,
-            Todate,
-            TaxSuppressId,
-            ReportType: ReportTypenew,
-            ReportTitle,
-            CName: session.CName,
-            CAddress: session.CAddress,
-            CPhone: session.CPhone,
-          });
-        } else {
-          setMsg({ text: "No Record !!!.", isErr: true });
-          setGroupBy("");
-          setGroupByText("");
-        }
+    const res = await CC.api(
+      QuotationItemwiseReportUrl,
+      null,
+      { React: 1 },
+      {
+        Daily: daily,
+        Fromdate,
+        Todate,
+        Comid,
+        MComid,
       }
+    );
+  
+    console.log("Quotation ItemWise API Response:", res);
+  
+    if (res.ok === true || res.IsSuccess === true) {
+      const cacheKey =
+        res.data15 ??
+        res.Data15 ??
+        res.data?.Data15 ??
+        "";
+  
+      console.log("CacheKey:", cacheKey);
+  
+      openReportViewer(
+        {
+          ReportName: "QuotationItemWiseReport",
+          CacheKey: cacheKey,
+          Daily: daily,
+          MRP: chkMrp,
+          GroupBy: groupBy,
+          Fromdate,
+          Todate,
+          TaxSuppressId,
+          ReportType: ReportTypenew,
+          ReportTitle,
+          CName: session.CName,
+          CAddress: session.CAddress,
+          CPhone: session.CPhone,
+        },
+        "Quotation ItemWise-Report"
+      );
+    } else {
+      setMsg({ text: "No Record !!!.", isErr: true });
+      setGroupBy("");
+      setGroupByText("");
+    }
+  }
     } catch (err) {
       setMsg({ text: err.message || "Something went wrong.", isErr: true });
     } finally {
       setLoading(false);
+      // SearchGroupName = ""; SearchGroupText = 0; (reset after every view, like jQuery)
       setGroupBy("");
       setGroupByText("");
     }
@@ -325,21 +389,23 @@ if (res.ok || res.IsSuccess) {
     daily,
     chkMrp,
     groupBy,
+    groupByText,
     session,
     openReportViewer,
   ]);
+
   const radioOptions = useMemo(
     () => [
-      { value: REPORT_TYPES.CONSOLIDATE, label: "SaleOrder Consolidate" },
-      { value: REPORT_TYPES.DETAILS, label: "SaleOrder Details" },
-      { value: REPORT_TYPES.ITEMWISE, label: "SaleOrder Itemwise" },
+      { value: REPORT_TYPES.CONSOLIDATE, label: "Quotation Consolidate" },
+      { value: REPORT_TYPES.DETAILS, label: "Quotation Details" },
+      { value: REPORT_TYPES.ITEMWISE, label: "Quotation Itemwise" },
     ],
     []
   );
 
   // ── Scoped styles injected once ─────────────────────────────────────────
   const styles = `
-    .so-shell {
+    .qt-shell {
       min-height: 100vh;
       background: #f0f2f5;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -348,7 +414,7 @@ if (res.ok || res.IsSuccess) {
     }
 
     /* ── Top bar ── */
-    .so-topbar {
+    .qt-topbar {
       background: var(--clr-primary, #1a56db);
       color: #fff;
       display: flex;
@@ -359,12 +425,12 @@ if (res.ok || res.IsSuccess) {
       box-shadow: 0 2px 8px rgba(0,0,0,.18);
       flex-shrink: 0;
     }
-    .so-topbar-title {
+    .qt-topbar-title {
       font-size: 15px;
       font-weight: 600;
       letter-spacing: .3px;
     }
-    .so-close-btn {
+    .qt-close-btn {
       background: rgba(255,255,255,.15);
       border: none;
       color: #fff;
@@ -378,10 +444,10 @@ if (res.ok || res.IsSuccess) {
       justify-content: center;
       transition: background .15s;
     }
-    .so-close-btn:hover { background: rgba(255,255,255,.28); }
+    .qt-close-btn:hover { background: rgba(255,255,255,.28); }
 
     /* ── Main layout ── */
-    .so-layout {
+    .qt-layout {
       display: flex;
       flex: 1;
       gap: 20px;
@@ -393,14 +459,14 @@ if (res.ok || res.IsSuccess) {
     }
 
     /* ── Left navigation panel ── */
-    .so-nav {
+    .qt-nav {
       width: 220px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
-    .so-nav-label {
+    .qt-nav-label {
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
@@ -409,7 +475,7 @@ if (res.ok || res.IsSuccess) {
       padding: 0 4px;
       margin-bottom: 2px;
     }
-    .so-nav-card {
+    .qt-nav-card {
       background: #fff;
       border: 2px solid transparent;
       border-radius: 10px;
@@ -421,16 +487,16 @@ if (res.ok || res.IsSuccess) {
       align-items: center;
       gap: 12px;
     }
-    .so-nav-card:hover {
+    .qt-nav-card:hover {
       border-color: var(--clr-primary, #1a56db);
       box-shadow: 0 3px 12px rgba(26,86,219,.12);
     }
-    .so-nav-card.active {
+    .qt-nav-card.active {
       background: #eef3fd;
       border-color: var(--clr-primary, #1a56db);
       box-shadow: 0 3px 12px rgba(26,86,219,.15);
     }
-    .so-nav-icon {
+    .qt-nav-icon {
       width: 34px;
       height: 34px;
       border-radius: 8px;
@@ -441,24 +507,24 @@ if (res.ok || res.IsSuccess) {
       font-size: 16px;
       flex-shrink: 0;
     }
-    .so-nav-card.active .so-nav-icon {
+    .qt-nav-card.active .qt-nav-icon {
       background: var(--clr-primary, #1a56db);
     }
-    .so-nav-card-text {
+    .qt-nav-card-text {
       flex: 1;
     }
-    .so-nav-card-name {
+    .qt-nav-card-name {
       font-size: 13px;
       font-weight: 600;
       color: #1e2d3d;
       line-height: 1.3;
     }
-    .so-nav-card.active .so-nav-card-name {
+    .qt-nav-card.active .qt-nav-card-name {
       color: var(--clr-primary, #1a56db);
     }
 
     /* ── Right filter panel ── */
-    .so-panel {
+    .qt-panel {
       flex: 1;
       background: #fff;
       border-radius: 12px;
@@ -467,12 +533,12 @@ if (res.ok || res.IsSuccess) {
       display: flex;
       flex-direction: column;
     }
-    .so-panel-header {
+    .qt-panel-header {
       border-bottom: 1px solid #e8ecf0;
       padding-bottom: 16px;
       margin-bottom: 28px;
     }
-    .so-panel-eyebrow {
+    .qt-panel-eyebrow {
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
@@ -480,7 +546,7 @@ if (res.ok || res.IsSuccess) {
       color: var(--clr-primary, #1a56db);
       margin-bottom: 6px;
     }
-    .so-panel-title {
+    .qt-panel-title {
       font-size: 20px;
       font-weight: 700;
       color: #1e2d3d;
@@ -488,19 +554,19 @@ if (res.ok || res.IsSuccess) {
     }
 
     /* ── Form grid ── */
-    .so-form-grid {
+    .qt-form-grid {
       display: grid;
       grid-template-columns: 120px 1fr;
       gap: 20px 16px;
       align-items: center;
       max-width: 420px;
     }
-    .so-label {
+    .qt-label {
       font-size: 13px;
       font-weight: 600;
       color: #4a5568;
     }
-    .so-input {
+    .qt-input {
       height: 38px;
       border: 1.5px solid #d1d9e6;
       border-radius: 8px;
@@ -513,13 +579,13 @@ if (res.ok || res.IsSuccess) {
       transition: border-color .15s, box-shadow .15s;
       outline: none;
     }
-    .so-input:focus {
+    .qt-input:focus {
       border-color: var(--clr-primary, #1a56db);
       box-shadow: 0 0 0 3px rgba(26,86,219,.1);
     }
 
     /* ── Toggle row (checkbox as dropdown-style) ── */
-    .so-toggle-row {
+    .qt-toggle-row {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -535,23 +601,43 @@ if (res.ok || res.IsSuccess) {
       user-select: none;
       transition: border-color .15s;
     }
-    .so-toggle-row:hover { border-color: var(--clr-primary, #1a56db); }
-    .so-toggle-row input[type="checkbox"] {
+    .qt-toggle-row:hover { border-color: var(--clr-primary, #1a56db); }
+    .qt-toggle-row input[type="checkbox"] {
       width: 15px;
       height: 15px;
       accent-color: var(--clr-primary, #1a56db);
       cursor: pointer;
     }
 
+    /* ── F11 hint (ProductGroup shortcut, ItemWise only) ── */
+    .qt-f11-hint {
+      grid-column: 1 / -1;
+      font-size: 12px;
+      color: #8a94a6;
+      background: #f7f9fc;
+      border: 1px dashed #d1d9e6;
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .qt-f11-hint kbd {
+      background: #fff;
+      border: 1px solid #d1d9e6;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: inherit;
+      font-weight: 700;
+      color: #1e2d3d;
+    }
+
     /* ── Actions ── */
-    .so-actions {
+    .qt-actions {
       display: flex;
       gap: 12px;
       margin-top: 32px;
       padding-top: 24px;
       border-top: 1px solid #e8ecf0;
     }
-    .so-btn {
+    .qt-btn {
       height: 40px;
       padding: 0 28px;
       border-radius: 8px;
@@ -564,50 +650,50 @@ if (res.ok || res.IsSuccess) {
       align-items: center;
       gap: 8px;
     }
-    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn-primary {
+    .qt-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .qt-btn-primary {
       background: var(--clr-primary, #1a56db);
       color: #fff;
       box-shadow: 0 2px 8px rgba(26,86,219,.3);
     }
-    .so-btn-primary:not(:disabled):hover {
+    .qt-btn-primary:not(:disabled):hover {
       opacity: .9;
       box-shadow: 0 4px 14px rgba(26,86,219,.4);
     }
-    .so-btn-secondary {
+    .qt-btn-secondary {
       background: #f0f2f5;
       color: #4a5568;
       border: 1.5px solid #d1d9e6;
     }
-    .so-btn-secondary:not(:disabled):hover {
+    .qt-btn-secondary:not(:disabled):hover {
       background: #e8ecf0;
     }
 
     /* ── Message ── */
-    .so-msg {
+    .qt-msg {
       margin-top: 18px;
       padding: 10px 14px;
       border-radius: 8px;
       font-size: 13px;
       font-weight: 500;
     }
-    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+    .qt-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
+    .qt-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
 
     /* ── Responsive ── */
     @media (max-width: 700px) {
-      .so-layout { flex-direction: column; padding: 16px; }
-      .so-nav { width: 100%; flex-direction: row; flex-wrap: wrap; }
-      .so-nav-card { flex: 1 1 calc(50% - 5px); }
-      .so-panel { padding: 20px 16px; }
-      .so-form-grid { grid-template-columns: 100px 1fr; }
+      .qt-layout { flex-direction: column; padding: 16px; }
+      .qt-nav { width: 100%; flex-direction: row; flex-wrap: wrap; }
+      .qt-nav-card { flex: 1 1 calc(50% - 5px); }
+      .qt-panel { padding: 20px 16px; }
+      .qt-form-grid { grid-template-columns: 100px 1fr; }
     }
   `;
 
   const navItems = [
-    { value: REPORT_TYPES.CONSOLIDATE, label: "SaleOrder Consolidate", icon: "📋" },
-    { value: REPORT_TYPES.DETAILS,     label: "SaleOrder Details",     icon: "📄" },
-    { value: REPORT_TYPES.ITEMWISE,    label: "SaleOrder Itemwise",    icon: "📦" },
+    { value: REPORT_TYPES.CONSOLIDATE, label: "Quotation Consolidate", icon: "📋" },
+    { value: REPORT_TYPES.DETAILS,     label: "Quotation Details",     icon: "📄" },
+    { value: REPORT_TYPES.ITEMWISE,    label: "Quotation Itemwise",    icon: "📦" },
   ];
 
   if (!pageAccess.ready) {
@@ -635,73 +721,62 @@ if (res.ok || res.IsSuccess) {
   return (
     <>
       <style>{styles}</style>
-      <div className="so-shell">
+      <div className="qt-shell">
 
         {/* ── Top bar ── */}
-        {/* <div className="so-topbar">
-          <span className="so-topbar-title">Sale Order Reports</span>
-          <button
-            type="button"
-            className="so-close-btn"
-            onClick={() => navigate(-1)}
-            aria-label="Close"
-          >
-            ✕ </button>import Topbar from "../components/Topbar";
-          </button>
-        </div> */}
-        <Topbar/>
+        <Topbar />
 
-        <div className="so-layout">
+        <div className="qt-layout">
 
           {/* ── LEFT: Navigation panel ── */}
-          <nav className="so-nav" aria-label="Report types">
-            <div className="so-nav-label">Report Types</div>
+          <nav className="qt-nav" aria-label="Report types">
+            <div className="qt-nav-label">Report Types</div>
             {navItems.map((item) => (
               <div
                 key={item.value}
-                className={`so-nav-card${reportType === item.value ? " active" : ""}`}
+                className={`qt-nav-card${reportType === item.value ? " active" : ""}`}
                 onClick={() => handleReportTypeChange(item.value)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => e.key === "Enter" && handleReportTypeChange(item.value)}
                 aria-pressed={reportType === item.value}
               >
-                <div className="so-nav-icon">{item.icon}</div>
-                <div className="so-nav-card-text">
-                  <div className="so-nav-card-name">{item.label}</div>
+                <div className="qt-nav-icon">{item.icon}</div>
+                <div className="qt-nav-card-text">
+                  <div className="qt-nav-card-name">{item.label}</div>
                 </div>
               </div>
             ))}
           </nav>
 
           {/* ── RIGHT: Filter panel ── */}
-          <main className="so-panel">
-            <div className="so-panel-header">
-              <div className="so-panel-eyebrow">Sale Order</div>
-              <div className="so-panel-title">All Type Of SaleOrder Report - I</div>
+          <main className="qt-panel">
+            <div className="qt-panel-header">
+              <div className="qt-panel-eyebrow">Quotation</div>
+              <div className="qt-panel-title">All Type Of Quotation Report</div>
             </div>
 
-            <div className="so-form-grid">
-              <label className="so-label" htmlFor="so-from-date">From Date</label>
+            <div className="qt-form-grid">
+              <label className="qt-label" htmlFor="qt-from-date">From Date</label>
               <input
-                id="so-from-date"
+                id="qt-from-date"
                 type="date"
-                className="so-input"
+                className="qt-input"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
               />
 
-              <label className="so-label" htmlFor="so-to-date">To Date</label>
+              <label className="qt-label" htmlFor="qt-to-date">To Date</label>
               <input
-                id="so-to-date"
+                id="qt-to-date"
                 type="date"
-                className="so-input"
+                className="qt-input"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
               />
 
-              <label className="so-label">Daily</label>
-              <label className="so-toggle-row">
+              <label className="qt-label">Daily</label>
+              <label className="qt-toggle-row">
                 <input
                   type="checkbox"
                   checked={daily}
@@ -712,8 +787,8 @@ if (res.ok || res.IsSuccess) {
 
               {showItemwiseExtras && (
                 <>
-                  <label className="so-label">MRP</label>
-                  <label className="so-toggle-row">
+                  <label className="qt-label">MRP</label>
+                  <label className="qt-toggle-row">
                     <input
                       type="checkbox"
                       checked={chkMrp}
@@ -721,14 +796,19 @@ if (res.ok || res.IsSuccess) {
                     />
                     {chkMrp ? "Enabled" : "Disabled"}
                   </label>
+
+                  <div className="qt-f11-hint">
+                    Press <kbd>F11</kbd> to choose a Product Group for this report
+                    {groupByText ? ` — Selected: ${groupByText}` : ""}
+                  </div>
                 </>
               )}
             </div>
 
-            <div className="so-actions">
+            <div className="qt-actions">
               <button
                 type="button"
-                className="so-btn so-btn-primary"
+                className="qt-btn qt-btn-primary"
                 disabled={loading || pageAccess.pageview === 0}
                 onClick={handleView}
               >
@@ -736,7 +816,7 @@ if (res.ok || res.IsSuccess) {
               </button>
               <button
                 type="button"
-                className="so-btn so-btn-secondary"
+                className="qt-btn qt-btn-secondary"
                 onClick={handleRefresh}
                 disabled={loading}
               >
@@ -745,7 +825,7 @@ if (res.ok || res.IsSuccess) {
             </div>
 
             {msg && (
-              <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>
+              <div className={`qt-msg ${msg.isErr ? "err" : "ok"}`}>
                 {msg.text}
               </div>
             )}
