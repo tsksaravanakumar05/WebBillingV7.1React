@@ -13,6 +13,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -247,129 +248,46 @@ export default function SupplierAgingReport() {
     );
   };
 
-  // ── Scoped styles injected once ("sa-" prefix — unique to this page) ────
+  // ── Scoped styles injected once ("sa-" prefix, ported from BranchWise.jsx's
+  //    design system — colors/spacing/cards/buttons only, no logic here) ────
   const styles = `
-    .sa-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .sa-layout {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 40px 24px;
-    }
-    .sa-panel {
-      width: 100%;
-      max-width: 480px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-    }
-    .sa-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .sa-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .sa-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-      line-height: 1.2;
-    }
-    .sa-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .sa-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-      width: 130px;
-    }
-    .sa-input {
-      height: 36px;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #1e2d3d;
-      background: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .sa-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .sa-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .sa-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .sa-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+
+    .sa-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .sa-card { width: 100%; max-width: 480px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .sa-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .sa-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+
+    .sa-card-body { padding: 24px 32px 30px; }
+    .sa-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .sa-content { display: flex; flex-direction: column; gap: 16px; }
+
+    .sa-field { display: flex; align-items: center; gap: 14px; }
+    .sa-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
+    .sa-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .sa-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    select.sa-input { appearance: auto; cursor: pointer; }
+    .sa-input:disabled { background: #f5f6f8; cursor: not-allowed; }
+
+    .sa-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .sa-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .sa-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .sa-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .sa-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .sa-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .sa-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .sa-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
+    .sa-btn:not(:disabled):hover { background: #eef3ff; }
+    .sa-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .sa-btn-primary .sa-icon-save { color: #1e7e34; }
+    .sa-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .sa-btn-secondary .sa-icon-cancel { color: #dc3545; }
+
+    .sa-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
     .sa-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
     .sa-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 760px) {
-      .sa-layout { padding: 16px; }
-      .sa-panel { padding: 20px 16px; }
+
+    @media (max-width: 620px) {
+      .sa-card-body { padding: 20px; }
+      .sa-field { flex-direction: column; align-items: flex-start; gap: 6px; }
+      .sa-label { width: auto; }
     }
   `;
 
@@ -400,43 +318,50 @@ export default function SupplierAgingReport() {
         <Topbar />
 
         <div className="sa-layout">
-          <main className="sa-panel">
-            <div className="sa-panel-header">
-              <div className="sa-panel-eyebrow">Purchase</div>
-              <div className="sa-panel-title">Supplier Aging Report</div>
+          <div className="sa-card">
+            <div className="sa-card-header">
+              <div className="sa-card-header-title">Supplier Aging Report</div>
             </div>
 
-            <ApiSelect
-              url={SupplierListUrl}
-              payload={{ Comid: Number(session.Comid), Startindex: -1, PageCount: 99999, AccountType: "SUPPLIER", Keyword: "", Column: "" }}
-              labelKey="AccountName"
-              valueKey="Id"
-              value={supplierSel}
-              onChange={setSupplierSel}
-              placeholder="Select Supplier"
-            />
+            <div className="sa-card-body">
+              <div className="sa-report-title">Supplier Aging - Report</div>
 
-            <div className="sa-actions">
-              <button
-                type="button"
-                className="sa-btn sa-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="sa-btn sa-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
+              <div className="sa-content">
+                <ApiSelect
+                  url={SupplierListUrl}
+                  payload={{ Comid: Number(session.Comid), Startindex: -1, PageCount: 99999, AccountType: "SUPPLIER", Keyword: "", Column: "" }}
+                  labelKey="AccountName"
+                  valueKey="Id"
+                  value={supplierSel}
+                  onChange={setSupplierSel}
+                  placeholder="Select Supplier"
+                />
+              </div>
+
+              <div className="sa-actions">
+                <button
+                  type="button"
+                  className="sa-btn sa-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="sa-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="sa-btn sa-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <XCircle size={16} className="sa-icon-cancel" />
+                  Refresh
+                </button>
+              </div>
+
+              {msg && <div className={`sa-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
-
-            {msg && <div className={`sa-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+          </div>
         </div>
 
         {loading && (

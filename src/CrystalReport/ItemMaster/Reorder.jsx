@@ -24,6 +24,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -458,71 +459,88 @@ export default function Reorder() {
     }
   }, [groupBy, selectedItem, fromDate, maxChecked, session, openReportViewer]);
 
+  // ── Design system lifted 1:1 from BranchWise.jsx (same class names, same
+  // color tokens, same spacing/radius/shadow values). Only two additions
+  // were necessary beyond BranchWise's own classes: `.so-group-row` /
+  // `.so-combo*` (BranchWise's left column has plain radios with no
+  // attached search box, so there was nothing to copy for the combo UI)
+  // and `.so-card-wide` / `.so-left-wide` modifiers so the extra Group-By
+  // rows + Till Date/Max filters this screen needs actually fit — sized
+  // using the same border/radius/shadow/color values as the rest of the
+  // sheet rather than inventing a new look. No color, spacing, or
+  // component style was changed from BranchWise; nothing here alters
+  // business logic, handlers, state, or API calls. ──
   const styles = `
-    .so-shell { min-height: 100vh; background: #f2f4f7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: var(--clr-primary, #1a56db); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
     .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
     .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
     .so-close-btn:hover { background: rgba(255,255,255,.28); }
 
-    .so-page { flex: 1; padding: 24px; display: flex; justify-content: center; box-sizing: border-box; }
-    .so-card { background: #fff; border-radius: 16px; box-shadow: 0 2px 20px rgba(16,24,40,.06); padding: 36px 44px 40px; max-width: 1150px; width: 100%; box-sizing: border-box; }
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 740px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+    .so-card-wide { max-width: 980px; }
 
-    .so-card-header { border-bottom: 1px solid #edf0f3; padding-bottom: 20px; margin-bottom: 32px; }
-    .so-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--clr-primary, #1a56db); margin-bottom: 6px; }
-    .so-title { font-size: 22px; font-weight: 700; color: #1a2233; line-height: 1.2; }
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
 
-    .so-columns { display: flex; align-items: stretch; }
-    .so-col-left { flex: 1.35; padding-right: 40px; }
-    .so-col-divider { width: 1px; background: #edf0f3; flex-shrink: 0; }
-    .so-col-right { flex: 1; padding-left: 40px; display: flex; flex-direction: column; }
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
 
-    .so-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #98a2b3; margin-bottom: 22px; }
+    .so-content { display: flex; gap: 32px; }
 
-    .so-group-list { display: flex; flex-direction: column; gap: 18px; }
-    .so-radio-row { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 16px; }
-    .so-radio-label { display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; color: #344054; cursor: pointer; }
-    .so-radio { width: 16px; height: 16px; accent-color: var(--clr-primary, #1a56db); cursor: pointer; }
+    .so-left { flex: 0 0 190px; display: flex; flex-direction: column; gap: 14px; }
+    .so-left-wide { flex: 1 1 auto; }
+    .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 320px; }
 
-    .so-input { height: 44px; border: 1px solid #e8ecf0; border-radius: 8px; padding: 0 14px; font-size: 13.5px; color: #344054; background: #f5f6f8; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s, background .15s; outline: none; }
+    .so-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #1a56db; margin-bottom: 4px; }
+
+    .so-radio-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
+    .so-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
+
+    .so-basis-row { display: flex; gap: 22px; margin-top: 4px; padding-top: 10px; border-top: 1px solid #ececec; }
+
+    .so-field { display: flex; align-items: center; gap: 14px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
     .so-input::placeholder { color: #98a2b3; }
-    .so-input:focus { border-color: var(--clr-primary, #1a56db); background: #fff; box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     .so-input:disabled { background: #f5f6f8; color: #98a2b3; cursor: not-allowed; }
+    select.so-input { appearance: auto; cursor: pointer; }
+
+    /* Group-By rows: radio + attached search combo, same input/border/
+       radius/shadow tokens as so-input/so-field above (BranchWise has no
+       combo box to copy 1:1, so this reuses its exact style values). */
+    .so-group-list { display: flex; flex-direction: column; gap: 12px; }
+    .so-group-row { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 14px; }
     .so-combo { position: relative; }
-    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 220px; overflow-y: auto; background: #fff; border: 1.5px solid #d1d9e6; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
-    .so-combo-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 6px; cursor: pointer; }
-    .so-combo-item:hover { background: #f0f2f5; }
+    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 220px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+    .so-combo-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; }
+    .so-combo-item:hover { background: #eef3ff; }
     .so-combo-empty { padding: 8px 10px; font-size: 13px; color: #4a5568; }
 
-    .so-filter-row { display: grid; grid-template-columns: 100px 1fr; align-items: center; gap: 16px; margin-bottom: 20px; }
-    .so-filter-label { font-size: 13.5px; font-weight: 600; color: #1a2233; }
-    .so-date-input { height: 44px; border: 1.5px solid #e2e5ea; border-radius: 8px; padding: 0 12px; font-size: 13.5px; color: #344054; background: #fff; width: 100%; max-width: 260px; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-date-input:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
-    .so-checkbox-inline { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: #344054; cursor: pointer; }
-    .so-checkbox { width: 16px; height: 16px; accent-color: var(--clr-primary, #1a56db); cursor: pointer; }
-
-    .so-filter-divider { height: 1px; background: #edf0f3; margin: 8px 0 24px; }
-
-    .so-filter-actions { display: flex; gap: 12px; }
-    .so-btn { height: 44px; padding: 0 26px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, box-shadow .15s; display: flex; align-items: center; gap: 8px; }
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn-primary { background: var(--clr-primary, #1a56db); color: #fff; box-shadow: 0 2px 8px rgba(26,86,219,.3); }
-    .so-btn-primary:not(:disabled):hover { opacity: .9; box-shadow: 0 4px 14px rgba(26,86,219,.4); }
-    .so-btn-secondary { background: #f0f2f5; color: #4a5568; border: 1.5px solid #d1d9e6; }
-    .so-btn-secondary:not(:disabled):hover { background: #e8ecf0; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
 
-    .so-msg { margin-top: 20px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; }
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
     .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
     .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
 
     @media (max-width: 800px) {
-      .so-page { padding: 16px; }
-      .so-card { padding: 24px 20px 28px; }
-      .so-columns { flex-direction: column; }
-      .so-col-left { padding-right: 0; padding-bottom: 28px; }
-      .so-col-divider { width: auto; height: 1px; margin-bottom: 28px; }
-      .so-col-right { padding-left: 0; }
-      .so-radio-row, .so-filter-row { grid-template-columns: 110px 1fr; }
+      .so-card-body { padding: 20px; }
+      .so-content { flex-direction: column; gap: 22px; }
+      .so-left { flex: none; }
+      .so-left-wide { flex: none; }
+      .so-right { max-width: none; }
+      .so-group-row { grid-template-columns: 110px 1fr; }
     }
   `;
 
@@ -551,152 +569,152 @@ export default function Reorder() {
       <style>{styles}</style>
       <div className="so-shell">
         <Topbar />
-        <div className="so-page">
-          <div className="so-card">
+        <div className="so-layout">
+          <div className="so-card so-card-wide">
             <div className="so-card-header">
-              <div className="so-eyebrow">Stock</div>
-              <div className="so-title">Reorder Level List</div>
+              <div className="so-card-header-title">Stock ▸ Reorder Level List</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            <div className="so-columns">
-              {/* ── Left column: GROUP BY — same 7 radio+combo filter rows
-                  and logic as before, restyled to match the reference. ── */}
-              <div className="so-col-left">
-                <div className="so-section-label">Group By</div>
-                <div className="so-group-list" ref={comboAreaRef}>
-                  {GROUPS.map((g) => {
-                    const isActive = groupBy === g.key;
-                    return (
-                      <div className="so-radio-row" key={g.key}>
-                        <label className="so-radio-label" htmlFor={`ro-radio-${g.key}`}>
-                          <input
-                            id={`ro-radio-${g.key}`}
-                            type="radio"
-                            name="reorder-groupby"
-                            className="so-radio"
-                            checked={isActive}
-                            onChange={() => handleGroupSelect(g.key)}
-                          />
-                          {g.label}
-                        </label>
+            <div className="so-card-body">
+              <div className="so-report-title">Reorder Level List</div>
 
-                        <div className="so-combo">
-                          <input
-                            id={`ro-combo-${g.key}`}
-                            type="text"
-                            className="so-input"
-                            autoComplete="off"
-                            disabled={!isActive}
-                            placeholder={isActive ? `Type to search ${g.label.toLowerCase()}…` : ""}
-                            value={isActive ? searchText : ""}
-                            onFocus={() => isActive && setDropdownOpen(true)}
-                            onChange={(e) => {
-                              if (!isActive) return;
-                              setSearchText(e.target.value);
-                              setDropdownOpen(true);
-                              if (selectedItem) setSelectedItem(null);
-                            }}
-                            onKeyDown={(e) => {
-                              if (!isActive) return;
-                              if (e.key === "Escape") {
-                                setDropdownOpen(false);
-                              } else if (e.key === "Enter" && filteredOptions.length === 1) {
-                                e.preventDefault();
-                                const only = filteredOptions[0];
-                                setSelectedItem({ label: only.label, value: only.value });
-                                setDropdownOpen(false);
-                              }
-                            }}
-                          />
-                          {isActive && dropdownOpen && (
-                            <ul className="so-combo-list">
-                              {filteredOptions.length === 0 ? (
-                                <li className="so-combo-empty">No matching {g.label.toLowerCase()}</li>
-                              ) : (
-                                filteredOptions.map((o, idx) => (
-                                  <li
-                                    key={o.value ?? `${g.key}-${idx}`}
-                                    className="so-combo-item"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      setSelectedItem({ label: o.label, value: o.value });
-                                      setDropdownOpen(false);
-                                    }}
-                                  >
-                                    {o.label}
-                                  </li>
-                                ))
-                              )}
-                            </ul>
-                          )}
+              <div className="so-content">
+                {/* ── Left: GROUP BY — same 7 radio+combo filter rows and
+                    logic as before, restyled to match BranchWise.jsx's
+                    so-left/so-radio-row/so-input tokens. ── */}
+                <div className="so-left so-left-wide">
+                  <div className="so-section-label">Group By</div>
+                  <div className="so-group-list" ref={comboAreaRef}>
+                    {GROUPS.map((g) => {
+                      const isActive = groupBy === g.key;
+                      return (
+                        <div className="so-group-row" key={g.key}>
+                          <label className="so-radio-row" htmlFor={`ro-radio-${g.key}`}>
+                            <input
+                              id={`ro-radio-${g.key}`}
+                              type="radio"
+                              name="reorder-groupby"
+                              checked={isActive}
+                              onChange={() => handleGroupSelect(g.key)}
+                            />
+                            {g.label}
+                          </label>
+
+                          <div className="so-combo">
+                            <input
+                              id={`ro-combo-${g.key}`}
+                              type="text"
+                              className="so-input"
+                              autoComplete="off"
+                              disabled={!isActive}
+                              placeholder={isActive ? `Type to search ${g.label.toLowerCase()}…` : ""}
+                              value={isActive ? searchText : ""}
+                              onFocus={() => isActive && setDropdownOpen(true)}
+                              onChange={(e) => {
+                                if (!isActive) return;
+                                setSearchText(e.target.value);
+                                setDropdownOpen(true);
+                                if (selectedItem) setSelectedItem(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (!isActive) return;
+                                if (e.key === "Escape") {
+                                  setDropdownOpen(false);
+                                } else if (e.key === "Enter" && filteredOptions.length === 1) {
+                                  e.preventDefault();
+                                  const only = filteredOptions[0];
+                                  setSelectedItem({ label: only.label, value: only.value });
+                                  setDropdownOpen(false);
+                                }
+                              }}
+                            />
+                            {isActive && dropdownOpen && (
+                              <ul className="so-combo-list">
+                                {filteredOptions.length === 0 ? (
+                                  <li className="so-combo-empty">No matching {g.label.toLowerCase()}</li>
+                                ) : (
+                                  filteredOptions.map((o, idx) => (
+                                    <li
+                                      key={o.value ?? `${g.key}-${idx}`}
+                                      className="so-combo-item"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        setSelectedItem({ label: o.label, value: o.value });
+                                        setDropdownOpen(false);
+                                      }}
+                                    >
+                                      {o.label}
+                                    </li>
+                                  ))
+                                )}
+                              </ul>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="so-col-divider" />
-
-              {/* ── Right column: FILTERS — Till Date, Maximum Level, then
-                  View/Refresh below a divider, left-aligned. Matches the
-                  reference JS file's single #dtpfromdate (Till Date) field
-                  exactly; no other business logic or API calls changed. ── */}
-              <div className="so-col-right">
-                <div className="so-section-label">Filters</div>
-
-                <div className="so-filter-row">
-                  <label className="so-filter-label" htmlFor="ro-from-date">Till Date</label>
-                  <input
-                    id="ro-from-date"
-                    type="date"
-                    className="so-date-input"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                  />
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="so-filter-row">
-                  <span className="so-filter-label">Max</span>
-                  {/* Exact checkbox wording wasn't present in the source
-                      markup — "Maximum Level" reflects what #chkmax controls
-                      (batch/MinLeval flips from 1 to 0 when checked); adjust
-                      the label text if the real UI says something different. */}
-                  <label className="so-checkbox-inline" htmlFor="ro-chkmax">
+                {/* ── Right: FILTERS — Till Date, Maximum Level. Matches the
+                    reference JS file's single #dtpfromdate (Till Date) field
+                    exactly; no other business logic or API calls changed. ── */}
+                <div className="so-right">
+                  <div className="so-section-label">Filters</div>
+
+                  <div className="so-field">
+                    <label className="so-label" htmlFor="ro-from-date">Till Date</label>
                     <input
-                      id="ro-chkmax"
-                      type="checkbox"
-                      className="so-checkbox"
-                      checked={maxChecked}
-                      onChange={(e) => setMaxChecked(e.target.checked)}
+                      id="ro-from-date"
+                      type="date"
+                      className="so-input"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
                     />
-                    Maximum Level
-                  </label>
+                  </div>
+
+                  <div className="so-field">
+                    <span className="so-label">Max</span>
+                    {/* Exact checkbox wording wasn't present in the source
+                        markup — "Maximum Level" reflects what #chkmax controls
+                        (batch/MinLeval flips from 1 to 0 when checked); adjust
+                        the label text if the real UI says something different. */}
+                    <label className="so-radio-row" htmlFor="ro-chkmax">
+                      <input
+                        id="ro-chkmax"
+                        type="checkbox"
+                        checked={maxChecked}
+                        onChange={(e) => setMaxChecked(e.target.checked)}
+                      />
+                      Maximum Level
+                    </label>
+                  </div>
                 </div>
-
-                <div className="so-filter-divider" />
-
-                <div className="so-filter-actions">
-                  <button
-                    type="button"
-                    className="so-btn so-btn-primary"
-                    disabled={loading || pageAccess.pageview === 0}
-                    onClick={handleView}
-                  >
-                    {loading ? "Loading…" : "▶ View"}
-                  </button>
-                  <button
-                    type="button"
-                    className="so-btn so-btn-secondary"
-                    onClick={handleRefresh}
-                    disabled={loading}
-                  >
-                    ↺ Refresh
-                  </button>
-                </div>
-
-                {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
               </div>
+
+              <div className="so-actions">
+                <button
+                  type="button"
+                  className="so-btn so-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="so-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="so-btn so-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <XCircle size={16} className="so-icon-cancel" />
+                  Refresh
+                </button>
+              </div>
+
+              {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
           </div>
         </div>

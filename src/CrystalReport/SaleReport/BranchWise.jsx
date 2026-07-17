@@ -2,7 +2,10 @@
 //  BranchWise.jsx
 //  React conversion of BranchWise.js (jQuery) — "Branch Wise Report"
 //  Uses API helpers from Common.jsx (CC.api / CC.mkUrl / CC.authHeaders etc.)
-//  Styling: MasterPage.css only — no inline color values, no new theme colors.
+//  Styling: recolored to match CompanyCreation.jsx palette
+//    - Border / header / heading -> blue (#1a56db)
+//    - Save-style accents -> green (#1e7e34)
+//    - Cancel / link accents -> red (#dc3545)
 //
 //  IMPORTANT — quirks preserved exactly from BranchWise.js (do not "fix"):
 //  1) The permission/menulist check block is commented out in the source, so
@@ -23,6 +26,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common"
 import Topbar from "../../components/Topbar";
 
@@ -49,9 +53,11 @@ const BranchWiseReportUrl = "/api/SalesReportApp/BranchWiseReport";
 // Product / Branch combo data sources — reusing existing Common.jsx constants
 // (ASSUMPTION: these map to the original loadproductcombo()/LoadBranchAll()
 // calls; adjust the field names in loadLists() below if the response shape differs)
-const ProductListUrl = CC.IM_ProductList; // "/api/ItemMasterApp/GetProductListV7"
-const BranchListUrl  = CC.BRANCH_List;    // "/api/CompanyApp/SelectCompany"
+const ProductListUrl = "/api/ItemMasterApp/GetProductListV7"; // "/api/ItemMasterApp/GetProductListV7"
+const BranchListUrl  = "/api/CompanyApp/SelectCompany";    // "/api/CompanyApp/SelectCompany"
 
+
+//StockReportApp/SelectBranchAll
 const todayStr = () => {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -273,23 +279,27 @@ export default function BranchWise() {
     }
   }, [reportType, basis, fromDate, toDate, selectedProduct, selectedBranch, session, openReportViewer]);
 
+  // ── Recolored to match CompanyCreation.jsx palette ────────────────────────
+  //   Border / header / heading : blue  #1a56db
+  //   Save accent                : green #1e7e34
+  //   Cancel / link accent       : red   #dc3545
   const styles = `
     .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: var(--clr-primary, #1a56db); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
     .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
     .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
     .so-close-btn:hover { background: rgba(255,255,255,.28); }
 
     .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
-    .so-card { width: 100%; max-width: 740px; background: #fff; border: 1px solid #d9dee5; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,.06); overflow: hidden; }
+    .so-card { width: 100%; max-width: 740px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
 
-    .so-card-header { background: #ececec; border-bottom: 1px solid #d9dee5; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
-    .so-card-header-title { font-size: 13px; font-weight: 700; color: #333; }
-    .so-close-x { background: none; border: none; font-size: 15px; color: #666; cursor: pointer; line-height: 1; padding: 4px; }
-    .so-close-x:hover { color: #222; }
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
 
     .so-card-body { padding: 24px 32px 30px; }
-    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #f39c3a; margin: 0 0 26px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
 
     .so-content { display: flex; gap: 32px; }
 
@@ -297,21 +307,24 @@ export default function BranchWise() {
     .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 320px; }
 
     .so-radio-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
-    .so-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: var(--clr-primary, #1a56db); cursor: pointer; flex-shrink: 0; }
+    .so-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
 
     .so-basis-row { display: flex; gap: 22px; margin-top: 4px; padding-top: 10px; border-top: 1px solid #ececec; }
 
     .so-field { display: flex; align-items: center; gap: 14px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #333; width: 96px; flex-shrink: 0; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
     .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.so-input { appearance: auto; cursor: pointer; }
 
     .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #b9c0cb; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #eceff2; color: #2b2b2b; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn:not(:disabled):hover { background: #dfe3e8; }
-    .so-btn-primary { background: #eceff2; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
 
     .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
     .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
@@ -408,9 +421,11 @@ export default function BranchWise() {
 
               <div className="so-actions">
                 <button type="button" className="so-btn so-btn-primary" disabled={loading} onClick={handleView}>
+                  <Save size={16} className="so-icon-save" />
                   {loading ? "Loading…" : "View"}
                 </button>
                 <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                  <XCircle size={16} className="so-icon-cancel" />
                   Refresh
                 </button>
               </div>

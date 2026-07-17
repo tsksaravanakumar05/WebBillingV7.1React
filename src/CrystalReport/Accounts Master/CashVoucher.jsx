@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common"
 import Topbar from "../../components/Topbar";
 
@@ -269,47 +270,64 @@ export default function CashVoucherReport() {
 
   const styles = `
     .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: var(--clr-primary, #1a56db); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
     .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
     .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
     .so-close-btn:hover { background: rgba(255,255,255,.28); }
-    .so-layout { display: flex; flex: 1; gap: 20px; padding: 24px; max-width: 1100px; width: 100%; margin: 0 auto; box-sizing: border-box; }
-    .so-nav { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 820px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-content { display: flex; gap: 28px; }
+
+    .so-nav { flex: 0 0 220px; display: flex; flex-direction: column; gap: 8px; }
     .so-nav-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8a94a6; padding: 0 4px; margin-bottom: 2px; }
-    .so-nav-card { background: #fff; border: 2px solid transparent; border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: border-color .15s, box-shadow .15s, background .15s; box-shadow: 0 1px 4px rgba(0,0,0,.07); display: flex; align-items: center; gap: 12px; }
-    .so-nav-card:hover { border-color: var(--clr-primary, #1a56db); box-shadow: 0 3px 12px rgba(26,86,219,.12); }
-    .so-nav-card.active { background: #eef3fd; border-color: var(--clr-primary, #1a56db); box-shadow: 0 3px 12px rgba(26,86,219,.15); }
-    .so-nav-icon { width: 34px; height: 34px; border-radius: 8px; background: #e8edfc; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-    .so-nav-card.active .so-nav-icon { background: var(--clr-primary, #1a56db); }
+    .so-nav-card { background: #fff; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: border-color .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 10px; }
+    .so-nav-card:hover { border-color: #1a56db; box-shadow: 0 3px 12px rgba(26,86,219,.12); }
+    .so-nav-card.active { background: #eef3ff; border-color: #1a56db; box-shadow: 0 3px 12px rgba(26,86,219,.15); }
+    .so-nav-icon { width: 30px; height: 30px; border-radius: 8px; background: #e8edfc; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+    .so-nav-card.active .so-nav-icon { background: #1a56db; }
     .so-nav-card-text { flex: 1; }
     .so-nav-card-name { font-size: 13px; font-weight: 600; color: #1e2d3d; line-height: 1.3; }
-    .so-nav-card.active .so-nav-card-name { color: var(--clr-primary, #1a56db); }
-    .so-panel { flex: 1; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 28px 32px; display: flex; flex-direction: column; }
-    .so-panel-header { border-bottom: 1px solid #e8ecf0; padding-bottom: 16px; margin-bottom: 28px; }
-    .so-panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--clr-primary, #1a56db); margin-bottom: 6px; }
-    .so-panel-title { font-size: 20px; font-weight: 700; color: #1e2d3d; line-height: 1.2; }
-    .so-form-grid { display: grid; grid-template-columns: 120px 1fr; gap: 20px 16px; align-items: center; max-width: 420px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #4a5568; }
-    .so-input { height: 38px; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
-    .so-toggle-row { display: flex; align-items: center; gap: 10px; height: 38px; background: #f7f9fc; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #4a5568; font-weight: 500; user-select: none; transition: border-color .15s; }
-    .so-toggle-row:hover { border-color: var(--clr-primary, #1a56db); }
-    .so-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--clr-primary, #1a56db); cursor: pointer; }
-    .so-actions { display: flex; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 40px; padding: 0 28px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, box-shadow .15s; display: flex; align-items: center; gap: 8px; }
+    .so-nav-card.active .so-nav-card-name { color: #1a56db; }
+
+    .so-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .so-panel-header { border-bottom: 1px solid #e8ecf0; padding-bottom: 14px; margin-bottom: 20px; }
+    .so-panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #1a56db; margin-bottom: 6px; }
+    .so-panel-title { font-size: 16px; font-weight: 700; color: #1e2d3d; line-height: 1.2; }
+
+    .so-form-grid { display: grid; grid-template-columns: 110px 1fr; gap: 14px 14px; align-items: center; max-width: 420px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-toggle-row { display: flex; align-items: center; gap: 10px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #1e293b; font-weight: 500; user-select: none; transition: border-color .15s; }
+    .so-toggle-row:hover { border-color: #1a56db; }
+    .so-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #1a56db; cursor: pointer; }
+
+    .so-actions { display: flex; gap: 12px; margin-top: 28px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn-primary { background: var(--clr-primary, #1a56db); color: #fff; box-shadow: 0 2px 8px rgba(26,86,219,.3); }
-    .so-btn-primary:not(:disabled):hover { opacity: .9; box-shadow: 0 4px 14px rgba(26,86,219,.4); }
-    .so-btn-secondary { background: #f0f2f5; color: #4a5568; border: 1.5px solid #d1d9e6; }
-    .so-btn-secondary:not(:disabled):hover { background: #e8ecf0; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
     .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; }
     .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
     .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
     @media (max-width: 700px) {
-      .so-layout { flex-direction: column; padding: 16px; }
-      .so-nav { width: 100%; flex-direction: row; flex-wrap: wrap; }
+      .so-card-body { padding: 20px; }
+      .so-content { flex-direction: column; gap: 22px; }
+      .so-nav { flex: none; width: 100%; flex-direction: row; flex-wrap: wrap; }
       .so-nav-card { flex: 1 1 calc(50% - 5px); }
-      .so-panel { padding: 20px 16px; }
       .so-form-grid { grid-template-columns: 100px 1fr; }
     }
   `;
@@ -340,31 +358,40 @@ export default function CashVoucherReport() {
       <div className="so-shell">
         <Topbar/>
         <div className="so-layout">
-          <nav className="so-nav" aria-label="Report types">
-            <div className="so-nav-label">Voucher Type</div>
-            {navItems.map((item) => (
-              <div
-                key={item.value}
-                className={`so-nav-card${reportType === item.value ? " active" : ""}`}
-                onClick={() => handleReportTypeChange(item.value)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && handleReportTypeChange(item.value)}
-                aria-pressed={reportType === item.value}
-              >
-                <div className="so-nav-icon">{item.icon}</div>
-                <div className="so-nav-card-text">
-                  <div className="so-nav-card-name">{item.label}</div>
-                </div>
-              </div>
-            ))}
-          </nav>
-
-          <main className="so-panel">
-            <div className="so-panel-header">
-              <div className="so-panel-eyebrow">Cash Voucher</div>
-              <div className="so-panel-title">Cash Voucher Report</div>
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">Cash Voucher Report</div>
             </div>
+
+            <div className="so-card-body">
+              <div className="so-report-title">Cash Voucher - Report</div>
+
+              <div className="so-content">
+              <nav className="so-nav" aria-label="Report types">
+                <div className="so-nav-label">Voucher Type</div>
+                {navItems.map((item) => (
+                  <div
+                    key={item.value}
+                    className={`so-nav-card${reportType === item.value ? " active" : ""}`}
+                    onClick={() => handleReportTypeChange(item.value)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && handleReportTypeChange(item.value)}
+                    aria-pressed={reportType === item.value}
+                  >
+                    <div className="so-nav-icon">{item.icon}</div>
+                    <div className="so-nav-card-text">
+                      <div className="so-nav-card-name">{item.label}</div>
+                    </div>
+                  </div>
+                ))}
+              </nav>
+
+              <main className="so-panel">
+                <div className="so-panel-header">
+                  <div className="so-panel-eyebrow">Cash Voucher</div>
+                  <div className="so-panel-title">Cash Voucher Report</div>
+                </div>
 
             <div className="so-form-grid">
               <label className="so-label" htmlFor="cv-account">Account Name</label>
@@ -400,15 +427,20 @@ export default function CashVoucherReport() {
 
             <div className="so-actions">
               <button type="button" className="so-btn so-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
-                {loading ? "Loading…" : "▶ View"}
+                <Save size={16} className="so-icon-save" />
+                {loading ? "Loading…" : "View"}
               </button>
               <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
-                ↺ Refresh
+                <XCircle size={16} className="so-icon-cancel" />
+                Refresh
               </button>
             </div>
 
             {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+              </main>
+              </div>
+            </div>
+          </div>
         </div>
 
         {loading && (

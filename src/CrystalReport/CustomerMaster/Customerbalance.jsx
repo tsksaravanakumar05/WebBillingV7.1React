@@ -11,11 +11,18 @@
 //      single centered panel like CRMCustomer.jsx / CustomerPendingBillsReport.jsx.
 //    - "cb-" scoped style system (unique prefix, does not collide with
 //      cs-/iq-/iw-/cc-/cp- used by other converted pages).
-//  Styling: MasterPage.css only — no inline color values, no new theme colors.
+//  Styling: matches BranchWise.jsx design system exactly (card, header,
+//  radio rows, field rows, buttons, palette). Only visuals/layout were
+//  changed here — all business logic, state, handlers, and API calls are
+//  100% unchanged from the original. The source page's chip-style Group-By
+//  / Order-By selectors are now rendered as BranchWise's plain radio rows,
+//  and the whole form lives in a single centered field column (no left nav)
+//  since there's no report-type sidebar here.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -412,189 +419,94 @@ export default function CustomerBalance() {
     );
   };
 
-  // ── Scoped styles injected once ("cb-" prefix, tokens identical to
-  //    ClosingStock.jsx / CRMCustomer.jsx / CustomerPendingBillsReport.jsx) ──
+  // ── Scoped styles injected once ─────────────────────────────────────────
+  // Design system copied 1:1 from BranchWise.jsx (card, header, radio rows,
+  // field rows, buttons, palette), "cb-" prefix preserved. The source's
+  // chip-style Group-By / Order-By selectors are now BranchWise's plain
+  // radio rows; the whole form uses a single centered field column since
+  // this page has no report-type sidebar.
+  //   Border / header / heading : blue  #1a56db
+  //   Save accent                : green #1e7e34
+  //   Cancel / link accent       : red   #dc3545
   const styles = `
-    .cb-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .cb-layout {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      padding: 24px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .cb-panel {
-      width: 100%;
-      max-width: 560px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-      align-self: flex-start;
-      margin-top: 40px;
-    }
-    .cb-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .cb-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .cb-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-      line-height: 1.2;
-    }
-    .cb-section-title {
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .6px;
-      color: #8a94a6;
-      margin: 20px 0 10px;
-    }
+    .cb-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .cb-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .cb-panel { width: 100%; max-width: 560px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .cb-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .cb-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .cb-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .cb-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .cb-panel-body { padding: 24px 32px 30px; }
+    .cb-panel-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .cb-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #8a94a6; margin: 20px 0 10px; }
     .cb-section-title:first-of-type { margin-top: 0; }
-    .cb-radio-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .cb-chip {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      height: 36px;
-      padding: 0 14px;
-      border-radius: 20px;
-      border: 1.5px solid #d1d9e6;
-      background: #f7f9fc;
-      font-size: 13px;
-      font-weight: 500;
-      color: #4a5568;
-      cursor: pointer;
-      user-select: none;
-      transition: border-color .15s, background .15s, color .15s;
-    }
-    .cb-chip:hover { border-color: var(--clr-primary, #1a56db); }
-    .cb-chip.active {
-      background: var(--clr-primary, #1a56db);
-      border-color: var(--clr-primary, #1a56db);
-      color: #fff;
-    }
-    .cb-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 14px;
-    }
-    .cb-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-    }
-    .cb-input {
-      height: 36px;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #1e2d3d;
-      background: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .cb-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .cb-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .cb-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+
+    .cb-radio-row { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+    .cb-chip { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
+    .cb-chip input[type="radio"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
+
+    .cb-field { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+    .cb-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
+    .cb-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .cb-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    select.cb-input { appearance: auto; cursor: pointer; }
+
+    .cb-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .cb-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .cb-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .cb-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .cb-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .cb-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .cb-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .cb-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
+    .cb-btn:not(:disabled):hover { background: #eef3ff; }
+    .cb-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .cb-btn-primary .cb-icon-save { color: #1e7e34; }
+    .cb-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .cb-btn-secondary .cb-icon-cancel { color: #dc3545; }
+
+    .cb-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
     .cb-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
     .cb-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 760px) {
-      .cb-layout { padding: 16px; }
-      .cb-panel { padding: 20px 16px; margin-top: 16px; }
+
+    @media (max-width: 620px) {
+      .cb-panel-body { padding: 20px; }
+      .cb-field { flex-direction: column; align-items: stretch; gap: 6px; }
+      .cb-label { width: auto; }
     }
   `;
 
   if (!pageAccess.ready) {
     return (
-      <div className="mp-wrap">
-        <div className="mp-body">
-          {msg && <div className={`mp-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+      <>
+        <style>{styles}</style>
+        <div className="cb-shell">
+          <Topbar />
+          <div className="cb-layout">
+            <div className="cb-panel">
+              <div className="cb-panel-body">
+                {msg && <div className={`cb-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!pageAccess.allowed) {
     return (
-      <div className="mp-wrap">
-        <div className="mp-body">
-          <div className="mp-msg err">Page Access Permission Denied !!!.</div>
+      <>
+        <style>{styles}</style>
+        <div className="cb-shell">
+          <Topbar />
+          <div className="cb-layout">
+            <div className="cb-panel">
+              <div className="cb-panel-body">
+                <div className="cb-msg err">Page Access Permission Denied !!!.</div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -605,134 +517,140 @@ export default function CustomerBalance() {
         <Topbar />
 
         <div className="cb-layout">
-          <main className="cb-panel">
-            <div className="cb-panel-header">
-              <div className="cb-panel-eyebrow">Sales Report</div>
+          <div className="cb-panel">
+            <div className="cb-card-header">
+              <div className="cb-card-header-title">Sales Report</div>
+              <button type="button" className="cb-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+            </div>
+
+            <div className="cb-panel-body">
               <div className="cb-panel-title">Customer Balance Report</div>
-            </div>
 
-            {/* Group by */}
-            <div className="cb-section-title">Group By</div>
-            <div className="cb-radio-row">
-              {[
-                { value: GROUP.CUSTOMER, label: "Customer" },
-                { value: GROUP.AREA, label: "Area" },
-                { value: GROUP.MOBILE, label: "Mobile No" },
-                { value: GROUP.SALES, label: "Salesman" },
-              ].map((o) => (
-                <div
-                  key={o.value}
-                  className={`cb-chip${activeGroup === o.value ? " active" : ""}`}
-                  onClick={() => selectGroup(o.value)}
-                  role="button"
-                  tabIndex={0}
+              {/* Group by */}
+              <div className="cb-section-title">Group By</div>
+              <div className="cb-radio-row">
+                {[
+                  { value: GROUP.CUSTOMER, label: "Customer" },
+                  { value: GROUP.AREA, label: "Area" },
+                  { value: GROUP.MOBILE, label: "Mobile No" },
+                  { value: GROUP.SALES, label: "Salesman" },
+                ].map((o) => (
+                  <label key={o.value} className="cb-chip">
+                    <input
+                      type="radio"
+                      name="cb-group-by"
+                      checked={activeGroup === o.value}
+                      onChange={() => selectGroup(o.value)}
+                    />
+                    {o.label}
+                  </label>
+                ))}
+              </div>
+
+              {activeGroup === GROUP.CUSTOMER && (
+                <ApiSelect
+                  id="cb-customer"
+                  url={CustomerListUrl}
+                  payload={{ Comid: session.Comid,AccountType:"CUSTOMER" }}
+                  labelKey="AccountName"
+                  valueKey="Id"
+                  value={customerSel}
+                  onChange={handleCustomerChange}
+                  placeholder="Select Customer"
+                />
+              )}
+              {activeGroup === GROUP.AREA && (
+                <ApiSelect
+                  id="cb-area"
+                  url={AreaListUrl}
+                  payload={{ Comid: session.Comid }}
+                  labelKey="AreaName"
+                  valueKey="Id"
+                  value={areaSel}
+                  onChange={handleAreaChange}
+                  placeholder="Select Area"
+                />
+              )}
+              {activeGroup === GROUP.MOBILE && (
+                <ApiSelect
+                  id="cb-mobile"
+                  url={MobileNoListUrl}
+                  payload={{ Comid: session.Comid }}
+                  labelKey="MobileNo"
+                  valueKey="Id"
+                  value={mobileSel}
+                  onChange={handleMobileChange}
+                  placeholder="Select Mobile No"
+                />
+              )}
+              {activeGroup === GROUP.SALES && (
+                <ApiSelect
+                  id="cb-salesman"
+                  url={SalesManListUrl}
+                  payload={{ Comid: session.Comid }}
+                  labelKey="SalesManName"
+                  valueKey="Id"
+                  value={salesManSel}
+                  onChange={handleSalesManChange}
+                  placeholder="Select Salesman"
+                />
+              )}
+
+              {/* Order by */}
+              <div className="cb-section-title">Order By</div>
+              <div className="cb-radio-row">
+                {[
+                  { value: ORDER_BY.NONE, label: "None" },
+                  { value: ORDER_BY.ASC, label: "Ascending" },
+                  { value: ORDER_BY.DESC, label: "Descending" },
+                ].map((o) => (
+                  <label key={o.value} className="cb-chip">
+                    <input
+                      type="radio"
+                      name="cb-order-by"
+                      checked={orderBy === o.value}
+                      onChange={() => setOrderBy(o.value)}
+                    />
+                    {o.label}
+                  </label>
+                ))}
+              </div>
+
+              <div className="cb-field">
+                <label className="cb-label" htmlFor="cb-from-date">From Date</label>
+                <input
+                  id="cb-from-date"
+                  type="date"
+                  className="cb-input"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+              </div>
+
+              <div className="cb-actions">
+                <button
+                  type="button"
+                  className="cb-btn cb-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
                 >
-                  {o.label}
-                </div>
-              ))}
-            </div>
-
-            {activeGroup === GROUP.CUSTOMER && (
-              <ApiSelect
-                id="cb-customer"
-                url={CustomerListUrl}
-                payload={{ Comid: session.Comid,AccountType:"CUSTOMER" }}
-                labelKey="AccountName"
-                valueKey="Id"
-                value={customerSel}
-                onChange={handleCustomerChange}
-                placeholder="Select Customer"
-              />
-            )}
-            {activeGroup === GROUP.AREA && (
-              <ApiSelect
-                id="cb-area"
-                url={AreaListUrl}
-                payload={{ Comid: session.Comid }}
-                labelKey="AreaName"
-                valueKey="Id"
-                value={areaSel}
-                onChange={handleAreaChange}
-                placeholder="Select Area"
-              />
-            )}
-            {activeGroup === GROUP.MOBILE && (
-              <ApiSelect
-                id="cb-mobile"
-                url={MobileNoListUrl}
-                payload={{ Comid: session.Comid }}
-                labelKey="MobileNo"
-                valueKey="Id"
-                value={mobileSel}
-                onChange={handleMobileChange}
-                placeholder="Select Mobile No"
-              />
-            )}
-            {activeGroup === GROUP.SALES && (
-              <ApiSelect
-                id="cb-salesman"
-                url={SalesManListUrl}
-                payload={{ Comid: session.Comid }}
-                labelKey="SalesManName"
-                valueKey="Id"
-                value={salesManSel}
-                onChange={handleSalesManChange}
-                placeholder="Select Salesman"
-              />
-            )}
-
-            {/* Order by */}
-            <div className="cb-section-title">Order By</div>
-            <div className="cb-radio-row">
-              {[
-                { value: ORDER_BY.NONE, label: "None" },
-                { value: ORDER_BY.ASC, label: "Ascending" },
-                { value: ORDER_BY.DESC, label: "Descending" },
-              ].map((o) => (
-                <div
-                  key={o.value}
-                  className={`cb-chip${orderBy === o.value ? " active" : ""}`}
-                  onClick={() => setOrderBy(o.value)}
-                  role="button"
-                  tabIndex={0}
+                  <Save size={16} className="cb-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="cb-btn cb-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
                 >
-                  {o.label}
-                </div>
-              ))}
-            </div>
+                  <XCircle size={16} className="cb-icon-cancel" />
+                  Refresh
+                </button>
+              </div>
 
-            <div className="cb-field">
-              <label className="cb-label" htmlFor="cb-from-date">From Date</label>
-              <input
-                id="cb-from-date"
-                type="date"
-                className="cb-input"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
+              {msg && <div className={`cb-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
-
-            <div className="cb-actions">
-              <button
-                type="button"
-                className="cb-btn cb-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="cb-btn cb-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
-            </div>
-
-            {msg && <div className={`cb-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+          </div>
         </div>
 
         {loading && (

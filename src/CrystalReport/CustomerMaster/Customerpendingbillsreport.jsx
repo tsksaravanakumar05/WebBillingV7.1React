@@ -9,11 +9,17 @@
 //      here are report-type toggles, not a nav-card grouping list.
 //    - "cp-" scoped style system (unique prefix, does not collide with
 //      cs-/iq-/iw-/cc- used by other converted pages).
-//  Styling: MasterPage.css only — no inline color values, no new theme colors.
+//  Styling: matches BranchWise.jsx design system exactly (card, header,
+//  field rows, buttons, palette). Only visuals/layout were changed here —
+//  all business logic, state, handlers, and API calls are 100% unchanged
+//  from the original. This page has no report-type radio nav (three combos
+//  + two checkboxes instead), so the card body uses a single centered field
+//  column rather than BranchWise's left-radio/right-field split.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -330,193 +336,95 @@ export default function CustomerPendingBillsReport() {
     );
   };
 
-  // ── Scoped styles injected once ("cp-" prefix, tokens identical to
-  //    ClosingStock.jsx / CRMCustomer.jsx) ───────────────────────────────────
+  // ── Scoped styles injected once ─────────────────────────────────────────
+  // Design system copied 1:1 from BranchWise.jsx (card, header, field rows,
+  // buttons, palette), "cp-" prefix preserved. This page has no report-type
+  // radio nav (three combos + two checkboxes instead), so the card body
+  // uses a single centered field column instead of BranchWise's
+  // left-radio/right-field split.
+  //   Border / header / heading : blue  #1a56db
+  //   Save accent                : green #1e7e34
+  //   Cancel / link accent       : red   #dc3545
   const styles = `
-    .cp-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .cp-layout {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      padding: 24px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .cp-panel {
-      width: 100%;
-      max-width: 560px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-      align-self: flex-start;
-      margin-top: 40px;
-    }
-    .cp-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .cp-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .cp-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-      line-height: 1.2;
-    }
-    .cp-form-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      margin-bottom: 8px;
-    }
-    .cp-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .cp-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-    }
-    .cp-input {
-      height: 36px;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #1e2d3d;
-      background: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .cp-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .cp-section-title {
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .6px;
-      color: #8a94a6;
-      margin: 20px 0 10px;
-    }
-    .cp-toggle-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px 16px;
-    }
-    .cp-toggle-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      height: 36px;
-      background: #f7f9fc;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      cursor: pointer;
-      font-size: 13px;
-      color: #4a5568;
-      font-weight: 500;
-      user-select: none;
-    }
-    .cp-toggle-row input[type="checkbox"] {
-      width: 15px;
-      height: 15px;
-      accent-color: var(--clr-primary, #1a56db);
-      cursor: pointer;
-    }
-    .cp-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .cp-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .cp-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .cp-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .cp-panel { width: 100%; max-width: 560px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .cp-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .cp-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .cp-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .cp-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .cp-panel-body { padding: 24px 32px 30px; }
+    .cp-panel-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .cp-form-grid { display: flex; flex-direction: column; gap: 16px; margin-bottom: 8px; }
+    .cp-field { display: flex; align-items: center; gap: 14px; }
+    .cp-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
+    .cp-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .cp-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    select.cp-input { appearance: auto; cursor: pointer; }
+
+    .cp-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #8a94a6; margin: 20px 0 10px; }
+    .cp-toggle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+    .cp-toggle-row { display: flex; align-items: center; gap: 8px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; cursor: pointer; font-size: 13px; color: #1e2d3d; font-weight: 500; user-select: none; transition: border-color .15s; }
+    .cp-toggle-row:hover { border-color: #1a56db; }
+    .cp-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
+
+    .cp-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .cp-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .cp-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .cp-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .cp-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .cp-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .cp-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .cp-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
+    .cp-btn:not(:disabled):hover { background: #eef3ff; }
+    .cp-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .cp-btn-primary .cp-icon-save { color: #1e7e34; }
+    .cp-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .cp-btn-secondary .cp-icon-cancel { color: #dc3545; }
+
+    .cp-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
     .cp-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
     .cp-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 760px) {
-      .cp-layout { padding: 16px; }
-      .cp-panel { padding: 20px 16px; margin-top: 16px; }
+
+    @media (max-width: 620px) {
+      .cp-panel-body { padding: 20px; }
+      .cp-field { flex-direction: column; align-items: stretch; gap: 6px; }
+      .cp-label { width: auto; }
       .cp-toggle-grid { grid-template-columns: 1fr; }
     }
   `;
 
   if (!pageAccess.ready) {
     return (
-      <div className="mp-wrap">
-        <div className="mp-body">
-          {msg && <div className={`mp-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+      <>
+        <style>{styles}</style>
+        <div className="cp-shell">
+          <Topbar />
+          <div className="cp-layout">
+            <div className="cp-panel">
+              <div className="cp-panel-body">
+                {msg && <div className={`cp-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!pageAccess.allowed) {
     return (
-      <div className="mp-wrap">
-        <div className="mp-body">
-          <div className="mp-msg err">Page Access Permission Denied !!!.</div>
+      <>
+        <style>{styles}</style>
+        <div className="cp-shell">
+          <Topbar />
+          <div className="cp-layout">
+            <div className="cp-panel">
+              <div className="cp-panel-body">
+                <div className="cp-msg err">Page Access Permission Denied !!!.</div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -527,86 +435,92 @@ export default function CustomerPendingBillsReport() {
         <Topbar />
 
         <div className="cp-layout">
-          <main className="cp-panel">
-            <div className="cp-panel-header">
-              <div className="cp-panel-eyebrow">Sales Report</div>
+          <div className="cp-panel">
+            <div className="cp-card-header">
+              <div className="cp-card-header-title">Sales Report</div>
+              <button type="button" className="cp-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+            </div>
+
+            <div className="cp-panel-body">
               <div className="cp-panel-title">Customer Pending Bills Report</div>
-            </div>
 
-            <div className="cp-form-grid">
-              <ApiSelect
-                id="cp-customer"
-                url={CustomerListUrl}
-                payload={{ Comid: session.Comid,AccountType:"CUSTOMER" }}
-                labelKey="AccountName"
-                valueKey="Id"
-                value={customerSel}
-                onChange={setCustomerSel}
-                placeholder="Select Customer"
-              />
-              <ApiSelect
-                id="cp-area"
-                url={AreaListUrl}
-                payload={{ Comid: session.Comid }}
-                labelKey="AreaName"
-                valueKey="Id"
-                value={areaSel}
-                onChange={setAreaSel}
-                placeholder="Select Area"
-              />
-              <ApiSelect
-                id="cp-salesman"
-                url={SalesManListUrl}
-                payload={{ Comid: session.Comid }}
-                labelKey="SalesManName"
-                valueKey="Id"
-                value={salesManSel}
-                onChange={setSalesManSel}
-                placeholder="Select Salesman"
-              />
-            </div>
-
-            <div className="cp-section-title">Report Type</div>
-            <div className="cp-toggle-grid">
-              <label className="cp-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={chkArea}
-                  onChange={(e) => handleChkAreaChange(e.target.checked)}
+              <div className="cp-form-grid">
+                <ApiSelect
+                  id="cp-customer"
+                  url={CustomerListUrl}
+                  payload={{ Comid: session.Comid,AccountType:"CUSTOMER" }}
+                  labelKey="AccountName"
+                  valueKey="Id"
+                  value={customerSel}
+                  onChange={setCustomerSel}
+                  placeholder="Select Customer"
                 />
-                Area Wise
-              </label>
-              <label className="cp-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={chkSales}
-                  onChange={(e) => handleChkSalesChange(e.target.checked)}
+                <ApiSelect
+                  id="cp-area"
+                  url={AreaListUrl}
+                  payload={{ Comid: session.Comid }}
+                  labelKey="AreaName"
+                  valueKey="Id"
+                  value={areaSel}
+                  onChange={setAreaSel}
+                  placeholder="Select Area"
                 />
-                Salesman Wise
-              </label>
-            </div>
+                <ApiSelect
+                  id="cp-salesman"
+                  url={SalesManListUrl}
+                  payload={{ Comid: session.Comid }}
+                  labelKey="SalesManName"
+                  valueKey="Id"
+                  value={salesManSel}
+                  onChange={setSalesManSel}
+                  placeholder="Select Salesman"
+                />
+              </div>
 
-            <div className="cp-actions">
-              <button
-                type="button"
-                className="cp-btn cp-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="cp-btn cp-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
-            </div>
+              <div className="cp-section-title">Report Type</div>
+              <div className="cp-toggle-grid">
+                <label className="cp-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={chkArea}
+                    onChange={(e) => handleChkAreaChange(e.target.checked)}
+                  />
+                  Area Wise
+                </label>
+                <label className="cp-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={chkSales}
+                    onChange={(e) => handleChkSalesChange(e.target.checked)}
+                  />
+                  Salesman Wise
+                </label>
+              </div>
 
-            {msg && <div className={`cp-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+              <div className="cp-actions">
+                <button
+                  type="button"
+                  className="cp-btn cp-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="cp-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="cp-btn cp-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <XCircle size={16} className="cp-icon-cancel" />
+                  Refresh
+                </button>
+              </div>
+
+              {msg && <div className={`cp-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+            </div>
+          </div>
         </div>
 
         {loading && (

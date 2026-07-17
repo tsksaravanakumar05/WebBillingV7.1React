@@ -14,6 +14,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -341,10 +342,10 @@ export default function ItemwiseStockDetails() {
   // ── Re-usable API-backed <select>, same pattern as ClosingStock.jsx's
   //    ApiSelect but driven off the already-fetched productList ───────────
   const ProductSelect = ({ labelKey, value, from, placeholder }) => (
-    <div className="iw-field">
-      <label className="iw-label">{placeholder.replace("Select ", "")}</label>
+    <div className="so-field">
+      <label className="so-label">{placeholder.replace("Select ", "")}</label>
       <select
-        className="iw-input"
+        className="so-input"
         value={value?.value ?? ""}
         disabled={productLoading}
         onChange={(e) => {
@@ -367,209 +368,67 @@ export default function ItemwiseStockDetails() {
   // except Id, shown generically since the exact batch/MRP schema varies.
   const mrpColumns = mrpRows.length > 0 ? Object.keys(mrpRows[0]).filter((k) => k !== "Id") : [];
 
-  // ── Scoped styles injected once (same tokens as ClosingStock.jsx, "iw-" prefix) ──
+  // ── Design system: recolored/restructured to match BranchWise.jsx exactly ──
+  //   Border / header / heading -> blue (#1a56db)
+  //   Save-style accents        -> green (#1e7e34)
+  //   Cancel / link accents     -> red   (#dc3545)
   const styles = `
-    .iw-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .iw-layout {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      padding: 24px;
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      box-sizing: border-box;
-    }
-    .iw-panel {
-      flex: 1;
-      max-width: 720px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-    }
-    .iw-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .iw-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .iw-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-      line-height: 1.2;
-    }
-    .iw-form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px 20px;
-      align-items: start;
-      max-width: 100%;
-      margin-top: 10px;
-      margin-bottom: 24px;
-    }
-    .iw-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .iw-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-    }
-    .iw-input {
-      height: 36px;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #1e2d3d;
-      background: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .iw-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .iw-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .iw-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .iw-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .iw-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .iw-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .iw-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .iw-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .iw-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .iw-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .iw-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .so-close-btn:hover { background: rgba(255,255,255,.28); }
 
-    .iw-modal-ov {
-      position: fixed;
-      inset: 0;
-      background: rgba(20,26,36,.45);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-    .iw-modal {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,.25);
-      width: min(560px, 92vw);
-      max-height: 80vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .iw-modal-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid #e8ecf0;
-      font-size: 15px;
-      font-weight: 700;
-      color: #1e2d3d;
-    }
-    .iw-modal-sub {
-      font-size: 12px;
-      color: #8a94a6;
-      font-weight: 500;
-      margin-top: 2px;
-    }
-    .iw-modal-list {
-      overflow-y: auto;
-      flex: 1;
-    }
-    .iw-modal-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    .iw-modal-table th {
-      text-align: left;
-      padding: 8px 14px;
-      background: #f7f9fc;
-      color: #8a94a6;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      position: sticky;
-      top: 0;
-    }
-    .iw-modal-table td {
-      padding: 9px 14px;
-      border-top: 1px solid #eef1f5;
-      color: #1e2d3d;
-    }
-    .iw-modal-row { cursor: pointer; }
-    .iw-modal-row:hover { background: #f7f9fc; }
-    .iw-modal-row.hl { background: #eef3fd; }
-    .iw-modal-footer {
-      padding: 12px 20px;
-      border-top: 1px solid #e8ecf0;
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-    }
-    @media (max-width: 760px) {
-      .iw-layout { padding: 16px; }
-      .iw-panel { padding: 20px 16px; max-width: 100%; }
-      .iw-form-grid { grid-template-columns: 1fr; }
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 640px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-content { display: flex; justify-content: center; }
+    .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 360px; margin: 0 auto; }
+
+    .so-field { display: flex; align-items: center; gap: 14px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 100px; flex-shrink: 0; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .so-input:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
+    select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
+    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
+    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
+    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+    .so-modal-ov { position: fixed; inset: 0; background: rgba(20,26,36,.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .so-modal { background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,.25); width: min(560px, 92vw); max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
+    .so-modal-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); padding: 14px 20px; font-size: 14px; font-weight: 700; color: #fff; }
+    .so-modal-sub { font-size: 12px; color: rgba(255,255,255,.85); font-weight: 500; margin-top: 4px; }
+    .so-modal-list { overflow-y: auto; flex: 1; }
+    .so-modal-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .so-modal-table th { text-align: left; padding: 8px 14px; background: #f7f9fc; color: #1a56db; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; position: sticky; top: 0; }
+    .so-modal-table td { padding: 9px 14px; border-top: 1px solid #eef1f5; color: #1e2d3d; }
+    .so-modal-row { cursor: pointer; }
+    .so-modal-row:hover { background: #eef3ff; }
+    .so-modal-row.hl { background: #dde9fd; }
+    .so-modal-footer { padding: 12px 20px; border-top: 1px solid #e8ecf0; display: flex; justify-content: flex-end; gap: 10px; }
+
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
+      .so-right { max-width: none; }
     }
   `;
 
@@ -596,77 +455,85 @@ export default function ItemwiseStockDetails() {
   return (
     <>
       <style>{styles}</style>
-      <div className="iw-shell">
+      <div className="so-shell">
         <Topbar />
 
-        <div className="iw-layout">
-          <main className="iw-panel">
-            <div className="iw-panel-header">
-              <div className="iw-panel-eyebrow">Stock</div>
-              <div className="iw-panel-title">ItemWise Stock Details</div>
+        <div className="so-layout">
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">ItemWise Stock Details</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            <div className="iw-form-grid">
-              <ProductSelect labelKey="ProductName" value={descriptionSel} from="description" placeholder="Select Item Name" />
-              <ProductSelect labelKey="ProductCode" value={codeSel} from="code" placeholder="Select Item Code" />
+            <div className="so-card-body">
+              <div className="so-report-title">ItemWise Stock Details Report</div>
 
-              <div className="iw-field">
-                <label className="iw-label" htmlFor="iw-from-date">From Date</label>
-                <input
-                  id="iw-from-date"
-                  type="date"
-                  className="iw-input"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
+              <div className="so-content">
+                <div className="so-right">
+                  <ProductSelect labelKey="ProductName" value={descriptionSel} from="description" placeholder="Select Item Name" />
+                  <ProductSelect labelKey="ProductCode" value={codeSel} from="code" placeholder="Select Item Code" />
+
+                  <div className="so-field">
+                    <label className="so-label" htmlFor="iw-from-date">From Date</label>
+                    <input
+                      id="iw-from-date"
+                      type="date"
+                      className="so-input"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="so-field">
+                    <label className="so-label" htmlFor="iw-to-date">To Date</label>
+                    <input
+                      id="iw-to-date"
+                      type="date"
+                      className="so-input"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="iw-field">
-                <label className="iw-label" htmlFor="iw-to-date">To Date</label>
-                <input
-                  id="iw-to-date"
-                  type="date"
-                  className="iw-input"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                />
+
+              <div className="so-actions">
+                <button
+                  type="button"
+                  className="so-btn so-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="so-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="so-btn so-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <XCircle size={16} className="so-icon-cancel" />
+                  Refresh
+                </button>
               </div>
-            </div>
 
-            <div className="iw-actions">
-              <button
-                type="button"
-                className="iw-btn iw-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="iw-btn iw-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
+              {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
-
-            {msg && <div className={`iw-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+          </div>
         </div>
 
         {/* ── MRP / duplicate product-code picker modal ── */}
         {mrpOpen && (
-          <div className="iw-modal-ov" onClick={() => setMrpOpen(false)}>
-            <div className="iw-modal" onClick={(e) => e.stopPropagation()} ref={mrpListRef}>
-              <div className="iw-modal-header">
+          <div className="so-modal-ov" onClick={() => setMrpOpen(false)}>
+            <div className="so-modal" onClick={(e) => e.stopPropagation()} ref={mrpListRef}>
+              <div className="so-modal-header">
                 Multiple Items Found
-                <div className="iw-modal-sub">
+                <div className="so-modal-sub">
                   This code matches more than one item — pick the exact one (↑ ↓ then Enter, or click a row).
                 </div>
               </div>
-              <div className="iw-modal-list">
-                <table className="iw-modal-table">
+              <div className="so-modal-list">
+                <table className="so-modal-table">
                   <thead>
                     <tr>
                       {mrpColumns.map((col) => (
@@ -678,7 +545,7 @@ export default function ItemwiseStockDetails() {
                     {mrpRows.map((row, idx) => (
                       <tr
                         key={row.Id}
-                        className={`iw-modal-row${idx === mrpHighlight ? " hl" : ""}`}
+                        className={`so-modal-row${idx === mrpHighlight ? " hl" : ""}`}
                         onClick={() => pickMrpRow(row)}
                         onMouseEnter={() => setMrpHighlight(idx)}
                       >
@@ -690,8 +557,9 @@ export default function ItemwiseStockDetails() {
                   </tbody>
                 </table>
               </div>
-              <div className="iw-modal-footer">
-                <button type="button" className="iw-btn iw-btn-secondary" onClick={() => setMrpOpen(false)}>
+              <div className="so-modal-footer">
+                <button type="button" className="so-btn so-btn-secondary" onClick={() => setMrpOpen(false)}>
+                  <XCircle size={16} className="so-icon-cancel" />
                   Cancel
                 </button>
               </div>

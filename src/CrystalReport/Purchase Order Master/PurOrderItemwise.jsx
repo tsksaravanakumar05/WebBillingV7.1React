@@ -20,6 +20,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -660,59 +661,75 @@ export default function PurOrderItemwise() {
     fromDate, toDate, mrpChecked, dailyChecked, session, openReportViewer,
   ]);
 
+  // ── Design system: recolored/restructured to match BranchWise.jsx exactly ──
+  //   Border / header / heading -> blue (#1a56db)
+  //   Save-style accents        -> green (#1e7e34)
+  //   Cancel / link accents     -> red   (#dc3545)
   const styles = `
     .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: var(--clr-primary, #1a56db); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
     .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
     .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
     .so-close-btn:hover { background: rgba(255,255,255,.28); }
-    .so-layout { display: flex; flex: 1; gap: 20px; padding: 24px; max-width: 1240px; width: 100%; margin: 0 auto; box-sizing: border-box; }
-    .so-panel { flex: 1; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 28px 32px; display: flex; flex-direction: column; }
-    .so-panel-header { border-bottom: 1px solid #e8ecf0; padding-bottom: 16px; margin-bottom: 28px; }
-    .so-panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--clr-primary, #1a56db); margin-bottom: 6px; }
-    .so-panel-title { font-size: 20px; font-weight: 700; color: #1e2d3d; line-height: 1.2; }
-    .so-content { display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap; }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 920px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-content { display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; }
     .so-groupby-col { flex: 1.4; min-width: 340px; }
-    .so-filters-col { flex: 1; min-width: 280px; padding-left: 40px; border-left: 1px solid #e8ecf0; display: flex; flex-direction: column; }
-    .so-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8492a6; margin-bottom: 18px; }
-    .so-groupby-grid { display: grid; grid-template-columns: 128px 1fr; gap: 16px 16px; align-items: center; }
-    .so-filters-grid { display: grid; grid-template-columns: 96px 1fr; gap: 20px 16px; align-items: center; }
-    .so-form-grid { display: grid; grid-template-columns: 120px 1fr; gap: 20px 16px; align-items: center; max-width: 420px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #4a5568; }
-    .so-input { height: 38px; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+    .so-filters-col { flex: 1; min-width: 260px; padding-left: 32px; border-left: 1px solid #ececec; display: flex; flex-direction: column; }
+    .so-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #1a56db; margin-bottom: 16px; }
+
+    .so-groupby-grid { display: grid; grid-template-columns: 118px 1fr; gap: 14px 16px; align-items: center; }
+    .so-filters-grid { display: grid; grid-template-columns: 90px 1fr; gap: 16px; align-items: center; }
+
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     .so-input:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
-    .so-select { height: 38px; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; cursor: pointer; }
-    .so-select:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+    select.so-input { appearance: auto; cursor: pointer; }
+
     .so-combo { position: relative; }
-    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 220px; overflow-y: auto; background: #fff; border: 1.5px solid #d1d9e6; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
-    .so-combo-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 6px; cursor: pointer; }
-    .so-combo-item:hover { background: #f0f2f5; }
-    .so-combo-empty { padding: 8px 10px; font-size: 13px; color: #4a5568; }
-    .so-radio-row { display: flex; align-items: center; gap: 8px; }
-    .so-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: var(--clr-primary, #1a56db); cursor: pointer; }
-    .so-radio-row span { font-size: 13px; font-weight: 600; color: #4a5568; }
-    .so-toggle-row { display: flex; align-items: center; gap: 8px; }
-    .so-toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--clr-primary, #1a56db); cursor: pointer; }
+    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+    .so-combo-item { padding: 7px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; }
+    .so-combo-item:hover { background: #eef3ff; }
+    .so-combo-empty { padding: 7px 10px; font-size: 13px; color: #4a5568; }
+
+    .so-radio-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+    .so-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
+    .so-radio-row span { font-size: 13px; font-weight: 500; color: #2b2b2b; }
+
+    .so-toggle-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+    .so-toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
     .so-toggle-row span { font-size: 13px; color: #1e2d3d; }
-    .so-actions { display: flex; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 40px; padding: 0 28px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, box-shadow .15s; display: flex; align-items: center; gap: 8px; }
+
+    .so-actions { display: flex; gap: 12px; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn-primary { background: var(--clr-primary, #1a56db); color: #fff; box-shadow: 0 2px 8px rgba(26,86,219,.3); }
-    .so-btn-primary:not(:disabled):hover { opacity: .9; box-shadow: 0 4px 14px rgba(26,86,219,.4); }
-    .so-btn-secondary { background: #f0f2f5; color: #4a5568; border: 1.5px solid #d1d9e6; }
-    .so-btn-secondary:not(:disabled):hover { background: #e8ecf0; }
-    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
     .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
     .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
     @media (max-width: 900px) {
       .so-content { flex-direction: column; }
-      .so-filters-col { padding-left: 0; border-left: none; border-top: 1px solid #e8ecf0; padding-top: 24px; }
+      .so-filters-col { padding-left: 0; border-left: none; border-top: 1px solid #ececec; padding-top: 22px; }
     }
-    @media (max-width: 700px) {
-      .so-layout { flex-direction: column; padding: 16px; }
-      .so-panel { padding: 20px 16px; }
-      .so-form-grid { grid-template-columns: 100px 1fr; }
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
       .so-groupby-grid { grid-template-columns: 100px 1fr; }
       .so-filters-grid { grid-template-columns: 90px 1fr; }
     }
@@ -744,144 +761,150 @@ export default function PurOrderItemwise() {
       <div className="so-shell">
         <Topbar />
         <div className="so-layout">
-          <main className="so-panel">
-            <div className="so-panel-header">
-              <div className="so-panel-eyebrow">Purchase Order Itemwise</div>
-              <div className="so-panel-title">Purchase Order Itemwise Report</div>
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">Purchase Order Itemwise</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            <div className="so-content">
-              <section className="so-groupby-col">
-                <div className="so-col-title">Group By</div>
-                <div className="so-groupby-grid">
-                  <label className="so-radio-row" htmlFor="poi-rbt-brand">
-                    <input id="poi-rbt-brand" type="radio" name="poi-groupby" checked={groupByField === "Brand"} onChange={() => handleGroupByChange("Brand")} />
-                    <span>Brand</span>
-                  </label>
-                  <ComboField
-                    id="poi-cmb-brand"
-                    list={brandList}
-                    selected={selectedBrand}
-                    onSelect={setSelectedBrand}
-                    disabled={groupByField !== "Brand"}
-                    placeholder="Type to search brand…"
-                  />
+            <div className="so-card-body">
+              <div className="so-report-title">Purchase Order Itemwise Report</div>
 
-                  <label className="so-radio-row" htmlFor="poi-rbt-category">
-                    <input id="poi-rbt-category" type="radio" name="poi-groupby" checked={groupByField === "Category"} onChange={() => handleGroupByChange("Category")} />
-                    <span>Category</span>
-                  </label>
-                  <ComboField
-                    id="poi-cmb-category"
-                    list={categoryList}
-                    selected={selectedCategory}
-                    onSelect={setSelectedCategory}
-                    disabled={groupByField !== "Category"}
-                    placeholder="Type to search category…"
-                  />
+              <div className="so-content">
+                <section className="so-groupby-col">
+                  <div className="so-col-title">Group By</div>
+                  <div className="so-groupby-grid">
+                    <label className="so-radio-row" htmlFor="poi-rbt-brand">
+                      <input id="poi-rbt-brand" type="radio" name="poi-groupby" checked={groupByField === "Brand"} onChange={() => handleGroupByChange("Brand")} />
+                      <span>Brand</span>
+                    </label>
+                    <ComboField
+                      id="poi-cmb-brand"
+                      list={brandList}
+                      selected={selectedBrand}
+                      onSelect={setSelectedBrand}
+                      disabled={groupByField !== "Brand"}
+                      placeholder="Type to search brand…"
+                    />
 
-                  <label className="so-radio-row" htmlFor="poi-rbt-department">
-                    <input id="poi-rbt-department" type="radio" name="poi-groupby" checked={groupByField === "Department"} onChange={() => handleGroupByChange("Department")} />
-                    <span>Department</span>
-                  </label>
-                  <ComboField
-                    id="poi-cmb-department"
-                    list={departmentList}
-                    selected={selectedDepartment}
-                    onSelect={setSelectedDepartment}
-                    disabled={groupByField !== "Department"}
-                    placeholder="Type to search department…"
-                  />
+                    <label className="so-radio-row" htmlFor="poi-rbt-category">
+                      <input id="poi-rbt-category" type="radio" name="poi-groupby" checked={groupByField === "Category"} onChange={() => handleGroupByChange("Category")} />
+                      <span>Category</span>
+                    </label>
+                    <ComboField
+                      id="poi-cmb-category"
+                      list={categoryList}
+                      selected={selectedCategory}
+                      onSelect={setSelectedCategory}
+                      disabled={groupByField !== "Category"}
+                      placeholder="Type to search category…"
+                    />
 
-                  <label className="so-radio-row" htmlFor="poi-rbt-supplier">
-                    <input id="poi-rbt-supplier" type="radio" name="poi-groupby" checked={groupByField === "Supplier"} onChange={() => handleGroupByChange("Supplier")} />
-                    <span>Supplier</span>
-                  </label>
-                  <ComboField
-                    id="poi-cmb-supplier"
-                    list={supplierList}
-                    selected={selectedSupplier}
-                    onSelect={setSelectedSupplier}
-                    disabled={groupByField !== "Supplier"}
-                    placeholder="Type to search supplier…"
-                  />
+                    <label className="so-radio-row" htmlFor="poi-rbt-department">
+                      <input id="poi-rbt-department" type="radio" name="poi-groupby" checked={groupByField === "Department"} onChange={() => handleGroupByChange("Department")} />
+                      <span>Department</span>
+                    </label>
+                    <ComboField
+                      id="poi-cmb-department"
+                      list={departmentList}
+                      selected={selectedDepartment}
+                      onSelect={setSelectedDepartment}
+                      disabled={groupByField !== "Department"}
+                      placeholder="Type to search department…"
+                    />
 
-                  <label className="so-radio-row" htmlFor="poi-rbt-uom">
-                    <input id="poi-rbt-uom" type="radio" name="poi-groupby" checked={groupByField === "UOM"} onChange={() => handleGroupByChange("UOM")} />
-                    <span>UOM</span>
-                  </label>
-                  <ComboField
-                    id="poi-cmb-uom"
-                    list={uomList}
-                    selected={selectedUOM}
-                    onSelect={setSelectedUOM}
-                    disabled={groupByField !== "UOM"}
-                    placeholder="Type to search UOM…"
-                  />
+                    <label className="so-radio-row" htmlFor="poi-rbt-supplier">
+                      <input id="poi-rbt-supplier" type="radio" name="poi-groupby" checked={groupByField === "Supplier"} onChange={() => handleGroupByChange("Supplier")} />
+                      <span>Supplier</span>
+                    </label>
+                    <ComboField
+                      id="poi-cmb-supplier"
+                      list={supplierList}
+                      selected={selectedSupplier}
+                      onSelect={setSelectedSupplier}
+                      disabled={groupByField !== "Supplier"}
+                      placeholder="Type to search supplier…"
+                    />
 
-                  <label className="so-radio-row" htmlFor="poi-rbt-description">
-                    <input id="poi-rbt-description" type="radio" name="poi-groupby" checked={groupByField === "Description"} onChange={() => handleGroupByChange("Description")} />
-                    <span>Description</span>
-                  </label>
-                  <ComboField
-                    id="poi-cmb-description"
-                    list={descriptionOptions}
-                    selected={selectedDescription}
-                    onSelect={setSelectedDescription}
-                    disabled={groupByField !== "Description"}
-                    placeholder="Type to search item name…"
-                  />
+                    <label className="so-radio-row" htmlFor="poi-rbt-uom">
+                      <input id="poi-rbt-uom" type="radio" name="poi-groupby" checked={groupByField === "UOM"} onChange={() => handleGroupByChange("UOM")} />
+                      <span>UOM</span>
+                    </label>
+                    <ComboField
+                      id="poi-cmb-uom"
+                      list={uomList}
+                      selected={selectedUOM}
+                      onSelect={setSelectedUOM}
+                      disabled={groupByField !== "UOM"}
+                      placeholder="Type to search UOM…"
+                    />
 
-                  <label className="so-radio-row" htmlFor="poi-rbt-code">
-                    <input id="poi-rbt-code" type="radio" name="poi-groupby" checked={groupByField === "Code"} onChange={() => handleGroupByChange("Code")} />
-                    <span>Code</span>
-                  </label>
-                  <ComboField
-                    id="poi-cmb-code"
-                    list={codeOptions}
-                    selected={selectedCode}
-                    onSelect={setSelectedCode}
-                    disabled={groupByField !== "Code"}
-                    placeholder="Type to search item code…"
-                  />
-                </div>
-              </section>
+                    <label className="so-radio-row" htmlFor="poi-rbt-description">
+                      <input id="poi-rbt-description" type="radio" name="poi-groupby" checked={groupByField === "Description"} onChange={() => handleGroupByChange("Description")} />
+                      <span>Description</span>
+                    </label>
+                    <ComboField
+                      id="poi-cmb-description"
+                      list={descriptionOptions}
+                      selected={selectedDescription}
+                      onSelect={setSelectedDescription}
+                      disabled={groupByField !== "Description"}
+                      placeholder="Type to search item name…"
+                    />
 
-              <section className="so-filters-col">
-                <div className="so-col-title">Filters</div>
-                <div className="so-filters-grid">
-                  <label className="so-label" htmlFor="poi-from-date">From Date</label>
-                  <input id="poi-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <label className="so-radio-row" htmlFor="poi-rbt-code">
+                      <input id="poi-rbt-code" type="radio" name="poi-groupby" checked={groupByField === "Code"} onChange={() => handleGroupByChange("Code")} />
+                      <span>Code</span>
+                    </label>
+                    <ComboField
+                      id="poi-cmb-code"
+                      list={codeOptions}
+                      selected={selectedCode}
+                      onSelect={setSelectedCode}
+                      disabled={groupByField !== "Code"}
+                      placeholder="Type to search item code…"
+                    />
+                  </div>
+                </section>
 
-                  <label className="so-label" htmlFor="poi-to-date">To Date</label>
-                  <input id="poi-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                <section className="so-filters-col">
+                  <div className="so-col-title">Filters</div>
+                  <div className="so-filters-grid">
+                    <label className="so-label" htmlFor="poi-from-date">From Date</label>
+                    <input id="poi-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
 
-                  <span className="so-label">Daily</span>
-                  <label className="so-toggle-row" htmlFor="poi-chk-daily">
-                    <input id="poi-chk-daily" type="checkbox" checked={dailyChecked} onChange={(e) => setDailyChecked(e.target.checked)} />
-                    <span>Daily report</span>
-                  </label>
+                    <label className="so-label" htmlFor="poi-to-date">To Date</label>
+                    <input id="poi-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
 
-                  <span className="so-label">MRP</span>
-                  <label className="so-toggle-row" htmlFor="poi-chk-mrp">
-                    <input id="poi-chk-mrp" type="checkbox" checked={mrpChecked} onChange={(e) => setMrpChecked(e.target.checked)} />
-                    <span>Use MRP (unchecked uses Pur. Rate)</span>
-                  </label>
-                </div>
+                    <span className="so-label">Daily</span>
+                    <label className="so-toggle-row" htmlFor="poi-chk-daily">
+                      <input id="poi-chk-daily" type="checkbox" checked={dailyChecked} onChange={(e) => setDailyChecked(e.target.checked)} />
+                      <span>Daily report</span>
+                    </label>
 
-                <div className="so-actions">
-                  <button type="button" className="so-btn so-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
-                    {loading ? "Loading…" : "▶ View"}
-                  </button>
-                  <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
-                    ↺ Refresh
-                  </button>
-                </div>
+                    <span className="so-label">MRP</span>
+                    <label className="so-toggle-row" htmlFor="poi-chk-mrp">
+                      <input id="poi-chk-mrp" type="checkbox" checked={mrpChecked} onChange={(e) => setMrpChecked(e.target.checked)} />
+                      <span>Use MRP (unchecked uses Pur. Rate)</span>
+                    </label>
+                  </div>
 
-                {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-              </section>
+                  <div className="so-actions">
+                    <button type="button" className="so-btn so-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
+                      <Save size={16} className="so-icon-save" />
+                      {loading ? "Loading…" : "View"}
+                    </button>
+                    <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                      <XCircle size={16} className="so-icon-cancel" />
+                      Refresh
+                    </button>
+                  </div>
+
+                  {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+                </section>
+              </div>
             </div>
-          </main>
+          </div>
         </div>
 
         {loading && (

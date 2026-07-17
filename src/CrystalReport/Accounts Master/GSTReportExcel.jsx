@@ -17,6 +17,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -223,39 +224,46 @@ export default function GSTReportExcel() {
 
   const styles = `
     .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: var(--clr-primary, #1a56db); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
     .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
     .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
     .so-close-btn:hover { background: rgba(255,255,255,.28); }
-    .so-layout { display: flex; flex: 1; gap: 20px; padding: 24px; max-width: 1100px; width: 100%; margin: 0 auto; box-sizing: border-box; }
-    .so-panel { flex: 1; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 28px 32px; display: flex; flex-direction: column; }
-    .so-panel-header { border-bottom: 1px solid #e8ecf0; padding-bottom: 16px; margin-bottom: 28px; }
-    .so-panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--clr-primary, #1a56db); margin-bottom: 6px; }
-    .so-panel-title { font-size: 20px; font-weight: 700; color: #1e2d3d; line-height: 1.2; }
-    .so-form-grid { display: grid; grid-template-columns: 120px 1fr; gap: 20px 16px; align-items: center; max-width: 460px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #4a5568; }
-    .so-input { height: 38px; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 620px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-form-grid { display: grid; grid-template-columns: 120px 1fr; gap: 14px 14px; align-items: center; max-width: 480px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+
     .so-fieldset { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
     .so-radio-group { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; }
-    .so-radio-option { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #1e2d3d; cursor: pointer; user-select: none; }
-    .so-radio-option input[type="radio"] { accent-color: var(--clr-primary, #1a56db); width: 15px; height: 15px; cursor: pointer; }
-    .so-check-option { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #4a5568; cursor: pointer; user-select: none; }
-    .so-check-option input[type="checkbox"] { accent-color: var(--clr-primary, #1a56db); width: 16px; height: 16px; cursor: pointer; }
-    .so-actions { display: flex; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 40px; padding: 0 28px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, box-shadow .15s; display: flex; align-items: center; gap: 8px; }
+    .so-radio-option { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #1e293b; cursor: pointer; user-select: none; }
+    .so-radio-option input[type="radio"] { accent-color: #1a56db; width: 15px; height: 15px; cursor: pointer; }
+    .so-check-option { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; user-select: none; }
+    .so-check-option input[type="checkbox"] { accent-color: #1a56db; width: 16px; height: 16px; cursor: pointer; }
+
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 28px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn-primary { background: var(--clr-primary, #1a56db); color: #fff; box-shadow: 0 2px 8px rgba(26,86,219,.3); }
-    .so-btn-primary:not(:disabled):hover { opacity: .9; box-shadow: 0 4px 14px rgba(26,86,219,.4); }
-    .so-btn-secondary { background: #f0f2f5; color: #4a5568; border: 1.5px solid #d1d9e6; }
-    .so-btn-secondary:not(:disabled):hover { background: #e8ecf0; }
-    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
     .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
     .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 700px) {
-      .so-layout { flex-direction: column; padding: 16px; }
-      .so-panel { padding: 20px 16px; }
-      .so-form-grid { grid-template-columns: 100px 1fr; }
+
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
+      .so-form-grid { grid-template-columns: 1fr; }
     }
   `;
 
@@ -285,11 +293,13 @@ export default function GSTReportExcel() {
       <div className="so-shell">
         <Topbar />
         <div className="so-layout">
-          <main className="so-panel">
-            <div className="so-panel-header">
-              <div className="so-panel-eyebrow">GST Report</div>
-              <div className="so-panel-title">GST Report Excel</div>
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">GST Report Excel</div>
             </div>
+
+            <div className="so-card-body">
+              <div className="so-report-title">GST Report Excel</div>
 
             <div className="so-form-grid">
               <label className="so-label" htmlFor="gst-from-date">From Date</label>
@@ -365,7 +375,8 @@ export default function GSTReportExcel() {
                 disabled={loading || pageAccess.pageview === 0}
                 onClick={handleView}
               >
-                {loading ? "Loading…" : "▶ View"}
+                <Save size={16} className="so-icon-save" />
+                {loading ? "Loading…" : "View"}
               </button>
               <button
                 type="button"
@@ -373,12 +384,14 @@ export default function GSTReportExcel() {
                 onClick={handleRefresh}
                 disabled={loading}
               >
-                ↺ Refresh
+                <XCircle size={16} className="so-icon-cancel" />
+                Refresh
               </button>
             </div>
 
             {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+            </div>
+          </div>
         </div>
 
         {loading && (

@@ -19,6 +19,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -285,13 +286,13 @@ export default function SupplierStatement() {
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
     return (
-      <div className="ss-field">
-        <label className="ss-label" htmlFor="ss-supplier">
+      <div className="so-field">
+        <label className="so-label" htmlFor="ss-supplier">
           {placeholder.replace("Select ", "")}
         </label>
         <select
           id="ss-supplier"
-          className="ss-input"
+          className="so-input"
           value={value?.value ?? ""}
           disabled={loadingList}
           onChange={(e) => {
@@ -315,156 +316,68 @@ export default function SupplierStatement() {
     );
   };
 
-  // ── Scoped styles injected once ("ss-" prefix, single centered panel) ──
+  // ── Design system: recolored/restructured to match BranchWise.jsx exactly ──
+  //   Border / header / heading -> blue (#1a56db)
+  //   Save-style accents        -> green (#1e7e34)
+  //   Cancel / link accents     -> red   (#dc3545)
   const styles = `
-    .ss-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .ss-layout {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 48px 24px;
-    }
-    .ss-panel {
-      width: 100%;
-      max-width: 520px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-    }
-    .ss-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .ss-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .ss-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-    }
-    .ss-form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    .ss-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 20px;
-    }
-    .ss-field.ss-field-full {
-      grid-column: 1 / -1;
-    }
-    .ss-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #5a6472;
-    }
-    .ss-input {
-      height: 40px;
-      border-radius: 8px;
-      border: 1.5px solid #d1d9e6;
-      padding: 0 12px;
-      font-size: 14px;
-      color: #1e2d3d;
-      background: #fff;
-      outline: none;
-    }
-    .ss-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .ss-section-title {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .6px;
-      color: #8a94a6;
-      margin: 4px 0 10px;
-    }
-    .ss-toggle-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .ss-toggle-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      color: #1e2d3d;
-      cursor: pointer;
-    }
-    .ss-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 8px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .ss-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .ss-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .ss-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .ss-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .ss-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .ss-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .ss-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .ss-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .ss-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 760px) {
-      .ss-layout { padding: 16px; }
-      .ss-panel { padding: 20px 16px; }
-      .ss-form-grid { grid-template-columns: 1fr; }
+    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .so-close-btn:hover { background: rgba(255,255,255,.28); }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 700px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-content { display: flex; gap: 32px; }
+
+    .so-left { flex: 0 0 170px; display: flex; flex-direction: column; gap: 14px; }
+    .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 320px; }
+
+    .so-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #1a56db; margin-bottom: 4px; }
+
+    .so-checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
+    .so-checkbox input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .so-checkbox-box { width: 16px; height: 16px; flex-shrink: 0; border: 1px solid #c7cdd6; border-radius: 4px; background: #fff; display: flex; align-items: center; justify-content: center; transition: border-color .15s, background .15s, box-shadow .15s; }
+    .so-checkbox input:checked ~ .so-checkbox-box { background: #1a56db; border-color: #1a56db; }
+    .so-checkbox input:focus-visible ~ .so-checkbox-box { box-shadow: 0 0 0 3px rgba(26,86,219,.2); }
+    .so-checkbox-box svg { width: 10px; height: 10px; opacity: 0; transform: scale(.6); transition: opacity .12s, transform .12s; }
+    .so-checkbox input:checked ~ .so-checkbox-box svg { opacity: 1; transform: scale(1); }
+
+    .so-field { display: flex; align-items: center; gap: 14px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .so-input:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
+    select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
+    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
+    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
+    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
+      .so-content { flex-direction: column; gap: 22px; }
+      .so-left { flex: none; }
+      .so-right { max-width: none; }
     }
   `;
 
@@ -491,99 +404,118 @@ export default function SupplierStatement() {
   return (
     <>
       <style>{styles}</style>
-      <div className="ss-shell">
+      <div className="so-shell">
         <Topbar />
 
-        <div className="ss-layout">
-          <main className="ss-panel">
-            <div className="ss-panel-header">
-              <div className="ss-panel-eyebrow">Purchase</div>
-              <div className="ss-panel-title">Supplier Statement</div>
+        <div className="so-layout">
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">Supplier Statement</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            <div className="ss-form-grid">
-              <div className="ss-field ss-field-full">
-                <ApiSelect
-                  url={SupplierListUrl}
-                  payload={{
-                    Comid: Number(session.Comid),
-                    Startindex: -1,
-                    PageCount: 99999,
-                    AccountType: "SUPPLIER",
-                    Keyword: "",
-                    Column: "",
-                  }}
-                  labelKey="AccountName"
-                  valueKey="Id"
-                  value={supplierSel}
-                  onChange={setSupplierSel}
-                  placeholder="Select Supplier"
-                />
+            <div className="so-card-body">
+              <div className="so-report-title">Supplier Statement</div>
+
+              <div className="so-content">
+                {/* ── Left: options (design only, same supplierWise/narration state) ── */}
+                <div className="so-left">
+                  <div className="so-col-title">Options</div>
+                  <label className="so-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={supplierWise}
+                      onChange={(e) => setSupplierWise(e.target.checked)}
+                    />
+                    <span className="so-checkbox-box">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    Supplier Wise
+                  </label>
+                  <label className="so-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={narration}
+                      onChange={(e) => setNarration(e.target.checked)}
+                    />
+                    <span className="so-checkbox-box">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    Narration
+                  </label>
+                </div>
+
+                {/* ── Right: supplier select + dates ── */}
+                <div className="so-right">
+                  <ApiSelect
+                    url={SupplierListUrl}
+                    payload={{
+                      Comid: Number(session.Comid),
+                      Startindex: -1,
+                      PageCount: 99999,
+                      AccountType: "SUPPLIER",
+                      Keyword: "",
+                      Column: "",
+                    }}
+                    labelKey="AccountName"
+                    valueKey="Id"
+                    value={supplierSel}
+                    onChange={setSupplierSel}
+                    placeholder="Select Supplier"
+                  />
+
+                  <div className="so-field">
+                    <label className="so-label" htmlFor="ss-from-date">From Date</label>
+                    <input
+                      id="ss-from-date"
+                      type="date"
+                      className="so-input"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="so-field">
+                    <label className="so-label" htmlFor="ss-to-date">To Date</label>
+                    <input
+                      id="ss-to-date"
+                      type="date"
+                      className="so-input"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="ss-field">
-                <label className="ss-label" htmlFor="ss-from-date">From Date</label>
-                <input
-                  id="ss-from-date"
-                  type="date"
-                  className="ss-input"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
+              <div className="so-actions">
+                <button
+                  type="button"
+                  className="so-btn so-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="so-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="so-btn so-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <XCircle size={16} className="so-icon-cancel" />
+                  Refresh
+                </button>
               </div>
-              <div className="ss-field">
-                <label className="ss-label" htmlFor="ss-to-date">To Date</label>
-                <input
-                  id="ss-to-date"
-                  type="date"
-                  className="ss-input"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                />
-              </div>
-            </div>
 
-            <div className="ss-section-title">Options</div>
-            <div className="ss-toggle-grid">
-              <label className="ss-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={supplierWise}
-                  onChange={(e) => setSupplierWise(e.target.checked)}
-                />
-                Supplier Wise
-              </label>
-              <label className="ss-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={narration}
-                  onChange={(e) => setNarration(e.target.checked)}
-                />
-                Narration
-              </label>
+              {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
-
-            <div className="ss-actions">
-              <button
-                type="button"
-                className="ss-btn ss-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="ss-btn ss-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
-            </div>
-
-            {msg && <div className={`ss-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+          </div>
         </div>
 
         {loading && (

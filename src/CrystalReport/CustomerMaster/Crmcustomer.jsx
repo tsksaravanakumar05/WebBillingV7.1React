@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -448,11 +449,11 @@ export default function CRMCustomer() {
 
   // ── Shared <select> renderer over the customer master list ─────────────
   const CustomerSelect = ({ id, label, labelKey, value, onChange, placeholder }) => (
-    <div className="cc-field">
-      <label className="cc-label" htmlFor={id}>{label}</label>
+    <div className="so-field">
+      <label className="so-label" htmlFor={id}>{label}</label>
       <select
         id={id}
-        className="cc-input"
+        className="so-input"
         value={value?.value ?? ""}
         disabled={customerListLoading}
         onChange={(e) => {
@@ -493,178 +494,60 @@ export default function CRMCustomer() {
     []
   );
 
-  // ── Scoped styles injected once (same tokens as ClosingStock.jsx, "cc-" prefix) ──
+  // ── Recolored/restyled to match BranchWise.jsx's card design system ──────
+  //   Border / header / heading : blue  #1a56db
+  //   Save accent                : green #1e7e34
+  //   Cancel / link accent       : red   #dc3545
   const styles = `
-    .cc-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .cc-layout {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 24px;
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      box-sizing: border-box;
-    }
-    .cc-panel {
-      width: 100%;
-      max-width: 720px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-    }
-    .cc-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .cc-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .cc-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-      line-height: 1.2;
-    }
-    .cc-section-title {
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .6px;
-      color: #8a94a6;
-      margin: 20px 0 10px;
-    }
-    .cc-section-title:first-of-type { margin-top: 0; }
-    .cc-radio-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .cc-chip {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      height: 36px;
-      padding: 0 14px;
-      border-radius: 20px;
-      border: 1.5px solid #d1d9e6;
-      background: #f7f9fc;
-      font-size: 13px;
-      font-weight: 500;
-      color: #4a5568;
-      cursor: pointer;
-      user-select: none;
-      transition: border-color .15s, background .15s, color .15s;
-    }
-    .cc-chip:hover { border-color: var(--clr-primary, #1a56db); }
-    .cc-chip.active {
-      background: var(--clr-primary, #1a56db);
-      border-color: var(--clr-primary, #1a56db);
-      color: #fff;
-    }
-    .cc-form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px 20px;
-      align-items: start;
-      max-width: 100%;
-      margin-top: 10px;
-      margin-bottom: 8px;
-    }
-    .cc-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .cc-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-    }
-    .cc-input {
-      height: 36px;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #1e2d3d;
-      background: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .cc-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .cc-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .cc-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .cc-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .cc-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .cc-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .cc-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .cc-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .cc-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .cc-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .cc-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 760px) {
-      .cc-layout { padding: 16px; }
-      .cc-panel { padding: 20px 16px; }
-      .cc-form-grid { grid-template-columns: 1fr; }
+    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .so-close-btn:hover { background: rgba(255,255,255,.28); }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 760px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8492a6; margin: 22px 0 10px; }
+    .so-section-title:first-of-type { margin-top: 0; }
+
+    .so-radio-row { display: flex; flex-wrap: wrap; gap: 18px; }
+    .so-radio-chip { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
+    .so-radio-dot { width: 16px; height: 16px; flex-shrink: 0; border-radius: 50%; border: 1.5px solid #c7cdd6; display: flex; align-items: center; justify-content: center; transition: border-color .15s; }
+    .so-radio-chip.active .so-radio-dot { border-color: #1a56db; }
+    .so-radio-chip.active .so-radio-dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #1a56db; }
+
+    .so-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px 18px; align-items: start; margin-top: 4px; }
+    .so-field { display: flex; flex-direction: column; gap: 6px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
+    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
+    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
+    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
+      .so-form-grid { grid-template-columns: 1fr; }
     }
   `;
 
@@ -691,101 +574,109 @@ export default function CRMCustomer() {
   return (
     <>
       <style>{styles}</style>
-      <div className="cc-shell">
+      <div className="so-shell">
         <Topbar />
 
-        <div className="cc-layout">
-          <main className="cc-panel">
-            <div className="cc-panel-header">
-              <div className="cc-panel-eyebrow">Sales</div>
-              <div className="cc-panel-title">CRM Customer</div>
+        <div className="so-layout">
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">CRM Customer</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            {/* Report type (Pane1) */}
-            <div className="cc-section-title">Report Type</div>
-            <div className="cc-radio-row">
-              {reportTypeChips.map((o) => (
-                <div
-                  key={o.value}
-                  className={`cc-chip${reportType === o.value ? " active" : ""}`}
-                  onClick={() => handleReportTypeClick(o.value)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  {o.label}
-                </div>
-              ))}
-            </div>
+            <div className="so-card-body">
+              <div className="so-report-title">CRM Customer</div>
 
-            {/* Lookup by (Pane2) */}
-            <div className="cc-section-title">Lookup By</div>
-            <div className="cc-radio-row">
-              {lookupByChips.map((o) => (
-                <div
-                  key={o.value}
-                  className={`cc-chip${lookupBy === o.value ? " active" : ""}`}
-                  onClick={() => handleLookupByClick(o.value)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  {o.label}
-                </div>
-              ))}
-            </div>
-
-            {/* Combo bound to the active Lookup By selection */}
-            <div className="cc-form-grid">
-              {lookupBy === LOOKUP_BY.CRMNO && (
-                <CustomerSelect id="cc-crmno" label="CRM No" labelKey="CRMNO" value={crmNoSel} onChange={setCrmNoSel} placeholder="Select CRM No" />
-              )}
-              {lookupBy === LOOKUP_BY.MOBILE && (
-                <CustomerSelect id="cc-mobile" label="Mobile Number" labelKey="MobileNo" value={mobileSel} onChange={(v) => { setMobileSel(v); setCrmNoSel(null); }} placeholder="Select Mobile Number" />
-              )}
-              {lookupBy === LOOKUP_BY.CUSTOMER && (
-                <CustomerSelect id="cc-customer" label="Customer Name" labelKey="AccountName" value={customerSel} onChange={setCustomerSel} placeholder="Select Customer Name" />
-              )}
-
-              {panelMode === "DATE" && (
-                <>
-                  <div className="cc-field">
-                    <label className="cc-label" htmlFor="cc-from-date">From Date</label>
-                    <input id="cc-from-date" type="date" className="cc-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              {/* Report type (Pane1) */}
+              <div className="so-section-title">Report Type</div>
+              <div className="so-radio-row">
+                {reportTypeChips.map((o) => (
+                  <div
+                    key={o.value}
+                    className={`so-radio-chip${reportType === o.value ? " active" : ""}`}
+                    onClick={() => handleReportTypeClick(o.value)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <span className="so-radio-dot" aria-hidden="true" />
+                    {o.label}
                   </div>
-                  <div className="cc-field">
-                    <label className="cc-label" htmlFor="cc-to-date">To Date</label>
-                    <input id="cc-to-date" type="date" className="cc-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                ))}
+              </div>
+
+              {/* Lookup by (Pane2) */}
+              <div className="so-section-title">Lookup By</div>
+              <div className="so-radio-row">
+                {lookupByChips.map((o) => (
+                  <div
+                    key={o.value}
+                    className={`so-radio-chip${lookupBy === o.value ? " active" : ""}`}
+                    onClick={() => handleLookupByClick(o.value)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <span className="so-radio-dot" aria-hidden="true" />
+                    {o.label}
                   </div>
-                </>
-              )}
-              {panelMode === "TILL" && (
-                <div className="cc-field">
-                  <label className="cc-label" htmlFor="cc-till-date">Till Date</label>
-                  <input id="cc-till-date" type="date" className="cc-input" value={tillDate} onChange={(e) => setTillDate(e.target.value)} />
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
 
-            <div className="cc-actions">
-              <button
-                type="button"
-                className="cc-btn cc-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="cc-btn cc-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
-            </div>
+              {/* Combo bound to the active Lookup By selection */}
+              <div className="so-form-grid">
+                {lookupBy === LOOKUP_BY.CRMNO && (
+                  <CustomerSelect id="cc-crmno" label="CRM No" labelKey="CRMNO" value={crmNoSel} onChange={setCrmNoSel} placeholder="Select CRM No" />
+                )}
+                {lookupBy === LOOKUP_BY.MOBILE && (
+                  <CustomerSelect id="cc-mobile" label="Mobile Number" labelKey="MobileNo" value={mobileSel} onChange={(v) => { setMobileSel(v); setCrmNoSel(null); }} placeholder="Select Mobile Number" />
+                )}
+                {lookupBy === LOOKUP_BY.CUSTOMER && (
+                  <CustomerSelect id="cc-customer" label="Customer Name" labelKey="AccountName" value={customerSel} onChange={setCustomerSel} placeholder="Select Customer Name" />
+                )}
 
-            {msg && <div className={`cc-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+                {panelMode === "DATE" && (
+                  <>
+                    <div className="so-field">
+                      <label className="so-label" htmlFor="cc-from-date">From Date</label>
+                      <input id="cc-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    </div>
+                    <div className="so-field">
+                      <label className="so-label" htmlFor="cc-to-date">To Date</label>
+                      <input id="cc-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    </div>
+                  </>
+                )}
+                {panelMode === "TILL" && (
+                  <div className="so-field">
+                    <label className="so-label" htmlFor="cc-till-date">Till Date</label>
+                    <input id="cc-till-date" type="date" className="so-input" value={tillDate} onChange={(e) => setTillDate(e.target.value)} />
+                  </div>
+                )}
+              </div>
+
+              <div className="so-actions">
+                <button
+                  type="button"
+                  className="so-btn so-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="so-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="so-btn so-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <XCircle size={16} className="so-icon-cancel" />
+                  Refresh
+                </button>
+              </div>
+
+              {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+            </div>
+          </div>
         </div>
 
         {loading && (

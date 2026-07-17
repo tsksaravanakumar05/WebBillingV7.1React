@@ -43,6 +43,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -326,10 +327,10 @@ export default function DCBBranchStockReport() {
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
     return (
-      <div className="db-field">
-        <label className="db-label">{placeholder.replace("Select ", "")}</label>
+      <div className="so-field">
+        <label className="so-label">{placeholder.replace("Select ", "")}</label>
         <select
-          className="db-input"
+          className="so-input"
           value={value?.value ?? ""}
           disabled={loadingList}
           onChange={(e) => {
@@ -353,160 +354,62 @@ export default function DCBBranchStockReport() {
     );
   };
 
-  // ── Scoped styles injected once ("db-" prefix — new, non-colliding) ────
+  // ── Design system: recolored/restructured to match BranchWise.jsx exactly ──
+  //   Border / header / heading -> blue (#1a56db)
+  //   Save-style accents        -> green (#1e7e34)
+  //   Cancel / link accents     -> red   (#dc3545)
   const styles = `
-    .db-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .db-layout {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      padding: 24px;
-      box-sizing: border-box;
-    }
-    .db-panel {
-      width: 100%;
-      max-width: 640px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-      height: fit-content;
-    }
-    .db-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .db-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .db-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-      line-height: 1.2;
-    }
-    .db-form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px 20px;
-      align-items: start;
-      margin-bottom: 8px;
-    }
-    .db-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .db-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-    }
-    .db-input {
-      height: 36px;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #1e2d3d;
-      background: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .db-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .db-toggle-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      height: 36px;
-      background: #f7f9fc;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      cursor: pointer;
-      font-size: 13px;
-      color: #4a5568;
-      font-weight: 500;
-      user-select: none;
-      width: fit-content;
-      margin-top: 20px;
-    }
-    .db-toggle-row input[type="checkbox"] {
-      width: 15px;
-      height: 15px;
-      accent-color: var(--clr-primary, #1a56db);
-      cursor: pointer;
-    }
-    .db-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .db-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .db-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .db-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .db-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .db-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .db-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .db-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .db-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .db-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 760px) {
-      .db-layout { padding: 16px; }
-      .db-panel { padding: 20px 16px; }
-      .db-form-grid { grid-template-columns: 1fr; }
+    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .so-close-btn:hover { background: rgba(255,255,255,.28); }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 560px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-content { display: flex; justify-content: center; }
+    .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 340px; margin: 0 auto; }
+
+    .so-field { display: flex; align-items: center; gap: 14px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 100px; flex-shrink: 0; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .so-input:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
+    select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; margin-top: 4px; }
+    .so-checkbox input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .so-checkbox-box { width: 16px; height: 16px; flex-shrink: 0; border: 1px solid #c7cdd6; border-radius: 4px; background: #fff; display: flex; align-items: center; justify-content: center; transition: border-color .15s, background .15s, box-shadow .15s; }
+    .so-checkbox input:checked ~ .so-checkbox-box { background: #1a56db; border-color: #1a56db; }
+    .so-checkbox input:focus-visible ~ .so-checkbox-box { box-shadow: 0 0 0 3px rgba(26,86,219,.2); }
+    .so-checkbox-box svg { width: 10px; height: 10px; opacity: 0; transform: scale(.6); transition: opacity .12s, transform .12s; }
+    .so-checkbox input:checked ~ .so-checkbox-box svg { opacity: 1; transform: scale(1); }
+
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
+    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
+    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
+    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
+      .so-right { max-width: none; }
     }
   `;
 
@@ -523,99 +426,112 @@ export default function DCBBranchStockReport() {
   return (
     <>
       <style>{styles}</style>
-      <div className="db-shell">
+      <div className="so-shell">
         <Topbar />
 
-        <div className="db-layout">
-          <main className="db-panel">
-            <div className="db-panel-header">
-              <div className="db-panel-eyebrow">Stock</div>
-              <div className="db-panel-title">DCB Branch Stock Report</div>
+        <div className="so-layout">
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">DCB Branch Stock Report</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            <div className="db-form-grid">
-              <ApiSelect
-                url={BrandListUrl}
-                payload={{ Comid: session.Comid }}
-                labelKey="BrandName"
-                valueKey="Id"
-                value={brandSel}
-                onChange={setBrandSel}
-                placeholder="Select Brand"
-              />
-              <ApiSelect
-                url={CategoryListUrl}
-                payload={{ Comid: session.Comid }}
-                labelKey="Cat_Name"
-                valueKey="Id"
-                value={categorySel}
-                onChange={setCategorySel}
-                placeholder="Select Category"
-              />
-              <ApiSelect
-                url={DepartmentListUrl}
-                payload={{ Comid: session.Comid }}
-                labelKey="DepartmentName"
-                valueKey="Id"
-                value={departmentSel}
-                onChange={setDepartmentSel}
-                placeholder="Select Department"
-              />
+            <div className="so-card-body">
+              <div className="so-report-title">DCB Branch Stock Report</div>
 
-              <div className="db-field">
-                <label className="db-label" htmlFor="db-from-date">From Date</label>
-                <input
-                  id="db-from-date"
-                  type="date"
-                  className="db-input"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
+              <div className="so-content">
+                <div className="so-right">
+                  <ApiSelect
+                    url={BrandListUrl}
+                    payload={{ Comid: session.Comid }}
+                    labelKey="BrandName"
+                    valueKey="Id"
+                    value={brandSel}
+                    onChange={setBrandSel}
+                    placeholder="Select Brand"
+                  />
+                  <ApiSelect
+                    url={CategoryListUrl}
+                    payload={{ Comid: session.Comid }}
+                    labelKey="Cat_Name"
+                    valueKey="Id"
+                    value={categorySel}
+                    onChange={setCategorySel}
+                    placeholder="Select Category"
+                  />
+                  <ApiSelect
+                    url={DepartmentListUrl}
+                    payload={{ Comid: session.Comid }}
+                    labelKey="DepartmentName"
+                    valueKey="Id"
+                    value={departmentSel}
+                    onChange={setDepartmentSel}
+                    placeholder="Select Department"
+                  />
+
+                  <div className="so-field">
+                    <label className="so-label" htmlFor="db-from-date">From Date</label>
+                    <input
+                      id="db-from-date"
+                      type="date"
+                      className="so-input"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="so-field">
+                    <label className="so-label" htmlFor="db-to-date">To Date</label>
+                    <input
+                      id="db-to-date"
+                      type="date"
+                      className="so-input"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                    />
+                  </div>
+
+                  {session.TextilesSerialNowiseBilling && (
+                    <label className="so-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={chkBatch}
+                        onChange={(e) => setChkBatch(e.target.checked)}
+                      />
+                      <span className="so-checkbox-box">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </span>
+                      Batch
+                    </label>
+                  )}
+                </div>
               </div>
-              <div className="db-field">
-                <label className="db-label" htmlFor="db-to-date">To Date</label>
-                <input
-                  id="db-to-date"
-                  type="date"
-                  className="db-input"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                />
+
+              <div className="so-actions">
+                <button
+                  type="button"
+                  className="so-btn so-btn-primary"
+                  disabled={loading}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="so-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="so-btn so-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <XCircle size={16} className="so-icon-cancel" />
+                  Refresh
+                </button>
               </div>
+
+              {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
-
-            {session.TextilesSerialNowiseBilling && (
-              <label className="db-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={chkBatch}
-                  onChange={(e) => setChkBatch(e.target.checked)}
-                />
-                Batch
-              </label>
-            )}
-
-            <div className="db-actions">
-              <button
-                type="button"
-                className="db-btn db-btn-primary"
-                disabled={loading}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="db-btn db-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
-            </div>
-
-            {msg && <div className={`db-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+          </div>
         </div>
 
         {loading && (

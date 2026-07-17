@@ -14,6 +14,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -288,10 +289,10 @@ export default function CustomerDueReport() {
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
     return (
-      <div className="cd-field">
-        <label className="cd-label">{placeholder.replace("Select ", "")}</label>
+      <div className="so-field">
+        <label className="so-label">{placeholder.replace("Select ", "")}</label>
         <select
-          className="cd-input"
+          className="so-input"
           value={value?.value ?? ""}
           disabled={listLoading}
           onChange={(e) => {
@@ -315,157 +316,54 @@ export default function CustomerDueReport() {
     );
   };
 
-  // ── Scoped styles injected once ("cd-" prefix, token-identical to cs-/iw-) ──
+  // ── Recolored/restyled to match BranchWise.jsx's card design system ──────
+  //   Border / header / heading : blue  #1a56db
+  //   Save accent                : green #1e7e34
+  //   Cancel / link accent       : red   #dc3545
   const styles = `
-    .cd-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .cd-layout {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      padding: 24px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .cd-panel {
-      width: 100%;
-      max-width: 560px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-      align-self: flex-start;
-    }
-    .cd-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .cd-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .cd-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-      line-height: 1.2;
-    }
-    .cd-form-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px 20px;
-      align-items: start;
-      max-width: 100%;
-      margin-top: 10px;
-      margin-bottom: 8px;
-    }
-    .cd-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .cd-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-    }
-    .cd-input {
-      height: 36px;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #1e2d3d;
-      background: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .cd-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .cd-divider-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 2px 0 4px;
-    }
-    .cd-divider-line {
-      flex: 1;
-      height: 1px;
-      background: #e8ecf0;
-    }
-    .cd-divider-text {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .6px;
-      color: #8a94a6;
-    }
-    .cd-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .cd-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .cd-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .cd-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .cd-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .cd-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .cd-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .cd-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .cd-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .cd-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 760px) {
-      .cd-layout { padding: 16px; }
-      .cd-panel { padding: 20px 16px; }
+    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .so-close-btn:hover { background: rgba(255,255,255,.28); }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 560px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-form-grid { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; margin-top: 4px; }
+    .so-field { display: flex; flex-direction: column; gap: 6px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-divider-row { display: flex; align-items: center; gap: 10px; margin: 2px 0; }
+    .so-divider-line { flex: 1; height: 1px; background: #ececec; }
+    .so-divider-text { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #8492a6; }
+
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
+    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
+    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
+    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
     }
   `;
 
@@ -492,76 +390,82 @@ export default function CustomerDueReport() {
   return (
     <>
       <style>{styles}</style>
-      <div className="cd-shell">
+      <div className="so-shell">
         <Topbar />
 
-        <div className="cd-layout">
-          <main className="cd-panel">
-            <div className="cd-panel-header">
-              <div className="cd-panel-eyebrow">Sales</div>
-              <div className="cd-panel-title">Customer Due Bill Report</div>
+        <div className="so-layout">
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">Customer Due Report</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            <div className="cd-form-grid">
-              <ApiSelect
-                url={CustomerListUrl}
-                payload={{ Comid: session.Comid, AccountType: "CUSTOMER" }}
-                labelKey="AccountName"
-                valueKey="Id"
-                value={customerSel}
-                onChange={handleCustomerChange}
-                placeholder="Select Customer Name"
-              />
+            <div className="so-card-body">
+              <div className="so-report-title">Customer Due Bill Report</div>
 
-              <div className="cd-divider-row">
-                <div className="cd-divider-line" />
-                <div className="cd-divider-text">Or</div>
-                <div className="cd-divider-line" />
-              </div>
-
-              <ApiSelect
-                url={CustomerMobileListUrl}
-                payload={{ Comid: session.Comid, AccountType: "CUSTOMER" }}
-                labelKey="MobileNo"
-                valueKey="MobileNo"
-                value={mobileSel}
-                onChange={handleMobileChange}
-                placeholder="Select Mobile No"
-              />
-
-              <div className="cd-field">
-                <label className="cd-label" htmlFor="cd-from-date">From Date</label>
-                <input
-                  id="cd-from-date"
-                  type="date"
-                  className="cd-input"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
+              <div className="so-form-grid">
+                <ApiSelect
+                  url={CustomerListUrl}
+                  payload={{ Comid: session.Comid, AccountType: "CUSTOMER" }}
+                  labelKey="AccountName"
+                  valueKey="Id"
+                  value={customerSel}
+                  onChange={handleCustomerChange}
+                  placeholder="Select Customer Name"
                 />
+
+                <div className="so-divider-row">
+                  <div className="so-divider-line" />
+                  <div className="so-divider-text">Or</div>
+                  <div className="so-divider-line" />
+                </div>
+
+                <ApiSelect
+                  url={CustomerMobileListUrl}
+                  payload={{ Comid: session.Comid, AccountType: "CUSTOMER" }}
+                  labelKey="MobileNo"
+                  valueKey="MobileNo"
+                  value={mobileSel}
+                  onChange={handleMobileChange}
+                  placeholder="Select Mobile No"
+                />
+
+                <div className="so-field">
+                  <label className="so-label" htmlFor="cd-from-date">From Date</label>
+                  <input
+                    id="cd-from-date"
+                    type="date"
+                    className="so-input"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="cd-actions">
-              <button
-                type="button"
-                className="cd-btn cd-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="cd-btn cd-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
-            </div>
+              <div className="so-actions">
+                <button
+                  type="button"
+                  className="so-btn so-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="so-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="so-btn so-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <XCircle size={16} className="so-icon-cancel" />
+                  Refresh
+                </button>
+              </div>
 
-            {msg && <div className={`cd-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+              {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+            </div>
+          </div>
         </div>
 
         {loading && (
