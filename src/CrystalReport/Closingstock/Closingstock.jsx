@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -568,10 +569,10 @@ export default function ClosingStock() {
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
     return (
-      <div className="cs-field">
-        <label className="cs-label">{placeholder.replace("Select ", "")}</label>
+      <div className="so-field">
+        <label className="so-label">{placeholder.replace("Select ", "")}</label>
         <select
-          className="cs-input"
+          className="so-input"
           value={value?.value ?? ""}
           disabled={loading}
           onChange={(e) => {
@@ -595,266 +596,73 @@ export default function ClosingStock() {
     );
   };
 
-  // ── Scoped styles injected once (same tokens as SaleOrder.jsx, "cs-" prefix) ──
+  // ── Recolored/restyled to match BranchWise.jsx's card design system ──────
+  //   Border / header / heading : blue  #1a56db
+  //   Save accent                : green #1e7e34
+  //   Cancel / link accent       : red   #dc3545
   const styles = `
-    .cs-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
+    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .so-close-btn:hover { background: rgba(255,255,255,.28); }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 980px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-content { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+    .so-left { flex: 0 0 190px; display: flex; flex-direction: column; gap: 12px; }
+    .so-right { flex: 1; min-width: 320px; }
+
+    .so-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8492a6; margin-bottom: 4px; }
+    .so-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8492a6; margin: 22px 0 10px; }
+    .so-section-title:first-of-type { margin-top: 0; }
+
+    .so-radio-row { display: flex; flex-wrap: wrap; gap: 18px; }
+    .so-radio-chip { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
+    .so-radio-dot { width: 16px; height: 16px; flex-shrink: 0; border-radius: 50%; border: 1.5px solid #c7cdd6; display: flex; align-items: center; justify-content: center; transition: border-color .15s; }
+    .so-radio-chip.active .so-radio-dot { border-color: #1a56db; }
+    .so-radio-chip.active .so-radio-dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #1a56db; }
+
+    .so-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px 18px; align-items: start; margin-top: 4px; margin-bottom: 6px; }
+    .so-field { display: flex; flex-direction: column; gap: 6px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-toggle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; max-width: 460px; }
+    .so-toggle-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
+    .so-toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
+
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
+    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
+    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
+    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+    @media (max-width: 900px) {
+      .so-content { flex-direction: column; }
+      .so-left { flex: none; flex-direction: row; flex-wrap: wrap; }
     }
-    .cs-layout {
-      display: flex;
-      flex: 1;
-      gap: 20px;
-      padding: 24px;
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      box-sizing: border-box;
-    }
-    .cs-nav {
-      width: 220px;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .cs-nav-label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: #8a94a6;
-      padding: 0 4px;
-      margin-bottom: 2px;
-    }
-    .cs-nav-card {
-      background: #fff;
-      border: 2px solid transparent;
-      border-radius: 10px;
-      padding: 12px 14px;
-      cursor: pointer;
-      transition: border-color .15s, box-shadow .15s, background .15s;
-      box-shadow: 0 1px 4px rgba(0,0,0,.07);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .cs-nav-card:hover {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 3px 12px rgba(26,86,219,.12);
-    }
-    .cs-nav-card.active {
-      background: #eef3fd;
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 3px 12px rgba(26,86,219,.15);
-    }
-    .cs-nav-icon {
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
-      background: #e8edfc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 15px;
-      flex-shrink: 0;
-    }
-    .cs-nav-card.active .cs-nav-icon {
-      background: var(--clr-primary, #1a56db);
-    }
-    .cs-nav-card-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: #1e2d3d;
-      line-height: 1.3;
-    }
-    .cs-nav-card.active .cs-nav-card-name {
-      color: var(--clr-primary, #1a56db);
-    }
-    .cs-panel {
-      flex: 1;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-    }
-    .cs-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .cs-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .cs-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-      line-height: 1.2;
-    }
-    .cs-section-title {
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .6px;
-      color: #8a94a6;
-      margin: 20px 0 10px;
-    }
-    .cs-section-title:first-of-type { margin-top: 0; }
-    .cs-radio-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .cs-chip {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      height: 36px;
-      padding: 0 14px;
-      border-radius: 20px;
-      border: 1.5px solid #d1d9e6;
-      background: #f7f9fc;
-      font-size: 13px;
-      font-weight: 500;
-      color: #4a5568;
-      cursor: pointer;
-      user-select: none;
-      transition: border-color .15s, background .15s, color .15s;
-    }
-    .cs-chip:hover { border-color: var(--clr-primary, #1a56db); }
-    .cs-chip.active {
-      background: var(--clr-primary, #1a56db);
-      border-color: var(--clr-primary, #1a56db);
-      color: #fff;
-    }
-    .cs-form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px 20px;
-      align-items: start;
-      max-width: 100%;
-      margin-top: 10px;
-      margin-bottom: 24px;
-    }
-    .cs-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .cs-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-    }
-    .cs-input {
-      height: 36px;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #1e2d3d;
-      background: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .cs-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .cs-toggle-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      height: 36px;
-      background: #f7f9fc;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      cursor: pointer;
-      font-size: 13px;
-      color: #4a5568;
-      font-weight: 500;
-      user-select: none;
-    }
-    .cs-toggle-row input[type="checkbox"] {
-      width: 15px;
-      height: 15px;
-      accent-color: var(--clr-primary, #1a56db);
-      cursor: pointer;
-    }
-    .cs-toggle-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px 16px;
-      max-width: 460px;
-      margin-top: 10px;
-    }
-    .cs-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .cs-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .cs-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .cs-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .cs-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .cs-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .cs-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .cs-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .cs-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .cs-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 760px) {
-      .cs-layout { flex-direction: column; padding: 16px; }
-      .cs-nav { width: 100%; flex-direction: row; flex-wrap: wrap; }
-      .cs-nav-card { flex: 1 1 calc(33% - 7px); }
-      .cs-panel { padding: 20px 16px; }
-      .cs-form-grid, .cs-toggle-grid { grid-template-columns: 1fr; }
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
+      .so-form-grid, .so-toggle-grid { grid-template-columns: 1fr; }
     }
   `;
 
@@ -881,210 +689,222 @@ export default function ClosingStock() {
   return (
     <>
       <style>{styles}</style>
-      <div className="cs-shell">
+      <div className="so-shell">
         <Topbar />
 
-        <div className="cs-layout">
-          {/* ── LEFT: Group-by navigation panel ── */}
-          <nav className="cs-nav" aria-label="Group by">
-            <div className="cs-nav-label">Group By</div>
-            {groupByItems.map((item) => (
-              <div
-                key={item.value}
-                className={`cs-nav-card${isGroupByActive(item.value, item.multi) ? " active" : ""}`}
-                onClick={() => handleGroupByClick(item.value, item.multi)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && handleGroupByClick(item.value, item.multi)}
-                aria-pressed={isGroupByActive(item.value, item.multi)}
-              >
-                <div className="cs-nav-icon">{item.icon}</div>
-                <div className="cs-nav-card-name">{item.label}</div>
-              </div>
-            ))}
-          </nav>
-
-          {/* ── RIGHT: Filter panel ── */}
-          <main className="cs-panel">
-            <div className="cs-panel-header">
-              <div className="cs-panel-eyebrow">Stock</div>
-              <div className="cs-panel-title">Closing Stock Report</div>
+        <div className="so-layout">
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">Closing Stock</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            {/* Combo bound to the active Group By selection */}
-            <div className="cs-form-grid">
-              {isGroupByActive(GROUP_BY.BRAND, true) && (
-                <ApiSelect url={BrandListUrl} payload={{ Comid: session.Comid }} labelKey="BrandName" valueKey="Id" value={brandSel} onChange={setBrandSel} placeholder="Select Brand" />
-              )}
-              {isGroupByActive(GROUP_BY.CATEGORY, true) && (
-                <ApiSelect url={CategoryListUrl} payload={{ Comid: session.Comid }} labelKey="Cat_Name" valueKey="Id" value={categorySel} onChange={setCategorySel} placeholder="Select Category" />
-              )}
-              {isGroupByActive(GROUP_BY.DEPARTMENT, true) && (
-                <ApiSelect url={DepartmentListUrl} payload={{ Comid: session.Comid }} labelKey="DepartmentName" valueKey="Id" value={departmentSel} onChange={setDepartmentSel} placeholder="Select Department" />
-              )}
-              {groupBySingle === GROUP_BY.SUPPLIER && (
-                <ApiSelect url={SupplierListUrl} payload={{ Comid: Number(session.Comid), Startindex: -1, PageCount: 99999, AccountType: "SUPPLIER", Keyword: "", Column: "" }} labelKey="AccountName" valueKey="Id" value={supplierSel} onChange={setSupplierSel} placeholder="Select Supplier" />
-              )}
-              {groupBySingle === GROUP_BY.UOM && (
-                <ApiSelect url={UomListUrl} payload={{ Comid: session.Comid }} labelKey="UOMName" valueKey="Id" value={uomSel} onChange={setUomSel} placeholder="Select UOM" />
-              )}
-              {groupBySingle === GROUP_BY.DESCRIPTION && (
-                <ApiSelect url={ProductListUrl} payload={{ Comid: session.MComid, Startindex: 0, PageCount: 99999, Keyword: "", Column: "" }} headers={{ Download: "1" }} labelKey="ProductName" valueKey="Id" value={descriptionSel} onChange={setDescriptionSel} placeholder="Select Item Name" />
-              )}
-              {groupBySingle === GROUP_BY.CODE && (
-                <ApiSelect url={ProductListUrl} payload={{ Comid: session.MComid, Startindex: 0, PageCount: 99999, Keyword: "", Column: "" }} headers={{ Download: "1" }} labelKey="ProductCode" valueKey="Id" value={codeSel} onChange={setCodeSel} placeholder="Select Item Code" />
-              )}
+            <div className="so-card-body">
+              <div className="so-report-title">Closing Stock Report</div>
 
-              <div className="cs-field">
-                <label className="cs-label" htmlFor="cs-from-date">From Date</label>
-                <input
-                  id="cs-from-date"
-                  type="date"
-                  className="cs-input"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Stock type */}
-            <div className="cs-section-title">Stock Type</div>
-            <div className="cs-radio-row">
-              {[
-                { value: STOCK_TYPE.ALL, label: "All" },
-                { value: STOCK_TYPE.WITH_STOCK, label: "With Stock" },
-                { value: STOCK_TYPE.WITHOUT_STOCK, label: "Without Stock" },
-              ].map((o) => (
-                <div
-                  key={o.value}
-                  className={`cs-chip${stockType === o.value ? " active" : ""}`}
-                  onClick={() => setStockType(o.value)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  {o.label}
+              <div className="so-content">
+                {/* ── LEFT: Group-by navigation ── */}
+                <div className="so-left" aria-label="Group by">
+                  <div className="so-col-title">Group By</div>
+                  {groupByItems.map((item) => (
+                    <div
+                      key={item.value}
+                      className={`so-radio-chip${isGroupByActive(item.value, item.multi) ? " active" : ""}`}
+                      onClick={() => handleGroupByClick(item.value, item.multi)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && handleGroupByClick(item.value, item.multi)}
+                      aria-pressed={isGroupByActive(item.value, item.multi)}
+                    >
+                      <span className="so-radio-dot" aria-hidden="true" />
+                      {item.label}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {/* Rate type */}
-            <div className="cs-section-title">Rate Type</div>
-            <div className="cs-radio-row">
-              {[
-                { value: RATE_TYPE.PURCHASE, label: "Purchase" },
-                { value: RATE_TYPE.SALE, label: "Sale" },
-                { value: RATE_TYPE.MRP, label: "MRP" },
-              ].map((o) => (
-                <div
-                  key={o.value}
-                  className={`cs-chip${rateType === o.value ? " active" : ""}`}
-                  onClick={() => setRateType(o.value)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  {o.label}
+                {/* ── RIGHT: Filter panel ── */}
+                <div className="so-right">
+                  {/* Combo bound to the active Group By selection */}
+                  <div className="so-form-grid">
+                    {isGroupByActive(GROUP_BY.BRAND, true) && (
+                      <ApiSelect url={BrandListUrl} payload={{ Comid: session.Comid }} labelKey="BrandName" valueKey="Id" value={brandSel} onChange={setBrandSel} placeholder="Select Brand" />
+                    )}
+                    {isGroupByActive(GROUP_BY.CATEGORY, true) && (
+                      <ApiSelect url={CategoryListUrl} payload={{ Comid: session.Comid }} labelKey="Cat_Name" valueKey="Id" value={categorySel} onChange={setCategorySel} placeholder="Select Category" />
+                    )}
+                    {isGroupByActive(GROUP_BY.DEPARTMENT, true) && (
+                      <ApiSelect url={DepartmentListUrl} payload={{ Comid: session.Comid }} labelKey="DepartmentName" valueKey="Id" value={departmentSel} onChange={setDepartmentSel} placeholder="Select Department" />
+                    )}
+                    {groupBySingle === GROUP_BY.SUPPLIER && (
+                      <ApiSelect url={SupplierListUrl} payload={{ Comid: Number(session.Comid), Startindex: -1, PageCount: 99999, AccountType: "SUPPLIER", Keyword: "", Column: "" }} labelKey="AccountName" valueKey="Id" value={supplierSel} onChange={setSupplierSel} placeholder="Select Supplier" />
+                    )}
+                    {groupBySingle === GROUP_BY.UOM && (
+                      <ApiSelect url={UomListUrl} payload={{ Comid: session.Comid }} labelKey="UOMName" valueKey="Id" value={uomSel} onChange={setUomSel} placeholder="Select UOM" />
+                    )}
+                    {groupBySingle === GROUP_BY.DESCRIPTION && (
+                      <ApiSelect url={ProductListUrl} payload={{ Comid: session.MComid, Startindex: 0, PageCount: 99999, Keyword: "", Column: "" }} headers={{ Download: "1" }} labelKey="ProductName" valueKey="Id" value={descriptionSel} onChange={setDescriptionSel} placeholder="Select Item Name" />
+                    )}
+                    {groupBySingle === GROUP_BY.CODE && (
+                      <ApiSelect url={ProductListUrl} payload={{ Comid: session.MComid, Startindex: 0, PageCount: 99999, Keyword: "", Column: "" }} headers={{ Download: "1" }} labelKey="ProductCode" valueKey="Id" value={codeSel} onChange={setCodeSel} placeholder="Select Item Code" />
+                    )}
+
+                    <div className="so-field">
+                      <label className="so-label" htmlFor="cs-from-date">From Date</label>
+                      <input
+                        id="cs-from-date"
+                        type="date"
+                        className="so-input"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stock type */}
+                  <div className="so-section-title">Stock Type</div>
+                  <div className="so-radio-row">
+                    {[
+                      { value: STOCK_TYPE.ALL, label: "All" },
+                      { value: STOCK_TYPE.WITH_STOCK, label: "With Stock" },
+                      { value: STOCK_TYPE.WITHOUT_STOCK, label: "Without Stock" },
+                    ].map((o) => (
+                      <div
+                        key={o.value}
+                        className={`so-radio-chip${stockType === o.value ? " active" : ""}`}
+                        onClick={() => setStockType(o.value)}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <span className="so-radio-dot" aria-hidden="true" />
+                        {o.label}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Rate type */}
+                  <div className="so-section-title">Rate Type</div>
+                  <div className="so-radio-row">
+                    {[
+                      { value: RATE_TYPE.PURCHASE, label: "Purchase" },
+                      { value: RATE_TYPE.SALE, label: "Sale" },
+                      { value: RATE_TYPE.MRP, label: "MRP" },
+                    ].map((o) => (
+                      <div
+                        key={o.value}
+                        className={`so-radio-chip${rateType === o.value ? " active" : ""}`}
+                        onClick={() => setRateType(o.value)}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <span className="so-radio-dot" aria-hidden="true" />
+                        {o.label}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Extra options */}
+                  <div className="so-section-title">Options</div>
+                  <div className="so-toggle-grid">
+                    <label className="so-toggle-row">
+                      <input type="checkbox" checked={chkImage} onChange={(e) => setChkImage(e.target.checked)} />
+                      Show Image
+                    </label>
+                    <label className="so-toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={chkMinimum}
+                        onChange={(e) => {
+                          setChkMinimum(e.target.checked);
+                          if (e.target.checked) {
+                            setChkWoMaster(false);
+                            setChkWoPrice(false);
+                          }
+                        }}
+                      />
+                      Minimum Level
+                    </label>
+                    <label className="so-toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={chkWoPrice}
+                        onChange={(e) => {
+                          setChkWoPrice(e.target.checked);
+                          if (e.target.checked) {
+                            setChkMinimum(false);
+                            setChkWoMaster(false);
+                          }
+                        }}
+                      />
+                      Without Price
+                    </label>
+                    <label className="so-toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={chkWoMaster}
+                        onChange={(e) => {
+                          setChkWoMaster(e.target.checked);
+                          if (e.target.checked) {
+                            setChkMinimum(false);
+                            setChkWoPrice(false);
+                          }
+                        }}
+                      />
+                      Without Master
+                    </label>
+                    {showBatchCheckboxes && (
+                      <>
+                        <label className="so-toggle-row">
+                          <input
+                            type="checkbox"
+                            checked={chkBatch}
+                            onChange={(e) => {
+                              setChkBatch(e.target.checked);
+                              if (e.target.checked) setChkBatch1(false);
+                            }}
+                          />
+                          Batch Wise Stock
+                        </label>
+                        <label className="so-toggle-row">
+                          <input
+                            type="checkbox"
+                            checked={chkBatch1}
+                            onChange={(e) => {
+                              setChkBatch1(e.target.checked);
+                              if (e.target.checked) setChkBatch(false);
+                            }}
+                          />
+                          Textiles Batch Wise Stock
+                        </label>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="so-actions">
+                    <button
+                      type="button"
+                      className="so-btn so-btn-primary"
+                      disabled={loading || pageAccess.pageview === 0}
+                      onClick={handleView}
+                    >
+                      <Save size={16} className="so-icon-save" />
+                      {loading ? "Loading…" : "View"}
+                    </button>
+                    <button
+                      type="button"
+                      className="so-btn so-btn-secondary"
+                      onClick={handleRefresh}
+                      disabled={loading}
+                    >
+                      <XCircle size={16} className="so-icon-cancel" />
+                      Refresh
+                    </button>
+                  </div>
+
+                  {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
                 </div>
-              ))}
+              </div>
             </div>
-
-            {/* Extra options */}
-            <div className="cs-section-title">Options</div>
-            <div className="cs-toggle-grid">
-              <label className="cs-toggle-row">
-                <input type="checkbox" checked={chkImage} onChange={(e) => setChkImage(e.target.checked)} />
-                Show Image
-              </label>
-              <label className="cs-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={chkMinimum}
-                  onChange={(e) => {
-                    setChkMinimum(e.target.checked);
-                    if (e.target.checked) {
-                      setChkWoMaster(false);
-                      setChkWoPrice(false);
-                    }
-                  }}
-                />
-                Minimum Level
-              </label>
-              <label className="cs-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={chkWoPrice}
-                  onChange={(e) => {
-                    setChkWoPrice(e.target.checked);
-                    if (e.target.checked) {
-                      setChkMinimum(false);
-                      setChkWoMaster(false);
-                    }
-                  }}
-                />
-                Without Price
-              </label>
-              <label className="cs-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={chkWoMaster}
-                  onChange={(e) => {
-                    setChkWoMaster(e.target.checked);
-                    if (e.target.checked) {
-                      setChkMinimum(false);
-                      setChkWoPrice(false);
-                    }
-                  }}
-                />
-                Without Master
-              </label>
-              {showBatchCheckboxes && (
-                <>
-                  <label className="cs-toggle-row">
-                    <input
-                      type="checkbox"
-                      checked={chkBatch}
-                      onChange={(e) => {
-                        setChkBatch(e.target.checked);
-                        if (e.target.checked) setChkBatch1(false);
-                      }}
-                    />
-                    Batch Wise Stock
-                  </label>
-                  <label className="cs-toggle-row">
-                    <input
-                      type="checkbox"
-                      checked={chkBatch1}
-                      onChange={(e) => {
-                        setChkBatch1(e.target.checked);
-                        if (e.target.checked) setChkBatch(false);
-                      }}
-                    />
-                    Textiles Batch Wise Stock
-                  </label>
-                </>
-              )}
-            </div>
-
-            <div className="cs-actions">
-              <button
-                type="button"
-                className="cs-btn cs-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="cs-btn cs-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
-            </div>
-
-            {msg && <div className={`cs-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+          </div>
         </div>
 
         {loading && (

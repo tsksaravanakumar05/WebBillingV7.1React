@@ -15,6 +15,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -374,45 +375,60 @@ export default function PurchaseOrderConsolidated() {
     }
   }, [fromDate, toDate, selectedSupplier, supplierWise, session, openReportViewer]);
 
+  // ── Recolored/restyled to match BranchWise.jsx's card design system ──────
+  //   Border / header / heading : blue  #1a56db
+  //   Save accent                : green #1e7e34
+  //   Cancel / link accent       : red   #dc3545
   const styles = `
     .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: var(--clr-primary, #1a56db); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
     .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
     .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
     .so-close-btn:hover { background: rgba(255,255,255,.28); }
-    .so-layout { display: flex; flex: 1; gap: 20px; padding: 24px; max-width: 1100px; width: 100%; margin: 0 auto; box-sizing: border-box; }
-    .so-panel { flex: 1; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 28px 32px; display: flex; flex-direction: column; }
-    .so-panel-header { border-bottom: 1px solid #e8ecf0; padding-bottom: 16px; margin-bottom: 28px; }
-    .so-panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--clr-primary, #1a56db); margin-bottom: 6px; }
-    .so-panel-title { font-size: 20px; font-weight: 700; color: #1e2d3d; line-height: 1.2; }
-    .so-form-grid { display: grid; grid-template-columns: 120px 1fr; gap: 20px 16px; align-items: center; max-width: 420px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #4a5568; }
-    .so-input { height: 38px; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
-    .so-select { height: 38px; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; cursor: pointer; }
-    .so-select:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 620px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-form-grid { display: grid; grid-template-columns: 120px 1fr; gap: 18px 16px; align-items: center; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    select.so-input { appearance: auto; cursor: pointer; }
+
     .so-combo { position: relative; }
-    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 220px; overflow-y: auto; background: #fff; border: 1.5px solid #d1d9e6; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
-    .so-combo-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 6px; cursor: pointer; }
-    .so-combo-item:hover { background: #f0f2f5; }
-    .so-combo-empty { padding: 8px 10px; font-size: 13px; color: #4a5568; }
-    .so-toggle-row { display: flex; align-items: center; gap: 8px; }
-    .so-toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--clr-primary, #1a56db); cursor: pointer; }
-    .so-toggle-row span { font-size: 13px; color: #1e2d3d; }
-    .so-actions { display: flex; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 40px; padding: 0 28px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, box-shadow .15s; display: flex; align-items: center; gap: 8px; }
+    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+    .so-combo-item { padding: 7px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; }
+    .so-combo-item:hover { background: #eef3ff; }
+    .so-combo-empty { padding: 7px 10px; font-size: 13px; color: #4a5568; }
+
+    .so-toggle-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+    .so-toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
+    .so-toggle-row span { font-size: 13px; color: #2b2b2b; font-weight: 500; }
+
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn-primary { background: var(--clr-primary, #1a56db); color: #fff; box-shadow: 0 2px 8px rgba(26,86,219,.3); }
-    .so-btn-primary:not(:disabled):hover { opacity: .9; box-shadow: 0 4px 14px rgba(26,86,219,.4); }
-    .so-btn-secondary { background: #f0f2f5; color: #4a5568; border: 1.5px solid #d1d9e6; }
-    .so-btn-secondary:not(:disabled):hover { background: #e8ecf0; }
-    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
     .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
     .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 700px) {
-      .so-layout { flex-direction: column; padding: 16px; }
-      .so-panel { padding: 20px 16px; }
-      .so-form-grid { grid-template-columns: 100px 1fr; }
+
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
+      .so-form-grid { grid-template-columns: 100px 1fr; gap: 14px 12px; }
     }
   `;
 
@@ -442,92 +458,98 @@ export default function PurchaseOrderConsolidated() {
       <div className="so-shell">
         <Topbar />
         <div className="so-layout">
-          <main className="so-panel">
-            <div className="so-panel-header">
-              <div className="so-panel-eyebrow">Purchase Order Consolidated</div>
-              <div className="so-panel-title">Purchase Order Consolidated Report</div>
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">Purchase Order Consolidated</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            <div className="so-form-grid">
-              <label className="so-label" htmlFor="poc-supplier">Supplier Name</label>
-              <div className="so-combo" ref={supplierWrapRef}>
-                <input
-                  id="poc-supplier"
-                  type="text"
-                  className="so-input"
-                  autoComplete="off"
-                  placeholder="Type to search supplier…"
-                  value={supplierSearch}
-                  onFocus={() => setSupplierDropdownOpen(true)}
-                  onChange={(e) => {
-                    setSupplierSearch(e.target.value);
-                    setSupplierDropdownOpen(true);
-                    // Typing invalidates any previously confirmed selection.
-                    if (selectedSupplier) setSelectedSupplier(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setSupplierDropdownOpen(false);
-                    } else if (e.key === "Enter" && filteredSuppliers.length === 1) {
-                      e.preventDefault();
-                      const only = filteredSuppliers[0];
-                      setSelectedSupplier({ label: only.label, value: only.value });
-                      setSupplierDropdownOpen(false);
-                    }
-                  }}
-                />
-                {supplierDropdownOpen && (
-                  <ul className="so-combo-list">
-                    {filteredSuppliers.length === 0 ? (
-                      <li className="so-combo-empty">No matching suppliers</li>
-                    ) : (
-                      filteredSuppliers.map((s, idx) => (
-                        <li
-                          key={s.value ?? `supplier-${idx}`}
-                          className="so-combo-item"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setSelectedSupplier({ label: s.label, value: s.value });
-                            setSupplierDropdownOpen(false);
-                          }}
-                        >
-                          {s.label}
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                )}
+            <div className="so-card-body">
+              <div className="so-report-title">Purchase Order Consolidated - Report</div>
+
+              <div className="so-form-grid">
+                <label className="so-label" htmlFor="poc-supplier">Supplier Name</label>
+                <div className="so-combo" ref={supplierWrapRef}>
+                  <input
+                    id="poc-supplier"
+                    type="text"
+                    className="so-input"
+                    autoComplete="off"
+                    placeholder="Type to search supplier…"
+                    value={supplierSearch}
+                    onFocus={() => setSupplierDropdownOpen(true)}
+                    onChange={(e) => {
+                      setSupplierSearch(e.target.value);
+                      setSupplierDropdownOpen(true);
+                      // Typing invalidates any previously confirmed selection.
+                      if (selectedSupplier) setSelectedSupplier(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setSupplierDropdownOpen(false);
+                      } else if (e.key === "Enter" && filteredSuppliers.length === 1) {
+                        e.preventDefault();
+                        const only = filteredSuppliers[0];
+                        setSelectedSupplier({ label: only.label, value: only.value });
+                        setSupplierDropdownOpen(false);
+                      }
+                    }}
+                  />
+                  {supplierDropdownOpen && (
+                    <ul className="so-combo-list">
+                      {filteredSuppliers.length === 0 ? (
+                        <li className="so-combo-empty">No matching suppliers</li>
+                      ) : (
+                        filteredSuppliers.map((s, idx) => (
+                          <li
+                            key={s.value ?? `supplier-${idx}`}
+                            className="so-combo-item"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setSelectedSupplier({ label: s.label, value: s.value });
+                              setSupplierDropdownOpen(false);
+                            }}
+                          >
+                            {s.label}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </div>
+
+                <label className="so-label" htmlFor="poc-from-date">From Date</label>
+                <input id="poc-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+
+                <label className="so-label" htmlFor="poc-to-date">To Date</label>
+                <input id="poc-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+
+                <span className="so-label">Supplier Wise</span>
+                <label className="so-toggle-row" htmlFor="poc-supplierwise">
+                  <input
+                    id="poc-supplierwise"
+                    type="checkbox"
+                    checked={supplierWise}
+                    onChange={(e) => setSupplierWise(e.target.checked)}
+                  />
+                  <span>Group report by supplier</span>
+                </label>
               </div>
 
-              <label className="so-label" htmlFor="poc-from-date">From Date</label>
-              <input id="poc-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              <div className="so-actions">
+                <button type="button" className="so-btn so-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
+                  <Save size={16} className="so-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                  <XCircle size={16} className="so-icon-cancel" />
+                  Refresh
+                </button>
+              </div>
 
-              <label className="so-label" htmlFor="poc-to-date">To Date</label>
-              <input id="poc-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-
-              <span className="so-label">Supplier Wise</span>
-              <label className="so-toggle-row" htmlFor="poc-supplierwise">
-                <input
-                  id="poc-supplierwise"
-                  type="checkbox"
-                  checked={supplierWise}
-                  onChange={(e) => setSupplierWise(e.target.checked)}
-                />
-                <span>Group report by supplier</span>
-              </label>
+              {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
-
-            <div className="so-actions">
-              <button type="button" className="so-btn so-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
-                ↺ Refresh
-              </button>
-            </div>
-
-            {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+          </div>
         </div>
 
         {loading && (

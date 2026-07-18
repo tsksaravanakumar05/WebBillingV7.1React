@@ -10,9 +10,12 @@ import "../companycreation.css";
 // InsertCompany   = "/loginApp/InsertCompany"
 // SMS API (from frmMasterSetting.cs -> MSgURL)
 // ---------------------------------------------------------------
-const API_BASE = "http://localhost:64215/api/loginApp"; // change to live URL when needed
+//const API_BASE = "http://localhost:64215/api/loginApp"; // change to live URL when needed
+
+const API_BASE = "https://billing.kassapos.co.in/api/loginApp";
 const INSERT_COMPANY_URL = `${API_BASE}/InsertCompany`;
 
+//"https://billing.kassapos.co.in";
 // NOTE: this is a plain GET to a third-party SMS gateway, same as the
 // C# WebClient.DownloadString(...) call. Browsers enforce CORS, so if
 // this gateway doesn't send CORS headers, the request may be blocked

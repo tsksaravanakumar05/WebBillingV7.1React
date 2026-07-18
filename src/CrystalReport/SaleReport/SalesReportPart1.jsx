@@ -20,6 +20,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -1437,54 +1438,65 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
   // ── Scoped styles (same naming convention family as SaleOrderReport.jsx, "sr-" prefix) ──
   const styles = `
     .sr-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .sr-layout { display: flex; flex: 1; gap: 20px; padding: 24px; max-width: 1300px; width: 100%; margin: 0 auto; box-sizing: border-box; }
-    .sr-nav { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 100px); overflow-y: auto; }
-    .sr-nav-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8a94a6; padding: 0 4px; margin-bottom: 2px; }
-    .sr-nav-card { background: #fff; border: 2px solid transparent; border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: border-color .15s, box-shadow .15s, background .15s; box-shadow: 0 1px 4px rgba(0,0,0,.07); display: flex; align-items: center; gap: 10px; }
-    .sr-nav-card:hover { border-color: var(--clr-primary, #1a56db); box-shadow: 0 3px 12px rgba(26,86,219,.12); }
-    .sr-nav-card.active { background: #eef3fd; border-color: var(--clr-primary, #1a56db); box-shadow: 0 3px 12px rgba(26,86,219,.15); }
-    .sr-nav-icon { width: 28px; height: 28px; border-radius: 8px; background: #e8edfc; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
-    .sr-nav-card.active .sr-nav-icon { background: var(--clr-primary, #1a56db); }
-    .sr-nav-card-name { font-size: 12.5px; font-weight: 600; color: #1e2d3d; line-height: 1.3; }
-    .sr-nav-card.active .sr-nav-card-name { color: var(--clr-primary, #1a56db); }
+    .sr-layout { display: flex; flex: 1; justify-content: center; padding: 24px; max-width: 1300px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 
-    .sr-panel { flex: 1; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 28px 32px; display: flex; flex-direction: column; min-width: 0; }
+    .sr-card { width: 100%; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; display: flex; flex-direction: column; }
+    .sr-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .sr-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .sr-card-body { padding: 24px 32px 30px; }
+    .sr-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 22px; }
+
+    .sr-content { display: flex; gap: 20px; align-items: flex-start; }
+
+    .sr-nav { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 220px); overflow-y: auto; }
+    .sr-nav-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8a94a6; padding: 0 4px; margin-bottom: 2px; }
+    .sr-nav-card { background: #fff; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: border-color .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 10px; }
+    .sr-nav-card:hover { border-color: #1a56db; box-shadow: 0 3px 12px rgba(26,86,219,.12); }
+    .sr-nav-card.active { background: #eef3ff; border-color: #1a56db; box-shadow: 0 3px 12px rgba(26,86,219,.15); }
+    .sr-nav-icon { width: 28px; height: 28px; border-radius: 8px; background: #e8edfc; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .sr-nav-card.active .sr-nav-icon { background: #1a56db; }
+    .sr-nav-card-name { font-size: 12.5px; font-weight: 600; color: #1e2d3d; line-height: 1.3; }
+    .sr-nav-card.active .sr-nav-card-name { color: #1a56db; }
+
+    .sr-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
     .sr-panel-header { border-bottom: 1px solid #e8ecf0; padding-bottom: 16px; margin-bottom: 24px; }
-    .sr-panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--clr-primary, #1a56db); margin-bottom: 6px; }
+    .sr-panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #1a56db; margin-bottom: 6px; }
     .sr-panel-title { font-size: 20px; font-weight: 700; color: #1e2d3d; line-height: 1.2; }
 
     .sr-section { margin-bottom: 22px; }
     .sr-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #8a94a6; margin-bottom: 10px; }
 
-    .sr-form-grid { display: grid; grid-template-columns: 140px 1fr; gap: 16px 16px; align-items: center; max-width: 520px; }
-    .sr-label { font-size: 13px; font-weight: 600; color: #4a5568; }
-    .sr-input, .sr-select { height: 38px; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; outline: none; transition: border-color .15s, box-shadow .15s; }
-    .sr-input:focus, .sr-select:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+    .sr-form-grid { display: grid; grid-template-columns: 130px 1fr; gap: 14px 14px; align-items: center; max-width: 520px; }
+    .sr-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .sr-input, .sr-select { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; outline: none; transition: border-color .15s, box-shadow .15s; }
+    .sr-input:focus, .sr-select:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     .sr-input:disabled, .sr-select:disabled { background: #f4f6f9; color: #9aa5b1; cursor: not-allowed; }
+    select.sr-select, select.sr-input { appearance: auto; cursor: pointer; }
 
     .sr-combobox { position: relative; width: 100%; }
-    .sr-combobox-list { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; background: #fff; border: 1.5px solid #d1d9e6; border-radius: 8px; box-shadow: 0 8px 24px rgba(20,30,50,.12); margin: 0; padding: 4px; list-style: none; }
+    .sr-combobox-list { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(20,30,50,.12); margin: 0; padding: 4px; list-style: none; }
     .sr-combobox-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 6px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sr-combobox-item:hover, .sr-combobox-item.active { background: #eef3fc; color: var(--clr-primary, #1a56db); }
+    .sr-combobox-item:hover, .sr-combobox-item.active { background: #eef3ff; color: #1a56db; }
     .sr-combobox-empty { padding: 8px 10px; font-size: 13px; color: #9aa5b1; }
 
-    .sr-toggle-row { display: flex; align-items: center; gap: 10px; height: 38px; background: #f7f9fc; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #4a5568; font-weight: 500; user-select: none; }
-    .sr-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--clr-primary, #1a56db); cursor: pointer; }
+    .sr-toggle-row { display: flex; align-items: center; gap: 10px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #1e293b; font-weight: 500; user-select: none; }
+    .sr-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #1a56db; cursor: pointer; }
     .sr-toggle-row.disabled { opacity: .5; cursor: not-allowed; }
 
-    .sr-radio-group { display: flex; flex-wrap: wrap; gap: 10px; }
-    .sr-radio-pill { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 20px; border: 1.5px solid #d1d9e6; font-size: 12.5px; font-weight: 600; color: #4a5568; cursor: pointer; background: #fff; }
-    .sr-radio-pill.checked { border-color: var(--clr-primary, #1a56db); background: #eef3fd; color: var(--clr-primary, #1a56db); }
+    .sr-radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sr-radio-pill { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 20px; border: 1px solid #c7cdd6; font-size: 12.5px; font-weight: 600; color: #1e293b; cursor: pointer; background: #fff; }
+    .sr-radio-pill.checked { border-color: #1a56db; background: #eef3ff; color: #1a56db; }
     .sr-radio-pill.disabled { opacity: .45; cursor: not-allowed; }
-    .sr-radio-pill input { accent-color: var(--clr-primary, #1a56db); cursor: pointer; }
+    .sr-radio-pill input { accent-color: #1a56db; cursor: pointer; }
 
     .sr-actions { display: flex; gap: 12px; margin-top: 8px; padding-top: 20px; border-top: 1px solid #e8ecf0; }
-    .sr-btn { height: 40px; padding: 0 28px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, box-shadow .15s; display: flex; align-items: center; gap: 8px; }
+    .sr-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .sr-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .sr-btn-primary { background: var(--clr-primary, #1a56db); color: #fff; box-shadow: 0 2px 8px rgba(26,86,219,.3); }
-    .sr-btn-primary:not(:disabled):hover { opacity: .9; box-shadow: 0 4px 14px rgba(26,86,219,.4); }
-    .sr-btn-secondary { background: #f0f2f5; color: #4a5568; border: 1.5px solid #d1d9e6; }
-    .sr-btn-secondary:not(:disabled):hover { background: #e8ecf0; }
+    .sr-btn:not(:disabled):hover { background: #eef3ff; }
+    .sr-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .sr-btn-primary .sr-icon-save { color: #1e7e34; }
+    .sr-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .sr-btn-secondary .sr-icon-cancel { color: #dc3545; }
 
     .sr-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; }
     .sr-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
@@ -1493,10 +1505,11 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
     .sr-f11-hint { font-size: 12px; color: #8a94a6; background: #f7f9fc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 8px 12px; margin-top: 4px; }
 
     @media (max-width: 900px) {
-      .sr-layout { flex-direction: column; padding: 16px; }
+      .sr-layout { padding: 16px; }
+      .sr-card-body { padding: 20px; }
+      .sr-content { flex-direction: column; }
       .sr-nav { width: 100%; flex-direction: row; flex-wrap: wrap; max-height: none; }
       .sr-nav-card { flex: 1 1 calc(50% - 4px); }
-      .sr-panel { padding: 20px 16px; }
       .sr-form-grid { grid-template-columns: 110px 1fr; }
     }
   `;
@@ -1536,34 +1549,38 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
         <Topbar />
 
         <div className="sr-layout">
-          {/* ── LEFT: Navigation panel ── */}
-          <nav className="sr-nav" aria-label="Report types">
-            <div className="sr-nav-label">Report Types</div>
-            {NAV_ITEMS.map((item) => (
-              <div
-                key={item.value}
-                className={`sr-nav-card${reportType === item.value ? " active" : ""}`}
-                onClick={() => handleReportTypeChange(item.value)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && handleReportTypeChange(item.value)}
-                aria-pressed={reportType === item.value}
-              >
-                <div className="sr-nav-icon">{item.icon}</div>
-                <div className="sr-nav-card-name">{item.label}</div>
-              </div>
-            ))}
-          </nav>
-
-          {/* ── RIGHT: Filter panel ── */}
-          <main className="sr-panel">
-            <div className="sr-panel-header">
-              <div className="sr-panel-eyebrow">Sales Report</div>
-              <div className="sr-panel-title">
-                {NAV_ITEMS.find((n) => n.value === reportType)?.label || "Sales Report"}
-              </div>
+          <div className="sr-card">
+            <div className="sr-card-header">
+              <div className="sr-card-header-title">Sales Report</div>
             </div>
 
+            <div className="sr-card-body">
+              <div className="sr-report-title">
+                {NAV_ITEMS.find((n) => n.value === reportType)?.label || "Sales Report"}
+              </div>
+
+              <div className="sr-content">
+              {/* ── LEFT: Navigation panel ── */}
+              <nav className="sr-nav" aria-label="Report types">
+                <div className="sr-nav-label">Report Types</div>
+                {NAV_ITEMS.map((item) => (
+                  <div
+                    key={item.value}
+                    className={`sr-nav-card${reportType === item.value ? " active" : ""}`}
+                    onClick={() => handleReportTypeChange(item.value)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && handleReportTypeChange(item.value)}
+                    aria-pressed={reportType === item.value}
+                  >
+                    <div className="sr-nav-icon">{item.icon}</div>
+                    <div className="sr-nav-card-name">{item.label}</div>
+                  </div>
+                ))}
+              </nav>
+
+              {/* ── RIGHT: Filter panel ── */}
+              <main className="sr-panel">
             {/* ── Date / Daily / Hourly-upto / MRP ── */}
             <div className="sr-section">
               <div className="sr-form-grid">
@@ -1723,15 +1740,20 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
 
             <div className="sr-actions">
               <button type="button" className="sr-btn sr-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
-                {loading ? "Loading…" : "▶ View"}
+                <Save size={16} className="sr-icon-save" />
+                {loading ? "Loading…" : "View"}
               </button>
               <button type="button" className="sr-btn sr-btn-secondary" onClick={handleRefresh} disabled={loading}>
-                ↺ Refresh
+                <XCircle size={16} className="sr-icon-cancel" />
+                Refresh
               </button>
             </div>
 
             {msg && <div className={`sr-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
           </main>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* ── Loader overlay ── */}
@@ -1846,10 +1868,12 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
 
                 <div className="sr-actions">
                   <button type="button" className="sr-btn sr-btn-primary" onClick={confirmF11Selection}>
-                    ▶ View
+                    <Save size={16} className="sr-icon-save" />
+                    View
                   </button>
                   <button type="button" className="sr-btn sr-btn-secondary" onClick={handleF11Refresh}>
-                    ↺ Refresh
+                    <XCircle size={16} className="sr-icon-cancel" />
+                    Refresh
                   </button>
                 </div>
               </div>

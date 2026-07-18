@@ -19,7 +19,7 @@ const BASE_URL = "http://localhost:64215";
 
 // ── API endpoints ───────────────────────────────────────────────────────────
 // Supplier combo reuses the same endpoint established for ClosingStock.jsx.
-const SupplierListUrl = "/api/SupplierApp/SelectSupplier";
+const SupplierListUrl = "/api/SupplierApp/GetSupplier";
 
 // NOTE: original ASMX-style path "/PurchaseReport/PurchaseBillConsolidateReport"
 // mapped following the same module-inference convention used elsewhere

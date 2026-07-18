@@ -2,7 +2,10 @@
 //  SaleReturn.jsx
 //  React conversion of SaleReturn.js (jQuery) — "Sale Return Report"
 //  Uses API helpers from Common.jsx (CC.api / CC.mkUrl / CC.authHeaders etc.)
-//  Styling: MasterPage.css only — no inline color values, no new theme colors.
+//  Styling: matches BranchWise.jsx design system exactly (card, header,
+//  radio-nav, field rows, buttons, palette). Only visuals/layout were
+//  changed here — all business logic, state, handlers, and API calls
+//  are 100% unchanged from the original.
 //
 //  Architecture mirrored from CashBook.jsx (BankBook.jsx was referenced by the
 //  requester but was not present in the uploaded files — CashBook.jsx is the
@@ -19,6 +22,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -299,146 +303,191 @@ export default function SaleReturn() {
     }
   }, [fromDate, toDate, reportType, daily, session, openReportViewer]);
 
+  // ── Scoped styles injected once ─────────────────────────────────────────
+  // Design system copied 1:1 from BranchWise.jsx (card, header, radio-nav,
+  // field rows, buttons, palette). Only class names/markup for this page's
+  // own fields (Daily toggle) were added, following the same look.
+  //   Border / header / heading : blue  #1a56db
+  //   Save accent                : green #1e7e34
+  //   Cancel / link accent       : red   #dc3545
   const styles = `
-    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: var(--clr-primary, #1a56db); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
-    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
-    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
-    .so-close-btn:hover { background: rgba(255,255,255,.28); }
-    .so-layout { display: flex; flex: 1; gap: 20px; padding: 24px; max-width: 1200px; width: 100%; margin: 0 auto; box-sizing: border-box; }
-    .so-nav-card { width: 280px; flex-shrink: 0; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 24px 20px; display: flex; flex-direction: column; }
-    .so-nav-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8592a6; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid #e8ecf0; }
-    .so-nav-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 8px; font-size: 13.5px; font-weight: 600; color: #4a5568; cursor: pointer; margin-bottom: 6px; transition: background .15s, color .15s; user-select: none; }
-    .so-nav-item:hover { background: #f0f4fb; }
-    .so-nav-item.active { background: var(--clr-primary, #1a56db); color: #fff; }
-    .so-nav-item input[type="radio"] { accent-color: #fff; width: 14px; height: 14px; cursor: pointer; }
-    .so-panel { flex: 1; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 28px 32px; display: flex; flex-direction: column; }
-    .so-panel-header { border-bottom: 1px solid #e8ecf0; padding-bottom: 16px; margin-bottom: 28px; }
-    .so-panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--clr-primary, #1a56db); margin-bottom: 6px; }
-    .so-panel-title { font-size: 20px; font-weight: 700; color: #1e2d3d; line-height: 1.2; }
-    .so-form-grid { display: grid; grid-template-columns: 130px 1fr; gap: 20px 16px; align-items: center; max-width: 460px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #4a5568; }
-    .so-input { height: 38px; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: var(--clr-primary, #1a56db); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
-    .so-input:disabled { background: #f7f9fc; color: #a0aec0; cursor: not-allowed; }
-    .so-select { height: 38px; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; outline: none; }
-    .so-select:disabled { background: #f7f9fc; color: #a0aec0; cursor: not-allowed; }
-    .so-toggle-row { display: flex; align-items: center; gap: 10px; height: 38px; background: #f7f9fc; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #4a5568; font-weight: 500; user-select: none; transition: border-color .15s; }
-    .so-toggle-row:hover { border-color: var(--clr-primary, #1a56db); }
-    .so-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--clr-primary, #1a56db); cursor: pointer; }
-    .so-actions { display: flex; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 40px; padding: 0 28px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, box-shadow .15s; display: flex; align-items: center; gap: 8px; }
-    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn-primary { background: var(--clr-primary, #1a56db); color: #fff; box-shadow: 0 2px 8px rgba(26,86,219,.3); }
-    .so-btn-primary:not(:disabled):hover { opacity: .9; box-shadow: 0 4px 14px rgba(26,86,219,.4); }
-    .so-btn-secondary { background: #f0f2f5; color: #4a5568; border: 1.5px solid #d1d9e6; }
-    .so-btn-secondary:not(:disabled):hover { background: #e8ecf0; }
-    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; }
-    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    .so-hint { font-size: 11.5px; color: #8592a6; margin-top: 10px; }
-    @media (max-width: 900px) {
-      .so-layout { flex-direction: column; padding: 16px; }
-      .so-nav-card { width: 100%; }
-      .so-panel { padding: 20px 16px; }
-      .so-form-grid { grid-template-columns: 110px 1fr; }
+    .sr-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .sr-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .sr-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+    .sr-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .sr-close-btn:hover { background: rgba(255,255,255,.28); }
+
+    .sr-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .sr-card { width: 100%; max-width: 740px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .sr-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .sr-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .sr-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .sr-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .sr-card-body { padding: 24px 32px 30px; }
+    .sr-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .sr-content { display: flex; gap: 32px; }
+
+    .sr-left { flex: 0 0 190px; display: flex; flex-direction: column; gap: 14px; }
+    .sr-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 320px; }
+
+    .sr-radio-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
+    .sr-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
+
+    .sr-field { display: flex; align-items: center; gap: 14px; }
+    .sr-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
+    .sr-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .sr-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .sr-input:disabled { background: #f7f9fc; color: #a0aec0; cursor: not-allowed; }
+
+    .sr-toggle-row { display: flex; align-items: center; gap: 10px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; cursor: pointer; font-size: 13px; color: #1e2d3d; font-weight: 500; user-select: none; transition: border-color .15s; width: 100%; box-sizing: border-box; }
+    .sr-toggle-row:hover { border-color: #1a56db; }
+    .sr-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
+
+    .sr-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .sr-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
+    .sr-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .sr-btn:not(:disabled):hover { background: #eef3ff; }
+    .sr-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .sr-btn-primary .sr-icon-save { color: #1e7e34; }
+    .sr-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .sr-btn-secondary .sr-icon-cancel { color: #dc3545; }
+
+    .sr-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
+    .sr-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
+    .sr-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+    @media (max-width: 620px) {
+      .sr-card-body { padding: 20px; }
+      .sr-content { flex-direction: column; gap: 22px; }
+      .sr-left { flex: none; }
+      .sr-right { max-width: none; }
     }
   `;
 
   if (!pageAccess.ready) {
     return (
-      <div className="mp-wrap">
-        <div className="mp-body">
-          {msg && <div className={`mp-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+      <>
+        <style>{styles}</style>
+        <div className="sr-shell">
+          <Topbar/>
+          <div className="sr-layout">
+            <div className="sr-card">
+              <div className="sr-card-body">
+                {msg && <div className={`sr-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!pageAccess.allowed) {
     return (
-      <div className="mp-wrap">
-        <div className="mp-body">
-          <div className="mp-msg err">Page Access Permission Denied !!!.</div>
+      <>
+        <style>{styles}</style>
+        <div className="sr-shell">
+          <Topbar/>
+          <div className="sr-layout">
+            <div className="sr-card">
+              <div className="sr-card-body">
+                <div className="sr-msg err">Page Access Permission Denied !!!.</div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
     <>
       <style>{styles}</style>
-      <div className="so-shell">
+      <div className="sr-shell">
         <Topbar/>
-        <div className="so-layout">
-          <aside className="so-nav-card">
-            <div className="so-nav-title">Report Type</div>
-            {REPORT_TYPES.map((rt) => (
-              <label
-                key={rt.key}
-                className={`so-nav-item ${reportType === rt.key ? "active" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="reportTypePanel"
-                  checked={reportType === rt.key}
-                  onChange={() => handleReportTypeChange(rt.key)}
-                />
-                {rt.label}
-              </label>
-            ))}
-          </aside>
-
-          <main className="so-panel">
-            <div className="so-panel-header">
-              <div className="so-panel-eyebrow">Sale Return</div>
-              <div className="so-panel-title">All Type Of Sale Return Report</div>
+        <div className="sr-layout">
+          <div className="sr-card">
+            <div className="sr-card-header">
+              <div className="sr-card-header-title">Sale Return Reports</div>
+              <button type="button" className="sr-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            <div className="so-form-grid">
-              <label className="so-label" htmlFor="sr-from-date">From Date</label>
-              <input
-                id="sr-from-date"
-                ref={fromDateRef}
-                type="date"
-                className="so-input"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
+            <div className="sr-card-body">
+              <div className="sr-report-title">All Type Of Sale Return Report</div>
 
-              <label className="so-label" htmlFor="sr-to-date">To Date</label>
-              <input
-                id="sr-to-date"
-                type="date"
-                className="so-input"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
+              <div className="sr-content">
+                {/* ── Left: report type selection ── */}
+                <div className="sr-left">
+                  {REPORT_TYPES.map((rt) => (
+                    <label key={rt.key} className="sr-radio-row">
+                      <input
+                        type="radio"
+                        name="reportTypePanel"
+                        checked={reportType === rt.key}
+                        onChange={() => handleReportTypeChange(rt.key)}
+                      />
+                      {rt.label}
+                    </label>
+                  ))}
+                </div>
 
-              <label className="so-label">Daily View</label>
-              <label className="so-toggle-row">
-                <input type="checkbox" checked={daily} onChange={(e) => setDaily(e.target.checked)} />
-                {daily ? "Enabled" : "Disabled"}
-              </label>
+                {/* ── Right: dates + toggle ── */}
+                <div className="sr-right">
+                  <div className="sr-field">
+                    <label className="sr-label" htmlFor="sr-from-date">From Date</label>
+                    <input
+                      id="sr-from-date"
+                      ref={fromDateRef}
+                      type="date"
+                      className="sr-input"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                    />
+                  </div>
 
+                  <div className="sr-field">
+                    <label className="sr-label" htmlFor="sr-to-date">To Date</label>
+                    <input
+                      id="sr-to-date"
+                      type="date"
+                      className="sr-input"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="sr-field">
+                    <label className="sr-label">Daily View</label>
+                    <label className="sr-toggle-row">
+                      <input type="checkbox" checked={daily} onChange={(e) => setDaily(e.target.checked)} />
+                      {daily ? "Enabled" : "Disabled"}
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sr-actions">
+                <button
+                  type="button"
+                  className="sr-btn sr-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="sr-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button type="button" className="sr-btn sr-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                  <XCircle size={16} className="sr-icon-cancel" />
+                  Refresh
+                </button>
+              </div>
+
+              {msg && <div className={`sr-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
-
-            <div className="so-actions">
-              <button
-                type="button"
-                className="so-btn so-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
-                ↺ Refresh
-              </button>
-            </div>
-
-            {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+          </div>
         </div>
 
         {loading && (

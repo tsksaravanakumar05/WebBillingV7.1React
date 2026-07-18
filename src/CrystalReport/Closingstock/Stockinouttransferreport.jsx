@@ -17,6 +17,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -553,235 +554,65 @@ export default function StockInOutTransferReport() {
   // ── Scoped styles injected once (same tokens as ClosingStock.jsx/
   // InventoryQtyWise.jsx, "sio-" prefix) ──
   const styles = `
-    .sio-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .sio-layout {
-      display: flex;
-      flex: 1;
-      gap: 20px;
-      padding: 24px;
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      box-sizing: border-box;
-    }
-    .sio-nav {
-      width: 220px;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .sio-nav-label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: #8a94a6;
-      padding: 0 4px;
-      margin-bottom: 2px;
-    }
-    .sio-nav-card {
-      background: #fff;
-      border: 2px solid transparent;
-      border-radius: 10px;
-      padding: 12px 14px;
-      cursor: pointer;
-      transition: border-color .15s, box-shadow .15s, background .15s;
-      box-shadow: 0 1px 4px rgba(0,0,0,.07);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .sio-nav-card:hover {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 3px 12px rgba(26,86,219,.12);
-    }
-    .sio-nav-card.active {
-      background: #eef3fd;
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 3px 12px rgba(26,86,219,.15);
-    }
-    .sio-nav-icon {
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
-      background: #e8edfc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 15px;
-      flex-shrink: 0;
-    }
-    .sio-nav-card.active .sio-nav-icon {
-      background: var(--clr-primary, #1a56db);
-    }
-    .sio-nav-card-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: #1e2d3d;
-      line-height: 1.3;
-    }
-    .sio-nav-card.active .sio-nav-card-name {
-      color: var(--clr-primary, #1a56db);
-    }
-    .sio-panel {
-      flex: 1;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-    }
-    .sio-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .sio-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .sio-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-      line-height: 1.2;
-    }
-    .sio-section-title {
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .6px;
-      color: #8a94a6;
-      margin: 20px 0 10px;
-    }
+    .sio-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .sio-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .sio-card { width: 100%; max-width: 1000px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+    .sio-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .sio-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .sio-card-body { padding: 24px 32px 30px; }
+    .sio-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .sio-content { display: flex; gap: 28px; }
+
+    .sio-nav { flex: 0 0 220px; display: flex; flex-direction: column; gap: 8px; }
+    .sio-nav-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8a94a6; padding: 0 4px; margin-bottom: 2px; }
+    .sio-nav-card { background: #fff; border: 1.5px solid #d1d9e6; border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: border-color .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 10px; }
+    .sio-nav-card:hover { border-color: #1a56db; box-shadow: 0 3px 12px rgba(26,86,219,.12); }
+    .sio-nav-card.active { background: #eef3ff; border-color: #1a56db; box-shadow: 0 3px 12px rgba(26,86,219,.15); }
+    .sio-nav-icon { width: 28px; height: 28px; border-radius: 8px; background: #e8edfc; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .sio-nav-card.active .sio-nav-icon { background: #1a56db; }
+    .sio-nav-card-name { font-size: 13px; font-weight: 600; color: #1e2d3d; line-height: 1.3; }
+    .sio-nav-card.active .sio-nav-card-name { color: #1a56db; }
+
+    .sio-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .sio-panel-header { border-bottom: 1px solid #e8ecf0; padding-bottom: 14px; margin-bottom: 20px; }
+    .sio-panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #1a56db; margin-bottom: 6px; }
+    .sio-panel-title { font-size: 16px; font-weight: 700; color: #1e2d3d; line-height: 1.2; }
+
+    .sio-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #8a94a6; margin: 20px 0 10px; }
     .sio-section-title:first-of-type { margin-top: 0; }
-    .sio-radio-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .sio-chip {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      height: 36px;
-      padding: 0 14px;
-      border-radius: 20px;
-      border: 1.5px solid #d1d9e6;
-      background: #f7f9fc;
-      font-size: 13px;
-      font-weight: 500;
-      color: #4a5568;
-      cursor: pointer;
-      user-select: none;
-      transition: border-color .15s, background .15s, color .15s;
-    }
-    .sio-chip:hover { border-color: var(--clr-primary, #1a56db); }
-    .sio-chip.active {
-      background: var(--clr-primary, #1a56db);
-      border-color: var(--clr-primary, #1a56db);
-      color: #fff;
-    }
-    .sio-form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px 20px;
-      align-items: start;
-      max-width: 100%;
-      margin-top: 10px;
-      margin-bottom: 24px;
-    }
-    .sio-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .sio-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-    }
-    .sio-input {
-      height: 36px;
-      border: 1.5px solid #d1d9e6;
-      border-radius: 8px;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #1e2d3d;
-      background: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .sio-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .sio-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .sio-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+
+    .sio-radio-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sio-chip { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 20px; border: 1px solid #c7cdd6; background: #fff; font-size: 12.5px; font-weight: 600; color: #1e293b; cursor: pointer; user-select: none; transition: border-color .15s, background .15s, color .15s; }
+    .sio-chip:hover { border-color: #1a56db; }
+    .sio-chip.active { background: #eef3ff; border-color: #1a56db; color: #1a56db; }
+
+    .sio-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px 16px; align-items: start; max-width: 100%; margin-top: 6px; margin-bottom: 20px; }
+    .sio-field { display: flex; flex-direction: column; gap: 6px; }
+    .sio-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .sio-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .sio-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    select.sio-input { appearance: auto; cursor: pointer; }
+    .sio-input:disabled { background: #f5f6f8; cursor: not-allowed; }
+
+    .sio-actions { display: flex; gap: 12px; margin-top: 28px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .sio-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .sio-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .sio-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .sio-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .sio-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .sio-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .sio-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
+    .sio-btn:not(:disabled):hover { background: #eef3ff; }
+    .sio-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .sio-btn-primary .sio-icon-save { color: #1e7e34; }
+    .sio-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .sio-btn-secondary .sio-icon-cancel { color: #dc3545; }
+
+    .sio-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; }
     .sio-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
     .sio-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
     @media (max-width: 760px) {
-      .sio-layout { flex-direction: column; padding: 16px; }
-      .sio-nav { width: 100%; flex-direction: row; flex-wrap: wrap; }
+      .sio-card-body { padding: 20px; }
+      .sio-content { flex-direction: column; gap: 22px; }
+      .sio-nav { flex: none; width: 100%; flex-direction: row; flex-wrap: wrap; }
       .sio-nav-card { flex: 1 1 calc(33% - 7px); }
-      .sio-panel { padding: 20px 16px; }
       .sio-form-grid { grid-template-columns: 1fr; }
     }
   `;
@@ -813,32 +644,36 @@ export default function StockInOutTransferReport() {
         <Topbar />
 
         <div className="sio-layout">
-          {/* ── LEFT: Transaction-type navigation panel ── */}
-          <nav className="sio-nav" aria-label="Stock Report Type">
-            <div className="sio-nav-label">Report Type</div>
-            {panelItems.map((item) => (
-              <div
-                key={item.value}
-                className={`sio-nav-card${panel === item.value ? " active" : ""}`}
-                onClick={() => selectPanel(item.value)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && selectPanel(item.value)}
-                aria-pressed={panel === item.value}
-              >
-                <div className="sio-nav-icon">{item.icon}</div>
-                <div className="sio-nav-card-name">{item.label}</div>
-              </div>
-            ))}
-          </nav>
-
-          {/* ── RIGHT: Filter panel ── */}
-          <main className="sio-panel">
-            <div className="sio-panel-header">
-              <div className="sio-panel-eyebrow">Stock</div>
-              <div className="sio-panel-title">Stock Inward/Outward/Transfer Report</div>
+          <div className="sio-card">
+            <div className="sio-card-header">
+              <div className="sio-card-header-title">Stock Inward/Outward/Transfer Report</div>
             </div>
 
+            <div className="sio-card-body">
+              <div className="sio-report-title">Stock In/Out/Transfer - Report</div>
+
+              <div className="sio-content">
+              {/* ── LEFT: Transaction-type navigation panel ── */}
+              <nav className="sio-nav" aria-label="Stock Report Type">
+                <div className="sio-nav-label">Report Type</div>
+                {panelItems.map((item) => (
+                  <div
+                    key={item.value}
+                    className={`sio-nav-card${panel === item.value ? " active" : ""}`}
+                    onClick={() => selectPanel(item.value)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && selectPanel(item.value)}
+                    aria-pressed={panel === item.value}
+                  >
+                    <div className="sio-nav-icon">{item.icon}</div>
+                    <div className="sio-nav-card-name">{item.label}</div>
+                  </div>
+                ))}
+              </nav>
+
+              {/* ── RIGHT: Filter panel ── */}
+              <main className="sio-panel">
             <div className="sio-form-grid">
               {comboConfig && (
                 <ApiSelect
@@ -941,7 +776,8 @@ export default function StockInOutTransferReport() {
                 disabled={loading || pageAccess.pageview === 0}
                 onClick={handleView}
               >
-                {loading ? "Loading…" : "▶ View"}
+                <Save size={16} className="sio-icon-save" />
+                {loading ? "Loading…" : "View"}
               </button>
               <button
                 type="button"
@@ -949,12 +785,16 @@ export default function StockInOutTransferReport() {
                 onClick={handleRefresh}
                 disabled={loading}
               >
-                ↺ Refresh
+                <XCircle size={16} className="sio-icon-cancel" />
+                Refresh
               </button>
             </div>
 
             {msg && <div className={`sio-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+              </main>
+              </div>
+            </div>
+          </div>
         </div>
 
         {loading && (

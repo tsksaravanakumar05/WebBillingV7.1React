@@ -18,6 +18,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -232,13 +233,13 @@ export default function SupplierPendingBillReport() {
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
     return (
-      <div className="sp-field">
-        <label className="sp-label" htmlFor="sp-supplier">
+      <div className="so-field">
+        <label className="so-label" htmlFor="sp-supplier">
           {placeholder.replace("Select ", "")}
         </label>
         <select
           id="sp-supplier"
-          className="sp-input"
+          className="so-input"
           value={value?.value ?? ""}
           disabled={loadingList}
           onChange={(e) => {
@@ -262,125 +263,54 @@ export default function SupplierPendingBillReport() {
     );
   };
 
-  // ── Scoped styles injected once ("sp-" prefix, single centered panel) ──
+  // ── Design system: recolored/restructured to match BranchWise.jsx exactly ──
+  //   Border / header / heading -> blue (#1a56db)
+  //   Save-style accents        -> green (#1e7e34)
+  //   Cancel / link accents     -> red   (#dc3545)
   const styles = `
-    .sp-shell {
-      min-height: 100vh;
-      background: #f0f2f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
-    .sp-layout {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 48px 24px;
-    }
-    .sp-panel {
-      width: 100%;
-      max-width: 480px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-    }
-    .sp-panel-header {
-      border-bottom: 1px solid #e8ecf0;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .sp-panel-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--clr-primary, #1a56db);
-      margin-bottom: 6px;
-    }
-    .sp-panel-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e2d3d;
-    }
-    .sp-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 20px;
-    }
-    .sp-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #5a6472;
-    }
-    .sp-input {
-      height: 40px;
-      border-radius: 8px;
-      border: 1.5px solid #d1d9e6;
-      padding: 0 12px;
-      font-size: 14px;
-      color: #1e2d3d;
-      background: #fff;
-      outline: none;
-    }
-    .sp-input:focus {
-      border-color: var(--clr-primary, #1a56db);
-      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
-    }
-    .sp-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 8px;
-      padding-top: 20px;
-      border-top: 1px solid #e8ecf0;
-    }
-    .sp-btn {
-      height: 40px;
-      padding: 0 28px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s, box-shadow .15s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .sp-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .sp-btn-primary {
-      background: var(--clr-primary, #1a56db);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(26,86,219,.3);
-    }
-    .sp-btn-primary:not(:disabled):hover {
-      opacity: .9;
-      box-shadow: 0 4px 14px rgba(26,86,219,.4);
-    }
-    .sp-btn-secondary {
-      background: #f0f2f5;
-      color: #4a5568;
-      border: 1.5px solid #d1d9e6;
-    }
-    .sp-btn-secondary:not(:disabled):hover {
-      background: #e8ecf0;
-    }
-    .sp-msg {
-      margin-top: 18px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .sp-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .sp-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-    @media (max-width: 760px) {
-      .sp-layout { padding: 16px; }
-      .sp-panel { padding: 20px 16px; }
+    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
+    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .so-close-btn:hover { background: rgba(255,255,255,.28); }
+
+    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+    .so-card { width: 100%; max-width: 480px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+
+    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+    .so-close-x:hover { background: rgba(255,255,255,.28); }
+
+    .so-card-body { padding: 24px 32px 30px; }
+    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
+
+    .so-content { display: flex; justify-content: center; }
+    .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 340px; margin: 0 auto; }
+
+    .so-field { display: flex; align-items: center; gap: 14px; }
+    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
+    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .so-input:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
+    select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
+    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
+    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .so-btn:not(:disabled):hover { background: #eef3ff; }
+    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
+    .so-btn-primary .so-icon-save { color: #1e7e34; }
+    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
+    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
+
+    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
+    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
+    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+    @media (max-width: 620px) {
+      .so-card-body { padding: 20px; }
+      .so-right { max-width: none; }
     }
   `;
 
@@ -407,54 +337,64 @@ export default function SupplierPendingBillReport() {
   return (
     <>
       <style>{styles}</style>
-      <div className="sp-shell">
+      <div className="so-shell">
         <Topbar />
 
-        <div className="sp-layout">
-          <main className="sp-panel">
-            <div className="sp-panel-header">
-              <div className="sp-panel-eyebrow">Purchase</div>
-              <div className="sp-panel-title">Supplier Pending Bill Report</div>
+        <div className="so-layout">
+          <div className="so-card">
+            <div className="so-card-header">
+              <div className="so-card-header-title">Supplier Pending Bill Report</div>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
-            <ApiSelect
-              url={SupplierListUrl}
-              payload={{
-                Comid: Number(session.Comid),
-                Startindex: -1,
-                PageCount: 99999,
-                AccountType: "SUPPLIER",
-                Keyword: "",
-                Column: "",
-              }}
-              labelKey="AccountName"
-              valueKey="Id"
-              value={supplierSel}
-              onChange={setSupplierSel}
-              placeholder="Select Supplier"
-            />
+            <div className="so-card-body">
+              <div className="so-report-title">Supplier Pending Bill Report</div>
 
-            <div className="sp-actions">
-              <button
-                type="button"
-                className="sp-btn sp-btn-primary"
-                disabled={loading || pageAccess.pageview === 0}
-                onClick={handleView}
-              >
-                {loading ? "Loading…" : "▶ View"}
-              </button>
-              <button
-                type="button"
-                className="sp-btn sp-btn-secondary"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                ↺ Refresh
-              </button>
+              <div className="so-content">
+                <div className="so-right">
+                  <ApiSelect
+                    url={SupplierListUrl}
+                    payload={{
+                      Comid: Number(session.Comid),
+                      Startindex: -1,
+                      PageCount: 99999,
+                      AccountType: "SUPPLIER",
+                      Keyword: "",
+                      Column: "",
+                    }}
+                    labelKey="AccountName"
+                    valueKey="Id"
+                    value={supplierSel}
+                    onChange={setSupplierSel}
+                    placeholder="Select Supplier"
+                  />
+                </div>
+              </div>
+
+              <div className="so-actions">
+                <button
+                  type="button"
+                  className="so-btn so-btn-primary"
+                  disabled={loading || pageAccess.pageview === 0}
+                  onClick={handleView}
+                >
+                  <Save size={16} className="so-icon-save" />
+                  {loading ? "Loading…" : "View"}
+                </button>
+                <button
+                  type="button"
+                  className="so-btn so-btn-secondary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <XCircle size={16} className="so-icon-cancel" />
+                  Refresh
+                </button>
+              </div>
+
+              {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
-
-            {msg && <div className={`sp-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
-          </main>
+          </div>
         </div>
 
         {loading && (
