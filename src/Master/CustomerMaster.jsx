@@ -163,7 +163,7 @@ function PopupWindow({ title, children, onClose, width = 280 }) {
 }
 
 // ─── SearchableList inside popup ──────────────────────────────────────────────
-function SearchableList({ items, labelField, prefill, onChange, onClose, onEnterEmpty, searchPlaceholder, onCreateNew }) {
+function SearchableList({ items, labelField, prefill, onChange, onClose, onEnterEmpty, searchPlaceholder, onCreateNew, uppercase }) {
   const [search, setSearch]   = useState(prefill || "");
   const [focIdx, setFocIdx]   = useState(-1);
   const inputRef  = useRef(null);
@@ -206,7 +206,7 @@ function SearchableList({ items, labelField, prefill, onChange, onClose, onEnter
           className="mp-cell-input"
           placeholder={searchPlaceholder}
           value={search}
-          onChange={e => { setSearch(e.target.value); setFocIdx(-1); }}
+          onChange={e => { setSearch(uppercase ? e.target.value.toUpperCase() : e.target.value); setFocIdx(-1); }}
           onKeyDown={handleKeyDown}
           style={{ height:28 }}
         />
@@ -1484,7 +1484,7 @@ const handlePageClick = useCallback((page) => {
   moveNext(areaPopup.rowIdx, grdArea);  // <-- use moveNext
 }}
             onCreateNew={(val) => handleCreateNew(val, "Area", areaPopup.rowIdx)}
-            searchPlaceholder="Search Area…" />
+            searchPlaceholder="Search Area…" uppercase />
         </PopupWindow>
       )}
 
@@ -1509,7 +1509,7 @@ const handlePageClick = useCallback((page) => {
   moveNext(cardPopup.rowIdx, grdcustomercardtype);  // <-- use moveNext
 }}
             onCreateNew={(val) => handleCreateNew(val, "CardType", cardPopup.rowIdx)}
-            searchPlaceholder="Search Card Type…" />
+            searchPlaceholder="Search Card Type…" uppercase />
         </PopupWindow>
       )}
 

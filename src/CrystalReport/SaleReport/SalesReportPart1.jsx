@@ -749,7 +749,7 @@ export default function SaleReportPart1() {
   // ── Report-viewer launcher (same window.open pattern as SaleOrderReport.jsx) ──
   const openReportViewer = useCallback((reportName, params) => {
     const qs = new URLSearchParams({ ReportName: reportName, ...params }).toString();
-    const url = `${BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
+    const url = `${CC.BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
     console.log(url);
     const w = window.open(
       url,

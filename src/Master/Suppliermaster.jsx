@@ -29,6 +29,10 @@ const ALL_COLUMNS = [
 
 const vn = v => parseFloat(v) || 0;
 
+// ─── Draft / cursor keys (mirrors Customer.jsx master-return pattern) ─────────
+const SUPPLIER_DRAFT_KEY  = "suppliermaster_draft";
+const SUPPLIER_CURSOR_KEY = "suppliermaster_cursor";
+
 // ─── makeNewRow ───────────────────────────────────────────────────────────────
 const makeNewRow = (name = "") => ({
   _uid: CC.uid(), Id: null, AccountName: name, AccountType: "SUPPLIER",
@@ -40,7 +44,7 @@ const makeNewRow = (name = "") => ({
 });
 
 // ─── SalesmanPicker ───────────────────────────────────────────────────────────
-function SalesmanPicker({ salesmanList, initialSearch = "", onSelect, onClose }) {
+function SalesmanPicker({ salesmanList, initialSearch = "", onSelect, onClose, onCreateNew }) {
   const [search, setSearch] = useState(initialSearch);
   const [focusedIdx, setFocusedIdx] = useState(0);
   const searchRef = useRef(null);
@@ -64,7 +68,7 @@ function SalesmanPicker({ salesmanList, initialSearch = "", onSelect, onClose })
   const onSearchKey = e => {
     if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
     if (e.key === "ArrowDown") { e.preventDefault(); if (filtered.length) { listRef.current?.querySelector(".sm-picker-item")?.focus(); setFocusedIdx(0); } return; }
-    if (e.key === "Enter") { e.preventDefault(); if (!search.trim()) { onClose(); return; } if (filtered.length) commit(filtered[0]); else onClose(); }
+    if (e.key === "Enter") { e.preventDefault(); if (!search.trim()) { onClose(); return; } if (filtered.length) commit(filtered[0]); else if (onCreateNew) onCreateNew(search.trim()); else onClose(); }
   };
 
   const onItemKey = (e, item, idx) => {
@@ -83,18 +87,24 @@ function SalesmanPicker({ salesmanList, initialSearch = "", onSelect, onClose })
             value={search} onChange={e => setSearch(e.target.value.toUpperCase())} onKeyDown={onSearchKey} />
         </div>
         <div className="sm-picker-list" ref={listRef}>
-          {filtered.length === 0
-            ? <div className="sm-picker-empty">No salesman found</div>
-            : filtered.map((item, idx) => (
-              <div key={item.Id ?? idx}
-                className={`sm-picker-item${focusedIdx===idx?" focused":""}`}
-                tabIndex={0}
-                onClick={() => commit(item)}
-                onKeyDown={e => onItemKey(e, item, idx)}
-                onMouseEnter={() => setFocusedIdx(idx)}>
-                {item.SalesManName || item.salesmanname || ""}
-              </div>
-            ))
+          {filtered.length === 0 && !onCreateNew && (
+            <div className="sm-picker-empty">No salesman found</div>
+          )}
+          {filtered.length === 0 && onCreateNew && search.trim() !== "" && (
+            <div className="sm-picker-item focused" onClick={() => onCreateNew(search.trim())}>
+              ➕ Create new: <strong>"{search.trim()}"</strong>
+            </div>
+          )}
+          {filtered.map((item, idx) => (
+            <div key={item.Id ?? idx}
+              className={`sm-picker-item${focusedIdx===idx?" focused":""}`}
+              tabIndex={0}
+              onClick={() => commit(item)}
+              onKeyDown={e => onItemKey(e, item, idx)}
+              onMouseEnter={() => setFocusedIdx(idx)}>
+              {item.SalesManName || item.salesmanname || ""}
+            </div>
+          ))
           }
         </div>
       </div>
@@ -196,6 +206,10 @@ const [filterColumn, setFilterColumn] = useState("AccountName");
   const salesmanRef    = useRef([]);   // ← holds latest salesman list for loadData
   const loadDataRef    = useRef(null); // ← holds latest loadData for handleSave
 //test
+  // ── Master-create return flow (mirrors Customer.jsx Area popup) ─────────
+  const pendingReturnRef = useRef(null);
+  const pendingSelectRef = useRef(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
   // ── Visible columns ──────────────────────────────────────────────────────
   const visibleColumns = ALL_COLUMNS.filter(c => {
     const cs = colSettings.find(s => s.field === c.field);
@@ -466,6 +480,36 @@ const doLoadData = async (smList, keyword = "", column = "", page = 1) => {
 };
   useEffect(() => {
     const init = async () => {
+      // ── Restore draft grid (survives navigation to /SalesMan) ──
+      let draftRestored = false;
+      try {
+        const saved = sessionStorage.getItem(SUPPLIER_DRAFT_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length) {
+            setGrid(parsed);
+            draftRestored = true;
+          }
+          sessionStorage.removeItem(SUPPLIER_DRAFT_KEY);
+        }
+      } catch {}
+
+      // ── Detect return from a "Create New" master (e.g. /SalesMan) ──
+      const retId = sessionStorage.getItem("masterReturnValue");
+      if (retId) {
+        sessionStorage.removeItem("masterReturnValue");
+        sessionStorage.removeItem("masterReturnName");
+        const curSaved = sessionStorage.getItem(SUPPLIER_CURSOR_KEY);
+        if (curSaved) {
+          try {
+            pendingReturnRef.current = { retId, cur: JSON.parse(curSaved) };
+          } catch {}
+          sessionStorage.removeItem(SUPPLIER_CURSOR_KEY);
+        }
+      } else {
+        try { sessionStorage.removeItem(SUPPLIER_CURSOR_KEY); } catch {}
+      }
+
       // ── Salesman ──
       setSalesmanLoading(true);
       const smList = await CC.loadSalesmanData(MComid); // ← from Common.jsx
@@ -474,16 +518,63 @@ const doLoadData = async (smList, keyword = "", column = "", page = 1) => {
       setSalesmanLoading(false);
 
       // ── Suppliers ──
-      await doLoadData(smList, "", "", 1);
+      if (!draftRestored) await doLoadData(smList, "", "", 1);
+
+      setDataLoaded(true);
     };
     init();
   }, []); 
+    const openSalesmanPicker = useCallback((rowIdx) => {
+    setPickerTarget({ rowIdx, currentName: grid[rowIdx]?.SalesName || "" });
+  }, [grid]);
 const goToPage = useCallback((page) => {
   if (page < 1 || page > pageLen || page === curPage) return;
   doLoadData(salesmanRef.current, "", "", page);
 }, [pageLen, curPage]);
   // Store doLoadData in ref so handleSave can call it without being a dep
 loadDataRef.current = () => doLoadData(salesmanRef.current, "", "", curPage);
+
+  // ── Master-create return: reopen salesman picker after data loads ────────
+  useEffect(() => {
+    if (dataLoaded && pendingReturnRef.current) {
+      const { retId, cur } = pendingReturnRef.current;
+      pendingSelectRef.current = retId;
+      pendingReturnRef.current = null;
+      if (cur?.rowIdx != null) openSalesmanPicker(cur.rowIdx);
+    }
+  }, [dataLoaded, openSalesmanPicker]);
+const onSalesmanSelect = useCallback(({ SalesManName, Id }) => {
+  if (!pickerTarget) return;
+  const { rowIdx } = pickerTarget;
+
+  setGrid(prev => prev.map((r, i) =>
+    i === rowIdx
+      ? { ...r, SalesName: SalesManName || "", SalemanRefid: Id ?? null, EditMode: 1 }
+      : r
+  ));
+  setPickerTarget(null);
+
+  // SalesName next column-க்கு focus
+  setTimeout(() => {
+    const colIdx = editableFields.indexOf("SalesName");
+    if (colIdx >= 0 && colIdx < editableFields.length - 1) {
+      focusCell(rowIdx, editableFields[colIdx + 1]);
+    }
+  }, 60);
+}, [pickerTarget, editableFields, focusCell]);
+  // ── Master-create return: auto-select newly created salesman ─────────────
+  useEffect(() => {
+    if (pickerTarget && salesmanList.length > 0 && pendingSelectRef.current) {
+      const match = salesmanList.find(s => String(s.Id ?? s.id) === String(pendingSelectRef.current));
+      if (match) {
+        pendingSelectRef.current = null;
+        onSalesmanSelect({ SalesManName: match.SalesManName || match.salesmanname || "", Id: match.Id || match.id || null });
+      } else {
+        pendingSelectRef.current = null;
+        toast("⚠️ Newly created Sales Man could not be automatically selected.", true);
+      }
+    }
+  }, [pickerTarget, salesmanList, onSalesmanSelect, toast]);
 
   // ── addRow ────────────────────────────────────────────────────────────────
   const addRow = useCallback(() => {
@@ -512,30 +603,23 @@ loadDataRef.current = () => doLoadData(salesmanRef.current, "", "", curPage);
   // }, []);
 
   // ── Salesman picker ───────────────────────────────────────────────────────
-  const openSalesmanPicker = useCallback((rowIdx) => {
-    setPickerTarget({ rowIdx, currentName: grid[rowIdx]?.SalesName || "" });
-  }, [grid]);
+
+
+  // ── handleCreateNew — mirrors Customer.jsx Area "Create New" flow ─────────
+  // Navigates to /SalesMan master, saves draft + cursor so it can be restored.
+  const handleCreateNew = useCallback((typed, rowIdx) => {
+    sessionStorage.setItem("masterPrefill", typed.trim());
+    try {
+      sessionStorage.setItem("masterReturnField", "SalesName");
+      sessionStorage.setItem(SUPPLIER_DRAFT_KEY, JSON.stringify(grid));
+      sessionStorage.setItem(SUPPLIER_CURSOR_KEY, JSON.stringify({ rowIdx }));
+    } catch {}
+    setPickerTarget(null);
+    navigate("/SalesMan");
+  }, [grid, navigate]);
 
 // ── onSalesmanSelect — popup-ல் item select பண்ணினா next cell ──
-const onSalesmanSelect = useCallback(({ SalesManName, Id }) => {
-  if (!pickerTarget) return;
-  const { rowIdx } = pickerTarget;
 
-  setGrid(prev => prev.map((r, i) =>
-    i === rowIdx
-      ? { ...r, SalesName: SalesManName || "", SalemanRefid: Id ?? null, EditMode: 1 }
-      : r
-  ));
-  setPickerTarget(null);
-
-  // SalesName next column-க்கு focus
-  setTimeout(() => {
-    const colIdx = editableFields.indexOf("SalesName");
-    if (colIdx >= 0 && colIdx < editableFields.length - 1) {
-      focusCell(rowIdx, editableFields[colIdx + 1]);
-    }
-  }, 60);
-}, [pickerTarget, editableFields, focusCell]);
 
 // ── onSalesmanClose — popup cancel/escape → same SalesName cell-க்கே திரும்பு ──
 const onSalesmanClose = useCallback(() => {
@@ -1019,7 +1103,7 @@ function PwModal({ title, comid, onOk, onClose }) {
       <Topbar />
       {loading && <div className="mp-loader-ov"><div className="mp-ldr-box"><div className="mp-spin"/><div className="mp-ldr-msg">Processing…</div></div></div>}
       {f12Open && <F12Popup />}
-      {pickerTarget && <SalesmanPicker salesmanList={salesmanList} initialSearch={pickerTarget.currentName} onSelect={onSalesmanSelect} onClose={onSalesmanClose} />}
+      {pickerTarget && <SalesmanPicker salesmanList={salesmanList} initialSearch={pickerTarget.currentName} onSelect={onSalesmanSelect} onClose={onSalesmanClose} onCreateNew={(val) => handleCreateNew(val, pickerTarget.rowIdx)} />}
 <div className="mp-body" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
 
   {/* ── TOP TOOLBAR: Title + Filter ── */}

@@ -174,7 +174,7 @@ export default function DCBBranchStockReport() {
   // ── Report viewer opener — same pattern used across converted pages ─────
   const openReportViewer = useCallback((params) => {
     const qs = new URLSearchParams(params).toString();
-    const url = `${BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
+    const url = `${CC.BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
 
     const w = window.open(
       url,

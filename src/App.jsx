@@ -9,8 +9,8 @@ import Companycreation from "./components/Companycreation";
 
 
 import BrandMaster from "./Master/Brandmaster";
-// import Area from "./Master/AreaMaster";
-// import CustomerCardTypeMaster from "./Master/CustomerCardTypeMaster";
+ import Area from "./Master/AreaMaster";
+ import CustomerCardTypeMaster from "./Master/CustomerCardTypeMaster";
 
 import CategoryMaster from "./Master/Categorymaster";
 import DepartmentMaster from "./Master/DepartmentMaster";
@@ -20,6 +20,7 @@ import LocationMaster from "./Master/LocationMaster";
 import CompanyMaster from "./Master/CompanyMaster";
 import CashierMaster from "./Master/CashierMaster";
 import SizeMaster from "./Master/SizeMaster";
+import Pattymaster from "./Master/Pattymaster";
 import ColorMaster from "./Master/ColorMaster";
 import ModelMaster from "./Master/ModelMaster";
 import RateChange from "./Master/RateChange";
@@ -165,18 +166,19 @@ function App() {
         
         {/* MASTER */}
         <Route path="/Brand" element={<BrandMaster />} />
-         {/* <Route path="/Area" element={<Area />} /> */}
+        <Route path="/Area" element={<Area />} /> 
         <Route path="/Category" element={<CategoryMaster />} />
         <Route path="/Department" element={<DepartmentMaster />} />
         <Route path="/Supplier" element={<SupplierMaster />} />
         <Route path="/UOM" element={<UomMaster />} />
+        <Route path="/Pattymaster" element={<Pattymaster />} />
         <Route path="/Location" element={<LocationMaster />} />
         <Route path="/CompanySetting" element={<CompanyMaster />} />
         <Route path="/Cashier" element={<CashierMaster />} />
         <Route path="/SizeMaster" element={<SizeMaster />} />
         <Route path="/ColorMaster" element={<ColorMaster />} />
         
-         {/* <Route path="/CustomerCardTypeMaster" element={<CustomerCardTypeMaster />} /> */}
+       <Route path="/CustomerCardTypeMaster" element={<CustomerCardTypeMaster />} /> 
         <Route path="/ModelMaster" element={<ModelMaster />} />
         <Route path="/RateChange" element={<RateChange />} />
         <Route path="/Customer" element={<CustomerMaster />} />        

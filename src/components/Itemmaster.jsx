@@ -1847,8 +1847,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
             : handleEntryChange(cd.key, e.target.value);
         }}
         onKeyDown={e=>handleEntryKeyDown(e,cd.key)}
-        placeholder={isAG?"Auto Generated":cd.label}
-        readOnly={isAG} />
+        placeholder={isAG?"Auto Generated":cd.label} />
     );
   }, [entryRow,handleEntryChange,handleEntryKeyDown,openComboEntry,sess]);
 

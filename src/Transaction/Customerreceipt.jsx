@@ -95,7 +95,7 @@ const COL_NAV = [
   grdSupplierName, grdSalesName,
   grdCashAmount, grdRTGSAmt, grdRTGSNo,
   grdChequeAmount, grdChequeNo, grdChequeDate,
-  grdBankName, grdChequeStatus,
+  grdBankName,
   grdDiscountAmount, grdNarration, grdAmount,
 ];
 
@@ -1064,6 +1064,7 @@ console.log(pendingDetails);
     setPendingWin({ bills, rowIdx });
   },[sess.Comid,sess.MComid,redirectIfDualLogin]);
   // ── handleCellKeyDown (mirrors gridCustomerReceipt keydown) ─────────────
+// ── handleCellKeyDown (mirrors gridCustomerReceipt keydown) ─────────────
   const handleCellKeyDown = useCallback((e, idx, field)=>{
     // Ctrl+Del → delete row
     if(e.keyCode===46&&e.ctrlKey){ e.preventDefault(); deleteRow(idx); return; }
@@ -1074,6 +1075,18 @@ console.log(pendingDetails);
     const row = gridRef.current[idx];
     if(!row) return;
     const value = row[field];
+
+    // Helper — target column visible-ஆ இருந்தா நேரடியா focus பண்ணு,
+    // இல்லாட்டி moveNext()-ஐ கூப்பிட்டு COL_NAV வழியா next visible
+    // column-க்கு தானாகவே போகும் (column hide/show setting-ஐ respect பண்ணும்).
+    const goToOrSkip = (targetField, fromField) => {
+      const isVisible = visibleColumns.some(vc => vc.field === targetField);
+      if (isVisible) {
+        focusCell(idx, targetField);
+      } else {
+        moveNext(idx, fromField);
+      }
+    };
 
     if(field===grdSupplierName){
       setCustPopup({ open:true,rowIdx:idx,prefill:row[grdSupplierName]||"" });
@@ -1087,58 +1100,62 @@ console.log(pendingDetails);
     else if(field===grdCashAmount){
       updateCell(idx,grdCashAmount,fmt2(value));
       if(!calculation(idx,{...row,[grdCashAmount]:value})) return;
-      
       else moveNext(idx,field);
     }
-else if (field === grdRTGSAmt) {
-  updateCell(idx, grdRTGSAmt, fmt2(value));
-  if (!calculation(idx, { ...row, [grdRTGSAmt]: value })) return;
+    else if (field === grdRTGSAmt) {
+      updateCell(idx, grdRTGSAmt, fmt2(value));
+      if (!calculation(idx, { ...row, [grdRTGSAmt]: value })) return;
 
-  if (vn(value) > 0) {
-    focusCell(idx, grdRTGSNo);      // RTGSAmt > 0 → go to RTGSNo
-  } else {
-    updateCell(idx, grdRTGSNo, ""); // clear RTGSNo
-    moveNext(idx, field);           // ✅ use moveNext — skips hidden ChequeAmt correctly
-  }
-}
-
-else if(field===grdRTGSNo){
-    if(vn(row[grdRTGSAmt]) > 0){
-        focusCell(idx, grdBankName);  // BankName-க்கு போ
-    } else {
-        moveNext(idx, field);         // skip
+      if (vn(value) > 0) {
+        // RTGSAmt > 0 → RTGSNo-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+        goToOrSkip(grdRTGSNo, grdRTGSAmt);
+      } else {
+        updateCell(idx, grdRTGSNo, "");
+        // ✅ FIX: field-ஐ grdRTGSNo-ஆ கொடுத்து moveNext கூப்பிடணும் —
+        // ஏன்னா COL_NAV-ல் RTGSAmt-க்கு அடுத்தது RTGSNo தான். "field"
+        // (grdRTGSAmt) கொடுத்தா RTGSNo-க்கே போயிடும் (skip ஆகாது).
+        // "grdRTGSNo" கொடுத்தா, அதையும் கடந்து அடுத்த column-க்கு போகும்.
+        moveNext(idx, grdRTGSNo);
+      }
     }
-}
-
-else if(field===grdChequeAmount){
-    updateCell(idx, grdChequeAmount, fmt2(value));
-    if(!calculation(idx, {...row, [grdChequeAmount]:value})) return;
-
-    if(vn(value) > 0){
-        focusCell(idx, grdChequeNo);        // ChequeAmt > 0 → ChequeNo போ
-    } else {
-        updateCell(idx, grdChequeNo, "");   // clear
-        updateCell(idx, grdChequeDate, ""); // clear
-        focusCell(idx, grdDiscountAmount);  // ✅ Discount-க்கு போ
+    else if(field===grdRTGSNo){
+        if(vn(row[grdRTGSAmt]) > 0){
+            // BankName-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+            goToOrSkip(grdBankName, grdRTGSNo);
+        } else {
+            moveNext(idx, field);
+        }
     }
-}
+    else if(field===grdChequeAmount){
+        updateCell(idx, grdChequeAmount, fmt2(value));
+        if(!calculation(idx, {...row, [grdChequeAmount]:value})) return;
 
-else if(field===grdChequeNo){
-    // ✅ FIX: always go to ChequeDate if ChequeAmt > 0
-    if(vn(row[grdChequeAmount]) > 0){
-        focusCell(idx, grdChequeDate);
-    } else {
-        moveNext(idx, field);
+        if(vn(value) > 0){
+            // ChequeAmt > 0 → ChequeNo-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+            goToOrSkip(grdChequeNo, grdChequeAmount);
+        } else {
+            updateCell(idx, grdChequeNo, "");
+            updateCell(idx, grdChequeDate, "");
+            // Discount-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+            goToOrSkip(grdDiscountAmount, grdChequeAmount);
+        }
     }
-}
-
-else if(field===grdChequeDate){
-    if(vn(row[grdChequeAmount]) > 0){
-        focusCell(idx, grdBankName);  // Bank-க்கு போ
-    } else {
-        moveNext(idx, field);         // skip
+    else if(field===grdChequeNo){
+        if(vn(row[grdChequeAmount]) > 0){
+            // ChequeAmt > 0 → ChequeDate-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+            goToOrSkip(grdChequeDate, grdChequeNo);
+        } else {
+            moveNext(idx, field);
+        }
     }
-}
+    else if(field===grdChequeDate){
+        if(vn(row[grdChequeAmount]) > 0){
+            // BankName-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+            goToOrSkip(grdBankName, grdChequeDate);
+        } else {
+            moveNext(idx, field);
+        }
+    }
     else if(field===grdDiscountAmount){
       updateCell(idx,grdDiscountAmount,fmt2(value));
       if(!calculation(idx,{...row,[grdDiscountAmount]:value})) return;
@@ -1164,7 +1181,7 @@ else if(field===grdChequeDate){
     else {
       moveNext(idx,field);
     }
-  },[calculation,moveNext,focusCell,updateCell,toast,sess.PaymentBillWise,deleteRow,,openPendingBills]);
+  },[calculation,moveNext,focusCell,updateCell,toast,sess.PaymentBillWise,deleteRow,visibleColumns,openPendingBills]);
 
 
 

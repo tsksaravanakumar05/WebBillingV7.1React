@@ -13,6 +13,14 @@
 //     is always recomputed from the stored IncPurRate (never from the already-converted value).
 //  8. F2 Free Product — the row now turns green (like the legacy jQuery "editedRow" cellclass)
 //     whenever FreeQtyStatus === 1, so it's visually obvious which rows are free-product rows.
+//  9. PURCHASE MODE (Purchase / Sales Patty / Arrival / Patty Bill) — ported from
+//     frmpurchase.cs rdbpurchase/rdbpatti/rdbsalespatty/rdbarrival + clsfunction.CMBTPatty.
+//     A 4-way radio group drives dynamic labels (Purchase No→Arrival No, etc.), extra
+//     Arrival fields (Days / Dispatched Date), a Patty side-panel (Commission % or
+//     Lorry-Freight/Cooly Bag-Rate × Kgs/Bags — mirrors grdPatty math exactly), and the
+//     deduction of the Patty total from the Net Amount. Default mode is PURCHASE, so every
+//     existing calculation/validation/save path behaves exactly as before unless the user
+//     explicitly switches mode.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -253,6 +261,10 @@ const makeGridRow = () => ({
   ModelId:            "",
   ColorId:            "",
   GengerId:           "",
+  // ── Patty / Arrival grid fields (mirror grdPurchaseBags / LotNo / Mark in frmpurchase.cs) ──
+  Bags:               "0.00",
+  LotNo:              "",
+  Mark:               "",
   ToSizeId:           "",
   SizeCombo:          "",
   BrandCombo:         "",
@@ -287,6 +299,10 @@ const getBatchNoLabel = () => {
 };
 
 // ─── Grid column definitions ──────────────────────────────────────────────────
+// NOTE: Bags / LotNo / Mark carry `modes` — they are only shown when purchaseMode
+// is ARRIVAL / PATTY / SALESPATTY (mirrors grdPurchase.Columns[...].Visible toggling
+// inside LoadArrival() in frmpurchase.cs). All other columns are visible in every mode
+// (modes: undefined ⇒ "always").
 const BASE_COLUMNS = [
   { key: "ProductCode",     label: "Product Code",  defaultWidth: 110, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
   { key: "ProductName",     label: "Description",   defaultWidth: 200, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
@@ -298,6 +314,7 @@ const BASE_COLUMNS = [
   { key: "StockQty",        label: "Stock",         defaultWidth: 70,  align: "right", editable: false, type: "num",   defaultVisible: true  },
   { key: "ItemQty",         label: "Quantity",      defaultWidth: 80,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
   { key: "FreeQty",         label: "Free Qty",      defaultWidth: 75,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
+  { key: "Bags",            label: "Bags",          defaultWidth: 70,  align: "right", editable: true,  type: "num",   defaultVisible: true,  modes: ["ARRIVAL", "PATTY", "SALESPATTY"] },
   { key: "cdpercent",       label: "C.D(%)",        defaultWidth: 70,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
   { key: "cdAmount",        label: "C.D Amt",       defaultWidth: 75,  align: "right", editable: false, type: "num",   defaultVisible: true  },
   { key: "DiscountPercent", label: "Disc(%)",       defaultWidth: 65,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
@@ -310,6 +327,8 @@ const BASE_COLUMNS = [
   { key: "Bat_No",          label: getBatchNoLabel(), defaultWidth: 90, align: "left",  editable: true,  type: "text",  defaultVisible: false },
   { key: "MfgDate",         label: "Mfg Date",      defaultWidth: 95,  align: "left",  editable: true,  type: "date",  defaultVisible: false },
   { key: "ExpiryDate",      label: "Exp Date",      defaultWidth: 95,  align: "left",  editable: true,  type: "date",  defaultVisible: false },
+  { key: "LotNo",           label: "Lot No",        defaultWidth: 90,  align: "left",  editable: true,  type: "text",  defaultVisible: true,  modes: ["ARRIVAL", "PATTY", "SALESPATTY"] },
+  { key: "Mark",            label: "Mark",          defaultWidth: 90,  align: "left",  editable: true,  type: "text",  defaultVisible: true,  modes: ["ARRIVAL", "PATTY", "SALESPATTY"] },
   { key: "Salerate",        label: "Sale Rate",     defaultWidth: 85,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
   { key: "BrandId",         label: "Brand",         defaultWidth: 100, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
   { key: "ModelId",         label: "Model",         defaultWidth: 100, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
@@ -348,6 +367,23 @@ const FORM_COLUMNS = [
   { column: "txtremarks",      text: "Remarks"      },
 ];
 
+// ─── PATTY_ROW_TEMPLATE — mirrors grdPatty seed rows (COMMISSION/LORRY FREIGHT/COOLY) ─
+// used only as a fallback when PattySelect returns nothing yet, so the panel isn't empty.
+const PATTY_ROW_TEMPLATE = [
+  { Id: 0, PattyName: "COMMISSION" },
+  { Id: 0, PattyName: "LORRY FREIGHT" },
+  { Id: 0, PattyName: "COOLY" },
+];
+
+// ─── MODE_LABELS — mirrors the lbPurchaseNo/lbPurchaseDate/lbPurchaseType.Text
+// swap done inside LoadArrival() in frmpurchase.cs for each radio mode. ─────────
+const MODE_LABELS = {
+  PURCHASE:   { no: "Purchase No",  date: "Purchase Date",   type: "Purchase Type",   title: "Purchase Details"  },
+  ARRIVAL:    { no: "Arrival No",   date: "Arrival Date",    type: "Arrival Type",    title: "Arrival Details"   },
+  PATTY:      { no: "Patty No",     date: "Arrival Date",    type: "Patty Type",      title: "Patty Details"     },
+  SALESPATTY: { no: "SalePatty No", date: "SalePatty Date",  type: "SalePatty Type",  title: "SalePatty Details" },
+};
+
 // ─── TotalRow sub-component ───────────────────────────────────────────────────
 function TotalRow({ label, value }) {
   return (
@@ -357,7 +393,16 @@ function TotalRow({ label, value }) {
     </div>
   );
 }
-
+// exceedsDecimalLimit — UOMDecimal-ஐ விட அதிகமான decimal digits இருந்தா true return பண்ணும்.
+// UOMDecimal = 2 → "12.345" (dot-க்கு பின் 3 digits) => true (block பண்ணனும்)
+// UOMDecimal = 0 → "." கூட allow பண்ணக்கூடாது
+const exceedsDecimalLimit = (value, decimals) => {
+  const str = String(value ?? "");
+  const dotIdx = str.indexOf(".");
+  if (dotIdx === -1) return false;
+  const fracLen = str.length - dotIdx - 1;
+  return fracLen > valNum(decimals);
+};
 // ─── PurchasesMaster ──────────────────────────────────────────────────────────
 export default function Purchase() {
   const navigate = useNavigate();
@@ -411,9 +456,9 @@ export default function Purchase() {
   const [invoiceNo,     setInvoiceNo    ] = useState("");
   const [invoiceAmt,    setInvoiceAmt   ] = useState("0.00");
   const [f3PromptOpen,  setF3PromptOpen ] = useState(false);
-const [f3PromptValue, setF3PromptValue] = useState("");
-const [f3PromptError, setF3PromptError] = useState("");
-const f3InputRef = useRef(null);
+  const [f3PromptValue, setF3PromptValue] = useState("");
+  const [f3PromptError, setF3PromptError] = useState("");
+  const f3InputRef = useRef(null);
   const [remarks,       setRemarks      ] = useState("");
   const [purchaseType,  setPurchaseType ] = useState("CREDIT");
   const [igstStatus,    setIgstStatus   ] = useState("GST");
@@ -431,6 +476,41 @@ const f3InputRef = useRef(null);
   const [loadding,      setLoadding     ] = useState("");     // eslint-disable-line
   const [lorryNo,       setLorryNo      ] = useState("");     // eslint-disable-line
   const [discPer,       setDiscPer      ] = useState("0.00");
+
+  // ── PURCHASE MODE (mirrors rdbpurchase / rdbpatti / rdbsalespatty / rdbarrival +
+  //     clsfunction.CMBTPatty in frmpurchase.cs) ───────────────────────────────
+  // "PURCHASE" (default) → every existing calculation/validation/save path is
+  // 100% unchanged. Switching mode only adds behaviour on top; nothing about the
+  // PURCHASE-mode path is altered.
+  const [purchaseMode, setPurchaseMode] = useState("PURCHASE"); // PURCHASE | PATTY | SALESPATTY | ARRIVAL
+  // Derived flag — true whenever the Patty side-panel + deduction math should engage
+  // (mirrors "PattyStatus == 2" i.e. rdbpatti or rdbsalespatty checked in the .cs).
+  const pattyMode = purchaseMode === "PATTY" || purchaseMode === "SALESPATTY";
+  const modeLabels = MODE_LABELS[purchaseMode];
+const [pattyFeatureEnabled, setPattyFeatureEnabled] = useState(true);
+  // Arrival-only fields (mirror txtdays / dtpdispatchedDate in the .cs)
+  const [arrivalDays,    setArrivalDays   ] = useState(0);
+  const [dispatchedDate, setDispatchedDate] = useState(today());
+
+  // Patty vehicle/person fields (mirror txtvehicleno / txtperson / dtppattidate)
+  const [pattyVehicleNo, setPattyVehicleNo] = useState("");
+  const [pattyPerson,    setPattyPerson]    = useState("");
+  const [pattyDate,      setPattyDate]      = useState(today());
+
+  // Patty grid rows (Commission / Lorry Freight / Cooly) — loaded from PattySelect
+  // the first time the user switches into PATTY / SALESPATTY mode.
+  const [pattyRows,   setPattyRows  ] = useState([]);
+  const [pattyLoaded, setPattyLoaded] = useState(false);
+
+  // Arrival: Days → Dispatched Date auto-fill (mirrors the DueDate auto-fill pattern
+  // already used for creditDays below, applied instead to Arrival's own date pair).
+  useEffect(() => {
+    if (purchaseMode !== "ARRIVAL" || !arrivalDays) return;
+    const base = new Date(purchaseDate);
+    if (isNaN(base.getTime())) return;
+    base.setDate(base.getDate() + arrivalDays);
+    setDispatchedDate(base.toISOString().split("T")[0]);
+  }, [purchaseDate, arrivalDays, purchaseMode]);
 
   // ── Supplier autocomplete ──────────────────────────────────────────────────
   const [supplierQuery,    setSupplierQuery   ] = useState("");
@@ -515,6 +595,15 @@ const f3InputRef = useRef(null);
   const cStatus = batchWise && (colConfig.find(c => c.key === "ColorId")?.visible ?? true) ? 1 : 0;
   const mStatus = batchWise && (colConfig.find(c => c.key === "ModelId")?.visible ?? true) ? 1 : 0;
 
+  // ── Column visibility helper — combines F12 colConfig with mode-restricted
+  // columns (Bags/LotNo/Mark only in ARRIVAL/PATTY/SALESPATTY; mirrors the
+  // grdPurchase.Columns[...].Visible toggling in LoadArrival()). ───────────────
+  const isColVisible = useCallback((col) => {
+    if (col.modes && !col.modes.includes(purchaseMode)) return false;
+    const cfg = colConfig.find((x) => x.key === col.key);
+    return cfg ? cfg.visible : col.defaultVisible;
+  }, [colConfig, purchaseMode]);
+
   // ── Refs ───────────────────────────────────────────────────────────────────
   const supplierRef          = useRef(null);
   const invoiceNoRef         = useRef(null);
@@ -535,11 +624,79 @@ const f3InputRef = useRef(null);
   // ─────────────────────────────────────────────────────────────────────────
   //  ROW CALCULATION
   // ─────────────────────────────────────────────────────────────────────────
+//   const calcRow = useCallback((row) => {
+//     const qty        = valNum(row.ItemQty) + valNum(row.NomQty);
+//     const nomqty     = valNum(row.NomQty) === 0 ? 1 : valNum(row.NomQty);
+//     const purRate    = valNum(row.PurchaseRate);
+    
+//     // Calculate the raw amounts based on entered rate
+//     const enteredAmt = roundOff(purRate * qty);
+//     const cdAmt      = roundOff(enteredAmt * (valNum(row.cdpercent) / 100));
+//     const discAmt    = roundOff((enteredAmt - cdAmt) * (valNum(row.DiscountPercent) / 100));
+//     const netEnteredAmt = enteredAmt - cdAmt - discAmt;
+
+//     let taxableAmt, gstAmt;
+//     const taxPercent = valNum(row.TaxPercent);
+
+//     if (taxMode === "inclusive") {
+//         taxableAmt = roundOff(netEnteredAmt / (1 + (taxPercent / 100)));
+//         gstAmt = roundOff(netEnteredAmt - taxableAmt);
+//     } else {
+//         taxableAmt = roundOff(netEnteredAmt);
+//         gstAmt = roundOff(taxableAmt * (taxPercent / 100));
+//     }
+
+//     const netRate = qty !== 0 ? roundOff(taxableAmt / qty) : 0;
+//     const transAmt   = roundOff(taxableAmt * (valNum(row.TransPer) / 100));
+//     const cessAmt    = roundOff(taxableAmt * (valNum(row.CESSPer) / 100));
+//     const splCessAmt = roundOff(qty * valNum(row.SPLCESS));
+
+//     const isIGST = igstStatus === "IGST" || igstStatus === "UGST";
+//     const ctAmt = isIGST ? gstAmt : roundOff(gstAmt / 2);
+//     const stAmt = isIGST ? 0 : gstAmt - ctAmt;
+//     const igstAmtOut = 0;
+
+//     const landingCost = qty !== 0
+//       ? roundOff(netRate + (gstAmt + cessAmt + splCessAmt) / qty)
+//       : 0;
+
+//     let amount;
+//     if (taxMode === "inclusive") {
+//        amount = roundOff(netEnteredAmt + cessAmt + splCessAmt + transAmt);
+//     } else {
+//        amount = roundOff(netEnteredAmt + gstAmt + cessAmt + splCessAmt + transAmt);
+//     }
+
+//     const stockQty  = roundOff(nomqty * qty + valNum(row.FreeQty));
+//    return {
+//   ...row,
+//   PurchaseRate: taxMode === "inclusive"
+//     ? fmt2(netRate)
+//     : row.PurchaseRate,
+
+//   cdAmount:      fmt2(cdAmt),
+//   DiscountAmt:   fmt2(discAmt),
+//   TransAmt:      fmt2(transAmt),
+//   CESSAmount:    fmt2(cessAmt),
+//   SPLCESSAmount: fmt2(splCessAmt),
+//   TaxAmt:        fmt2(gstAmt),
+//   CTAmount:      fmt2(ctAmt),
+//   STAmount:      fmt2(stAmt),
+//   IGSTAmt:       fmt2(igstAmtOut),
+//   LandingCost:   fmt2(landingCost),
+//   Amount:        fmt2(amount),
+//   ProductTotal:  fmt2(enteredAmt),
+//   StockQtyNew:   fmt2(stockQty),
+// };
+//   }, [igstStatus, taxMode]);
+// ─────────────────────────────────────────────────────────────────────────
+  //  ROW CALCULATION
+  // ─────────────────────────────────────────────────────────────────────────
   const calcRow = useCallback((row) => {
     const qty        = valNum(row.ItemQty) + valNum(row.NomQty);
     const nomqty     = valNum(row.NomQty) === 0 ? 1 : valNum(row.NomQty);
     const purRate    = valNum(row.PurchaseRate);
-    
+
     // Calculate the raw amounts based on entered rate
     const enteredAmt = roundOff(purRate * qty);
     const cdAmt      = roundOff(enteredAmt * (valNum(row.cdpercent) / 100));
@@ -579,28 +736,24 @@ const f3InputRef = useRef(null);
     }
 
     const stockQty  = roundOff(nomqty * qty + valNum(row.FreeQty));
-   return {
-  ...row,
-  PurchaseRate: taxMode === "inclusive"
-    ? fmt2(netRate)
-    : row.PurchaseRate,
 
-  cdAmount:      fmt2(cdAmt),
-  DiscountAmt:   fmt2(discAmt),
-  TransAmt:      fmt2(transAmt),
-  CESSAmount:    fmt2(cessAmt),
-  SPLCESSAmount: fmt2(splCessAmt),
-  TaxAmt:        fmt2(gstAmt),
-  CTAmount:      fmt2(ctAmt),
-  STAmount:      fmt2(stAmt),
-  IGSTAmt:       fmt2(igstAmtOut),
-  LandingCost:   fmt2(landingCost),
-  Amount:        fmt2(amount),
-  ProductTotal:  fmt2(enteredAmt),
-  StockQtyNew:   fmt2(stockQty),
-};
+    return {
+      ...row,
+      cdAmount:      fmt2(cdAmt),
+      DiscountAmt:   fmt2(discAmt),
+      TransAmt:      fmt2(transAmt),
+      CESSAmount:    fmt2(cessAmt),
+      SPLCESSAmount: fmt2(splCessAmt),
+      TaxAmt:        fmt2(gstAmt),
+      CTAmount:      fmt2(ctAmt),
+      STAmount:      fmt2(stAmt),
+      IGSTAmt:       fmt2(igstAmtOut),
+      LandingCost:   fmt2(landingCost),
+      Amount:        fmt2(amount),
+      ProductTotal:  fmt2(enteredAmt),
+      StockQtyNew:   fmt2(stockQty),
+    };
   }, [igstStatus, taxMode]);
-
   // Recalculate all rows when global tax settings change so existing rows reflect the new IGST/CGST split
   useEffect(() => {
     setGridRows((prev) => {
@@ -616,9 +769,57 @@ const f3InputRef = useRef(null);
     });
   }, [igstStatus, taxMode, calcRow]);
 
+useEffect(() => {
+  const mainSet = JSON.parse(localStorage.getItem("Mainsetting") || "[{}]");
+  const val = mainSet?.[0]?.PattyStatus;
+  const enabled = val === true || val === "true" || val === 1 || val === "1";
+  setPattyFeatureEnabled("true");
+  if (!enabled) setPurchaseMode("PURCHASE");
+}, [isAuthorized]);
   // ─────────────────────────────────────────────────────────────────────────
   //  GST SPLIT + TOTALS
   // ─────────────────────────────────────────────────────────────────────────
+  // Effect 1 — IGST/GST status மாறும்போது மட்டும் trigger ஆகணும்.
+// calcRow-ஐ dependency-ல வைக்கல — ஏன்னா calcRow, igstStatus மாறும்போதே
+// மாறும் (useCallback deps common), அதை வச்சா taxMode மாத்தும்போது
+// இந்த effect தேவையில்லாம மறுபடி run ஆகி calcRow 2 தடவை call ஆகும்.
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => {
+  setGridRows((prev) => {
+    let changed = false;
+    const newRows = prev.map((r) => {
+      if (r.ProductCode) {
+        changed = true;
+        return calcRow(r);
+      }
+      return r;
+    });
+    return changed ? newRows : prev;
+  });
+}, [igstStatus]);
+
+
+const prevTaxModeRef = useRef(taxMode);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => {
+  const prevMode = prevTaxModeRef.current;
+  if (prevMode !== taxMode) {
+    setGridRows((prev) => prev.map((r) => {
+      if (!r.ProductCode) return r;
+      const tax = valNum(r.TaxPercent);
+      let rate = valNum(r.PurchaseRate);
+      if (tax > 0) {
+        if (prevMode === "exclusive" && taxMode === "inclusive") {
+          rate = rate / (1 + tax / 100);
+        } else if (prevMode === "inclusive" && taxMode === "exclusive") {
+          rate = rate * (1 + tax / 100);
+        }
+      }
+      return calcRow({ ...r, PurchaseRate: fmt2(rate) });
+    }));
+  }
+  prevTaxModeRef.current = taxMode;
+}, [taxMode]);
   const updateGstSplit = useCallback((rows) => {
     const map = {};
     rows.forEach((r) => {
@@ -675,6 +876,71 @@ const f3InputRef = useRef(null);
   }, [otherPlus, otherSub, tcsPercent, updateGstSplit, taxMode]);
 
   useEffect(() => { recalcTotals(gridRows); }, [gridRows, otherPlus, otherSub, recalcTotals]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  PATTY MODE — load & recompute (only active when pattyMode === true)
+  // ─────────────────────────────────────────────────────────────────────────
+  const loadPattyList = useCallback(async () => {
+    try {
+      const res = await CC.api(CC.PattySelect, null, {}, { Comid: sess.MComid });
+      const list = Array.isArray(res) ? res : (res?.data ?? res?.Data1 ?? []);
+      const source = (list && list.length > 0) ? list : PATTY_ROW_TEMPLATE;
+      setPattyRows(source.map((p) => ({
+        _key:       CC.uid(),
+        Id:         p.Id || 0,
+        PattyName:  p.PattyName || "",
+        Percentage: fmt2(p.Percentage || 0),
+        BagRate:    fmt2(p.BagRate || 0),
+        ComAmt:     "0.00",
+      })));
+    } catch {
+      setPattyRows(PATTY_ROW_TEMPLATE.map((p) => ({
+        _key: CC.uid(), Id: 0, PattyName: p.PattyName, Percentage: "0.00", BagRate: "0.00", ComAmt: "0.00",
+      })));
+    }
+    setPattyLoaded(true);
+  }, [sess.MComid]);
+
+  // Load once, the first time Patty mode is switched on (mirrors PattySelect() cache check)
+  useEffect(() => {
+    if (pattyMode && !pattyLoaded) loadPattyList();
+  }, [pattyMode, pattyLoaded, loadPattyList]);
+
+  const updatePattyPercentage = useCallback((key, value) => {
+    setPattyRows((prev) => prev.map((r) => (r._key === key ? { ...r, Percentage: value } : r)));
+  }, []);
+
+  const updatePattyBagRate = useCallback((key, value) => {
+    setPattyRows((prev) => prev.map((r) => (r._key === key ? { ...r, BagRate: value } : r)));
+  }, []);
+
+  // Totals needed by the Bag-Rate branch (mirrors TotKgs / TotBags accumulated
+  // inside Calculation() in frmpurchase.cs — summed across every non-free-product row).
+  const totKgs  = gridRows.reduce((s, r) => (r.ProductCode && !valNum(r.FreeQtyStatus)) ? s + valNum(r.ItemQty) : s, 0);
+  const totBags = gridRows.reduce((s, r) => (r.ProductCode && !valNum(r.FreeQtyStatus)) ? s + valNum(r.Bags)    : s, 0);
+
+  // Per-row Patty amount — mirrors the exact branch order in frmpurchase.cs (~line 2698-2741):
+  //   1) if Percentage is filled  → % of product total
+  //   2) else if BagRate is filled → LORRY FREIGHT: BagRate × TotKgs, COOLY: BagRate × TotBags
+  const computePattyRowAmt = useCallback((r) => {
+    const pct = valNum(r.Percentage);
+    if (pct !== 0) return roundOff(valNum(totals.productTotal) * (pct / 100));
+    const bagRate = valNum(r.BagRate);
+    if (bagRate === 0) return 0;
+    if (r.PattyName === "LORRY FREIGHT") return roundOff(bagRate * totKgs);
+    if (r.PattyName === "COOLY")         return roundOff(bagRate * totBags);
+    return 0;
+  }, [totals.productTotal, totKgs, totBags]);
+
+  const pattyTotal = pattyMode
+    ? fmt2(pattyRows.reduce((sum, r) => sum + computePattyRowAmt(r), 0))
+    : "0.00";
+
+  // Final Net Amount — identical to totals.netAmt when Patty mode is off.
+  // When on, the patty total is deducted (mirrors Ptotal = TotalItemAmt ... - patty ...).
+  const finalNetAmt = pattyMode
+    ? fmt2(roundOff(valNum(totals.netAmt) - valNum(pattyTotal)))
+    : totals.netAmt;
 
   // Credit days → DueDate auto-update
   useEffect(() => {
@@ -884,57 +1150,57 @@ const f3InputRef = useRef(null);
   // ─────────────────────────────────────────────────────────────────────────
   //  SUPPLIER HANDLERS
   // ─────────────────────────────────────────────────────────────────────────
-const handleSupplierChange = useCallback(async (sid, opts = {}) => {
-  const { skipIgst = false } = opts;
-  setSupplierId(sid);
-  if (!sid) { setSupplierInfo({ address: "", city: "", phone: "", balance: "0.00" }); return; }
-  const local = supplierList.find((s) => String(s.Id) === String(sid));
+  const handleSupplierChange = useCallback(async (sid, opts = {}) => {
+    const { skipIgst = false } = opts;
+    setSupplierId(sid);
+    if (!sid) { setSupplierInfo({ address: "", city: "", phone: "", balance: "0.00" }); return; }
+    const local = supplierList.find((s) => String(s.Id) === String(sid));
 
-  const applyIgstFromSupplier = (supplierObj) => {
-    if (skipIgst) return;                         // ← NEW: don't touch igst when caller already resolved it
-    const igstVal = supplierObj?.IGSTBill;
-    const isIgst  = igstVal === "IGST" || igstVal === "1" || igstVal === 2 || igstVal === "2";
-    setIgstStatus(isIgst ? "IGST" : "GST");
-    setIgstChecked(isIgst);
-  };
+    const applyIgstFromSupplier = (supplierObj) => {
+      if (skipIgst) return;                         // ← don't touch igst when caller already resolved it
+      const igstVal = supplierObj?.IGSTBill;
+      const isIgst  = igstVal === "IGST" || igstVal === "1" || igstVal === 2 || igstVal === "2";
+      setIgstStatus(isIgst ? "IGST" : "GST");
+      setIgstChecked(isIgst);
+    };
 
-  if (local) {
-    setSupplierInfo({
-      address: `${local.Address1 || ""} ${local.Address2 || ""}`.trim(),
-      city:    local.City     || "",
-      phone:   local.MobileNo || "",
-      balance: "0.00",
-    });
-    applyIgstFromSupplier(local);          // ← NEW
-    const cd = parseInt(local.CreditBillDays ?? 0, 10) || 0;
-    setCreditDays(cd);
-    if (cd > 0) {
-      const base = new Date();
-      base.setDate(base.getDate() + cd);
-      setDueDate(base.toISOString().split("T")[0]);
-    }
-  } else {
-    const res = await CC.api(CC.SupplierById, null, {}, { Id: sid, Comid: sess.MComid });
-    if (redirectIfDualLogin(res)) return;
-    const s = res?.data?.[0] ?? res?.Data?.[0] ?? (Array.isArray(res?.data) ? res.data[0] : null);
-    if (s) {
+    if (local) {
       setSupplierInfo({
-        address: `${s.Address1 || ""} ${s.Address2 || ""}`.trim(),
-        city:    s.City     || "",
-        phone:   s.MobileNo || "",
+        address: `${local.Address1 || ""} ${local.Address2 || ""}`.trim(),
+        city:    local.City     || "",
+        phone:   local.MobileNo || "",
         balance: "0.00",
       });
-      applyIgstFromSupplier(s);            // ← NEW
+      applyIgstFromSupplier(local);
+      const cd = parseInt(local.CreditBillDays ?? 0, 10) || 0;
+      setCreditDays(cd);
+      if (cd > 0) {
+        const base = new Date();
+        base.setDate(base.getDate() + cd);
+        setDueDate(base.toISOString().split("T")[0]);
+      }
+    } else {
+      const res = await CC.api(CC.SupplierById, null, {}, { Id: sid, Comid: sess.MComid });
+      if (redirectIfDualLogin(res)) return;
+      const s = res?.data?.[0] ?? res?.Data?.[0] ?? (Array.isArray(res?.data) ? res.data[0] : null);
+      if (s) {
+        setSupplierInfo({
+          address: `${s.Address1 || ""} ${s.Address2 || ""}`.trim(),
+          city:    s.City     || "",
+          phone:   s.MobileNo || "",
+          balance: "0.00",
+        });
+        applyIgstFromSupplier(s);
+      }
     }
-  }
-  const balRes = await CC.api(CC.CurrentBalance, null, {}, {
-    Id: Number(sid), Comid: Number(sess.Comid), MComid: Number(sess.MComid),
-    TillDate: purchaseDate || today(), AccountType: "SUPPLIER",
-  });
-  if (redirectIfDualLogin(balRes)) return;
-  const balance = balRes?.ok ? fmt2(valNum(balRes.data)) : "0.00";
-  setSupplierInfo((prev) => ({ ...prev, balance }));
-}, [sess.Comid, sess.MComid, supplierList, purchaseDate, redirectIfDualLogin]);
+    const balRes = await CC.api(CC.CurrentBalance, null, {}, {
+      Id: Number(sid), Comid: Number(sess.Comid), MComid: Number(sess.MComid),
+      TillDate: purchaseDate || today(), AccountType: "SUPPLIER",
+    });
+    if (redirectIfDualLogin(balRes)) return;
+    const balance = balRes?.ok ? fmt2(valNum(balRes.data)) : "0.00";
+    setSupplierInfo((prev) => ({ ...prev, balance }));
+  }, [sess.Comid, sess.MComid, supplierList, purchaseDate, redirectIfDualLogin]);
 
   const openSupplierDropdown = useCallback(() => {
     if (supplierList.length === 0) return;
@@ -1027,18 +1293,22 @@ const handleSupplierChange = useCallback(async (sid, opts = {}) => {
       
       let row = { ...prev[idx] };
 
-      // if (colKey === "ItemQty") {
-      //   if (row.UOMDecimal === 0 && String(value).includes(".")) {
-      //     return prev;
-      //   }
-      // }
-if (colKey === "ItemQty") {
-  if (valNum(row.UOMDecimal) === 0 && String(value).includes(".")) {
-    return prev;   // UOMDecimal 0 ஆ இருந்தா "." type ஆக விடமாட்டோம்
+      if (colKey === "ItemQty") {
+        if (exceedsDecimalLimit(value, row.UOMDecimal)) {
+          return prev;   // UOMDecimal 0 ⇒ don't allow decimal typing
+        }
+      }
+      row[colKey] = value;
+if (colKey === "MfgDate") {
+  const expDays = valNum(row.Expirydays);
+  if (value && expDays > 0) {
+    const mfg = new Date(value);
+    if (!isNaN(mfg.getTime())) {
+      mfg.setDate(mfg.getDate() + expDays);
+      row.ExpiryDate = mfg.toISOString().split("T")[0];
+    }
   }
 }
-      row[colKey] = value;
-
       if (purRateInclusive && colKey === "PurchaseRate") {
         row.IncPurRate = valNum(value);
       } else if (!purRateInclusive && colKey === "PurchaseRate") {
@@ -1058,7 +1328,7 @@ if (colKey === "ItemQty") {
       
       let r = { ...prev[idx] };
       if (value !== undefined) {
-       if (colKey === "ItemQty" && valNum(r.UOMDecimal) === 0 && String(value).includes(".")) {
+       if (colKey === "ItemQty" && exceedsDecimalLimit(value, r.UOMDecimal)) {
           // Keep old value
         } else {
           r[colKey] = value;
@@ -1262,39 +1532,50 @@ if (colKey === "ItemQty") {
       const idx = prev.findIndex((r) => r._key === rowKey);
       if (idx === -1) return prev;
       let row = {
-        ...prev[idx],
-        ProductRefId:    p.Id,
-        ProductCode:     p.ProductCode || p.Prod_Code || "",
-        ProductName:     p.ProductName || p.PName     || "",
-        HSNCode:         p.HSNCode     || "",
-        UOM:             p.UOM         || "",
-        UOMDecimal:      p.UOMDecimal  ?? 3,
-        UOMRefid:        p.UomRefid    || p.UOMRefId  || "",
-        MRP:             fmt2(p.MRP            || 0),
-        OldMRP:          fmt2(p.MRP            || 0),
-        PurchaseRate:    fmt2(p.PurchaseRate   || 0),
-        OldPurchaseRate: fmt2(p.PurchaseRate   || 0),
-        IncPurRate:      fmt2(p.PurchaseRate   || 0),
-        TaxPercent:      fmt2(p.GST            || 0),
-        LandingCost:     fmt2(p.LandingCost    || 0),
-        Salerate:        fmt2(p.SalesRate      || 0),
-        WholeSalerate:   fmt2(p.WholeSaleRate  || 0),
-        ProfitPer:       fmt2(p.ProfitPer      || 0),
-        ProfitAmt:       fmt2(p.ProfitAmt      || 0),
-        CESSPer:         fmt2(p.CESS           || 0),
-        SPLCESS:         fmt2(p.SPLCESS        || 0),
-        SaleDiscPer:     fmt2(p.SaleDiscountPer|| 0),
-        Expirydays:      fmt0(p.ExpriyDays     || 0),
-        StockQty:        fmt2(p.Stock          || 0),
-        Nstock:          fmt2(p.Nstock         || 0),
-        SerialNoStatus:  p.SerialNoType    || 0,
-        BatchStatus:     p.BatchwiseStock  || 0,
-        NomQty:          p.NomsQty         || "0",
-        TransPer:        "0.00",
-        TextRefId: p.SerialNoStatus === 1
-          ? (prev[idx].TextRefId || CC.uid())
-          : prev[idx].TextRefId || "",
-      };
+  ...prev[idx],
+  ProductRefId:    p.Id,
+  ProductCode:     p.ProductCode || p.Prod_Code || "",
+  ProductName:     p.ProductName || p.PName     || "",
+  HSNCode:         p.HSNCode     || "",
+  UOM:             p.UOM         || "",
+  UOMDecimal:      p.UOMDecimal  ?? 3,
+  UOMRefid:        p.UomRefid    || p.UOMRefId  || "",
+  MRP:             fmt2(p.MRP            || 0),
+  OldMRP:          fmt2(p.MRP            || 0),
+  PurchaseRate:    fmt2(p.PurchaseRate   || p.PurRate  || 0),
+  OldPurchaseRate: fmt2(p.PurchaseRate   || p.PurRate  || 0),
+  IncPurRate:      fmt2(p.PurchaseRate   || p.PurRate  || 0),
+  TaxPercent:      fmt2(p.GST            || 0),
+  LandingCost:     fmt2(p.LandingCost    || 0),
+  Salerate:        fmt2(p.SalesRate      || p.SaleRate || 0),
+  WholeSalerate:   fmt2(p.WholeSaleRate  || 0),
+  ProfitPer:       fmt2(p.ProfitPer      || 0),
+  ProfitAmt:       fmt2(p.ProfitAmt      || 0),
+  CESSPer:         fmt2(p.CESS           || 0),
+  SPLCESS:         fmt2(p.SPLCESS        || 0),
+  SaleDiscPer:     fmt2(p.SaleDiscountPer|| 0),
+  Expirydays:      fmt0(p.ExpiryDays     || 0),
+  StockQty:        fmt2(p.Stock          || 0),
+  Nstock:          fmt2(p.Nstock         || 0),
+  SerialNoStatus:  p.SerialNoType    || 0,
+  BatchStatus:     p.BatchwiseStock  || 0,
+  NomQty:          p.NomsQty         || "0",
+  TransPer:        "0.00",
+  TextRefId: p.SerialNoStatus === 1
+    ? (prev[idx].TextRefId || CC.uid())
+    : prev[idx].TextRefId || "",
+};
+      // Expirydays > 0 ஆனா, MfgDate (default today) அடிப்படையில் ExpiryDate auto-calculate
+      const expDaysNum = valNum(row.Expirydays);
+      if (expDaysNum > 0 && row.MfgDate) {
+        const mfg = new Date(row.MfgDate);
+        if (!isNaN(mfg.getTime())) {
+          mfg.setDate(mfg.getDate() + expDaysNum);
+          row.ExpiryDate = mfg.toISOString().split("T")[0];
+        }
+      }
+
+      row = calcRow(row);
       row = calcRow(row);
       const updated = [...prev];
       updated[idx]  = row;
@@ -1374,40 +1655,145 @@ if (colKey === "ItemQty") {
   // ─────────────────────────────────────────────────────────────────────────
   //  F5 VIEW
   // ─────────────────────────────────────────────────────────────────────────
-  const handleF5View = useCallback(async (objlist = {}) => {
-    if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; }
-    const fromdate = objlist.fromdate ?? purchaseDate;
-    const todate   = objlist.todate   ?? purchaseDate;
-    const Id       = objlist.supplierid ?? 0;
-    const SearchNo = objlist.SearchNo ?? searchNo;
-    const fmtDate  = (d) => {
-      if (!d) return "";
-      const dt = new Date(d);
-      if (isNaN(dt)) return d;
-      return `${String(dt.getMonth() + 1).padStart(2, "0")}/${String(dt.getDate()).padStart(2, "0")}/${dt.getFullYear()}`;
-    };
-    setLoading(true);
-    try {
-      const res = await CC.api(CC.SelectPurchase, null, {}, {
-        Comid: Number(sess.Comid), Fromdate: fmtDate(fromdate),
-        Todate: fmtDate(todate), Id: Number(Id), SearchNo: String(SearchNo),
-      });
-      if (redirectIfDualLogin(res)) return;
-      if (!res.ok) { toast(`❌ ${res.message || "Failed to load purchase list !!!."}`, true); return; }
-      const dataNode   = res.Data?.[0] ?? res.data?.[0] ?? {};
-      const masterList = dataNode.purchasemaster ?? [];
-      const detailList = dataNode.purchasedetails ?? [];
-      const total      = masterList.reduce((sum, m) => sum + (parseFloat(m.NetAmt) || 0), 0);
-      setF5MasterList(masterList);
-      setF5DetailList(detailList);
-      setF5TotalAmt(total.toFixed(2));
-      setF5ExpandedRow(null);
-      setListViewOpen(true);
-    } catch (err) {
-      toast(`❌ ${err.message || "Technical Fault. Contact Software Vendor !!!."}`, true);
-    } finally { setLoading(false); }
-  }, [perm.Edit, purchaseDate, searchNo, sess.Comid, redirectIfDualLogin, toast]);
+  // const handleF5View = useCallback(async (objlist = {}) => {
+  //   if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; }
+  //   const fromdate = objlist.fromdate ?? purchaseDate;
+  //   const todate   = objlist.todate   ?? purchaseDate;
+  //   const Id       = objlist.supplierid ?? 0;
+  //   const SearchNo = objlist.SearchNo ?? searchNo;
+  //   const fmtDate  = (d) => {
+  //     if (!d) return "";
+  //     const dt = new Date(d);
+  //     if (isNaN(dt)) return d;
+  //     return `${String(dt.getMonth() + 1).padStart(2, "0")}/${String(dt.getDate()).padStart(2, "0")}/${dt.getFullYear()}`;
+  //   };
+  //   setLoading(true);
+  //   try {
+  //     var PattyStatus = 0;
+                         
+  //     PattyStatus=purchaseMode=="PURCHASE" ? 3 : PurchaseMode=="PATTY" ? 2 : PurchaseMode=="SALESPATTY" ? 2 : PurchaseMode=="ARRIVAL" ? 1 : 3;
+  //       var SPatty=0;
+  //     SPatty= purchaseMode=="SALESPATTY" ? 1 :0;
+  //     const res = await CC.api(CC.SelectPurchase, null, {Patty:PattyStatus,SalesPatty:SPatty}, {
+  //       Comid: Number(sess.Comid), Fromdate: fmtDate(fromdate),
+  //       Todate: fmtDate(todate), Id: Number(Id),
+  //     });
+  //     if (redirectIfDualLogin(res)) return;
+  //     if (!res.ok) { toast(`❌ ${res.message || "Failed to load purchase list !!!."}`, true); return; }
+  //     const dataNode   = res.Data?.[0] ?? res.data?.[0] ?? {};
+  //     const masterList = dataNode.purchasemaster ?? [];
+  //     const detailList = dataNode.purchasedetails ?? [];
+  //     const total      = masterList.reduce((sum, m) => sum + (parseFloat(m.NetAmt) || 0), 0);
+  //     console.log(res, "F5 View Data");  
+  //     setF5MasterList(masterList);
+  //     setF5DetailList(detailList);
+  //     setF5TotalAmt(total.toFixed(2));
+  //     setF5ExpandedRow(null);
+  //     setListViewOpen(true);
+  //   } catch (err) {
+  //     toast(`❌ ${err.message || "Technical Fault. Contact Software Vendor !!!."}`, true);
+  //   } finally { setLoading(false); }
+  // }, [perm.Edit, purchaseDate, searchNo, sess.Comid, redirectIfDualLogin, toast]);
+const handleF5View = useCallback(async (objlist = {}) => {
+  if (!perm.Edit) {
+    toast("❌ Page Edit Permission Denied !!!.", true);
+    return;
+  }
 
+  const fromdate = objlist.fromdate ?? purchaseDate;
+  const todate = objlist.todate ?? purchaseDate;
+  const Id = objlist.supplierid ?? 0;
+
+  const fmtDate = (d) => {
+    if (!d) return "";
+    const dt = new Date(d);
+    if (isNaN(dt)) return d;
+    return `${String(dt.getMonth() + 1).padStart(2, "0")}/${String(dt.getDate()).padStart(2, "0")}/${dt.getFullYear()}`;
+  };
+
+  setLoading(true);
+
+  try {
+    let PattyStatus = 3;
+    let SPatty = 0;
+
+    if (purchaseMode === "PURCHASE") {
+      PattyStatus = 3;
+    } else if (purchaseMode === "PATTY") {
+      PattyStatus = 2;
+    } else if (purchaseMode === "SALESPATTY") {
+      PattyStatus = 2;
+      SPatty = 1;
+    } else if (purchaseMode === "ARRIVAL") {
+      PattyStatus = 1;
+    }
+
+    const res = await CC.api(
+      CC.SelectPurchase,
+      null,
+      {
+        Patty: PattyStatus,
+        SalesPatty: SPatty,
+      },
+      {
+        Comid: Number(sess.Comid),
+        Fromdate: fmtDate(fromdate),
+        Todate: fmtDate(todate),
+        Id: Number(Id),
+      }
+    );
+
+    if (redirectIfDualLogin(res)) return;
+
+    if (!res.ok) {
+      toast(`❌ ${res.message || "Failed to load purchase list !!!."}`, true);
+      return;
+    }
+
+    console.log("API Response :", res);
+
+    // Master & Detail
+    const masterList = res.Data1 || [];
+    const detailList = res.Data2 || [];
+
+    // Merge Master + Detail
+    const mergedList = masterList.map((master) => ({
+      ...master,
+      details: detailList.filter(
+        (detail) => Number(detail.PurchaseRefId) === Number(master.Id)
+      ),
+    }));
+
+    // Total Amount
+    const total = mergedList.reduce(
+      (sum, row) => sum + (parseFloat(row.NetAmt) || 0),
+      0
+    );
+
+    console.log("Merged List :", mergedList);
+
+    setF5MasterList(mergedList);
+    setF5DetailList(detailList); // வேண்டுமென்றால் வைத்துக்கொள்ளலாம்
+    setF5TotalAmt(total.toFixed(2));
+    setF5ExpandedRow(null);
+    setListViewOpen(true);
+
+  } catch (err) {
+    toast(
+      `❌ ${err.message || "Technical Fault. Contact Software Vendor !!!."}`,
+      true
+    );
+  } finally {
+    setLoading(false);
+  }
+}, [
+  perm.Edit,
+  purchaseDate,
+  purchaseMode,
+  sess.Comid,
+  redirectIfDualLogin,
+  toast,
+]);
   const getDetailsForMaster = useCallback((masterId) =>
     f5DetailList.filter((d) => String(d.PurchaseRefId) === String(masterId)),
   [f5DetailList]);
@@ -1431,6 +1817,13 @@ if (colKey === "ItemQty") {
     setGridRows([makeGridRow()]); setGstSplit([]); setTotals({ ...EMPTY_TOTALS });
     loadMaxPurchaseNo(); setUpdateIdEdit(""); setSerialNoList([]);
     setSupplierQuery(""); setSupplierDDOpen(false);
+    // Arrival-only fields reset
+    setArrivalDays(0); setDispatchedDate(today());
+    setPattyVehicleNo(""); setPattyPerson(""); setPattyDate(today());
+    // Patty panel resets to unloaded so its percentages start fresh next time it's opened,
+    // but purchaseMode (which mode the user is in) itself is left as-is — same as legacy
+    // CMBTPatty being a persistent company setting rather than something cleared per-bill.
+    setPattyRows((prev) => prev.map((r) => ({ ...r, Percentage: "0.00", BagRate: "0.00", ComAmt: "0.00" })));
     setTimeout(() => nextFocusForm(), 150);
   }, [loadMaxPurchaseNo, nextFocusForm]);
 
@@ -1458,8 +1851,9 @@ if (colKey === "ItemQty") {
       StockQty: n(r.StockQty), StockQtyNew: n(r.StockQtyNew),
       Nstock: n(r.Nstock), RealQty: n(r.RealQty),
       TotalPcs: n(r.TotalPcs), Meter: n(r.Meter), Pcs: n(r.Pcs),
+      Bags: n(r.Bags), LotNo: r.LotNo || "", Mark: r.Mark || "",
       ExpiryDate: r.ExpiryDate || "", MfgDate: (r.MfgDate && r.MfgDate.trim() !== "") ? r.MfgDate : ((r.ExpiryDate && r.ExpiryDate.trim() !== "") ? CC.today() : ""),
-      Bat_No: r.Bat_No || "", BatchRefId: i(r.BatchRefId) || 0,
+      Bat_No: r.Bat_No || "", BatchRefId: r.BatchRefId ? (parseInt(r.BatchRefId, 10) || null) : null,
       BatchStatus: i(r.BatchStatus), Expirydays: i(r.Expirydays),
       Salerate: n(r.Salerate), WholeSalerate: n(r.WholeSalerate),
       ProfitPer: n(r.ProfitPer), ProfitAmt: n(r.ProfitAmt),
@@ -1481,207 +1875,296 @@ if (colKey === "ItemQty") {
   // ─────────────────────────────────────────────────────────────────────────
   //  EDIT
   // ─────────────────────────────────────────────────────────────────────────
-const handleEdit = useCallback(async (pid, pno) => {
-  if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; }
-  setLoading(true);
-  const res = await CC.api(CC.EditPurchase, null, {}, { Id: pid, PNo: pno, Comid: sess.Comid, BatchwiseSizeStock: 0 });
-  setLoading(false);
-  if (redirectIfDualLogin(res)) return;
-  if (res._netErr || res._http404) { toast(`❌ ${res.message || "Edit load failed !!!."}`, true); return; }
-  if (res.ok && res.Data1 && res.Data1.length > 0) {
-    const pm = res.Data1[0];
-    const pd = pm.PurchaseDetails || [];
-
-    const igst = pm.IGSTBill;
-
-    // ── FIX: if the saved purchase's IGSTBill is missing/blank/0, ─────────
-    // fall back to the supplier master's current IGST setting instead of
-    // silently defaulting to "GST".
-    let isIgst;
-    if (igst === "IGST" || igst === "1" || igst === 1 || igst === "2" || igst === 2) {
-      isIgst = true;
-    // } else if (igst === "GST" || igst === "0" || igst === 0) {
-    //   isIgst = false;
-     }
-     else {
-      // ambiguous / null / undefined / "" — look up supplier
-      let supplierObj = supplierList.find((s) => String(s.Id) === String(pm.SupplierRefId));
-      if (!supplierObj) {
-        const sRes = await CC.api(CC.SupplierById, null, {}, { Id: pm.SupplierRefId, Comid: sess.MComid });
-        supplierObj = sRes?.data?.[0] ?? sRes?.Data?.[0] ?? (Array.isArray(sRes?.data) ? sRes.data[0] : null);
-      }
-      const supIgst = supplierObj?.IGSTBill;
-      isIgst = supIgst === "IGST" || supIgst === "1" || supIgst === 1 || supIgst === "2" || supIgst === 2;
+  const handleEdit = useCallback(async (pid, pno) => {
+    if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; }
+    setLoading(true);
+ 
+     let Patty = 0;
+    let SPatty = 0;
+    let ptype = 0;
+    if (pattyFeatureEnabled ) {
+      Patty = 1;
+    } 
+    if (purchaseMode === "PATTY") {
+      ptype = 2;
+    }  else if (purchaseMode === "ARRIVAL") {
+      ptype = 1;
     }
 
-    const newIgstStatus = isIgst ? "IGST" : "GST";
+   if (purchaseMode === "SALESPATTY") {
+      SPatty = 1;
+    }
+    const res = await CC.api(CC.EditPurchase, null, {patty: Patty, SalesPatty: SPatty,ptype: ptype}, { Id: pid, PNo: pno, Comid: sess.Comid, BatchwiseSizeStock: 0 });
+    setLoading(false);
+    if (redirectIfDualLogin(res)) return;
+    if (res._netErr || res._http404) { toast(`❌ ${res.message || "Edit load failed !!!."}`, true); return; }
+    if (res.ok && res.Data1 && res.Data1.length > 0) {
+      const pm = res.Data1[0];
+      const pd = pm.PurchaseDetails || [];
 
-    setEditId(pm.Id); setUpdateIdEdit(pm.UpdateId || "");
-    setPurchaseDate(jsonDate(pm.PurchaseDate)); setDueDate(jsonDate(pm.DueDate));
-    setInvoiceDate(jsonDate(pm.SupplierInvoiceDate));
-    setPurchaseNo(pm.PurchaseNo || ""); setInvoiceNo(pm.SupplierInvoiceNo || "");
-    setInvoiceAmt(fmt2(pm.NetAmt)); setOtherPlus(fmt2(pm.Others_A)); setOtherSub(fmt2(pm.Others_D));
-    setRemarks(pm.Remarks || "");
-    setPurchaseType(pm.PurchaseType === "CA" ? "CASH" : "CREDIT");
-    setSupplierId(String(pm.SupplierRefId));
-handleSupplierChange(String(pm.SupplierRefId), { skipIgst: true });  // this will also recompute igst from supplier, but we override below with newIgstStatus anyway
-    setIgstStatus(newIgstStatus);
-    setIgstChecked(isIgst);
-    setSerialNoList(pm.SerialNoDetails || []);
+      const igst = pm.IGSTBill;
 
-    // calcRowWithIgst stays exactly as before, just uses newIgstStatus
-    const calcRowWithIgst = (row) => {
-      const qty           = valNum(row.ItemQty) + valNum(row.NomQty);
-      const nomqty         = valNum(row.NomQty) === 0 ? 1 : valNum(row.NomQty);
-      const purRate        = valNum(row.PurchaseRate);
-      const enteredAmt     = roundOff(purRate * qty);
-      const cdAmt          = roundOff(enteredAmt * (valNum(row.cdpercent) / 100));
-      const discAmt        = roundOff((enteredAmt - cdAmt) * (valNum(row.DiscountPercent) / 100));
-      const netEnteredAmt  = enteredAmt - cdAmt - discAmt;
-      const taxPercent     = valNum(row.TaxPercent);
-      let taxableAmt, gstAmt;
-      if (taxMode === "inclusive") {
-        taxableAmt = roundOff(netEnteredAmt / (1 + (taxPercent / 100)));
-        gstAmt     = roundOff(netEnteredAmt - taxableAmt);
+      // ── FIX: if the saved purchase's IGSTBill is missing/blank/0, ─────────
+      // fall back to the supplier master's current IGST setting instead of
+      // silently defaulting to "GST".
+      let isIgst;
+      if (igst === "IGST" || igst === "1" || igst === 1 || igst === "2" || igst === 2) {
+        isIgst = true;
       } else {
-        taxableAmt = roundOff(netEnteredAmt);
-        gstAmt     = roundOff(taxableAmt * (taxPercent / 100));
+        // ambiguous / null / undefined / "" — look up supplier
+        let supplierObj = supplierList.find((s) => String(s.Id) === String(pm.SupplierRefId));
+        if (!supplierObj) {
+          const sRes = await CC.api(CC.SupplierById, null, {}, { Id: pm.SupplierRefId, Comid: sess.MComid });
+          supplierObj = sRes?.data?.[0] ?? sRes?.Data?.[0] ?? (Array.isArray(sRes?.data) ? sRes.data[0] : null);
+        }
+        const supIgst = supplierObj?.IGSTBill;
+        isIgst = supIgst === "IGST" || supIgst === "1" || supIgst === 1 || supIgst === "2" || supIgst === 2;
       }
-      const netRate    = qty !== 0 ? roundOff(taxableAmt / qty) : 0;
-      const transAmt   = roundOff(taxableAmt * (valNum(row.TransPer) / 100));
-      const cessAmt    = roundOff(taxableAmt * (valNum(row.CESSPer) / 100));
-      const splCessAmt = roundOff(qty * valNum(row.SPLCESS));
-      const isIGSTRow  = newIgstStatus === "IGST" || newIgstStatus === "UGST";
-      const ctAmt      = isIGSTRow ? gstAmt : roundOff(gstAmt / 2);
-      const stAmt      = isIGSTRow ? 0 : gstAmt - ctAmt;
-      const landingCost = qty !== 0
-        ? roundOff(netRate + (gstAmt + cessAmt + splCessAmt) / qty)
-        : 0;
-      let amount;
-      if (taxMode === "inclusive") {
-        amount = roundOff(netEnteredAmt + cessAmt + splCessAmt + transAmt);
-      } else {
-        amount = roundOff(netEnteredAmt + gstAmt + cessAmt + splCessAmt + transAmt);
+
+      const newIgstStatus = isIgst ? "IGST" : "GST";
+
+      setEditId(pm.Id); setUpdateIdEdit(pm.UpdateId || "");
+      setPurchaseDate(jsonDate(pm.PurchaseDate)); setDueDate(jsonDate(pm.DueDate));
+      setInvoiceDate(jsonDate(pm.SupplierInvoiceDate));
+      setPurchaseNo(pm.PurchaseNo || ""); setInvoiceNo(pm.SupplierInvoiceNo || "");
+      setInvoiceAmt(fmt2(pm.NetAmt)); setOtherPlus(fmt2(pm.Others_A)); setOtherSub(fmt2(pm.Others_D));
+      setRemarks(pm.Remarks || "");
+      setPurchaseType(pm.PurchaseType === "CA" ? "CASH" : "CREDIT");
+      setSupplierId(String(pm.SupplierRefId));
+      handleSupplierChange(String(pm.SupplierRefId), { skipIgst: true });
+      setIgstStatus(newIgstStatus);
+      setIgstChecked(isIgst);
+      setSerialNoList(pm.SerialNoDetails || []);
+
+      // ── Restore purchaseMode from the saved bill (mirrors clsfunction.Patty / SalesPatty / PattyStatus) ──
+    const savedPattyFlag    = Number(pm.PattyStatus);
+const savedSalesPattyFlag = pm.SalesPatty === 1 || pm.SalesPatty === "1";
+const savedArrivalType    = pm.PurchaseType === "AR" || savedPattyFlag === 1;
+
+if (savedArrivalType) {
+  setPurchaseMode("ARRIVAL");
+} else if (savedPattyFlag === 2 && savedSalesPattyFlag) {
+  setPurchaseMode("SALESPATTY");
+} else if (savedPattyFlag === 2) {
+  setPurchaseMode("PATTY");
+} else {
+  setPurchaseMode("PURCHASE");
+}
+
+      if (savedArrivalType) {
+        setDispatchedDate(jsonDate(pm.DueDate));
       }
-      const stockQty = roundOff(nomqty * qty + valNum(row.FreeQty));
+
+      // if (savedPattyFlag || savedSalesPattyFlag) {
+      //   const savedPatty = pm.PurchasePattyDetails || pm.PattyDetails || [];
+      //   if (savedPatty.length > 0) {
+      //     setPattyRows(savedPatty.map((p) => ({
+      //       _key: CC.uid(), Id: p.PattyMasterRefId || p.Id || 0,
+      //       PattyName: p.Name || p.PattyName || "",
+      //       Percentage: fmt2(p.Percentage || 0),
+      //       BagRate: fmt2(p.BagRate || 0),
+      //       ComAmt: fmt2(p.PercentageAmount || p.ComAmt || 0),
+      //     })));
+      //     setPattyLoaded(true);
+      //   }
+      // }
+      if (savedPattyFlag || savedSalesPattyFlag) {
+  const savedPatty = pm.PurchasePattyDetails || pm.PattyDetails || [];
+
+  // முதலில் முழு Patty list-ஐ load பண்ணு (COMMISSION, COOLY, LORRY FREIGHT, SUNGAM...)
+  try {
+    const res = await CC.api(CC.PattySelect, null, {}, { Comid: sess.MComid });
+    const fullList = Array.isArray(res) ? res : (res?.data ?? res?.Data1 ?? []);
+    const baseList = (fullList && fullList.length > 0) ? fullList : PATTY_ROW_TEMPLATE;
+
+    // Full list-ல் ஒவ்வொரு row-க்கும், saved data இருந்தால் அதை merge பண்ணு
+    const merged = baseList.map((p) => {
+      const savedRow = savedPatty.find(
+        (s) => (s.Name || s.PattyName) === p.PattyName
+             || Number(s.PattyMasterRefId || s.Id) === Number(p.Id)
+      );
       return {
-        ...row,
-        cdAmount:      fmt2(cdAmt),
-        DiscountAmt:   fmt2(discAmt),
-        TransAmt:      fmt2(transAmt),
-        CESSAmount:    fmt2(cessAmt),
-        SPLCESSAmount: fmt2(splCessAmt),
-        TaxAmt:        fmt2(gstAmt),
-        CTAmount:      fmt2(ctAmt),
-        STAmount:      fmt2(stAmt),
-        IGSTAmt:       fmt2(0),
-        LandingCost:   fmt2(landingCost),
-        Amount:        fmt2(amount),
-        ProductTotal:  fmt2(enteredAmt),
-        StockQtyNew:   fmt2(stockQty),
+        _key: CC.uid(),
+        Id: p.Id || 0,
+        PattyName: p.PattyName || "",
+        Percentage: fmt2(savedRow?.Percentage || 0),
+        BagRate: fmt2(savedRow?.BagRate || 0),
+        ComAmt: fmt2(savedRow?.PercentageAmount || savedRow?.ComAmt || 0),
       };
-    };
+    });
 
-    const rows = pd.map((r) => calcRowWithIgst({
-      ...makeGridRow(), ...r,
-      BrandId: r.BrandId ? String(r.BrandId) : "",
-      ModelId: r.ModelId ? String(r.ModelId) : "",
-      ColorId: r.ColorId ? String(r.ColorId) : "",
-      SizeId:  r.SizeId  ? String(r.SizeId)  : "",
-      _origItemQty:        valNum(r.ItemQty),
-      _origBatchRefId:     r.BatchRefId || 0,
-    MfgDate:    r.MfgDate    ? jsonDate(r.MfgDate)    : "",   // ← NEW: strip time, format yyyy-MM-dd
-  ExpiryDate: r.ExpiryDate ? jsonDate(r.ExpiryDate) : "", 
-      _origPDRefid:        r.PDRefid || null,
-      _origSerialNoStatus: r.SerialNoStatus || 0,
-    }));
-    rows.push(makeGridRow());
-    setGridRows(rows);
-    setTimeout(() => nextFocusForm(), 150);
-  } else {
-    toast(`❌ ${res.message || "Edit load failed !!!."}`, true);
+    setPattyRows(merged);
+  } catch {
+
+    setPattyRows(savedPatty.map((p) => ({
+      _key: CC.uid(), Id: p.PattyMasterRefId || p.Id || 0,
+      PattyName: p.Name || p.PattyName || "",
+      Percentage: fmt2(p.Percentage || 0),
+      BagRate: fmt2(p.BagRate || 0),
+      ComAmt: fmt2(p.PercentageAmount || p.ComAmt || 0),
+    })));
   }
-}, [perm, sess, taxMode, supplierList, handleSupplierChange, toast, redirectIfDualLogin, nextFocusForm]);
+  setPattyLoaded(true);
+}
+
+      // calcRowWithIgst stays exactly as before, just uses newIgstStatus
+      const calcRowWithIgst = (row) => {
+        const qty           = valNum(row.ItemQty) + valNum(row.NomQty);
+        const nomqty         = valNum(row.NomQty) === 0 ? 1 : valNum(row.NomQty);
+        const purRate        = valNum(row.PurchaseRate);
+        const enteredAmt     = roundOff(purRate * qty);
+        const cdAmt          = roundOff(enteredAmt * (valNum(row.cdpercent) / 100));
+        const discAmt        = roundOff((enteredAmt - cdAmt) * (valNum(row.DiscountPercent) / 100));
+        const netEnteredAmt  = enteredAmt - cdAmt - discAmt;
+        const taxPercent     = valNum(row.TaxPercent);
+        let taxableAmt, gstAmt;
+        if (taxMode === "inclusive") {
+          taxableAmt = roundOff(netEnteredAmt / (1 + (taxPercent / 100)));
+          gstAmt     = roundOff(netEnteredAmt - taxableAmt);
+        } else {
+          taxableAmt = roundOff(netEnteredAmt);
+          gstAmt     = roundOff(taxableAmt * (taxPercent / 100));
+        }
+        const netRate    = qty !== 0 ? roundOff(taxableAmt / qty) : 0;
+        const transAmt   = roundOff(taxableAmt * (valNum(row.TransPer) / 100));
+        const cessAmt    = roundOff(taxableAmt * (valNum(row.CESSPer) / 100));
+        const splCessAmt = roundOff(qty * valNum(row.SPLCESS));
+        const isIGSTRow  = newIgstStatus === "IGST" || newIgstStatus === "UGST";
+        const ctAmt      = isIGSTRow ? gstAmt : roundOff(gstAmt / 2);
+        const stAmt      = isIGSTRow ? 0 : gstAmt - ctAmt;
+        const landingCost = qty !== 0
+          ? roundOff(netRate + (gstAmt + cessAmt + splCessAmt) / qty)
+          : 0;
+        let amount;
+        if (taxMode === "inclusive") {
+          amount = roundOff(netEnteredAmt + cessAmt + splCessAmt + transAmt);
+        } else {
+          amount = roundOff(netEnteredAmt + gstAmt + cessAmt + splCessAmt + transAmt);
+        }
+        const stockQty = roundOff(nomqty * qty + valNum(row.FreeQty));
+        return {
+          ...row,
+          cdAmount:      fmt2(cdAmt),
+          DiscountAmt:   fmt2(discAmt),
+          TransAmt:      fmt2(transAmt),
+          CESSAmount:    fmt2(cessAmt),
+          SPLCESSAmount: fmt2(splCessAmt),
+          TaxAmt:        fmt2(gstAmt),
+          CTAmount:      fmt2(ctAmt),
+          STAmount:      fmt2(stAmt),
+          IGSTAmt:       fmt2(0),
+          LandingCost:   fmt2(landingCost),
+          Amount:        fmt2(amount),
+          ProductTotal:  fmt2(enteredAmt),
+          StockQtyNew:   fmt2(stockQty),
+        };
+      };
+
+      const rows = pd.map((r) => calcRowWithIgst({
+        ...makeGridRow(), ...r,
+        BrandId: r.BrandId ? String(r.BrandId) : "",
+        ModelId: r.ModelId ? String(r.ModelId) : "",
+        ColorId: r.ColorId ? String(r.ColorId) : "",
+        SizeId:  r.SizeId  ? String(r.SizeId)  : "",
+        Bags:    r.Bags != null ? fmt2(r.Bags) : "0.00",
+        LotNo:   r.LotNo || "",
+        Mark:    r.Mark  || "",
+        _origItemQty:        valNum(r.ItemQty),
+        _origBatchRefId:     r.BatchRefId || 0,
+        MfgDate:    r.MfgDate    ? jsonDate(r.MfgDate)    : "",
+        ExpiryDate: r.ExpiryDate ? jsonDate(r.ExpiryDate) : "",
+        _origPDRefid:        r.PDRefid || null,
+        _origSerialNoStatus: r.SerialNoStatus || 0,
+      }));
+      rows.push(makeGridRow());
+      setGridRows(rows);
+      setTimeout(() => nextFocusForm(), 150);
+    } else {
+      toast(`❌ ${res.message || "Edit load failed !!!."}`, true);
+    }
+  }, [perm, sess, taxMode, supplierList, handleSupplierChange, toast, redirectIfDualLogin, nextFocusForm]);
+
   // ─────────────────────────────────────────────────────────────────────────
   //  DELETE
   // ─────────────────────────────────────────────────────────────────────────
-const handleDelete = useCallback(async (overrideId, overridePno, overrideUpdateId) => {
-  const targetId       = overrideId  || editId;
-  const displayPno     = overridePno || purchaseNo;
-  const targetUpdateId = overrideUpdateId !== undefined ? overrideUpdateId : updateIdEdit;
+  const handleDelete = useCallback(async (overrideId, overridePno, overrideUpdateId) => {
+    const targetId       = overrideId  || editId;
+    const displayPno     = overridePno || purchaseNo;
+    const targetUpdateId = overrideUpdateId !== undefined ? overrideUpdateId : updateIdEdit;
 
-  if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!.", true); return; }
-  if (!targetId)    { toast("❌ No Delete Id !!!.", true); return; }
+    if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!.", true); return; }
+    if (!targetId)    { toast("❌ No Delete Id !!!.", true); return; }
 
-  const ok = await confirm(`Do You Want To Delete Purchase Master. This is Purchase No ${displayPno}?`);
-  if (!ok) return;
+    const ok = await confirm(`Do You Want To Delete Purchase Master. This is Purchase No ${displayPno}?`);
+    if (!ok) return;
 
-  // ── Step 1: Fetch the purchase detail first (mirrors SaleEditUrl fetch in handleF5Delete)
-  // so we always have the original stock rows even when deleting from F5 list
-  // without having loaded the record into the form first.
-  setLoading(true);
-  let stockDetails = [];
+    // ── Step 1: Fetch the purchase detail first (mirrors SaleEditUrl fetch in handleF5Delete)
+    // so we always have the original stock rows even when deleting from F5 list
+    // without having loaded the record into the form first.
+    setLoading(true);
+    let stockDetails = [];
 
-  try {
-    const editRes = await CC.api(CC.EditPurchase, null, {}, {
-      Id: targetId, PNo: displayPno, Comid: sess.Comid, BatchwiseSizeStock: 0,
-    });
-    if (redirectIfDualLogin(editRes)) return;
+    try {
+      const editRes = await CC.api(CC.EditPurchase, null, {}, {
+        Id: targetId, PNo: displayPno, Comid: sess.Comid, BatchwiseSizeStock: 0,
+      });
+      if (redirectIfDualLogin(editRes)) return;
 
-    if (editRes.ok && editRes.Data1 && editRes.Data1.length > 0) {
-      const pm = editRes.Data1[0];
-      const pd = pm.PurchaseDetails || [];
+      if (editRes.ok && editRes.Data1 && editRes.Data1.length > 0) {
+        const pm = editRes.Data1[0];
+        const pd = pm.PurchaseDetails || [];
 
-      // ── Build StockDetails from fetched detail rows ─────────────────────
-      // Mirrors the edit-case stockDetails logic in handleSave
-      stockDetails = pd
-        .filter(r => valNum(r.ItemQty) > 0)
-        .map(r => ({
-          ProductRefid:   parseInt(r.ProductRefId, 10) || 0,
-          Batchid:        parseInt(r.BatchRefId,   10) || 0,
-          RealQty:        valNum(r.ItemQty),
-          Qty:            0.0,
-          MfDate:         r.MfgDate    || "",
-          ExpDate:        r.ExpiryDate || "",
-          SerialNoStatus: parseInt(r.SerialNoStatus, 10) || 0,
-          AdjustType:     0,
-          PDRefid:        r.PDId || null,
-          ItemQty:        0.0,
-          Bags:           0.0,
-        }));
+        // ── Build StockDetails from fetched detail rows ─────────────────────
+        // Mirrors the edit-case stockDetails logic in handleSave
+        stockDetails = pd
+          .filter(r => valNum(r.ItemQty) > 0)
+          .map(r => ({
+            ProductRefid:   parseInt(r.ProductRefId, 10) || 0,
+            Batchid:        parseInt(r.BatchRefId,   10) || 0,
+            RealQty:        valNum(r.ItemQty),
+            Qty:            0.0,
+            MfDate:         r.MfgDate    || "",
+            ExpDate:        r.ExpiryDate || "",
+            SerialNoStatus: parseInt(r.SerialNoStatus, 10) || 0,
+            AdjustType:     0,
+            PDRefid:        r.PDId || null,
+            ItemQty:        0.0,
+            Bags:           0.0,
+          }));
+      }
+    } catch (err) {
+      console.error("Stock fetch before delete failed:", err);
+      // Continue with empty stockDetails rather than blocking the delete
     }
-  } catch (err) {
-    console.error("Stock fetch before delete failed:", err);
-    // Continue with empty stockDetails rather than blocking the delete
-  }
 
-  // ── Step 2: Delete with StockDetails ──────────────────────────────────────
-  const res = await CC.api(CC.DeletePurchase, stockDetails, {  // ← pass as body, not params
-    Year:        (new Date().getFullYear()).toString(),
-    Comid:       String(sess.Comid),
-    Id:          String(targetId),
-    MirrorTable: String(sess.MirrorTable),
-    Updateid:    targetUpdateId || "",
-    LocalDB:     String(sess.LocalDB ?? "0"),
-    univercell:  "false",
-    DayClose:    "0",
-    Date:        new Date().toLocaleDateString("en-GB"),
-  }, null);
+    // ── Step 2: Delete with StockDetails ──────────────────────────────────────
+    const res = await CC.api(CC.DeletePurchase, stockDetails, {  // ← pass as body, not params
+      Year:        (new Date().getFullYear()).toString(),
+      Comid:       String(sess.Comid),
+      Id:          String(targetId),
+      MirrorTable: String(sess.MirrorTable),
+      Updateid:    targetUpdateId || "",
+      LocalDB:     String(sess.LocalDB ?? "0"),
+      univercell:  "false",
+      DayClose:    "0",
+      Date:        new Date().toLocaleDateString("en-GB"),
+    }, null);
 
-  setLoading(false);
-  if (redirectIfDualLogin(res)) return;
-  if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
+    setLoading(false);
+    if (redirectIfDualLogin(res)) return;
+    if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
-  if (res.ok) {
-    toast("✅ " + (res.message || "Purchase deleted successfully!"));
-    handleClear();
-    if (listViewOpen) handleF5View({});
-  } else {
-    if (res.redis === false) { alert("Already Login Another User Please Login Again!!!"); navigate("/"); return; }
-    toast(`❌ ${res.message || "Delete failed !!!."}`, true);
-  }
-}, [perm, editId, purchaseNo, updateIdEdit, sess, confirm, toast,
-    redirectIfDualLogin, handleClear, listViewOpen, handleF5View, navigate]);
+    if (res.ok) {
+      toast("✅ " + (res.message || "Purchase deleted successfully!"));
+      handleClear();
+      if (listViewOpen) handleF5View({});
+    } else {
+      if (res.redis === false) { alert("Already Login Another User Please Login Again!!!"); navigate("/"); return; }
+      toast(`❌ ${res.message || "Delete failed !!!."}`, true);
+    }
+  }, [perm, editId, purchaseNo, updateIdEdit, sess, confirm, toast,
+      redirectIfDualLogin, handleClear, listViewOpen, handleF5View, navigate]);
+
   // ─────────────────────────────────────────────────────────────────────────
   //  EDIT PASSWORD
   // ─────────────────────────────────────────────────────────────────────────
@@ -1689,28 +2172,28 @@ const handleDelete = useCallback(async (overrideId, overridePno, overrideUpdateI
     setPendingEditAction(action); setEditPwdValue(""); setEditPwdError(""); setEditPwdOpen(true);
   }, []);
 
-const handleEditPasswordSubmit = useCallback(async () => {
-  if (!editPwdValue.trim()) return;
-  setEditPwdLoading(true); setEditPwdError("");
-  const res = await CC.api(CC.EditPassword, null, {}, { password: editPwdValue, type: "EditPassword", Comid: sess.Comid });
-  setEditPwdLoading(false);
-  if (res?.ok === true || res?.data?.ok === true) {
-    setEditPwdOpen(false); setEditPwdValue("");
-    const action = pendingEditAction; setPendingEditAction(null);
-    if (!action) return;
-    if (action.type === "EDIT")   { setListViewOpen(false); handleEdit(action.id, action.pno || 0); }
-    if (action.type === "DELETE") {
-      setListViewOpen(false); setEditId(action.id); setUpdateIdEdit(action.updateId || "");
-      handleDelete(action.id, action.pno || "", action.updateId || "");
-    }
-   if (action.type === "F3_PROMPT") {
-  setF3PromptValue("");
-  setF3PromptError("");
-  setF3PromptOpen(true);
-  setTimeout(() => f3InputRef.current?.focus(), 80);
-}
-  } else { setEditPwdError("Invalid Password !!!."); }
-}, [editPwdValue, sess.Comid, pendingEditAction, handleEdit, handleDelete, toast]);
+  const handleEditPasswordSubmit = useCallback(async () => {
+    if (!editPwdValue.trim()) return;
+    setEditPwdLoading(true); setEditPwdError("");
+    const res = await CC.api(CC.EditPassword, null, {}, { password: editPwdValue, type: "EditPassword", Comid: sess.Comid });
+    setEditPwdLoading(false);
+    if (res?.ok === true || res?.data?.ok === true) {
+      setEditPwdOpen(false); setEditPwdValue("");
+      const action = pendingEditAction; setPendingEditAction(null);
+      if (!action) return;
+      if (action.type === "EDIT")   { setListViewOpen(false); handleEdit(action.id, action.pno || 0); }
+      if (action.type === "DELETE") {
+        setListViewOpen(false); setEditId(action.id); setUpdateIdEdit(action.updateId || "");
+        handleDelete(action.id, action.pno || "", action.updateId || "");
+      }
+      if (action.type === "F3_PROMPT") {
+        setF3PromptValue("");
+        setF3PromptError("");
+        setF3PromptOpen(true);
+        setTimeout(() => f3InputRef.current?.focus(), 80);
+      }
+    } else { setEditPwdError("Invalid Password !!!."); }
+  }, [editPwdValue, sess.Comid, pendingEditAction, handleEdit, handleDelete, toast]);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  F2 FREE PRODUCT
@@ -1739,10 +2222,7 @@ const handleEditPasswordSubmit = useCallback(async () => {
   //  GRID KEYBOARD
   // ─────────────────────────────────────────────────────────────────────────
   const handleGridKeyDown = useCallback((e, rowKey, colKey) => {
-    const visibleCols = orderedGridColumns.filter((c) => {
-      const cfg = colConfig.find((x) => x.key === c.key);
-      return c.editable && (cfg ? cfg.visible : true);
-    });
+    const visibleCols = orderedGridColumns.filter((c) => isColVisible(c) && c.editable);
     const colIdx = visibleCols.findIndex((c) => c.key === colKey);
     const rowIdx = gridRows.findIndex((r) => r._key === rowKey);
 
@@ -1757,7 +2237,7 @@ const handleEditPasswordSubmit = useCallback(async () => {
         let r = { ...prev[idx] };
 
         if (e.target && e.target.value !== undefined) {
-         if (colKey === "ItemQty" && valNum(r.UOMDecimal) === 0 && String(e.target.value).includes(".")) {
+         if (colKey === "ItemQty" && exceedsDecimalLimit(e.target.value, r.UOMDecimal)) {
             // Keep old value
           } else {
             r[colKey] = e.target.value;
@@ -1841,15 +2321,48 @@ const handleEditPasswordSubmit = useCallback(async () => {
       const nextFocusCol = focusEnabledCols[focusColIdx + 1];
       const firstFocusCol = focusEnabledCols[0]?.key ?? visibleCols[0].key;
 
-      if (nextFocusCol) {
-        focusCell(rowKey, nextFocusCol.key);
-      } else if (rowIdx < gridRows.length - 1) {
-        focusCell(gridRows[rowIdx + 1]._key, firstFocusCol);
-      } else {
-        const emptyRow = makeGridRow();
-        setGridRows((prev) => [...prev, emptyRow]);
-        setTimeout(() => focusCell(emptyRow._key, firstFocusCol), 50);
+      const moveNext = () => {
+        if (nextFocusCol) {
+          focusCell(rowKey, nextFocusCol.key);
+        } else if (rowIdx < gridRows.length - 1) {
+          focusCell(gridRows[rowIdx + 1]._key, firstFocusCol);
+        } else {
+          const emptyRow = makeGridRow();
+          setGridRows((prev) => [...prev, emptyRow]);
+          setTimeout(() => focusCell(emptyRow._key, firstFocusCol), 50);
+        }
+      };
+
+      if (colKey === "MRP") {
+        const row = gridRows[rowIdx];
+
+        const mulipleMRP = sess.MulipleMRP === true || sess.MulipleMRP === "true" || sess.MulipleMRP === "1";
+        const newMrp = valNum(row.MRP);
+        const oldMrp = valNum(row.OldMRP);
+
+        if (mulipleMRP && row.ProductRefId && oldMrp !== 0 && newMrp !== 0 && newMrp !== oldMrp) {
+          confirm("This is New MRP Rate for this Item. Do You Want To Add MultipleMRP Product ?").then((ok) => {
+            if (ok) {
+              // OK => mark ONLY current row
+              setGridRows((prev) =>
+                prev.map((r) => (r._key === rowKey ? { ...r, MrpStatus: 1 } : r))
+              );
+            } else {
+              // Cancel => restore ONLY current row MRP back to OldMRP
+              setGridRows((prev) =>
+                prev.map((r) => (r._key === rowKey ? { ...r, MRP: String(oldMrp) } : r))
+              );
+            }
+            // keep legacy navigation AFTER user decision
+            moveNext();
+          });
+          // important: stop legacy navigation until confirm resolves
+          return;
+        }
       }
+
+      // If confirmation not required, continue as before.
+      moveNext();
 
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -1868,28 +2381,28 @@ const handleEditPasswordSubmit = useCallback(async () => {
     } else if (e.key === "Delete" && e.shiftKey) {
       deleteGridRow(rowKey);
     }
-  }, [gridRows, colConfig, fillProductByCode, deleteGridRow, focusCell, serialNoList, setSerialNoPopup, toast, purRateInclusive, calcRow]);
+  }, [gridRows, isColVisible, orderedGridColumns, fillProductByCode, deleteGridRow, focusCell, serialNoList, setSerialNoPopup, toast, purRateInclusive, calcRow]);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  SAVE
   // ─────────────────────────────────────────────────────────────────────────
 
   const handleF3PromptSubmit = useCallback(() => {
-  const value = f3PromptValue.trim();
-  if (!value || valNum(value) === 0) {
-    setF3PromptError("Enter Valid Purchase Number !!!.");
-    return;
-  }
-  setF3PromptOpen(false);
-  handleEdit(0, value);
-}, [f3PromptValue, handleEdit]);
+    const value = f3PromptValue.trim();
+    if (!value || valNum(value) === 0) {
+      setF3PromptError("Enter Valid Purchase Number !!!.");
+      return;
+    }
+    setF3PromptOpen(false);
+    handleEdit(0, value);
+  }, [f3PromptValue, handleEdit]);
 
   const handleSave = useCallback(async () => {
     if (!perm.Add) { toast("❌ Page Add Permission Denied !!!.", true); return; }
     if (!supplierId) { toast("❌ Select Valid Supplier !!!.", true); supplierRef.current?.focus(); return; }
     if (!invoiceNo.trim()) { toast("❌ Enter Supplier Invoice Number !!!.", true); invoiceNoRef.current?.focus(); return; }
-    if (valNum(totals.netAmt) <= 0) { toast("❌ Net Total must not be Negative !!!.", true); return; }
-    if (valNum(invoiceAmt) !== valNum(totals.netAmt)) {
+    if (valNum(finalNetAmt) <= 0) { toast("❌ Net Total must not be Negative !!!.", true); return; }
+    if (valNum(invoiceAmt) !== valNum(finalNetAmt)) {
       toast("❌ Invoice Amount Not Equal To Net Total Amount !!!.", true); invoiceAmtRef.current?.focus(); return;
     }
     const mainSet        = JSON.parse(localStorage.getItem("Mainsetting") || "[{}]");
@@ -1912,11 +2425,10 @@ const handleEditPasswordSubmit = useCallback(async () => {
     const ok = await confirm("Wish to Save Purchase Details ?");
     if (!ok) return;
     setLoading(true);
-     const ms = JSON.parse(localStorage.getItem("Mainsetting") || "[{}]");
-    const supplier        = supplierList.find((s) => String(s.Id) === String(supplierId)) || {};
-    const purchaseDetails = gridRows.filter((r) => r.ProductCode !== "").map(sanitizeDetailRow);
-    const purtype         = purchaseType === "CASH" ? "CA" : "CR";
-    const stockDetails    = editId > 0
+    const supplier         = supplierList.find((s) => String(s.Id) === String(supplierId)) || {};
+    const purchaseDetails  = gridRows.filter((r) => r.ProductCode !== "").map(sanitizeDetailRow);
+    const purtype          = purchaseType === "CASH" ? "CA" : "CR";
+    const stockDetails     = editId > 0
       ? gridRows.filter((r) => r.ProductCode !== "" && valNum(r._origItemQty) > 0).map((r) => ({
           ProductRefid: parseInt(r.ProductRefId, 10) || 0,
           Batchid: parseInt(r._origBatchRefId, 10) || 0,
@@ -1926,26 +2438,56 @@ const handleEditPasswordSubmit = useCallback(async () => {
           AdjustType: 0, PDRefid: r.PDRefid || null, ItemQty: 0.0, Bags: 0.0,
         }))
       : [];
+
+    // ── Patty details payload (mirrors PattyModel[] → PurchasePattyDetails) ──
+    // Only rows with a nonzero % OR a nonzero BagRate are sent, matching
+    // "if (Conversion.Val(ComAmt) != 0)" in the .cs, now covering both branches.
+    const purchasePattyDetails = pattyMode
+      ? pattyRows
+          .filter((r) => valNum(r.Percentage) !== 0 || valNum(r.BagRate) !== 0)
+          .map((r) => ({
+            PattyMasterRefId: Number(r.Id) || 0,
+            Name:             r.PattyName,
+            Percentage:       valNum(r.Percentage),
+            BagRate:          valNum(r.BagRate),
+            PercentageAmount: computePattyRowAmt(r),
+          }))
+      : [];
+
+    // Arrival mode reuses the Purchase save endpoint but with its own type code
+    // and Dispatched Date standing in for DueDate (mirrors PM.DueDate = dtpdispatchedDate
+    // and rdbarrival.Checked branch around line 7379 in frmpurchase.cs).
+    const effectivePurchaseType = purchaseMode === "ARRIVAL" ? "AR" : purtype;
+    const effectiveDueDate      = purchaseMode === "ARRIVAL" ? dispatchedDate : dueDate;
+ const PattyStatus=purchaseMode=="PURCHASE" ? 3 : purchaseMode=="PATTY" ? 2 : purchaseMode=="SALESPATTY" ? 2 : purchaseMode=="ARRIVAL" ? 1 : 3;
     const purchaseMaster = [{
       Id: editId, Modified_By: parseInt(localStorage.getItem("userid") || "0", 10),
       SupplierRefId: parseInt(supplierId, 10) || 0,
       PurchaseNo: purchaseNo, CompanyRefId: parseInt(sess.Comid, 10) || 0,
-      PurchaseDate: purchaseDate, PurchaseType: purtype, IGSTBill: igstStatus,
+      PurchaseDate: purchaseDate, PurchaseType: effectivePurchaseType, IGSTBill: igstStatus,
       taxamount: valNum(totals.gstAmt), CTAmount: valNum(totals.cgstAmt), STAmount: valNum(totals.sgstAmt),
       SupplierInvoiceNo: invoiceNo, SupplierInvoiceDate: invoiceDate,
-      NetAmt: valNum(totals.netAmt), discamount: valNum(totals.discAmt),
+      NetAmt: valNum(finalNetAmt), discamount: valNum(totals.discAmt),
       cdamount: valNum(totals.cdAmt), Others_A: valNum(otherPlus), Others_D: valNum(otherSub),
-      DueDate: dueDate, DisplayAmount: valNum(totals.displayAmt),
+      DueDate: effectiveDueDate, DisplayAmount: valNum(finalNetAmt),
       FreightCharges: valNum(totals.transAmt), CESSAmount: valNum(totals.cessAmt),
       SPLCESSAmount: 0, Remarks: remarks, UpdateId: updateIdEdit || "",
-      Credit: 0, Debit: valNum(totals.netAmt), IGSTAmount: 0,
+      Credit: 0, Debit: valNum(finalNetAmt), IGSTAmount: 0,
       SupplierName: supplier.AccountName || "",
       Address1: supplier.Address1 || "", Address2: supplier.Address2 || "",
       City: supplier.City || "", Phone: supplier.MobileNo || "", Tin: supplier.GSTNo || "",
       Email: supplier.Email || "", PaymentRefId: null, PoRefId: null, MultiPurchaseOrderMasterRefid: 0,
       PurchaseDetails: purchaseDetails, StockDetails: stockDetails, SerialNoDetails: serialNoList,
+      // ── Patty / SalesPatty / Arrival flags — mirror clsfunction.CMBTPatty / SalesPatty
+      // branches; harmless/empty for plain PURCHASE mode. ─────────────────────────────
+      PattyStatus:     PattyStatus,
+      SalesPatty: purchaseMode === "SALESPATTY" ? 1 : 0,
+      PattyAmount: pattyMode ? valNum(pattyTotal) : 0,
+      PurchasePattyDetails: purchasePattyDetails,
+      VehicleNo: pattyMode ? pattyVehicleNo : "",
+      Person:    pattyMode ? pattyPerson    : "",
     }];
-     console.log(purchaseMaster);
+console.log("Saving purchaseMaster:", purchaseMaster);
     const res = await CC.insertapi(CC.InsertPurchase, purchaseMaster, {
       Comid: String(sess.Comid), MirrorTable: String(sess.MirrorTable), IdComList: String(sess.IdComList),
       batchstockstatus: (() => {
@@ -1954,7 +2496,6 @@ const handleEditPasswordSubmit = useCallback(async () => {
       })(),
       ItemMasterRateEditUpdate: String(sess.ItemMasterRateUpdate ?? false),
       CommonCompany: String(sess.Commoncompany ?? false),
-     
       CommonCompanyDiffStock: String(sess.CommoncompanyDiffStock ?? false),
       SupplierMulitipleAllow: String(sess.SupplierMulitipleAllow ?? false),
       MulipleMRP: String(sess.MulipleMRP ?? false),
@@ -1962,7 +2503,9 @@ const handleEditPasswordSubmit = useCallback(async () => {
       BatchPerfix: String(sess.BatchPerfix ?? ""),
       BatchDigit: String(parseInt(sess.BatchDigit, 10) || 0),
       LocalDB: String(parseInt(sess.LocalDB, 10) || 0),
-      Patty: "0", DayClose: "0", BillFormatName: "", PrintA4Invoice: "0",
+      // ── Patty flag on the insert-api mapping — reflects the current mode ──
+      Patty: pattyMode ? "1" : "0",
+      DayClose: "0", BillFormatName: "", PrintA4Invoice: "0",
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
@@ -1971,7 +2514,8 @@ const handleEditPasswordSubmit = useCallback(async () => {
       handleClear();
     } else { toast(`❌ ${res.message || "Save failed !!!."}`, true); }
   }, [
-    perm, supplierId, invoiceNo, totals, invoiceAmt,
+    perm, supplierId, invoiceNo, totals, invoiceAmt, finalNetAmt, pattyMode, pattyRows, pattyTotal,
+    purchaseMode, dispatchedDate, pattyVehicleNo, pattyPerson, computePattyRowAmt,
     gridRows, purchaseType, editId, updateIdEdit, purchaseNo, sess,
     purchaseDate, invoiceDate, dueDate, igstStatus,
     otherPlus, otherSub, remarks, supplierList, serialNoList,
@@ -1989,11 +2533,11 @@ const handleEditPasswordSubmit = useCallback(async () => {
 
       if (e.keyCode === 112) { e.preventDefault(); handleSave(); }           // F1
       if (e.keyCode === 113) { e.preventDefault(); handleF2FreeProduct(); }  // F2
-    if (e.keyCode === 114) {                                                // F3 — Edit by Purchase No
-  e.preventDefault();
-  if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; }
-  openEditPassword({ type: "F3_PROMPT" });
-}
+      if (e.keyCode === 114) {                                                // F3 — Edit by Purchase No
+        e.preventDefault();
+        if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; }
+        openEditPassword({ type: "F3_PROMPT" });
+      }
       if (e.keyCode === 115) { e.preventDefault(); handleDelete(); }         // F4
       if (e.keyCode === 116) { e.preventDefault(); handleF5View({}); }       // F5
       if (e.keyCode === 120) {                                                // F9
@@ -2299,43 +2843,45 @@ const handleEditPasswordSubmit = useCallback(async () => {
           </div>
         </div>
       )}
-{/* ── F3: Purchase No Prompt Modal ── */}
-{f3PromptOpen && (
-  <div style={{ position: "fixed", inset: 0, background: "rgba(10,20,40,0.45)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000 }}>
-    <div style={{ background: "#fff", borderRadius: 10, padding: "22px 28px 18px", minWidth: 260, maxWidth: 320, boxShadow: "0 8px 32px rgba(0,0,0,0.22)", border: "1px solid #c5d8f8", textAlign: "center" }}>
-      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#1e293b" }}>🔍 Edit Purchase (F3)</div>
-      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, textAlign: "left" }}>Enter the Purchase Number</div>
-      <input
-        ref={f3InputRef}
-        type="text"
-        style={{ width: "100%", padding: "7px 10px", border: "1px solid #c5d8f8", borderRadius: 6, fontSize: 14, outline: "none", boxSizing: "border-box" }}
-        value={f3PromptValue}
-        onChange={(e) => { setF3PromptValue(e.target.value); setF3PromptError(""); }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); handleF3PromptSubmit(); }
-          if (e.key === "Escape") { setF3PromptOpen(false); }
-        }}
-        placeholder="e.g. 1024"
-      />
-      {f3PromptError && <div style={{ color: "#dc2626", fontSize: 12, marginTop: 6 }}>{f3PromptError}</div>}
-      <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "center" }}>
-        <button
-          style={{ padding: "7px 22px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#3b82f6,#1d4ed8)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
-          onClick={handleF3PromptSubmit}
-          disabled={!f3PromptValue.trim()}
-        >
-          ✔ OK
-        </button>
-        <button
-          style={{ padding: "7px 22px", borderRadius: 6, border: "1px solid #c5d8f8", background: "#f5f9ff", color: "#6b7a99", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
-          onClick={() => setF3PromptOpen(false)}
-        >
-          ✘ Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+
+      {/* ── F3: Purchase No Prompt Modal ── */}
+      {f3PromptOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(10,20,40,0.45)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000 }}>
+          <div style={{ background: "#fff", borderRadius: 10, padding: "22px 28px 18px", minWidth: 260, maxWidth: 320, boxShadow: "0 8px 32px rgba(0,0,0,0.22)", border: "1px solid #c5d8f8", textAlign: "center" }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#1e293b" }}>🔍 Edit {modeLabels.no} (F3)</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, textAlign: "left" }}>Enter the {modeLabels.no}</div>
+            <input
+              ref={f3InputRef}
+              type="text"
+              style={{ width: "100%", padding: "7px 10px", border: "1px solid #c5d8f8", borderRadius: 6, fontSize: 14, outline: "none", boxSizing: "border-box" }}
+              value={f3PromptValue}
+              onChange={(e) => { setF3PromptValue(e.target.value); setF3PromptError(""); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); handleF3PromptSubmit(); }
+                if (e.key === "Escape") { setF3PromptOpen(false); }
+              }}
+              placeholder="e.g. 1024"
+            />
+            {f3PromptError && <div style={{ color: "#dc2626", fontSize: 12, marginTop: 6 }}>{f3PromptError}</div>}
+            <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "center" }}>
+              <button
+                style={{ padding: "7px 22px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#3b82f6,#1d4ed8)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+                onClick={handleF3PromptSubmit}
+                disabled={!f3PromptValue.trim()}
+              >
+                ✔ OK
+              </button>
+              <button
+                style={{ padding: "7px 22px", borderRadius: 6, border: "1px solid #c5d8f8", background: "#f5f9ff", color: "#6b7a99", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+                onClick={() => setF3PromptOpen(false)}
+              >
+                ✘ Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── F5 List View ── */}
       {listViewOpen && (
         <div className="popup-overlay">
@@ -2403,10 +2949,10 @@ const handleEditPasswordSubmit = useCallback(async () => {
                       <React.Fragment key={m.Id}>
                         <tr className="view-row" style={{ cursor: "pointer", background: isExpanded ? "#deeafb" : undefined }}>
                           <td style={{ textAlign: "center", width: 32, userSelect: "none", fontSize: 12 }} onClick={() => toggleF5Row(m.Id)} title={isExpanded ? "Collapse" : "Expand"}>{isExpanded ? "▼" : "▶"}</td>
-                          <td>{m.PurchaseNo}</td>
+                          <td>{m.PurNo}</td>
                           <td>{jsonDate(m.PurchaseDate)}</td>
                           <td><span className={`badge ${m.PurchaseType === "CA" ? "badge-cash" : "badge-credit"}`}>{m.PurchaseType === "CA" ? "Cash" : "Credit"}</span></td>
-                          <td>{m.SupplierName}</td>
+                          <td>{m.SupName}</td>
                           <td className="right">{fmt2(m.NetAmt)}</td>
                           <td>
                             <button className="tbtn-sm edit" onClick={() => { if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; } openEditPassword({ type: "EDIT", id: m.Id, pno: m.PurchaseNo }); }}>✏ Edit</button>
@@ -2460,11 +3006,53 @@ const handleEditPasswordSubmit = useCallback(async () => {
 
       {/* ── Master Form ── */}
       <div className="pur-master">
+        {/* ── Mode radio group (mirrors rdbpurchase / rdbsalespatty / rdbarrival / rdbpatti) ── */}
+       <div className="master-row" style={{ marginBottom: 6 }}>
+  <label className="radio-label"><input type="radio" checked={purchaseMode === "PURCHASE"} onChange={() => setPurchaseMode("PURCHASE")} /> Purchase</label>
+  {pattyFeatureEnabled && (
+    <>
+      <label className="radio-label"><input type="radio" checked={purchaseMode === "SALESPATTY"} onChange={() => setPurchaseMode("SALESPATTY")} /> Sales Patty</label>
+      <label className="radio-label"><input type="radio" checked={purchaseMode === "ARRIVAL"}    onChange={() => setPurchaseMode("ARRIVAL")} /> Arrival</label>
+      <label className="radio-label"><input type="radio" checked={purchaseMode === "PATTY"}      onChange={() => setPurchaseMode("PATTY")} /> Patty Bill</label>
+    </>
+  )}
+  <span style={{ marginLeft: 12, fontWeight: 700, color: "#1f2937" }}>{modeLabels.title}</span>
+</div>
+
+        {/* ── Arrival-only fields (Days / Dispatched Date — matches the screenshot) ── */}
+        {purchaseMode === "ARRIVAL" && (
+          <div className="master-row">
+            <div className="field-group"><label>Days</label>
+              <input className="form-ctrl right" value={arrivalDays}
+                onChange={(e) => setArrivalDays(parseInt(e.target.value, 10) || 0)} />
+            </div>
+            <div className="field-group"><label>Dispatched Date</label>
+              <input type="date" className="form-ctrl" value={dispatchedDate}
+                onChange={(e) => setDispatchedDate(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {/* ── Patty-only fields (Vehicle No / Person / Patty Date — mirrors txtvehicleno / txtperson / dtppattidate) ── */}
+        {pattyMode && (
+          <div className="master-row">
+            <div className="field-group"><label>Vehicle No</label>
+              <input className="form-ctrl" value={pattyVehicleNo} onChange={(e) => setPattyVehicleNo(e.target.value)} />
+            </div>
+            <div className="field-group"><label>Person</label>
+              <input className="form-ctrl" value={pattyPerson} onChange={(e) => setPattyPerson(e.target.value)} />
+            </div>
+            <div className="field-group"><label>Patty Date</label>
+              <input type="date" className="form-ctrl" value={pattyDate} onChange={(e) => setPattyDate(e.target.value)} />
+            </div>
+          </div>
+        )}
+
         <div className="master-row">
-          <div className="field-group"><label>Purchase No</label><input className="form-ctrl disabled" value={purchaseNo} readOnly /></div>
-          <div className="field-group"><label>Purchase Date <span className="req">*</span></label><input ref={purchaseDateRef} type="date" className="form-ctrl" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("dtppurchasedate"); } }} /></div>
+          <div className="field-group"><label>{modeLabels.no}</label><input className="form-ctrl disabled" value={purchaseNo} readOnly /></div>
+          <div className="field-group"><label>{modeLabels.date} <span className="req">*</span></label><input ref={purchaseDateRef} type="date" className="form-ctrl" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("dtppurchasedate"); } }} /></div>
           <div className="field-group"><label>Due Date</label><input ref={dueDateRef} type="date" className="form-ctrl" value={dueDate} onChange={(e) => setDueDate(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("dtpduedate"); } }} /></div>
-          <div className="field-group"><label>Purchase Type</label><select ref={purchaseTypeRef} className="form-ctrl" value={purchaseType} onChange={(e) => setPurchaseType(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("cmbpurchaseType"); } }}><option value="CREDIT">CREDIT</option><option value="CASH">CASH</option></select></div>
+          <div className="field-group"><label>{modeLabels.type}</label><select ref={purchaseTypeRef} className="form-ctrl" value={purchaseType} onChange={(e) => setPurchaseType(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("cmbpurchaseType"); } }}><option value="CREDIT">CREDIT</option><option value="CASH">CASH</option></select></div>
 
           {/* Supplier autocomplete */}
           <div className="field-group wide" ref={supplierContainerRef} style={{ position: "relative" }}>
@@ -2508,8 +3096,8 @@ const handleEditPasswordSubmit = useCallback(async () => {
           </div>
           <div className="field-group">
             <label>Bill Amount</label>
-            <div className={"bill-amt-display" + (valNum(totals.netAmt) > 0 && valNum(invoiceAmt) === valNum(totals.netAmt) ? " bill-amt-match" : valNum(totals.netAmt) > 0 ? " bill-amt-mismatch" : "")}>
-              ₹ {totals.netAmt}
+            <div className={"bill-amt-display" + (valNum(finalNetAmt) > 0 && valNum(invoiceAmt) === valNum(finalNetAmt) ? " bill-amt-match" : valNum(finalNetAmt) > 0 ? " bill-amt-mismatch" : "")}>
+              ₹ {finalNetAmt}
             </div>
           </div>
         </div>
@@ -2540,7 +3128,7 @@ const handleEditPasswordSubmit = useCallback(async () => {
             <thead>
               <tr>
                 <th className="sno-col">S.No</th>
-                {orderedGridColumns.filter((c) => { const cfg = colConfig.find((x) => x.key === c.key); return cfg ? cfg.visible : true; }).map((c) => {
+                {orderedGridColumns.filter(isColVisible).map((c) => {
                   const cfg = colConfig.find((x) => x.key === c.key);
                   return <th key={c.key} style={{ minWidth: cfg ? cfg.width : c.defaultWidth }} className={c.align === "right" ? "right" : ""}>{c.label}</th>;
                 })}
@@ -2558,7 +3146,7 @@ const handleEditPasswordSubmit = useCallback(async () => {
                     style={isFreeRow ? { background: "#e6f9ec" } : undefined}
                     title={isFreeRow ? "Free Product Row (F2)" : undefined}>
                     <td className="sno-col center" style={isFreeRow ? { background: "#e6f9ec" } : undefined}>{idx + 1}</td>
-                    {orderedGridColumns.filter((c) => { const cfg = colConfig.find((x) => x.key === c.key); return cfg ? cfg.visible : true; }).map((c) => {
+                    {orderedGridColumns.filter(isColVisible).map((c) => {
                       const cfg = colConfig.find((x) => x.key === c.key);
                       return renderCell(row, { ...c, width: cfg ? cfg.width : c.defaultWidth });
                     })}
@@ -2592,6 +3180,62 @@ const handleEditPasswordSubmit = useCallback(async () => {
               </tbody>
             </table>
           </div>
+
+          {/* ── Patty Panel (visible only in PATTY / SALESPATTY mode) ─────────────────
+              Mirrors grdPatty: PattyName / Com% / BagRate / Amount(ComAmt), with a
+              running total (txtpattytotamt) that gets deducted from the Net Amount.
+              Amount uses computePattyRowAmt(), which follows the exact %-then-BagRate
+              branch order from frmpurchase.cs (Lorry Freight × TotKgs, Cooly × TotBags). */}
+        {pattyMode && (
+  <div className="gst-split-panel" style={{ marginTop: 10 }}>
+    <div style={{ maxHeight: 150, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 4 }}>
+      <table className="gst-table" style={{ width: "100%" }}>
+        <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
+          <tr><th style={{ textAlign: "left" }}>Patty</th><th>%</th><th>Bag Rate</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+          {pattyRows.length === 0 ? (
+            <tr><td colSpan={4} className="no-data">Loading patty list…</td></tr>
+          ) : pattyRows.map((r) => (
+            <tr key={r._key}>
+              <td style={{ textAlign: "left" }}>{r.PattyName}</td>
+              <td className="right">
+                <input
+                  className="form-ctrl right sm"
+                  style={{ width: 55 }}
+                  value={r.Percentage}
+                  onChange={(e) => updatePattyPercentage(r._key, e.target.value)}
+                  onFocus={(e) => e.target.select()}
+                />
+              </td>
+              <td className="right">
+                <input
+                  className="form-ctrl right sm"
+                  style={{ width: 60 }}
+                  value={r.BagRate}
+                  onChange={(e) => updatePattyBagRate(r._key, e.target.value)}
+                  onFocus={(e) => e.target.select()}
+                  title={r.PattyName === "LORRY FREIGHT" ? "₹ per Kg" : r.PattyName === "COOLY" ? "₹ per Bag" : ""}
+                />
+              </td>
+              <td className="right">{fmt2(computePattyRowAmt(r))}</td>
+            </tr>
+          ))}
+          {pattyRows.length > 0 && (
+            <tr>
+              <td style={{ textAlign: "left", fontWeight: 700 }}>Total</td>
+              <td /><td />
+              <td className="right" style={{ fontWeight: 700 }}>{pattyTotal}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    <div style={{ fontSize: 11, color: "#64748b", padding: "4px 2px" }}>
+      Total Kgs: {fmt2(totKgs)} &nbsp;|&nbsp; Total Bags: {fmt2(totBags)}
+    </div>
+  </div>
+)}
           <div className="charges-qty-row">
             <div className="other-fields-panel">
               <div className="panel-title">Additional Charges</div>
@@ -2624,6 +3268,16 @@ const handleEditPasswordSubmit = useCallback(async () => {
                 <td className="bs-label">CESS Amount</td><td className="bs-value">{totals.cessAmt}</td>
                 <td className="bs-label">SGST Amount</td><td className="bs-value">{totals.sgstAmt}</td>
               </tr>
+              {pattyMode && (
+                <tr>
+                  <td className="bs-label">Patty Amount</td><td className="bs-value">{pattyTotal}</td>
+                  <td className="bs-label">Net Amount</td><td className="bs-value" style={{ fontWeight: 700 }}>{finalNetAmt}</td>
+                  <td className="bs-label" />
+                  <td className="bs-value" />
+                  <td className="bs-label" />
+                  <td className="bs-value" />
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -2674,7 +3328,7 @@ const handleEditPasswordSubmit = useCallback(async () => {
       <div className="mp-hint">
         <kbd>F1</kbd> Save &nbsp;|&nbsp;
         <kbd>F2</kbd> Free Product &nbsp;|&nbsp;
-        <kbd>F3</kbd> Product Search &nbsp;|&nbsp;
+        <kbd>F3</kbd> {modeLabels.no} Search &nbsp;|&nbsp;
         <kbd>F4</kbd> Delete &nbsp;|&nbsp;
         <kbd>F5</kbd> List View &nbsp;|&nbsp;
         <kbd>F9</kbd> Delete (pwd) &nbsp;|&nbsp;

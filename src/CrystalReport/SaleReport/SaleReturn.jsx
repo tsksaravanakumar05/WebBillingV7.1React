@@ -163,7 +163,7 @@ export default function SaleReturn() {
 
   const openReportViewer = useCallback((params, title) => {
     const qs = new URLSearchParams(params).toString();
-    const url = `${BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
+    const url = `${CC.BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
 
     const w = window.open(
       url,

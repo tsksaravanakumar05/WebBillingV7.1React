@@ -172,7 +172,7 @@ export default function SaleOrder() {
 // AFTER ✅ — SaleBill.jsx pattern exactly copy
 const openReportViewer = useCallback((params) => {
   const qs = new URLSearchParams(params).toString();
-  const url = `${BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
+  const url = `${CC.BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
   
   window.open(
     url,

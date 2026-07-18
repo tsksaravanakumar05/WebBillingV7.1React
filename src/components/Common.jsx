@@ -21,7 +21,7 @@ export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 export const BASE_URL = "http://localhost:64215";
-//export const BASE_URL = "http://localhost:64215";
+//export const BASE_URL = "https://billing.kassapos.co.in";
 
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
@@ -114,6 +114,21 @@ export const LoginPasswordUrl     = "/api/LoginApp/EditPassword";
         export const UOMSelect = "/api/UOMApp/SelectUOM";
         export const UOMInsert = "/api/UOMApp/InsertUOM";
         export const UOMDelete = "/api/UOMApp/DeleteUOM";
+
+
+        //PattyMaster
+          //PattyMaster
+        export const PattySelect = "/api/PattyMasterApp/SelectPatty";
+        export const PattyInsert = "/api/PattyMasterApp/InsertPatty";
+        export const PattyDelete = "/api/PattyMasterApp/DeletePatty";
+        export const selectArrival = "/api/PattyMasterApp/SelectArrival";
+        export const SelectPattyPrint = "/api/PattyMasterApp/SelectPattyPrint";
+        export const updatepattyprint = "/api/PattyMasterApp/updatepattyprint";
+        export const OpeningBalanceUpdatePatty = "/api/PattyMasterApp/OpeningBalanceUpdatePatty";
+        export const SelectCreditSale = "/api/SaleApp/SelectCreditSale";
+        export const SelectLotNoDetails = "/api/SaleApp/SelectLotNoDetailsV7";
+
+
   //Salesman
   export const SalesManSelect = "/api/SalesManApp/SelectSalesMan"; 
   export const SalesManInsert = "/api/SalesManApp/InsertSalesMan";
@@ -239,7 +254,7 @@ export const CV_Delete     = "/api/CashApp/DeleteCash";
   export const EditPassword = "/api/loginApp/EditPassword";
   export const DeletePurchase = "/api/PurchaseApp/DeletePurchase";
   export const PurchaseList = "/api/PurchaseApp/PurchaseList";
-  export const SelectPurchase = "/api/PurchaseApp/SelectPurchase";
+  export const SelectPurchase = "/api/PurchaseApp/SelectPurchaseV7";
   export const FocusColumns = "/api/loginApp/FocusColumns";
 export const VisibleColumnsUrl = "/api/loginApp/VisibleColumns";
 
@@ -359,6 +374,7 @@ export const mkUrl = (path) => BASE_URL + path;
 export const buildSession = (pageName) => {
   try {
     const main0       = (getLocal("Mainsetting") || [{}])[0] || {};
+        const com0  = (getLocal("Companysetting") || [{}])[0] || {};
     const Comid       = getStr("Comid")    || "1";
     const MComid      = getStr("MComid")   || Comid;
     const IdComList   = getStr("IdComList") || Comid;
@@ -379,7 +395,7 @@ export const buildSession = (pageName) => {
       Commoncompany:                String(main0.CommonCompany              ?? false),
       CommoncompanyDiffStock:       String(main0.CommonCompanyDiffStock      ?? false),
       SupplierMulitipleAllow:       String(main0.SupplierMulitipleAllow      ?? false),
-      MulipleMRP:                   String(main0.MulipleMRP                 ?? false),
+      MulipleMRP:                   String(com0.MultiMRP                 ?? false),
       BatchPerfix:                  String(main0.BatchPerfix                ?? ""),
       BatchDigit:                   String(main0.BatchNoDigit               ?? 0),
       LocalDB:                      String(main0.LocalDB                    ?? 0),

@@ -1230,9 +1230,24 @@ const applyBillLoadItems = useCallback((selectedItems) => {
         return 0;
       };
 
-      const saleRate  = f2(vn(pick("SaleRate", "PurRate", "SalesRate", "Rate", "salerate")));
-      const mrp       = f2(vn(pick("MRP", "Mrp", "mrp")));
-      const taxPer    = f2(vn(pick("TaxPercent", "TaxPer", "GST", "Gst")));
+      // For numeric fields the backend may return valid fallbacks where
+      // the first key is 0 (e.g. SaleRate=0, PurRate=25.50). Keep existing
+      // behavior for non-numeric/text keys.
+      const pickNumericNonZero = (...keys) => {
+        for (const k of keys) {
+          const v = it[k];
+          if (v === undefined || v === null || v === "") continue;
+          const n = vn(v);
+          if (n !== 0) return v;
+        }
+        // fallback: use regular pick (preserves original behavior if backend
+        // truly returns 0 for all keys)
+        return pick(...keys);
+      };
+
+      const saleRate  = f2(vn(pickNumericNonZero("SaleRate", "PurRate", "SalesRate", "Rate", "salerate")));
+      const mrp       = f2(vn(pickNumericNonZero("MRP", "Mrp", "mrp")));
+      const taxPer    = f2(vn(pickNumericNonZero("TaxPercent", "TaxPer", "GST", "Gst")));
       const discPer   = f2(vn(pick("DiscountPercent", "DiscountPer", "Discper")));
       const cessPer   = f2(vn(pick("CESSPer", "CessPer", "CESS")));
       const uomDec    = vn(pick("UOMDecimal", "UomDecimal")) || 0;

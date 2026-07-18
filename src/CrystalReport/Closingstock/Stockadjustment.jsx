@@ -148,7 +148,7 @@ export default function StockAdjustmentDetails() {
   // ── Report viewer opener — same pattern as ClosingStock.jsx ─────────────
   const openReportViewer = useCallback((params) => {
     const qs = new URLSearchParams(params).toString();
-    const url = `${BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
+    const url = `${CC.BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
 
     const w = window.open(
       url,

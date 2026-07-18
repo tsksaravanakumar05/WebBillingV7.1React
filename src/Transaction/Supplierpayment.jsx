@@ -1021,6 +1021,18 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
     if (!row) return;
     const value = row[field];
 
+    // Helper — target column visible-ஆ இருந்தா நேரடியா focus பண்ணு,
+    // இல்லாட்டி moveNext()-ஐ கூப்பிட்டு COL_NAV வழியா next visible
+    // column-க்கு தானாகவே போகும்.
+    const goToOrSkip = (targetField, fromField) => {
+      const isVisible = visibleColumns.some(vc => vc.field === targetField);
+      if (isVisible) {
+        focusCell(idx, targetField);
+      } else {
+        moveNext(idx, fromField);
+      }
+    };
+
     if (field === grdSupplierName) {
       setSupplierPopup({ open:true, rowIdx:idx, prefill:row[grdSupplierName] || "" });
     }
@@ -1030,25 +1042,27 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
     else if (field === grdCashAmount) {
       updateCell(idx, grdCashAmount, fmt2(value));
       if (!calculation(idx, { ...row, [grdCashAmount]: value })) return;
-      // ✅ FIXED: was just moveNext(); now mirrors CustomerReceipt —
-      //    always move to next after cash (no conditional split needed for cash)
       moveNext(idx, field);
     }
-   else if(field===grdRTGSAmt){
-    updateCell(idx, grdRTGSAmt, fmt2(value));
-    if(!calculation(idx, {...row, [grdRTGSAmt]:value})) return;
-    
-    // ✅ FIX: RTGSAmt > 0 → go RTGSNo, else skip to ChequeAmt
-    if(vn(value) > 0){
-        focusCell(idx, grdRTGSNo);   // RTGSNo-க்கு போ
-    } else {
-        updateCell(idx, grdRTGSNo, ""); // RTGSNo clear செய்
-        focusCell(idx, grdChequeAmount); // skip செய்
+    else if (field === grdRTGSAmt) {
+      updateCell(idx, grdRTGSAmt, fmt2(value));
+      if (!calculation(idx, { ...row, [grdRTGSAmt]: value })) return;
+
+      if (vn(value) > 0) {
+        // RTGSAmt > 0 → RTGSNo (visible ஆ இருந்தா, இல்லாட்டி skip)
+        goToOrSkip(grdRTGSNo, grdRTGSAmt);
+      } else {
+        updateCell(idx, grdRTGSNo, "");
+        // ✅ FIX: field-ஐ grdRTGSNo-ஆ கொடுத்து moveNext கூப்பிடணும் —
+        // COL_NAV-ல் RTGSAmt-க்கு அடுத்தது RTGSNo, அதை கடந்து அடுத்த
+        // column-க்கு (ChequeAmount அல்லது அதற்கு அடுத்தது) போகணும்.
+        moveNext(idx, grdRTGSNo);
+      }
     }
-}
     else if (field === grdRTGSNo) {
       if (vn(row[grdRTGSAmt]) > 0) {
-        focusCell(idx, grdBankName);
+        // BankName-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+        goToOrSkip(grdBankName, grdRTGSNo);
       } else {
         moveNext(idx, field);
       }
@@ -1057,23 +1071,27 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
       updateCell(idx, grdChequeAmount, fmt2(value));
       if (!calculation(idx, { ...row, [grdChequeAmount]: value })) return;
       if (vn(value) > 0) {
-        focusCell(idx, grdChequeNo);
+        // ChequeNo-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+        goToOrSkip(grdChequeNo, grdChequeAmount);
       } else {
         updateCell(idx, grdChequeNo, "");
         updateCell(idx, grdChequeDate, "");
-        focusCell(idx, grdDiscountAmount);  // ✅ skip to Discount, not moveNext
+        // Discount-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+        goToOrSkip(grdDiscountAmount, grdChequeAmount);
       }
     }
     else if (field === grdChequeNo) {
       if (vn(row[grdChequeAmount]) > 0) {
-        focusCell(idx, grdChequeDate);
+        // ChequeDate-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+        goToOrSkip(grdChequeDate, grdChequeNo);
       } else {
         moveNext(idx, field);
       }
     }
     else if (field === grdChequeDate) {
       if (vn(row[grdChequeAmount]) > 0) {
-        focusCell(idx, grdBankName);
+        // BankName-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
+        goToOrSkip(grdBankName, grdChequeDate);
       } else {
         moveNext(idx, field);
       }
@@ -1103,7 +1121,7 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
     else {
       moveNext(idx, field);
     }
-  }, [calculation, moveNext, focusCell, updateCell, toast, sess.PaymentBillWise, deleteRow, openPendingBills]);
+  }, [calculation, moveNext, focusCell, updateCell, toast, sess.PaymentBillWise, deleteRow, visibleColumns, openPendingBills]);
 
   // ── Popup selection handlers ─────────────────────────────────────────────
   const onSupplierSelect = useCallback((item) => {
