@@ -136,11 +136,12 @@ import CustomerAging from "./CrystalReport/CustomerMaster/Customeragingreport.js
 import CRMCustomer from "./CrystalReport/CustomerMaster/Crmcustomer.jsx";
 //import Purchaseconsolidated from "./CrystalReport/PurchaseMaster/Purchaseconsolidated.jsx";
 
-
+import CustomerReceiptReport from "./CrystalReport/CustomerMaster/CustomerReceipt.jsx";
 //import TruckStock from "./CrystalReport/Stock/TruckStock";
 
-
-
+import PurReturnConsolidated from "./CrystalReport/Purchase Return Matser/PurReturnConsolidated.jsx"
+import Purchasedet from "./CrystalReport/Purchase Return Matser/Purchasedet.jsx"
+import PurReturnItemwise from "./CrystalReport/Purchase Return Matser/PurReturnItemwise.jsx"
 
 function App() {
 
@@ -285,6 +286,15 @@ function App() {
         <Route path="/Report/CustomerStatement" element={<CustomerStatement />} />
         <Route path="/Report/CustomerAging" element={<CustomerAging />}  />
         <Route path="/Report/CrmReport" element={<CRMCustomer />} />
+        <Route  path="/Report/CustomerReceipt"  element={<CustomerReceiptReport />}
+/>
+
+
+<Route path="/Report/PurReturnConsolidated" element={<PurReturnConsolidated />} />
+
+<Route path="/Report/PurReturnDetails" element={<Purchasedet />} />
+
+<Route path="/Report/PurReturnItemwise" element={<PurReturnItemwise />} />
 
 {/* StockMaster */}
 
