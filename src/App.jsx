@@ -59,7 +59,7 @@ import StockInward from "./Transaction/Stockinward";
 // import PhysicalStock from "./Transaction/PhysicalStock";
 import Cashvoucher from "./Transaction/Cashvoucher";
 import Bankvoucher from "./Transaction/Bankvoucher";
-import Qutation from "./Transaction/Qutation";
+import Qutation from "./Transaction/Qutation.jsx";
 import Purchaseorder from "./Transaction/Purchaseorder";
 import Sales from "./Transaction/SaleBill";
 import StockAdjustment from "./Transaction/StockAdjustment";

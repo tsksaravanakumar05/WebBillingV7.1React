@@ -7,7 +7,7 @@
   /* ── Brand / Primary Blue ── */
   --clr-primary:           #1f65de;   /* buttons, accents, links */
   --clr-primary-hover:     #1750b0;   /* primary hover state */
-  --clr-primary-dark:      #1b3a8f;   /* table header bg */
+  --clr-primary-dark:      #1b3a8f;   /* table header bg  #1b3a8f; where CompanyRefid=3 */
   --clr-primary-light:     #a8c8f5;   /* selected row, border-left accent on toast */
 
   /* ── Backgrounds ── */
