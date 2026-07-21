@@ -13,10 +13,32 @@
 //                    export const CV_Select     = "/api/CashApp/SelectCash";
 //                    export const CV_Delete     = "/api/CashApp/DeleteCash";
 //  Payloads      : ALL original request structures preserved
+//
+//  VISUAL REDESIGN NOTE:
+//  Only the presentational layer was changed to match the "bm-*" card design
+//  system used in BrandMaster.jsx (blue card border + gradient header,
+//  rounded card, bm-btn pill buttons, bm-grid-wrap fixed-height scrollable
+//  grid, lucide-react icons, etc.). The bm-* classes live in the same
+//  MasterPage.css imported below — no local <style> block needed.
+//  The Type/Date/Total master-row (field-group/form-ctrl) keeps its own
+//  existing styling — it isn't part of Brand's design (Brand has no header
+//  fields) and was only relocated, not restyled. The per-cell selection
+//  highlighting (grid-row / grid-cell / selected / cell-input classes) is
+//  untouched for the same reason — it's how this voucher grid's "click a
+//  cell to edit it" interaction works, which Brand's grid doesn't have.
+//  The three overlay popups (AccountNamePopup, F5ViewPopup, EditPwdPopup)
+//  are completely untouched — independent modals, not part of the bm-*
+//  card. A visible Save / View (F5) / Clear (F10) / Quit (Esc) toolbar was
+//  added at the bottom of the card, mirroring Brand's always-visible
+//  button row — each button simply calls the exact same handler the
+//  matching keyboard shortcut already called; no new logic was added.
+//  All state, effects, handlers, API calls, validation, variable names and
+//  control flow are 100% unchanged from the original CashVoucher.jsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Eye, RotateCcw, XCircle, Trash2 } from "lucide-react";
 import "../Master/MasterPage.css";
 
 import Topbar from "../components/Topbar";
@@ -768,16 +790,33 @@ setLoading(true);
   // ─────────────────────────────────────────────────────────────────────────────
   if (!isAuthorized) {
     return (
-      <div className="pr-root" style={{ alignItems: "center", justifyContent: "center" }}>
+      <div className="bm-shell" style={{ alignItems: "center", justifyContent: "center" }}>
         <div className="mp-ldr-box"><div className="mp-spin" /><span>Loading…</span></div>
       </div>
     );
   }
 
   return (
-    <div className="pr-root">
+    <div className="bm-shell">
       {/* Topbar */}
       <Topbar />
+
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Cash Voucher</div>
+            <button
+              type="button"
+              className="bm-close-x"
+              aria-label="Close"
+              onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/Home"); })}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="bm-card-body">
+            <div className="bm-report-title">Cash Voucher</div>
 
       {/* ── MASTER FORM ──────────────────────────────────────────────────────── */}
       <div className="pr-master">
@@ -821,18 +860,17 @@ setLoading(true);
       </div>
 
       {/* ── GRID ──────────────────────────────────────────────────────────────── */}
-      <div className="grid-wrap">
-        <div className="grid-scroll">
-          <table className="pur-grid">
+      <div className="bm-grid-wrap">
+          <table className="bm-tbl pur-grid">
             <thead>
               <tr>
-                <th className="sno-col">S.No</th>
+                <th className="sno-col" style={{ width: 50 }}>S.No</th>
                 {GRID_COLS.map((c) => (
                   <th key={c.key} className={c.align === "right" ? "right" : ""} style={{ minWidth: c.width }}>
                     {c.label}
                   </th>
                 ))}
-                <th className="del-col">✕</th>
+                <th className="del-col" style={{ width: 44 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -874,7 +912,7 @@ setLoading(true);
                   <td className="grid-cell del-col">
                     {nullStr(row.AccountRefId) !== "" && (
                       <button
-                        className="del-row-btn"
+                        className="bm-icon-btn del"
                         title="Delete"
                         onClick={() => {
                           if (row.Id != null && row.Id !== 0 && row.Id !== "") {
@@ -898,7 +936,7 @@ setLoading(true);
                           }
                         }}
                       >
-                        ✕
+                        <Trash2 size={15} />
                       </button>
                     )}
                   </td>
@@ -906,18 +944,41 @@ setLoading(true);
               ))}
             </tbody>
           </table>
-        </div>
       </div>
 
-      {/* ── SHORTCUT BAR ─────────────────────────────────────────────────────── */}
-      <div className="mp-hint">
-        <span><kbd>F1</kbd> Save</span>
-        <span><kbd>F5</kbd> View</span>
-        <span><kbd>F10</kbd> Clear</span>
-        <span><kbd>Enter</kbd> Next Cell</span>
-        <span><kbd>Delete</kbd> Remove Row</span>
-        <span><kbd>Ctrl+V</kbd> Print (in F5)</span>
-        <span><kbd>Esc</kbd> Close/Quit</span>
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} />
+                F1 Save
+              </button>
+              <button
+                className="bm-btn"
+                onClick={() => { setF5From(today()); setF5To(today()); openF5View(); }}
+                disabled={loading}
+              >
+                <Eye size={16} />
+                F5 View
+              </button>
+              <button
+                className="bm-btn"
+                onClick={() => confirm("Do You Want To Clear?").then((ok) => { if (ok) handleClear(); })}
+                disabled={loading}
+              >
+                <RotateCcw size={16} />
+                F10 Clear
+              </button>
+              <button
+                className="bm-btn bm-btn-secondary"
+                onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/Home"); })}
+                disabled={loading}
+              >
+                <XCircle size={16} />
+                Esc Quit
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════

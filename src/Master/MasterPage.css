@@ -3,12 +3,21 @@
    All colors are defined here. Change once, applies everywhere.
    ═══════════════════════════════════════════════════ */
 
-:root {
+
   /* ── Brand / Primary Blue ── */
-  --clr-primary:           #1f65de;   /* buttons, accents, links */
-  --clr-primary-hover:     #1750b0;   /* primary hover state */
-  --clr-primary-dark:      #1b3a8f;   /* table header bg  #1b3a8f; where CompanyRefid=3 */
-  --clr-primary-light:     #a8c8f5;   /* selected row, border-left accent on toast */
+    /* --clr-primary:           #1f65de;  buttons, accents, links */
+    /* --clr-primary-hover:     #1750b0;  primary hover state */
+    /*  --clr-primary-dark:      #1b3a8f; table header bg  where CompanyRefid=3 */
+   /*  --clr-primary-light:     #a8c8f5;  selected row, border-left accent on toast */
+  
+
+  :root {
+    --clr-primary:       #3b6fe0;
+    --clr-primary-hover: #2b5fd8;
+    --clr-primary-dark:  #1a4fd1;
+    --clr-primary-light: #dbe6fd;
+  
+
 
   /* ── Backgrounds ── */
   --clr-bg-page:           #eef3fb;   /* outer page background */

@@ -313,11 +313,13 @@ function MenuNode({ item, depth = 0, onLinkClick }) {
         onClick={() => setOpen((v) => !v)}
         style={{ paddingLeft: depth > 0 ? `${11 + depth * 10}px` : undefined }}
       >
+        {/* <span className="ms-item-label">{item.label}</span> */}
+        
         <span className="ms-item-icon">{parentIcon}</span>
         <span className="ms-item-label">{item.label}</span>
-        {item.children.length > 0 && (
+        {/* {item.children.length > 0 && (
           <span className="ms-item-count">{item.children.length}</span>
-        )}
+        )} */}
         <IconChevron open={open} />
       </button>
 
