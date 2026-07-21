@@ -16,10 +16,29 @@
 //   • Group Commission popup (Enter/click on CommisionGroupName)
 //   • View, Add, Edit, Delete permission denied logic from DepartmentMaster
 //   • Dual-login guard — any 406 / res.redis===false → navigate("/Login/Index")
+//
+//  VISUAL REDESIGN NOTE:
+//  Only the presentational layer (JSX structure, className usage, and the two
+//  cosmetic hex colors on the Active toggle / editing indicator) was changed
+//  to match the "bm-*" card design system used in BrandMaster.jsx (blue
+//  #1a56db card border + gradient header, rounded card, bm-btn pill buttons,
+//  bm-cell-input focus glow, fixed-height scrollable grid, dark-navy table
+//  header, etc.). The bm-* classes live in MasterPage.css (already imported
+//  below) — no local <style> block needed here, same as BrandMaster.jsx.
+//  The Group Commission popup keeps its own existing "grp-*" styling from
+//  Salesman.css exactly as before — it's a self-contained overlay, unrelated
+//  to the bm-* card.
+//  All state, effects, handlers, API calls, validation (including the
+//  numeric Commission/Password input guards), variable names and control
+//  flow — including the pre-existing dead-code branch for a
+//  "CommisionGroupName" column that isn't listed in ALL_COLUMNS and
+//  therefore never renders — are 100% unchanged from the original
+//  SalesManMaster.jsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, XCircle, Pencil, Trash2 } from "lucide-react";
 import "./MasterPage.css";
 import "../MasterStyle/Salesman.css";
 
@@ -28,6 +47,9 @@ import * as CC  from "../components/Common";
 import * as MSG from "../components/Messages";
 
 // ─── Toggle component (Active column) ────────────────────────────────────────
+//  NOTE: only the two hex color values below were changed (#16a34a -> #1e7e34,
+//  #15803d -> #166534) to line up with BrandMaster's "save" green accent.
+//  Behavior, props and logic are untouched.
 function Toggle({ value, onChange, onKeyDown, inputRef, editMode, onFocus }) {
   return (
     <button
@@ -39,12 +61,12 @@ function Toggle({ value, onChange, onKeyDown, inputRef, editMode, onFocus }) {
       style={{
         width: 32, height: 18, borderRadius: 9, border: "none",
         cursor:     editMode === 0 ? "default" : "pointer",
-        background: value ? "#16a34a" : "#cbd5e1",
+        background: value ? "#1e7e34" : "#cbd5e1",
         position: "relative", transition: "background 0.18s ease",
         outline: "none", display: "inline-flex", alignItems: "center",
         flexShrink: 0, padding: 0,
         boxShadow: value
-          ? "inset 0 0 0 1px #15803d"
+          ? "inset 0 0 0 1px #166534"
           : "inset 0 0 0 1px #b0bec5",
         opacity:       editMode === 0 ? 0.5 : 1,
         pointerEvents: editMode === 0 ? "none" : "auto",
@@ -624,7 +646,7 @@ export default function SalesManMaster() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
 
       {ConfirmUI}
 
@@ -674,213 +696,196 @@ export default function SalesManMaster() {
         </div>
       )}
 
-      <div className="mp-body">
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Sales Man Master</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
+          </div>
 
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-          <div className="mp-toolbar-title">Sales Man Master</div>
-        </div>
+          <div className="bm-card-body">
+            <div className="bm-report-title">Sales Man Master</div>
 
-        {/* ── Grid ── */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 50 }}>S.No</th>
-                {ALL_COLUMNS.map(c => (
-                  <th
-                    key={c.field}
-                    style={{
-                      width:    c.width,
-                      minWidth: c.width,
-                      textAlign: (c.field === "Active" || c.field === "Commission" || c.field === "Password")
-                        ? "center" : undefined,
-                    }}
-                  >
-                    {c.label}
-                  </th>
-                ))}
-                <th style={{ width: 60 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {grid.map((row, idx) => (
-                <tr
-                  key={row._uid}
-                  className={[
-                    selIdx === idx     ? "sel"   : "",
-                    !row.Active        ? "inact" : "",
-                    row.EditMode === 1 ? "mod"   : "",
-                  ].filter(Boolean).join(" ")}
-                  onClick={() => selectRow(idx)}
-                >
-                  <td className="sno">{idx + 1}</td>
-
-                  {ALL_COLUMNS.map((col, colIdx) => (
-                    <td
-                      key={col.field}
-                      style={{
-                        textAlign: (col.field === "Active" || col.field === "Commission" || col.field === "Password")
-                          ? "center" : undefined,
-                      }}
+            {/* ── Grid ── */}
+            <div className="bm-grid-wrap">
+              <table className="bm-tbl">
+                <thead>
+                  <tr>
+                    <th style={{ width: 50 }}>S.No</th>
+                    {ALL_COLUMNS.map(c => (
+                      <th
+                        key={c.field}
+                        style={{
+                          width:    c.width,
+                          minWidth: c.width,
+                          textAlign: (c.field === "Active" || c.field === "Commission" || c.field === "Password")
+                            ? "center" : undefined,
+                        }}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
+                    <th style={{ width: 64 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grid.map((row, idx) => (
+                    <tr
+                      key={row._uid}
+                      className={[
+                        selIdx === idx     ? "sel"   : "",
+                        !row.Active        ? "inact" : "",
+                        row.EditMode === 1 ? "mod"   : "",
+                      ].filter(Boolean).join(" ")}
+                      onClick={() => selectRow(idx)}
                     >
-                      {/* ── Active Toggle ── */}
-                      {col.field === "Active" && (
-                        <Toggle
-                          value={!!row.Active}
-                          editMode={row.EditMode}
-                          inputRef={el => {
-                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                            inputRefs.current[idx][colIdx] = el;
-                          }}
-                          onChange={val => row.EditMode === 1 && updateCell(idx, col.field, val)}
-                          onFocus={() => selectRow(idx)}
-                          onKeyDown={e => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              onCellKeyDown(e, idx, colIdx, col.field);
-                            }
-                          }}
-                        />
-                      )}
+                      <td className="sno">{idx + 1}</td>
 
-                      {/* ── CommisionGroupName — read-only popup ── */}
-                      {col.field === "CommisionGroupName" && (
-                        <input
-                          ref={el => {
-                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                            inputRefs.current[idx][colIdx] = el;
-                          }}
-                          className="mp-cell-input"
-                          value={row.CommisionGroupName || ""}
-                          readOnly
-                          placeholder="Click / Enter to select…"
-                          onFocus={() => selectRow(idx)}
-                          onClick={() => row.EditMode === 1 && openGroupPopup(idx)}
-                          onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)}
+                      {ALL_COLUMNS.map((col, colIdx) => (
+                        <td
+                          key={col.field}
                           style={{
-                            background:   row.EditMode === 0 ? "transparent" : "#fff",
-                            border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                            cursor:       row.EditMode === 0 ? "default" : "pointer",
-                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                            boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                            borderRadius: row.EditMode === 1 ? "4px" : "0",
-                            padding:      row.EditMode === 0 ? "0" : undefined,
+                            textAlign: (col.field === "Active" || col.field === "Commission" || col.field === "Password")
+                              ? "center" : undefined,
                           }}
-                        />
-                      )}
+                        >
+                          {/* ── Active Toggle ── */}
+                          {col.field === "Active" && (
+                            <Toggle
+                              value={!!row.Active}
+                              editMode={row.EditMode}
+                              inputRef={el => {
+                                if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                                inputRefs.current[idx][colIdx] = el;
+                              }}
+                              onChange={val => row.EditMode === 1 && updateCell(idx, col.field, val)}
+                              onFocus={() => selectRow(idx)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  onCellKeyDown(e, idx, colIdx, col.field);
+                                }
+                              }}
+                            />
+                          )}
 
-                      {/* ── Commission / Password — numeric ── */}
-                      {(col.field === "Commission" || col.field === "Password") && (
-                        <input
-                          ref={el => {
-                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                            inputRefs.current[idx][colIdx] = el;
-                          }}
-                          className="mp-cell-input"
-                          value={row[col.field] ?? ""}
-                          maxLength={col.field === "Password" ? 18 : undefined}
-                          readOnly={row.EditMode === 0}
-                          onChange={e => {
-                            if (row.EditMode !== 1) return;
-                            if (!validateInput(col.field, e.target.value)) return;
-                            updateCell(idx, col.field, e.target.value);
-                          }}
-                          onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)}
-                          onFocus={() => selectRow(idx)}
-                          style={{
-                            textAlign:    "right",
-                            background:   row.EditMode === 0 ? "transparent" : "#fff",
-                            border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                            cursor:       row.EditMode === 0 ? "default" : "text",
-                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                            boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                            borderRadius: row.EditMode === 1 ? "4px" : "0",
-                            padding:      row.EditMode === 0 ? "0" : undefined,
-                          }}
-                        />
-                      )}
+                          {/* ── CommisionGroupName — read-only popup ── */}
+                          {col.field === "CommisionGroupName" && (
+                            <input
+                              ref={el => {
+                                if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                                inputRefs.current[idx][colIdx] = el;
+                              }}
+                              className="bm-cell-input"
+                              value={row.CommisionGroupName || ""}
+                              readOnly
+                              placeholder="Click / Enter to select…"
+                              onFocus={() => selectRow(idx)}
+                              onClick={() => row.EditMode === 1 && openGroupPopup(idx)}
+                              onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)}
+                              style={{ cursor: row.EditMode === 1 ? "pointer" : "default" }}
+                            />
+                          )}
 
-                      {/* ── Code / SalesManName — uppercase text ── */}
-                      {(col.field === "Code" || col.field === "SalesManName") && (
-                        <input
-                          ref={el => {
-                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                            inputRefs.current[idx][colIdx] = el;
-                          }}
-                          className="mp-cell-input"
-                          value={row[col.field] || ""}
-                          maxLength={50}
-                          readOnly={row.EditMode === 0}
-                          onChange={e =>
-                            row.EditMode === 1 &&
-                            CC.applyUppercase(e, val => updateCell(idx, col.field, val))
-                          }
-                          onKeyDown={e =>
-                            row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)
-                          }
-                          onFocus={() => selectRow(idx)}
-                          style={{
-                            background:   row.EditMode === 0 ? "transparent" : "#fff",
-                            border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                            cursor:       row.EditMode === 0 ? "default" : "text",
-                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                            boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                            borderRadius: row.EditMode === 1 ? "4px" : "0",
-                            padding:      row.EditMode === 0 ? "0" : undefined,
-                          }}
-                        />
-                      )}
-                    </td>
+                          {/* ── Commission / Password — numeric ── */}
+                          {(col.field === "Commission" || col.field === "Password") && (
+                            <input
+                              ref={el => {
+                                if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                                inputRefs.current[idx][colIdx] = el;
+                              }}
+                              className="bm-cell-input"
+                              value={row[col.field] ?? ""}
+                              maxLength={col.field === "Password" ? 18 : undefined}
+                              readOnly={row.EditMode === 0}
+                              onChange={e => {
+                                if (row.EditMode !== 1) return;
+                                if (!validateInput(col.field, e.target.value)) return;
+                                updateCell(idx, col.field, e.target.value);
+                              }}
+                              onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)}
+                              onFocus={() => selectRow(idx)}
+                              style={{ textAlign: "right" }}
+                            />
+                          )}
+
+                          {/* ── Code / SalesManName — uppercase text ── */}
+                          {(col.field === "Code" || col.field === "SalesManName") && (
+                            <input
+                              ref={el => {
+                                if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                                inputRefs.current[idx][colIdx] = el;
+                              }}
+                              className="bm-cell-input"
+                              value={row[col.field] || ""}
+                              maxLength={50}
+                              readOnly={row.EditMode === 0}
+                              onChange={e =>
+                                row.EditMode === 1 &&
+                                CC.applyUppercase(e, val => updateCell(idx, col.field, val))
+                              }
+                              onKeyDown={e =>
+                                row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)
+                              }
+                              onFocus={() => selectRow(idx)}
+                            />
+                          )}
+                        </td>
+                      ))}
+
+                      {/* ── Edit + Delete buttons ── */}
+                      <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                        {row.Id && row.EditMode === 0 && (
+                          <button
+                            className="bm-icon-btn edit"
+                            title="Edit row"
+                            onClick={e => { e.stopPropagation(); enableEdit(idx); }}
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        {row.Id && row.EditMode === 1 && (
+                          <button
+                            className="bm-icon-btn edit active"
+                            title="Editing…"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        <button
+                          className="bm-icon-btn del"
+                          title="Delete row"
+                          onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
                   ))}
+                </tbody>
+              </table>
 
-                  {/* ── Edit + Delete buttons ── */}
-                  <td style={{ whiteSpace: "nowrap" }}>
-                    {row.Id && row.EditMode === 0 && (
-                      <button
-                        className="mp-edit-btn"
-                        title="Edit row"
-                        onClick={e => { e.stopPropagation(); enableEdit(idx); }}
-                      >
-                        ✏️
-                      </button>
-                    )}
-                    {row.Id && row.EditMode === 1 && (
-                      <button
-                        className="mp-edit-btn active"
-                        title="Editing…"
-                        style={{ color: "#16a34a", cursor: "default" }}
-                      >
-                        ✏️
-                      </button>
-                    )}
-                    <button
-                      className="mp-del-btn"
-                      onClick={e => { e.stopPropagation(); deleteRow(idx); }}
-                    >
-                      🗑
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              {grid.length === 0 && !loading && (
+                <div className="bm-empty">No records. Press ➕ Add Row to add a sales man.</div>
+              )}
+            </div>
 
-          {grid.length === 0 && !loading && (
-            <div className="mp-empty">No records. Press ➕ to add a sales man.</div>
-          )}
-        </div>
-
-        {/* ── Keyboard hint bar ── */}
-        <div className="mp-hint">
-          <kbd>Enter</kbd> next cell &nbsp;|&nbsp;
-          <kbd>Ctrl+Delete</kbd> delete row &nbsp;|&nbsp;
-          <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> back &nbsp;|&nbsp;
-          Click <strong>Group Name</strong> to pick group
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} />
+                {loading ? "Loading…" : "F1 Save"}
+              </button>
+              <button className="bm-btn" onClick={addRow} disabled={loading}>
+                <Plus size={16} />
+                Add Row
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc} disabled={loading}>
+                <XCircle size={16} />
+                Esc Cancel
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

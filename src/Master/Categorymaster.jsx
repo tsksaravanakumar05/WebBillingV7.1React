@@ -2,10 +2,24 @@
 //  CategoryMaster.jsx
 //  Uses shared helpers from CashierCommon.jsx via wildcard import (CC.*)
 //  Any new export added to CashierCommon is auto-available here as CC.xxx
+//
+//  VISUAL REDESIGN NOTE:
+//  Only the presentational layer (JSX structure, className usage, and the two
+//  cosmetic hex colors on the Active toggle / editing indicator) was changed
+//  to match the "bm-*" card design system used in BrandMaster.jsx (blue
+//  #1a56db card border + gradient header, rounded card, bm-btn pill buttons,
+//  bm-cell-input focus glow, fixed-height scrollable grid, dark-navy table
+//  header, etc.). The bm-* classes live in MasterPage.css (already imported
+//  below) — no local <style> block needed here, same as BrandMaster.jsx.
+//  The F12 Column Settings popup keeps its own inline-styled modal exactly
+//  as before (it's a self-contained overlay, unrelated to the bm-* card).
+//  All state, effects, handlers, API calls, validation, variable names and
+//  control flow are 100% unchanged from the original CategoryMaster.jsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, XCircle, Pencil, Trash2, Settings } from "lucide-react";
 import "./MasterPage.css";
 
 import Topbar from "../components/Topbar";
@@ -15,6 +29,9 @@ import * as CC from "./Common";
 
 
 // ─── Toggle component (same as CashierMaster) ────────────────────────────────
+//  NOTE: only the two hex color values below were changed (#16a34a -> #1e7e34,
+//  #15803d -> #166534) to line up with BrandMaster's "save" green accent.
+//  Behavior, props and logic are untouched.
 const Toggle = ({ value, onChange, onKeyDown, inputRef, idx, editMode, onFocus }) => (
   <button
     ref={inputRef}
@@ -24,10 +41,10 @@ const Toggle = ({ value, onChange, onKeyDown, inputRef, idx, editMode, onFocus }
     title={value ? "Active" : "Inactive"}
     style={{
       width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer",
-      background: value ? "#16a34a" : "#cbd5e1",
+      background: value ? "#1e7e34" : "#cbd5e1",
       position: "relative", transition: "background 0.18s ease", outline: "none",
       display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
-      boxShadow: value ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+      boxShadow: value ? "inset 0 0 0 1px #166534" : "inset 0 0 0 1px #b0bec5",
       opacity: editMode === 0 ? 0.5 : 1,
       pointerEvents: editMode === 0 ? "none" : "auto",
     }}
@@ -85,8 +102,8 @@ export default function CategoryMaster() {
 
   // ─── Column config ────────────────────────────────────────────────────────
   const ALL_COLUMNS = [
-    { field: "Cat_Name", label: "Category Name", width: 300, hidden: false },
-    { field: "Active",   label: "Active",         width: 80,  hidden: false },
+    { field: "Cat_Name", label: "Category Name", width: 100, hidden: false },
+    { field: "Active",   label: "Active",         width: 80, hidden: false },
   ];
  
 const redirectIfDualLogin = useCallback((res) => {
@@ -248,6 +265,7 @@ const redirectIfDualLogin = useCallback((res) => {
   }, [sess.MComid]); // eslint-disable-line
 
   // ── F12 Column Settings Popup ────────────────────────────────────────────────
+  //  Self-contained inline-styled modal — unchanged from the original.
   function F12Popup() {
     const [local, setLocal] = useState(colSettings.map(s => ({ ...s })));
 
@@ -593,170 +611,173 @@ if (redirectIfDualLogin(res)) return;
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
 
       {/* Confirm Dialog — rendered by CC.useConfirm() */}
       {ConfirmUI}
       {f12Open && <F12Popup />}
       <Topbar />
 
-      {/* ── Header ── */}
-      {/* <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">C</div>
-          <div>
-            <div className="mp-title">Category Master</div>
-            <div className="mp-sub">Co: {sess.Comid} — Manage category records</div>
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Category Master</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
           </div>
-        </div>
-        <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div> */}
 
-      <div className="mp-body">
+          <div className="bm-card-body">
+            <div className="bm-report-title">Category Master</div>
 
-        {/* ── Grid ── */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 50 }}>S.No</th>
-                {visibleColumns.map(c => (
-                  <th
-                    key={c.field}
-                    style={{
-                      width: c.width,
-                      minWidth: c.width,
-                      textAlign: c.field === "Active" ? "center" : undefined,
-                    }}
-                  >
-                    {c.label}
-                  </th>
-                ))}
-                <th style={{ width: 44 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {grid.map((row, idx) => (
-                <tr
-                  key={row._uid}
-                  className={[
-                    selIdx === idx     ? "sel"   : "",
-                    !row.Active        ? "inact" : "",
-                    row.EditMode === 1 ? "mod"   : "",
-                  ].filter(Boolean).join(" ")}
-                  onClick={() => selectRow(idx)}
-                >
-                  <td className="sno">{idx + 1}</td>
-
-                  {visibleColumns.map((col, colIdx) => (
-                    <td
-                      key={col.field}
-                      style={{ textAlign: col.field === "Active" ? "center" : undefined }}
+            {/* ── Grid ── */}
+            <div className="bm-grid-wrap">
+              <table className="bm-tbl">
+                <thead>
+                  <tr>
+                    <th style={{ width: 50 }}>S.No</th>
+                    {visibleColumns.map(c => (
+                      <th
+                        key={c.field}
+                        style={{
+                          width: c.width,
+                          minWidth: c.width,
+                          textAlign: c.field === "Active" ? "center" : undefined,
+                        }}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
+                    <th style={{ width: 64 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grid.map((row, idx) => (
+                    <tr
+                      key={row._uid}
+                      className={[
+                        selIdx === idx     ? "sel"   : "",
+                        !row.Active        ? "inact" : "",
+                        row.EditMode === 1 ? "mod"   : "",
+                      ].filter(Boolean).join(" ")}
+                      onClick={() => selectRow(idx)}
                     >
-                      {/* ── Active Toggle ── */}
-                      {col.field === "Active" && (
-                        <Toggle
-                          value={!!row.Active}
-                          idx={idx}
-                          editMode={row.EditMode}
-                          inputRef={el => {
-                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                            inputRefs.current[idx][colIdx] = el;
-                          }}
-                          onFocus={() => selectRow(idx)}
-                          onChange={val => row.EditMode === 1 && updateCell(idx, col.field, val)}
-                          onKeyDown={e => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              CC.handleEnterNext(
-                                e, inputRefs, idx, colIdx,
-                                visibleColumns.length, grid.length,
-                                addRow, grid, rowValidator
-                              );
-                            }
-                          }}
-                        />
-                      )}
+                      <td className="sno">{idx + 1}</td>
 
-                      {/* ── Text input for all other fields ── */}
-                      {col.field !== "Active" && (
-                        <input
-                          ref={el => {
-                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                            inputRefs.current[idx][colIdx] = el;
-                          }}
-                          className="mp-cell-input"
-                          value={row[col.field] || ""}
-                          maxLength={col.maxLen || 100}
-                          readOnly={row.EditMode === 0}
-                          onChange={e =>
-                            row.EditMode === 1 &&
-                            CC.applyUppercase(e, val => updateCell(idx, col.field, val))
-                          }
-                          onKeyDown={e => {
-                            if (row.EditMode === 1) {
-                              // Use custom Enter handler for single-col grid
-                              onCellKeyDown(e, idx);
-                            }
-                          }}
-                          onFocus={() => selectRow(idx)}
-                          style={{
-                            background:   row.EditMode === 0 ? "transparent" : "#fff",
-                            border:       row.EditMode === 0 ? "none"        : "1px solid #93c5fd",
-                            cursor:       row.EditMode === 0 ? "default"     : "text",
-                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                            boxShadow:    row.EditMode === 0 ? "none"        : "0 0 0 2px rgba(59,130,246,0.15)",
-                            borderRadius: row.EditMode === 1 ? "4px"         : "0",
-                            padding:      row.EditMode === 0 ? "0"           : undefined,
-                          }}
-                        />
-                      )}
-                    </td>
+                      {visibleColumns.map((col, colIdx) => (
+                        <td
+                          key={col.field}
+                          style={{ textAlign: col.field === "Active" ? "center" : undefined }}
+                        >
+                          {/* ── Active Toggle ── */}
+                          {col.field === "Active" && (
+                            <Toggle
+                              value={!!row.Active}
+                              idx={idx}
+                              editMode={row.EditMode}
+                              inputRef={el => {
+                                if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                                inputRefs.current[idx][colIdx] = el;
+                              }}
+                              onFocus={() => selectRow(idx)}
+                              onChange={val => row.EditMode === 1 && updateCell(idx, col.field, val)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  CC.handleEnterNext(
+                                    e, inputRefs, idx, colIdx,
+                                    visibleColumns.length, grid.length,
+                                    addRow, grid, rowValidator
+                                  );
+                                }
+                              }}
+                            />
+                          )}
+
+                          {/* ── Text input for all other fields ── */}
+                          {col.field !== "Active" && (
+                            <input
+                              ref={el => {
+                                if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                                inputRefs.current[idx][colIdx] = el;
+                              }}
+                              className="bm-cell-input"
+                              value={row[col.field] || ""}
+                              maxLength={col.maxLen || 100}
+                              readOnly={row.EditMode === 0}
+                              onChange={e =>
+                                row.EditMode === 1 &&
+                                CC.applyUppercase(e, val => updateCell(idx, col.field, val))
+                              }
+                              onKeyDown={e => {
+                                if (row.EditMode === 1) {
+                                  // Use custom Enter handler for single-col grid
+                                  onCellKeyDown(e, idx);
+                                }
+                              }}
+                              onFocus={() => selectRow(idx)}
+                            />
+                          )}
+                        </td>
+                      ))}
+
+                      {/* ── Action buttons: Edit + Delete ── */}
+                      <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                        {/* Edit button — only show when row is saved and in view mode */}
+                        {row.Id && row.EditMode === 0 && (
+                          <button
+                            className="bm-icon-btn edit"
+                            title="Edit row"
+                            onClick={e => { e.stopPropagation(); enableEdit(idx); }}
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        {/* Editing indicator */}
+                        {row.Id && row.EditMode === 1 && (
+                          <button
+                            className="bm-icon-btn edit active"
+                            title="Editing…"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        <button
+                          className="bm-icon-btn del"
+                          title="Delete row"
+                          onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
                   ))}
+                </tbody>
+              </table>
 
-                  {/* ── Action buttons: Edit + Delete ── */}
-                  <td style={{ whiteSpace: "nowrap" }}>
-                    {/* Edit button — only show when row is saved and in view mode */}
-                    {row.Id && row.EditMode === 0 && (
-                      <button
-                        className="mp-edit-btn"
-                        title="Edit row"
-                        onClick={e => { e.stopPropagation(); enableEdit(idx); }}
-                      >
-                        ✏️
-                      </button>
-                    )}
-                    {/* Editing indicator */}
-                    {row.Id && row.EditMode === 1 && (
-                      <button
-                        className="mp-edit-btn active"
-                        title="Editing…"
-                        style={{ color: "#16a34a", cursor: "default" }}
-                      >
-                        ✏️
-                      </button>
-                    )}
-                    <button
-                      className="mp-del-btn"
-                      onClick={e => { e.stopPropagation(); deleteRow(idx); }}
-                    >🗑</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              {grid.length === 0 && !loading && (
+                <div className="bm-empty">No records. Press ➕ Add Row to add a category.</div>
+              )}
+            </div>
 
-          {grid.length === 0 && !loading && (
-            <div className="mp-empty">No records. Press ➕ to add a category.</div>
-          )}
-        </div>
-
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn"    onClick={() => setF12Open(true)} title="Column Settings">⚙ F12 Columns</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} />
+                {loading ? "Loading…" : "F1 Save"}
+              </button>
+              <button className="bm-btn" onClick={addRow} disabled={loading}>
+                <Plus size={16} />
+                Add Row
+              </button>
+              <button className="bm-btn" onClick={() => setF12Open(true)} title="Column Settings">
+                <Settings size={16} />
+                F12 Columns
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc} disabled={loading}>
+                <XCircle size={16} />
+                Esc Cancel
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

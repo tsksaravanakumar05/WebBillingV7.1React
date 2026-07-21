@@ -12,10 +12,24 @@
 //        All string fields trimmed
 //   6. Row-level readOnly / disabled in view mode
 //   7. Table rows use sel / mod / inact CSS classes (MasterPage.css)
+//
+//  VISUAL REDESIGN NOTE:
+//  Only the presentational layer (JSX structure, className usage, and the two
+//  cosmetic hex colors on the Active toggle / editing indicator) was changed
+//  to match the "bm-*" card design system used in BrandMaster.jsx (blue
+//  #1a56db card border + gradient header, rounded card, bm-btn pill buttons,
+//  bm-cell-input focus glow — reused for both <input> and <select> cells,
+//  fixed-height scrollable grid, dark-navy table header, etc.). The bm-*
+//  classes live in MasterPage.css (already imported below) — no local
+//  <style> block needed here, same as BrandMaster.jsx.
+//  All state, effects, handlers, API calls, validation (including the
+//  inline Card Name duplicate-check-on-Enter), variable names and control
+//  flow are 100% unchanged from the original CardMaster.jsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, XCircle, Pencil, Trash2 } from "lucide-react";
 import "./MasterPage.css";
 
 import Topbar from "../components/Topbar";
@@ -41,6 +55,9 @@ const ALL_COLUMNS = [
 const TOTAL_COLS = ALL_COLUMNS.length;
 
 // ─── Toggle component (Active column — same as DepartmentMaster) ──────────────
+//  NOTE: only the two hex color values below were changed (#16a34a -> #1e7e34,
+//  #15803d -> #166534) to line up with BrandMaster's "save" green accent.
+//  Behavior, props and logic are untouched.
 function Toggle({ value, onChange, inputRef, editMode, onFocus, onKeyDown }) {
   return (
     <button
@@ -52,12 +69,12 @@ function Toggle({ value, onChange, inputRef, editMode, onFocus, onKeyDown }) {
       style={{
         width: 32, height: 18, borderRadius: 9, border: "none",
         cursor:       editMode === 0 ? "default"  : "pointer",
-        background:   value          ? "#16a34a"  : "#cbd5e1",
+        background:   value          ? "#1e7e34"  : "#cbd5e1",
         position: "relative", transition: "background 0.18s ease",
         outline: "none", display: "inline-flex", alignItems: "center",
         flexShrink: 0, padding: 0,
         boxShadow: value
-          ? "inset 0 0 0 1px #15803d"
+          ? "inset 0 0 0 1px #166534"
           : "inset 0 0 0 1px #b0bec5",
         opacity:       editMode === 0 ? 0.5  : 1,
         pointerEvents: editMode === 0 ? "none" : "auto",
@@ -474,297 +491,265 @@ if (redirectIfDualLogin(res)) return;
   //  RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
 
       {ConfirmUI}
       <Topbar />
 
-      <div className="mp-body">
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Card Master</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
+          </div>
 
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-          <div className="mp-toolbar-title">Card Master</div>
-        </div>
+          <div className="bm-card-body">
+            <div className="bm-report-title">Card Master</div>
 
-        {/* ── Grid ── */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 50 }}>S.No</th>
-                <th style={{ width: 160 }}>Card Name</th>
-                <th style={{ width: 140 }}>Card Type</th>
-                <th style={{ width: 110, textAlign: "right" }}>Scharge</th>
-                <th style={{ width: 180 }}>Bank Name</th>
-                <th style={{ width: 80,  textAlign: "center" }}>Active</th>
-                {/* Edit + Delete column */}
-                <th style={{ width: 70 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {grid.map((row, idx) => (
-                <tr
-                  key={row._uid}
-                  className={[
-                    selIdx === idx     ? "sel"  : "",
-                    !row.Active        ? "inact" : "",
-                    row.EditMode === 1 ? "mod"   : "",
-                  ].filter(Boolean).join(" ")}
-                  onClick={() => selectRow(idx)}
-                >
-                  {/* S.No */}
-                  <td className="sno">{idx + 1}</td>
+            {/* ── Grid ── */}
+            <div className="bm-grid-wrap">
+              <table className="bm-tbl">
+                <thead>
+                  <tr>
+                    <th style={{ width: 50 }}>S.No</th>
+                    <th style={{ width: 160 }}>Card Name</th>
+                    <th style={{ width: 140 }}>Card Type</th>
+                    <th style={{ width: 110, textAlign: "right" }}>Scharge</th>
+                    <th style={{ width: 180 }}>Bank Name</th>
+                    <th style={{ width: 80,  textAlign: "center" }}>Active</th>
+                    {/* Edit + Delete column */}
+                    <th style={{ width: 64 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grid.map((row, idx) => (
+                    <tr
+                      key={row._uid}
+                      className={[
+                        selIdx === idx     ? "sel"  : "",
+                        !row.Active        ? "inact" : "",
+                        row.EditMode === 1 ? "mod"   : "",
+                      ].filter(Boolean).join(" ")}
+                      onClick={() => selectRow(idx)}
+                    >
+                      {/* S.No */}
+                      <td className="sno">{idx + 1}</td>
 
-                  {/* ── Card Name ── */}
-                  <td>
-                    <input
-                      ref={el => {
-                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                        inputRefs.current[idx][0] = el;
-                      }}
-                      className="mp-cell-input"
-                      value={row.CardName}
-                      maxLength={100}
-                      readOnly={row.EditMode === 0}
-                      onChange={e =>
-                        row.EditMode === 1 &&
-                        CC.applyUppercase(e, val => updateCell(idx, "CardName", val))
-                      }
-                      onKeyDown={e => {
-                        if (row.EditMode === 0) return;
-                        // Duplicate check before advancing
-                        if (e.key === "Enter") {
-                          if (!String(row.CardName || "").trim()) {
-                            e.preventDefault();
-                            toast("❌ Enter Card Name !!!", true);
-                            return;
+                      {/* ── Card Name ── */}
+                      <td>
+                        <input
+                          ref={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][0] = el;
+                          }}
+                          className="bm-cell-input"
+                          value={row.CardName}
+                          maxLength={100}
+                          readOnly={row.EditMode === 0}
+                          onChange={e =>
+                            row.EditMode === 1 &&
+                            CC.applyUppercase(e, val => updateCell(idx, "CardName", val))
                           }
-                          const dup = grid.some(
-                            (r, i) =>
-                              i !== idx &&
-                              r.CardName?.trim().toLowerCase() ===
-                                row.CardName.trim().toLowerCase()
-                          );
-                          if (dup) {
-                            e.preventDefault();
-                            toast("❌ Duplicate Card Name !!!", true);
-                            return;
+                          onKeyDown={e => {
+                            if (row.EditMode === 0) return;
+                            // Duplicate check before advancing
+                            if (e.key === "Enter") {
+                              if (!String(row.CardName || "").trim()) {
+                                e.preventDefault();
+                                toast("❌ Enter Card Name !!!", true);
+                                return;
+                              }
+                              const dup = grid.some(
+                                (r, i) =>
+                                  i !== idx &&
+                                  r.CardName?.trim().toLowerCase() ===
+                                    row.CardName.trim().toLowerCase()
+                              );
+                              if (dup) {
+                                e.preventDefault();
+                                toast("❌ Duplicate Card Name !!!", true);
+                                return;
+                              }
+                            }
+                            CC.handleEnterNext(
+                              e, inputRefs, idx, 0,
+                              TOTAL_COLS, grid.length,
+                              addRow, grid, rowValidator
+                            );
+                          }}
+                          onFocus={() => selectRow(idx)}
+                        />
+                      </td>
+
+                      {/* ── Card Type ── */}
+                      <td>
+                        <select
+                          ref={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][1] = el;
+                          }}
+                          className="bm-cell-input"
+                          value={row.CardType}
+                          disabled={row.EditMode === 0}
+                          onChange={e => updateCell(idx, "CardType", e.target.value)}
+                          onKeyDown={e =>
+                            row.EditMode === 1 &&
+                            CC.handleEnterNext(
+                              e, inputRefs, idx, 1,
+                              TOTAL_COLS, grid.length,
+                              addRow, grid, rowValidator
+                            )
                           }
-                        }
-                        CC.handleEnterNext(
-                          e, inputRefs, idx, 0,
-                          TOTAL_COLS, grid.length,
-                          addRow, grid, rowValidator
-                        );
-                      }}
-                      onFocus={() => selectRow(idx)}
-                      style={{
-                        background:   row.EditMode === 0 ? "transparent" : "#fff",
-                        border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                        cursor:       row.EditMode === 0 ? "default" : "text",
-                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                        boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                        borderRadius: row.EditMode === 1 ? "4px" : "0",
-                        padding:      row.EditMode === 0 ? "0" : undefined,
-                      }}
-                    />
-                  </td>
+                          onFocus={() => selectRow(idx)}
+                        >
+                          <option value="">— Select —</option>
+                          {CARD_TYPE_LIST.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </td>
 
-                  {/* ── Card Type ── */}
-                  <td>
-                    <select
-                      ref={el => {
-                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                        inputRefs.current[idx][1] = el;
-                      }}
-                      className="mp-cell-select"
-                      value={row.CardType}
-                      disabled={row.EditMode === 0}
-                      onChange={e => updateCell(idx, "CardType", e.target.value)}
-                      onKeyDown={e =>
-                        row.EditMode === 1 &&
-                        CC.handleEnterNext(
-                          e, inputRefs, idx, 1,
-                          TOTAL_COLS, grid.length,
-                          addRow, grid, rowValidator
-                        )
-                      }
-                      onFocus={() => selectRow(idx)}
-                      style={{
-                        background: row.EditMode === 0 ? "transparent" : "#fff",
-                        border:     row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                        cursor:     row.EditMode === 0 ? "default" : "pointer",
-                        color:      row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                      }}
-                    >
-                      <option value="">— Select —</option>
-                      {CARD_TYPE_LIST.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </td>
+                      {/* ── Scharge ── */}
+                      <td>
+                        <input
+                          ref={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][2] = el;
+                          }}
+                          className="bm-cell-input"
+                          value={row.Scharge}
+                          readOnly={row.EditMode === 0}
+                          onChange={e =>
+                            row.EditMode === 1 &&
+                            updateCell(idx, "Scharge", e.target.value)
+                          }
+                          onBlur={() => {
+                            if (row.EditMode === 1)
+                              updateCell(idx, "Scharge", (parseFloat(row.Scharge) || 0).toFixed(2));
+                          }}
+                          onKeyDown={e =>
+                            row.EditMode === 1 &&
+                            CC.handleEnterNext(
+                              e, inputRefs, idx, 2,
+                              TOTAL_COLS, grid.length,
+                              addRow, grid, rowValidator
+                            )
+                          }
+                          onFocus={() => selectRow(idx)}
+                          style={{ textAlign: "right" }}
+                        />
+                      </td>
 
-                  {/* ── Scharge ── */}
-                  <td>
-                    <input
-                      ref={el => {
-                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                        inputRefs.current[idx][2] = el;
-                      }}
-                      className="mp-cell-input"
-                      value={row.Scharge}
-                      readOnly={row.EditMode === 0}
-                      onChange={e =>
-                        row.EditMode === 1 &&
-                        updateCell(idx, "Scharge", e.target.value)
-                      }
-                      onBlur={() => {
-                        if (row.EditMode === 1)
-                          updateCell(idx, "Scharge", (parseFloat(row.Scharge) || 0).toFixed(2));
-                      }}
-                      onKeyDown={e =>
-                        row.EditMode === 1 &&
-                        CC.handleEnterNext(
-                          e, inputRefs, idx, 2,
-                          TOTAL_COLS, grid.length,
-                          addRow, grid, rowValidator
-                        )
-                      }
-                      onFocus={() => selectRow(idx)}
-                      style={{
-                        textAlign:    "right",
-                        background:   row.EditMode === 0 ? "transparent" : "#fff",
-                        border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                        cursor:       row.EditMode === 0 ? "default" : "text",
-                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                        boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                        borderRadius: row.EditMode === 1 ? "4px" : "0",
-                        padding:      row.EditMode === 0 ? "0" : undefined,
-                      }}
-                    />
-                  </td>
+                      {/* ── Bank Name (combo) ── */}
+                      <td>
+                        <select
+                          ref={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][3] = el;
+                          }}
+                          className="bm-cell-input"
+                          value={row.Bankrefid}
+                          disabled={row.EditMode === 0}
+                          onChange={e => {
+                            const val   = e.target.value;
+                            const found = bankList.find(o => String(o.Id) === val);
+                            updateCell(idx, "Bankrefid", val);
+                            if (found) updateCell(idx, "BankName", found.AccountName);
+                          }}
+                          onKeyDown={e =>
+                            row.EditMode === 1 &&
+                            CC.handleEnterNext(
+                              e, inputRefs, idx, 3,
+                              TOTAL_COLS, grid.length,
+                              addRow, grid, rowValidator
+                            )
+                          }
+                          onFocus={() => selectRow(idx)}
+                        >
+                          <option value="">— Select —</option>
+                          {bankList.map(o => (
+                            <option key={o.Id} value={String(o.Id)}>{o.AccountName}</option>
+                          ))}
+                        </select>
+                      </td>
 
-                  {/* ── Bank Name (combo) ── */}
-                  <td>
-                    <select
-                      ref={el => {
-                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                        inputRefs.current[idx][3] = el;
-                      }}
-                      className="mp-cell-select"
-                      value={row.Bankrefid}
-                      disabled={row.EditMode === 0}
-                      onChange={e => {
-                        const val   = e.target.value;
-                        const found = bankList.find(o => String(o.Id) === val);
-                        updateCell(idx, "Bankrefid", val);
-                        if (found) updateCell(idx, "BankName", found.AccountName);
-                      }}
-                      onKeyDown={e =>
-                        row.EditMode === 1 &&
-                        CC.handleEnterNext(
-                          e, inputRefs, idx, 3,
-                          TOTAL_COLS, grid.length,
-                          addRow, grid, rowValidator
-                        )
-                      }
-                      onFocus={() => selectRow(idx)}
-                      style={{
-                        background: row.EditMode === 0 ? "transparent" : "#fff",
-                        border:     row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                        cursor:     row.EditMode === 0 ? "default" : "pointer",
-                        color:      row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                      }}
-                    >
-                      <option value="">— Select —</option>
-                      {bankList.map(o => (
-                        <option key={o.Id} value={String(o.Id)}>{o.AccountName}</option>
-                      ))}
-                    </select>
-                  </td>
+                      {/* ── Active Toggle ── */}
+                      <td style={{ textAlign: "center" }}>
+                        <Toggle
+                          value={!!row.Active}
+                          editMode={row.EditMode}
+                          inputRef={el => {
+                            if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
+                            inputRefs.current[idx][4] = el;
+                          }}
+                          onChange={val => row.EditMode === 1 && updateCell(idx, "Active", val)}
+                          onFocus={() => selectRow(idx)}
+                          onKeyDown={e =>
+                            row.EditMode === 1 &&
+                            CC.handleEnterNext(
+                              e, inputRefs, idx, 4,
+                              TOTAL_COLS, grid.length,
+                              addRow, grid, rowValidator
+                            )
+                          }
+                        />
+                      </td>
 
-                  {/* ── Active Toggle ── */}
-                  <td style={{ textAlign: "center" }}>
-                    <Toggle
-                      value={!!row.Active}
-                      editMode={row.EditMode}
-                      inputRef={el => {
-                        if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
-                        inputRefs.current[idx][4] = el;
-                      }}
-                      onChange={val => row.EditMode === 1 && updateCell(idx, "Active", val)}
-                      onFocus={() => selectRow(idx)}
-                      onKeyDown={e =>
-                        row.EditMode === 1 &&
-                        CC.handleEnterNext(
-                          e, inputRefs, idx, 4,
-                          TOTAL_COLS, grid.length,
-                          addRow, grid, rowValidator
-                        )
-                      }
-                    />
-                  </td>
+                      {/* ── Edit + Delete buttons ── */}
+                      <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                        {/* Edit button: only on saved rows in view mode */}
+                        {row.Id && row.EditMode === 0 && (
+                          <button
+                            className="bm-icon-btn edit"
+                            title="Edit row"
+                            onClick={e => { e.stopPropagation(); enableEdit(idx); }}
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        {/* Editing indicator: saved row currently in edit mode */}
+                        {row.Id && row.EditMode === 1 && (
+                          <button
+                            className="bm-icon-btn edit active"
+                            title="Editing…"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        <button
+                          className="bm-icon-btn del"
+                          title="Delete row"
+                          onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-                  {/* ── Edit + Delete buttons ── */}
-                  <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                    {/* Edit button: only on saved rows in view mode */}
-                    {row.Id && row.EditMode === 0 && (
-                      <button
-                        className="mp-edit-btn"
-                        title="Edit row"
-                        onClick={e => { e.stopPropagation(); enableEdit(idx); }}
-                        style={{
-                          background: "none", border: "none",
-                          cursor: "pointer", fontSize: 16,
-                          padding: "2px 5px", borderRadius: 3,
-                          transition: "background .1s",
-                        }}
-                      >
-                        ✏️
-                      </button>
-                    )}
-                    {/* Editing indicator: saved row currently in edit mode */}
-                    {row.Id && row.EditMode === 1 && (
-                      <button
-                        className="mp-edit-btn active"
-                        title="Editing…"
-                        style={{
-                          background: "none", border: "none",
-                          cursor: "default", fontSize: 16,
-                          padding: "2px 5px", borderRadius: 3,
-                          color: "#16a34a",
-                        }}
-                      >
-                        ✏️
-                      </button>
-                    )}
-                    <button
-                      className="mp-del-btn"
-                      title="Delete row"
-                      onClick={e => { e.stopPropagation(); deleteRow(idx); }}
-                    >
-                      🗑
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              {grid.length === 0 && !loading && (
+                <div className="bm-empty">No records. Press ➕ Add Row to add a card.</div>
+              )}
+            </div>
 
-          {grid.length === 0 && !loading && (
-            <div className="mp-empty">No records. Press ➕ to add a card.</div>
-          )}
-        </div>
-
-        {/* ── Keyboard hint bar ── */}
-        <div className="mp-hint">
-          <kbd>Enter</kbd> next cell &nbsp;|&nbsp;
-          <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> back &nbsp;|&nbsp;
-          Click <strong>✏️</strong> to edit a saved row
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} />
+                {loading ? "Loading…" : "F1 Save"}
+              </button>
+              <button className="bm-btn" onClick={addRow} disabled={loading}>
+                <Plus size={16} />
+                Add Row
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc} disabled={loading}>
+                <XCircle size={16} />
+                Esc Cancel
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, XCircle, Pencil, Trash2, RotateCw } from "lucide-react";
 import "../Utilesstyle/TransactionPassword.css";
 import Topbar from "../components/Topbar";
 import * as CC from "../Master/Common";
@@ -547,7 +548,7 @@ const payload = dirty.map(r => ({
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
       {ConfirmUI}
 
       {pwdModal && (
@@ -560,12 +561,20 @@ const payload = dirty.map(r => ({
 
       {/* Header */}
       <Topbar />
-      {/* Body */}
-      <div className="mp-body">
 
-        {/* Grid */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Password Setting</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
+          </div>
+
+          <div className="bm-card-body">
+            <div className="bm-report-title">Password Setting</div>
+
+            {/* ── Grid ── */}
+            <div className="bm-grid-wrap">
+              <table className="bm-tbl">
             <thead>
               <tr>
                 <th style={{ width: 50 }}>S.No</th>
@@ -594,22 +603,13 @@ const payload = dirty.map(r => ({
                   <td>
                     <input
                       ref={el => (inputRefs.current[idx] = el)}
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       value={row.UserName || ""}
                       maxLength={200}
                       readOnly={row.EditMode === 0}
                       onChange={e => row.EditMode === 1 && updateCell(idx, "UserName", e.target.value)}
                       onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, "UserName")}
                       onFocus={() => setSelIdx(idx)}
-                      style={{
-                        background:   row.EditMode === 0 ? "transparent"               : "#fff",
-                        border:       row.EditMode === 0 ? "none"                      : "1px solid #93c5fd",
-                        cursor:       row.EditMode === 0 ? "default"                   : "text",
-                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                        boxShadow:    row.EditMode === 0 ? "none"                      : "0 0 0 2px rgba(59,130,246,0.15)",
-                        borderRadius: row.EditMode === 1 ? "4px"                       : "0",
-                        padding:      row.EditMode === 0 ? "0"                         : undefined,
-                      }}
                     />
                   </td>
 
@@ -617,7 +617,7 @@ const payload = dirty.map(r => ({
                   <td>
                     <input
                       ref={el => (pwdRefs.current[idx] = el)}
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       type="text"
                       value={row.Password || ""}
                       maxLength={100}
@@ -625,15 +625,6 @@ const payload = dirty.map(r => ({
                       onChange={e => row.EditMode === 1 && updateCell(idx, "Password", e.target.value)}
                       onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, "Password")}
                       onFocus={() => setSelIdx(idx)}
-                      style={{
-                        background:   row.EditMode === 0 ? "transparent"               : "#fff",
-                        border:       row.EditMode === 0 ? "none"                      : "1px solid #93c5fd",
-                        cursor:       row.EditMode === 0 ? "default"                   : "text",
-                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                        boxShadow:    row.EditMode === 0 ? "none"                      : "0 0 0 2px rgba(59,130,246,0.15)",
-                        borderRadius: row.EditMode === 1 ? "4px"                       : "0",
-                        padding:      row.EditMode === 0 ? "0"                         : undefined,
-                      }}
                     />
                   </td>
 
@@ -645,10 +636,10 @@ const payload = dirty.map(r => ({
                       title={row.Priv ? "Admin" : "Not Admin"}
                       style={{
                         width: 32, height: 18, borderRadius: 9, border: "none", cursor: row.EditMode === 0 ? "default" : "pointer",
-                        background: row.Priv ? "#16a34a" : "#cbd5e1",
+                        background: row.Priv ? "#1e7e34" : "#cbd5e1",
                         position: "relative", transition: "background 0.18s ease", outline: "none",
                         display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
-                        boxShadow: row.Priv ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+                        boxShadow: row.Priv ? "inset 0 0 0 1px #166534" : "inset 0 0 0 1px #b0bec5",
                         opacity: row.EditMode === 0 ? 0.5 : 1,
                         pointerEvents: row.EditMode === 0 ? "none" : "auto",
                       }}
@@ -671,10 +662,10 @@ const payload = dirty.map(r => ({
                       title={row.Active ? "Active" : "Inactive"}
                       style={{
                         width: 32, height: 18, borderRadius: 9, border: "none", cursor: row.EditMode === 0 ? "default" : "pointer",
-                        background: row.Active ? "#16a34a" : "#cbd5e1",
+                        background: row.Active ? "#1e7e34" : "#cbd5e1",
                         position: "relative", transition: "background 0.18s ease", outline: "none",
                         display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
-                        boxShadow: row.Active ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+                        boxShadow: row.Active ? "inset 0 0 0 1px #166534" : "inset 0 0 0 1px #b0bec5",
                         opacity: row.EditMode === 0 ? 0.5 : 1,
                         pointerEvents: row.EditMode === 0 ? "none" : "auto",
                       }}
@@ -689,60 +680,69 @@ const payload = dirty.map(r => ({
                     </button>
                   </td>
 
-                  {/* Delete */}
-                  <td style={{ whiteSpace: "nowrap" }}>
+                  {/* Edit + Delete action column */}
+                  <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+
+                    {/* Edit button — only for saved rows in view mode */}
                     {row.Id && row.EditMode === 0 && (
                       <button
-                        className="mp-edit-btn"
+                        className="bm-icon-btn edit"
                         title="Edit row"
                         onClick={e => { e.stopPropagation(); updateCell(idx, "EditMode", 1); focusRow(idx, "user"); }}
                       >
-                        ✏️
+                        <Pencil size={15} />
                       </button>
                     )}
+
+                    {/* Editing indicator — saved row currently in edit mode */}
                     {row.Id && row.EditMode === 1 && (
                       <button
-                        className="mp-edit-btn active"
+                        className="bm-icon-btn edit active"
                         title="Editing…"
-                        style={{ color: "#16a34a", cursor: "default" }}
                       >
-                        ✏️
+                        <Pencil size={15} />
                       </button>
                     )}
+
                     <button
-                      className="mp-del-btn"
+                      className="bm-icon-btn del"
+                      title="Delete row"
                       onClick={e => { e.stopPropagation(); deleteRow(idx); }}
                     >
-                      🗑
+                      <Trash2 size={15} />
                     </button>
+
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+              </table>
 
-          {grid.length === 0 && !loading && (
-            <div className="mp-empty" style={{ padding: "20px", textAlign: "center", color: "#8b99b5", fontSize: "12px" }}>
-              No records. Press ➕ to add a user.
+              {grid.length === 0 && !loading && (
+                <div className="bm-empty">No records. Press ➕ Add Row to add a user.</div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Toolbar */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn info" onClick={menuReset} disabled={loading} title="F3 — Menu Reset for selected row">🔄 F3 Menu Reset</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-        </div>
-
-        {/* Hint bar */}
-        <div className="mp-hint">
-          <kbd>Enter</kbd> next field &nbsp;|&nbsp;
-          <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>F3</kbd> menu reset &nbsp;|&nbsp;
-          <kbd>Delete</kbd> delete row &nbsp;|&nbsp;
-          <kbd>Esc</kbd> back
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} />
+                {loading ? "Loading…" : "F1 Save"}
+              </button>
+              <button className="bm-btn" onClick={addRow} disabled={loading}>
+                <Plus size={16} />
+                Add Row
+              </button>
+              <button className="bm-btn" onClick={menuReset} disabled={loading} title="F3 — Menu Reset for selected row">
+                <RotateCw size={16} />
+                F3 Menu Reset
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc} disabled={loading}>
+                <XCircle size={16} />
+                Esc Cancel
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

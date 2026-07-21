@@ -18,6 +18,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, XCircle, Pencil, Trash2, ListFilter, Search, Lock } from "lucide-react";
 import "../Utilesstyle/TransactionPassword.css";
 import Topbar from "../components/Topbar";
 
@@ -891,7 +892,7 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
 
       {/* ── Confirm Dialog ── */}
       {ConfirmUI}
@@ -900,7 +901,9 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
       {pwdOpen && (
         <div className="mp-modal-ov">
           <div className="mp-pwd-modal">
-            <h3 style={{ marginBottom: 10, color: "#1f65de", fontSize: 13 }}>🔒 {pwdTitle}</h3>
+            <h3 style={{ marginBottom: 10, color: "#1a56db", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+              <Lock size={14} /> {pwdTitle}
+            </h3>
             <input
               ref={pwdInputRef}
               type="password"
@@ -915,8 +918,8 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
               autoComplete="off"
             />
             <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
-              <button className="mp-modal-btn yes" onClick={handlePwdConfirm}>OK</button>
-              <button className="mp-modal-btn no"  onClick={() => setPwdOpen(false)}>Cancel</button>
+              <button className="bm-btn bm-btn-primary" onClick={handlePwdConfirm}>OK</button>
+              <button className="bm-btn bm-btn-secondary" onClick={() => setPwdOpen(false)}>Cancel</button>
             </div>
           </div>
         </div>
@@ -927,7 +930,7 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
         <div className="mp-picker-ov">
           <div className="mp-picker" style={{ width: 480, maxHeight: 500 }}>
             <header>
-              <h3>🔍 Product Search</h3>
+              <h3 style={{ display: "flex", alignItems: "center", gap: 6 }}><Search size={15} /> Product Search</h3>
               <button className="mp-picker-close" onClick={() => setPickerOpen(false)}>✕</button>
             </header>
             <div className="mp-picker-search">
@@ -1013,28 +1016,32 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
   <div className="mp-modal-ov" style={{ alignItems: "flex-start", paddingTop: 60 }}>
     <div style={{
       background: "#fff",
-      borderRadius: 8,
+      border: "2px solid #1a56db",
+      borderRadius: 10,
       width: 820,
       maxHeight: "88vh",
       display: "flex",
       flexDirection: "column",
-      boxShadow: "0 16px 48px rgba(0,0,0,.25)"
+      boxShadow: "0 4px 16px rgba(26,86,219,.18)"
     }}>
 
       {/* HEADER */}
       <div style={{
-        background: "#1f65de",
+        background: "linear-gradient(135deg, #3b6fe0, #1a4fd1)",
         color: "#fff",
-        padding: "10px 16px",
+        padding: "12px 16px",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
         borderRadius: "8px 8px 0 0"
       }}>
-        <span style={{ fontWeight: 700, fontSize: 13 }}>📋 Repacking List</span>
+        <span style={{ fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
+          <ListFilter size={15} /> Repacking List
+        </span>
         <button
           onClick={() => setF5Open(false)}
-          style={{ background: "transparent", border: "none", color: "#fff", fontSize: 18, cursor: "pointer" }}
+          className="bm-close-x"
+          aria-label="Close"
         >
           ✕
         </button>
@@ -1058,17 +1065,17 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
           style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4 }} />
 
         <button
-          className="mp-btn sv"
-          style={{ height: 28 }}
+          className="bm-btn bm-btn-primary"
+          style={{ height: 28, padding: "0 14px" }}
           onClick={() => loadF5View(f5FromDate, f5ToDate)}
         >
-          🔍 View
+          <Search size={13} /> View
         </button>
       </div>
 
       {/* TABLE */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        <table className="mp-tbl" style={{ width: "100%" }}>
+        <table className="bm-tbl" style={{ width: "100%" }}>
           <thead>
             <tr>
               <th style={{ width: 60 }}>#</th>
@@ -1122,12 +1129,8 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                   <td style={{ textAlign: "center", display: "flex", gap: 6, justifyContent: "center" }}>
 
                     <button
-                      style={{
-                        height: 24, fontSize: 11, padding: "2px 10px",
-                        borderRadius: 4, border: "1px solid #bfd4ff",
-                        background: "#edf4ff", color: "#2563eb",
-                        fontWeight: 600, cursor: "pointer",
-                      }}
+                      className="bm-icon-btn edit"
+                      style={{ border: "1px solid #bfd4ff" }}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (perm.Edit === 0) { toast("❌ Page Edit Permission Denied !!!", true); return; }
@@ -1137,16 +1140,12 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                         openPwdModal(1);
                       }}
                     >
-                      ✏ Edit
+                      <Pencil size={14} />
                     </button>
 
                     <button
-                      style={{
-                        height: 24, fontSize: 11, padding: "2px 10px",
-                        borderRadius: 4, border: "1px solid #fecaca",
-                        background: "#fee2e2", color: "#dc2626",
-                        fontWeight: 600, cursor: "pointer",
-                      }}
+                      className="bm-icon-btn del"
+                      style={{ border: "1px solid #fecaca" }}
                       onClick={async (e) => {
                         e.stopPropagation();
                         if (perm.Delete === 0) { toast("❌ Page Delete Permission Denied !!!", true); return; }
@@ -1161,7 +1160,7 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                         openPwdModal(1);
                       }}
                     >
-                      🗑 Del
+                      <Trash2 size={14} />
                     </button>
 
                   </td>
@@ -1218,8 +1217,8 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
         display: "flex",
         justifyContent: "flex-end"
       }}>
-        <button className="mp-btn dl" onClick={() => setF5Open(false)}>
-          Close
+        <button className="bm-btn bm-btn-secondary" onClick={() => setF5Open(false)}>
+          <XCircle size={14} /> Close
         </button>
       </div>
 
@@ -1227,35 +1226,48 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
   </div>
 )}
       {/* ── Header ── */}
-      {/* <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">R</div>
-          <div>
-            <div className="mp-title">Repacking Master</div>
-            <div className="mp-sub">Co: {sess.Comid} — Manage repacking records</div>
-          </div>
-        </div>
-        <button className="mp-back" onClick={async () => {
-          const ok = await confirm("Do You Want To Quit?");
-          if (ok) navigate("/Home");
-        }}>← Back</button>
-      </div> */}
       <Topbar />
 
-      <div className="mp-body">
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Repacking Master</div>
+            <button
+              type="button"
+              className="bm-close-x"
+              aria-label="Close"
+              onClick={async () => {
+                const ok = await confirm("Do You Want To Quit?");
+                if (ok) navigate("/Home");
+              }}
+            >✕</button>
+          </div>
+
+          <div className="bm-card-body">
+            <div className="bm-report-title">Repacking Master</div>
 
         {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={() => { loadF5View(todayISO(), todayISO()); }} disabled={loading}>📋 F5 View</button>
+        <div className="bm-actions" style={{ borderTop: "none", paddingTop: 0, marginTop: 0, justifyContent: "flex-start" }}>
+          <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+            <Save size={16} /> F1 Save
+          </button>
+          <button className="bm-btn" onClick={() => { loadF5View(todayISO(), todayISO()); }} disabled={loading}>
+            <ListFilter size={16} /> F5 View
+          </button>
           {editId !== 0 && (
-            <button className="mp-btn dl" onClick={() => { setPressKey("F9"); openPwdModal(1); }} disabled={loading}>🗑 F9 Delete</button>
+            <button className="bm-btn bm-btn-secondary" onClick={() => { setPressKey("F9"); openPwdModal(1); }} disabled={loading}>
+              <Trash2 size={16} /> F9 Delete
+            </button>
           )}
-          <button className="mp-btn nw" onClick={async () => {
+          <button className="bm-btn" onClick={async () => {
             const ok = await confirm("Do You Want To Clear?");
             if (ok) handleClear();
-          }} disabled={loading}>✕ F10 Clear</button>
-          <button className="mp-btn info" onClick={() => { setPressKey("F3"); openPwdModal(1); }} disabled={loading}>✏ F3 Edit</button>
+          }} disabled={loading}>
+            <XCircle size={16} /> F10 Clear
+          </button>
+          <button className="bm-btn" onClick={() => { setPressKey("F3"); openPwdModal(1); }} disabled={loading}>
+            <Pencil size={16} /> F3 Edit
+          </button>
           {editId !== 0 && (
             <span className="mp-msg ok">Editing #{refNo}</span>
           )}
@@ -1263,7 +1275,7 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
 
         {/* ── Master Form ── */}
         <div style={{
-          background: "#fff", border: "1px solid #c5d8f8", borderRadius: 6,
+          background: "#fff", border: "1px solid #c7cdd6", borderRadius: 8,
           padding: "10px 14px", display: "flex", gap: 16,
           alignItems: "center", flexWrap: "wrap",
         }}>
@@ -1276,8 +1288,8 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
               value={refNo}
               readOnly
               style={{
-                height: 26, border: "1px solid #c5d8f8", borderRadius: 4,
-                padding: "0 8px", fontSize: 12, width: 80, background: "#f5f9ff",
+                height: 30, border: "1px solid #c7cdd6", borderRadius: 4,
+                padding: "0 8px", fontSize: 12.5, width: 80, background: "transparent", color: "#000",
               }}
             />
           </div>
@@ -1294,8 +1306,8 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                 if (e.key === "Enter") { e.preventDefault(); comboRef.current?.focus(); }
               }}
               style={{
-                height: 26, border: "1px solid #c5d8f8", borderRadius: 4,
-                padding: "0 6px", fontSize: 12,
+                height: 30, border: "1px solid #c7cdd6", borderRadius: 4,
+                padding: "0 6px", fontSize: 12.5,
               }}
             />
           </div>
@@ -1317,8 +1329,8 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                 }
               }}
               style={{
-                height: 26, border: "1px solid #c5d8f8", borderRadius: 4,
-                padding: "0 6px", fontSize: 12, flex: 1, maxWidth: 260,
+                height: 30, border: "1px solid #c7cdd6", borderRadius: 4,
+                padding: "0 6px", fontSize: 12.5, flex: 1, maxWidth: 260,
               }}
             >
               <option value="">-- Select Product --</option>
@@ -1337,7 +1349,7 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
           <div style={{ display: "flex", gap: 20, marginLeft: "auto" }}>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 10, color: "#8b99b5", fontWeight: 600 }}>TOTAL WEIGHT</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#1f65de" }}>{totalWeight}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a56db" }}>{totalWeight}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 10, color: "#8b99b5", fontWeight: 600 }}>TOTAL QTY</div>
@@ -1347,8 +1359,8 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
         </div>
 
         {/* ── Grid ── */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
+        <div className="bm-grid-wrap">
+          <table className="bm-tbl">
             <thead>
               <tr>
                 <th style={{ width: 50 }}>S.No</th>
@@ -1376,7 +1388,7 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                   <td>
                     <input
                       ref={el => { codeRefs.current[idx] = el; }}
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       value={row.ProductCode}
                       onChange={e => updateCell(idx, "ProductCode", e.target.value.toUpperCase())}
                       onFocus={() => setSelIdx(idx)}
@@ -1399,33 +1411,32 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                   {/* Product Name (read-only display) */}
                   <td>
                     <input
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       value={row.ProductName}
                       readOnly
                       tabIndex={-1}
-                      style={{ background: "#f5f9ff", cursor: "default" }}
                     />
                   </td>
 
                   {/* Stock Qty */}
                   <td>
                     <input
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       value={row.StockQty}
                       readOnly
                       tabIndex={-1}
-                      style={{ textAlign: "right", background: "#f5f9ff", cursor: "default" }}
+                      style={{ textAlign: "right" }}
                     />
                   </td>
 
                   {/* Net Weight */}
                   <td>
                     <input
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       value={row.NetWeight}
                       readOnly
                       tabIndex={-1}
-                      style={{ textAlign: "right", background: "#f5f9ff", cursor: "default" }}
+                      style={{ textAlign: "right" }}
                     />
                   </td>
 
@@ -1433,7 +1444,7 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                   <td>
                     <input
                       ref={el => { qtyRefs.current[idx] = el; }}
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       value={row.Qty}
                       type="number"
                       min="0"
@@ -1462,12 +1473,15 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
                   </td>
 
                   {/* Delete button */}
-                  <td>
+                  <td style={{ textAlign: "center" }}>
                     <button
-                      className="mp-del-btn"
+                      className="bm-icon-btn del"
                       tabIndex={-1}
+                      title="Delete row"
                       onClick={e => { e.stopPropagation(); deleteRow(idx); }}
-                    >🗑</button>
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -1475,24 +1489,12 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
           </table>
 
           {grid.length === 0 && !loading && (
-            <div style={{ padding: 24, textAlign: "center", color: "#aaa", fontSize: 12 }}>
-              No rows. Press <kbd>Enter</kbd> on Product Code to add.
-            </div>
+            <div className="bm-empty">No rows. Press Enter on Product Code to add.</div>
           )}
         </div>
 
-        {/* ── Keyboard hint bar ── */}
-        <div className="mp-hint">
-          <kbd>F1</kbd> Save &nbsp;|&nbsp;
-          <kbd>F3</kbd> Edit by No &nbsp;|&nbsp;
-          <kbd>F5</kbd> View List &nbsp;|&nbsp;
-          <kbd>F9</kbd> Delete &nbsp;|&nbsp;
-          <kbd>F10</kbd> Clear &nbsp;|&nbsp;
-          <kbd>Enter</kbd> Next Row &nbsp;|&nbsp;
-          <kbd>Delete</kbd> Delete Row &nbsp;|&nbsp;
-          <kbd>Esc</kbd> Quit
+          </div>
         </div>
-
       </div>
 
       {/* ── Loading overlay ── */}

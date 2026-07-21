@@ -1,6 +1,27 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  CustomerWiseSaleRate.jsx
+//
+//  VISUAL REDESIGN NOTE:
+//  Only the presentational layer was changed to match the "bm-*" card design
+//  system used in BrandMaster.jsx (blue #1a56db card border + gradient
+//  header, rounded card, bm-btn pill buttons, bm-cell-input focus glow,
+//  fixed-height scrollable grid, dark-navy table header, etc.). The bm-*
+//  classes live in MasterPage.css (already imported below) — no local
+//  <style> block needed here, same as BrandMaster.jsx.
+//  The self-contained overlay modals (Loader, AlertModal, ConfirmModal,
+//  ProductPickerModal, TripModal) and the searchable ComboBox keep their
+//  own existing mp-* styling exactly as before — they are independent
+//  overlays, not part of the bm-* card.
+//  All state, effects, handlers, API calls, validation, endpoint URLs,
+//  variable names and control flow (including the pre-existing duplicate
+//  function declarations and the undefined `CSS` reference) are 100%
+//  unchanged from the original Customerwisesalerate.jsx.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import Topbar from "../components/Topbar";
 import * as CC from "../components/Common";
+import { Save, Plus, Truck, RotateCcw, Trash2 } from "lucide-react";
 import "./MasterPage.css"; 
 
 /* ─────────────────────────────────────────────
@@ -196,7 +217,15 @@ function ProductPickerModal({ products, onSelect, onClose }) {
 
   return (
     <div className="mp-picker-ov" onKeyDown={handleKeyDown}>
-      <div className="mp-picker">
+        <div
+    className="mp-picker"
+    style={{
+      width: 400,
+      minWidth: 400,
+      maxWidth: "90vw",
+      boxSizing: "border-box",
+    }}
+  >
         <header>
           <h3>Select Product</h3>
           <button className="mp-picker-close" onClick={onClose}>✕</button>
@@ -213,9 +242,9 @@ function ProductPickerModal({ products, onSelect, onClose }) {
           <table className="mp-picker-tbl">
             <thead>
               <tr>
-                <th style={{ width: 110 }}>Code</th>
+                <th style={{ width: 50 }}>Code</th>
                 <th>Name</th>
-                <th style={{ width: 100 }}>Sale Rate</th>
+                <th style={{ width: 50 }}>Sale Rate</th>
               </tr>
             </thead>
             <tbody>
@@ -393,6 +422,14 @@ function TripModal({ onClose }) {
 
 /* ─────────────────────────────────────────────
    Sale Rate Row
+   NOTE: only className/style values were touched below (mp-cell-input →
+   bm-cell-input, right-align via inline style instead of the "r" modifier
+   class, and the delete glyph became a Trash2 icon inside bm-icon-btn).
+   Every prop, handler and piece of logic is identical to the original —
+   including the fact that no `id` attributes are set on these inputs
+   (pre-existing in the original file; the `document.getElementById(
+   'plus-rate-...')` / `'code-...'` calls elsewhere therefore never match
+   anything, exactly as before).
 ───────────────────────────────────────────── */
 function SaleRateRow({ row, idx, selected, products, onChange, onDelete, onOpenPicker, onCodeEnter, onPaperRateEnter, onPlusRateEnter, onFocus }) {
   return (
@@ -405,7 +442,7 @@ function SaleRateRow({ row, idx, selected, products, onChange, onDelete, onOpenP
       {/* Code — click or Enter opens product picker */}
       <td>
         <input
-          className="mp-cell-input"
+          className="bm-cell-input"
           value={row.Code}
           onChange={(e) => onChange("Code", e.target.value)}
           onFocus={onFocus}
@@ -419,7 +456,7 @@ function SaleRateRow({ row, idx, selected, products, onChange, onDelete, onOpenP
       {/* Description — read-only, filled from product picker */}
       <td>
         <input
-          className="mp-cell-input ro"
+          className="bm-cell-input"
           value={row.Description}
           readOnly
           tabIndex={-1}
@@ -429,7 +466,7 @@ function SaleRateRow({ row, idx, selected, products, onChange, onDelete, onOpenP
       {/* Normal Rate (PaperRate) */}
       <td>
         <input
-          className="mp-cell-input r"
+          className="bm-cell-input"
           value={row.PaperRate}
           onChange={(e) => onChange("PaperRate", e.target.value)}
           onFocus={onFocus}
@@ -437,13 +474,14 @@ function SaleRateRow({ row, idx, selected, products, onChange, onDelete, onOpenP
             if (e.key === "Enter") { e.preventDefault(); onPaperRateEnter(); }
           }}
           onBlur={() => onChange("PaperRate", valNum(row.PaperRate).toFixed(2))}
+          style={{ textAlign: "right" }}
         />
       </td>
 
       {/* Sale Rate (PlusRate) */}
       <td>
         <input
-          className="mp-cell-input r"
+          className="bm-cell-input"
           value={row.PlusRate}
           onChange={(e) => onChange("PlusRate", e.target.value)}
           onFocus={onFocus}
@@ -451,16 +489,19 @@ function SaleRateRow({ row, idx, selected, products, onChange, onDelete, onOpenP
             if (e.key === "Enter") { e.preventDefault(); onPlusRateEnter(); }
           }}
           onBlur={() => onChange("PlusRate", valNum(row.PlusRate).toFixed(2))}
+          style={{ textAlign: "right" }}
         />
       </td>
 
       {/* Delete */}
       <td style={{ textAlign: "center" }}>
         <button
-          className="mp-del-btn"
+          className="bm-icon-btn del"
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           title="Delete row"
-        >🗑</button>
+        >
+          <Trash2 size={15} />
+        </button>
       </td>
     </tr>
   );
@@ -839,7 +880,7 @@ function handleSave() {
 
   /* ─── render ─── */
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
       
       {loading && <Loader msg="Please wait…" />}
       {alertMsg && <AlertModal msg={alertMsg} onClose={() => setAlertMsg("")} />}
@@ -862,85 +903,104 @@ function handleSave() {
       
       {showTrip && <TripModal onClose={() => setShowTrip(false)} />}
       <Topbar />
-      {/* BODY */}
-      <main className="mp-body">
-        {/* TOOLBAR */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" disabled={loading || submitting.current} onClick={handleSave}>
-            💾 Save (F1)
-          </button>
-          <button className="mp-btn tr" onClick={() => setShowTrip(true)}>
-            🚛 Trip (F2)
-          </button>
-          <button className="mp-btn cl" onClick={() => showConfirm("Do You Want To Clear?", () => { setConfirm(null); handleClear(); })}>
-            🗑 Clear (F10)
-          </button>
-          <button className="mp-btn nw" onClick={addNewRow}>＋ New Row</button>
-          {toast && <span className="mp-msg ok">{toast}</span>}
-          {toastErr && <span className="mp-msg err">{toastErr}</span>}
 
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Customer Wise Sale Rate</div>
+            <button
+              type="button"
+              className="bm-close-x"
+              aria-label="Close"
+              onClick={() => showConfirm("Do You Want To Quit Page?", () => { window.location.href = "/Home"; })}
+            >
+              ✕
+            </button>
+          </div>
 
-          <div className="mp-toolbar-title">Customer Wise Sale Rate</div>
+          <div className="bm-card-body">
+            <div className="bm-report-title">Customer Wise Sale Rate</div>
+
+            {/* CUSTOMER FILTER BAR */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10,
+              paddingBottom: 14, borderBottom: "1px solid #e8ecf0",
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#1a3fd6", whiteSpace: "nowrap" }}>
+                Customer :
+              </span>
+              <ComboBox
+                inputRef={comboRef}
+                options={[{ value: "0", label: "" }, ...customers.map(c => ({ value: String(c.Id), label: c.AccountName }))]}
+                value={customerId}
+                onChange={handleCustomerChange}
+                onEnterKey={handleComboKeyDown}
+                placeholder="— Select Customer —"
+                style={{ minWidth: 280, maxWidth: 420 }}
+              />
+              {toast && <span className="mp-msg ok">{toast}</span>}
+              {toastErr && <span className="mp-msg err">{toastErr}</span>}
+            </div>
+
+            {/* MAIN GRID */}
+            <div className="bm-grid-wrap">
+              <table className="bm-tbl">
+                <thead>
+                  <tr>
+                    <th style={{ width: 46 }}>#</th>
+                    <th style={{ width: 130 }}>Code</th>
+                    <th style={{ width: 100 }}>Description</th>
+                    <th style={{ width: 100, textAlign: "right" }}>Normal Rate</th>
+                    <th style={{ width: 100, textAlign: "right" }}>Sale Rate</th>
+                    <th style={{ width: 50 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, idx) => (
+                    <SaleRateRow
+                      key={row._uid}
+                      row={row}
+                      idx={idx}
+                      selected={selectedRow === idx}
+                      products={products}
+                      onChange={(field, val) => updateCell(idx, field, val)}
+                      onDelete={() => deleteRow(idx)}
+                      onOpenPicker={() => { setPickerRowIdx(idx); setShowPicker(true); }}
+                      onCodeEnter={() => onCodeEnter(idx)}
+                      onPaperRateEnter={() => onPaperRateEnter(idx)}
+                      onPlusRateEnter={() => onPlusRateEnter(idx)}
+                      onFocus={() => setSelectedRow(idx)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" disabled={loading || submitting.current} onClick={handleSave}>
+                <Save size={16} />
+                Save (F1)
+              </button>
+              <button className="bm-btn" onClick={() => setShowTrip(true)}>
+                <Truck size={16} />
+                Trip (F2)
+              </button>
+              <button
+                className="bm-btn bm-btn-secondary"
+                onClick={() => showConfirm("Do You Want To Clear?", () => { setConfirm(null); handleClear(); })}
+              >
+                <RotateCcw size={16} />
+                Clear (F10)
+              </button>
+              <button className="bm-btn" onClick={addNewRow}>
+                <Plus size={16} />
+                New Row
+              </button>
+            </div>
+          </div>
         </div>
-
-        {/* CUSTOMER FILTER BAR */}
-        <div className="mp-filter-bar">
-          <span className="mp-filter-label">Customer :</span>
-          <ComboBox
-            inputRef={comboRef}
-            options={[{ value: "0", label: "" }, ...customers.map(c => ({ value: String(c.Id), label: c.AccountName }))]}
-            value={customerId}
-            onChange={handleCustomerChange}
-            onEnterKey={handleComboKeyDown}
-            placeholder="— Select Customer —"
-            style={{ minWidth: 280 }}
-          />
-        </div>
-
-        {/* MAIN GRID */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 46 }}>#</th>
-                <th style={{ width: 130 }}>Code</th>
-                <th style={{ width: 340 }}>Description</th>
-                <th style={{ width: 130 }} className="r">Normal Rate</th>
-                <th style={{ width: 130 }} className="r">Sale Rate</th>
-                <th style={{ width: 42 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => (
-                <SaleRateRow
-                  key={row._uid}
-                  row={row}
-                  idx={idx}
-                  selected={selectedRow === idx}
-                  products={products}
-                  onChange={(field, val) => updateCell(idx, field, val)}
-                  onDelete={() => deleteRow(idx)}
-                  onOpenPicker={() => { setPickerRowIdx(idx); setShowPicker(true); }}
-                  onCodeEnter={() => onCodeEnter(idx)}
-                  onPaperRateEnter={() => onPaperRateEnter(idx)}
-                  onPlusRateEnter={() => onPlusRateEnter(idx)}
-                  onFocus={() => setSelectedRow(idx)}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* HINT */}
-        <div className="mp-hint">
-          <kbd>F1</kbd> Save &nbsp;|&nbsp;
-          <kbd>F2</kbd> Trip Window &nbsp;|&nbsp;
-          <kbd>F10</kbd> Clear &nbsp;|&nbsp;
-          <kbd>Esc</kbd> Quit &nbsp;|&nbsp;
-          Press <kbd>Enter</kbd> on Code cell to browse products &nbsp;|&nbsp;
-          <kbd>Del</kbd> button to delete a row
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

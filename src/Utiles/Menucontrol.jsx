@@ -7,7 +7,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle, Check } from "lucide-react";
 import "../Master/MasterPage.css";
+import "../Utilesstyle/Menucontrolreport.css";
 
 import Topbar from "../components/Topbar";
 
@@ -284,140 +286,158 @@ export default function Menucontrol() {
       title={locked ? "Locked" : value === 1 ? "Checked" : "Unchecked"}
       style={{
         width: 18, height: 18, borderRadius: 3, cursor: locked ? "not-allowed" : "pointer",
-        border: locked ? "1px solid var(--clr-border-default)" : "1px solid var(--clr-primary)",
-        background: locked ? "var(--clr-bg-soft)" : value === 1 ? "var(--clr-primary)" : "var(--clr-bg-white)",
-        color: "var(--clr-text-white)",
+        border: locked ? "1px solid #c7cdd6" : "1px solid #1a56db",
+        background: locked ? "#f0f2f5" : value === 1 ? "#1a56db" : "#fff",
+        color: "#fff",
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         fontSize: 12, fontWeight: 700, opacity: locked ? 0.5 : 1,
         margin: "0 auto",
       }}
     >
-      {value === 1 ? "✓" : ""}
+      {value === 1 ? <Check size={13} strokeWidth={3} /> : ""}
     </button>
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
 
       {/* Confirm Dialog — rendered by CC.useConfirm() */}
       {ConfirmUI}
 
       <Topbar />
 
-      <div className="mp-body">
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Menu Control</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
+          </div>
 
-        {/* ── Filter bar: UserName + Heading dropdowns ── */}
-        <div className="mp-toolbar">
-          <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--clr-text-primary)" }}>
-            User Name
-          </label>
-          <select
-            ref={userRef}
-            className="mp-cell-select"
-            style={{ width: 220, height: 30 }}
-            value={selUserId}
-            onChange={onUserChange}
-          >
-            <option value="">-- Select User --</option>
-            {userList.map((u) => (
-              <option key={u.Id} value={u.Id}>{u.UserName}</option>
-            ))}
-          </select>
+          <div className="bm-card-body">
+            <div className="bm-report-title">Menu Control</div>
 
-          <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--clr-text-primary)", marginLeft: 10 }}>
-            Form Name
-          </label>
-          <select
-            ref={headingRef}
-            className="mp-cell-select"
-            style={{ width: 250, height: 30 }}
-            value={selHeadingId}
-            onChange={onHeadingChange}
-          >
-            <option value="">-- Select Form --</option>
-            {headingList.map((h) => (
-              <option key={h.Id} value={h.Id}>{h.FormText}</option>
-            ))}
-          </select>
+            {/* ── Filter bar: UserName + Heading dropdowns ── */}
+            <div style={{
+              background: "#fff", border: "1px solid #c7cdd6", borderRadius: 8,
+              padding: "10px 14px", display: "flex", gap: 10,
+              alignItems: "center", flexWrap: "wrap",
+            }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2e4a", whiteSpace: "nowrap" }}>
+                User Name
+              </label>
+              <select
+                ref={userRef}
+                className="bm-cell-input"
+                style={{ width: 220, height: 30 }}
+                value={selUserId}
+                onChange={onUserChange}
+              >
+                <option value="">-- Select User --</option>
+                {userList.map((u) => (
+                  <option key={u.Id} value={u.Id}>{u.UserName}</option>
+                ))}
+              </select>
+
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2e4a", whiteSpace: "nowrap", marginLeft: 10 }}>
+                Form Name
+              </label>
+              <select
+                ref={headingRef}
+                className="bm-cell-input"
+                style={{ width: 250, height: 30 }}
+                value={selHeadingId}
+                onChange={onHeadingChange}
+              >
+                <option value="">-- Select Form --</option>
+                {headingList.map((h) => (
+                  <option key={h.Id} value={h.Id}>{h.FormText}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* ── Grid ── */}
+            <div className="bm-grid-wrap" ref={gridWrapRef} tabIndex={-1}>
+              <table className="bm-tbl">
+                <thead>
+                  <tr>
+                    <th style={{ width: 50 }}>S.No</th>
+                    <th style={{ width: 250 }}>FormName</th>
+                    <th style={{ width: 100, textAlign: "center" }}>Add</th>
+                    <th style={{ width: 100, textAlign: "center" }}>Edit</th>
+                    <th style={{ width: 100, textAlign: "center" }}>Delete</th>
+                    <th style={{ width: 100, textAlign: "center" }}>View/Hide</th>
+                    <th style={{ width: 100, textAlign: "center" }}>Active</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {grid.map((row, idx) => (
+                    <tr
+                      key={row._uid}
+                      className={selIdx === idx ? "sel" : ""}
+                      onClick={() => setSelIdx(idx)}
+                    >
+                      <td className="sno">{idx + 1}</td>
+                      <td>{row[grdFormName]}</td>
+
+                      <td style={{ textAlign: "center" }}>
+                        <Checkbox3
+                          value={row[grdAdd]}
+                          locked={row[grdAdd] === 2}
+                          onToggle={() => toggleCell(idx, grdAdd, grdAdd)}
+                        />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <Checkbox3
+                          value={row[grdEdit]}
+                          locked={row[grdEdit] === 2}
+                          onToggle={() => toggleCell(idx, grdEdit, grdEdit)}
+                        />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <Checkbox3
+                          value={row[grdDelete]}
+                          locked={row[grdDelete] === 2}
+                          onToggle={() => toggleCell(idx, grdDelete, grdDelete)}
+                        />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <Checkbox3
+                          value={row[grdView]}
+                          locked={row[grdView] === 2}
+                          onToggle={() => toggleCell(idx, grdView, grdView)}
+                        />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <Checkbox3
+                          value={row[grdActive]}
+                          locked={row[grdActive] === 2}
+                          onToggle={() => toggleCell(idx, grdActive, grdActive)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {grid.length === 0 && !loading && (
+                <div className="bm-empty">Select a User and Form Name to view menu permissions.</div>
+              )}
+            </div>
+
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} /> F1 Save
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc}>
+                <XCircle size={16} /> Esc Quit
+              </button>
+            </div>
+
+          </div>
         </div>
-
-        {/* ── Grid ── */}
-        <div className="mp-grid-wrap" ref={gridWrapRef} tabIndex={-1} style={{ overflowY: "auto", maxHeight: "calc(100vh - 220px)" }}>
-          <table className="mp-tbl">
-            <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
-              <tr>
-                <th style={{ width: 50, position: "sticky", top: 0, zIndex: 10 }}>S.No</th>
-                <th style={{ width: 250, position: "sticky", top: 0, zIndex: 10 }}>FormName</th>
-                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>Add</th>
-                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>Edit</th>
-                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>Delete</th>
-                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>View/Hide</th>
-                <th style={{ width: 100, textAlign: "center", position: "sticky", top: 0, zIndex: 10 }}>Active</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {grid.map((row, idx) => (
-                <tr
-                  key={row._uid}
-                  className={selIdx === idx ? "sel" : ""}
-                  onClick={() => setSelIdx(idx)}
-                >
-                  <td className="sno">{idx + 1}</td>
-                  <td>{row[grdFormName]}</td>
-
-                  <td style={{ textAlign: "center" }}>
-                    <Checkbox3
-                      value={row[grdAdd]}
-                      locked={row[grdAdd] === 2}
-                      onToggle={() => toggleCell(idx, grdAdd, grdAdd)}
-                    />
-                  </td>
-                  <td style={{ textAlign: "center" }}>
-                    <Checkbox3
-                      value={row[grdEdit]}
-                      locked={row[grdEdit] === 2}
-                      onToggle={() => toggleCell(idx, grdEdit, grdEdit)}
-                    />
-                  </td>
-                  <td style={{ textAlign: "center" }}>
-                    <Checkbox3
-                      value={row[grdDelete]}
-                      locked={row[grdDelete] === 2}
-                      onToggle={() => toggleCell(idx, grdDelete, grdDelete)}
-                    />
-                  </td>
-                  <td style={{ textAlign: "center" }}>
-                    <Checkbox3
-                      value={row[grdView]}
-                      locked={row[grdView] === 2}
-                      onToggle={() => toggleCell(idx, grdView, grdView)}
-                    />
-                  </td>
-                  <td style={{ textAlign: "center" }}>
-                    <Checkbox3
-                      value={row[grdActive]}
-                      locked={row[grdActive] === 2}
-                      onToggle={() => toggleCell(idx, grdActive, grdActive)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {grid.length === 0 && !loading && (
-            <div className="mp-empty">Select a User and Form Name to view menu permissions.</div>
-          )}
-        </div>
-
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Quit</button>
-        </div>
-
       </div>
 
       {/* ── Loading overlay ── */}
