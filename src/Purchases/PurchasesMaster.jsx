@@ -1278,13 +1278,51 @@ useEffect(() => {
   }, []);
   focusCellRef.current = focusCell;
 
-  const deleteGridRow = useCallback((rowKey) => {
-    setGridRows((prev) => {
-      const updated = prev.filter((r) => r._key !== rowKey);
-      if (updated.length === 0) updated.push(makeGridRow());
-      return updated;
+  const deleteGridRow = useCallback(async (rowKey) => {
+    const targetRow = gridRows.find((r) => r._key === rowKey);
+    if (!targetRow) return;
+
+    const removeRowLocally = () => {
+      setGridRows((prev) => {
+        const updated = prev.filter((r) => r._key !== rowKey);
+        if (updated.length === 0) updated.push(makeGridRow());
+        return updated;
+      });
+
+      if (targetRow.TextRefId) {
+        setSerialNoList((prev) => prev.filter((s) => s.IndexRefId !== targetRow.TextRefId));
+      }
+    };
+
+    const persistedDetailId = parseInt(targetRow.PDId, 10) || 0;
+    if (editId <= 0 || persistedDetailId <= 0) {
+      removeRowLocally();
+      return;
+    }
+
+    setLoading(true);
+    const res = await CC.api("/api/PurchaseApp/DeletePurchaseSingle", null,{}, {
+      Id: String(persistedDetailId),
+      Comid: String(sess.Comid),
+      Date: purchaseDate || today(),
+      Dayclose: "0",
     });
-  }, []);
+    setLoading(false);
+
+    if (redirectIfDualLogin(res)) return;
+    if (res._netErr) {
+      toast(`❌ ${res.message}`, true);
+      return;
+    }
+
+    if (res.ok) {
+      removeRowLocally();
+      toast("✅ " + (res.message || "Row deleted successfully!"));
+      return;
+    }
+
+    toast(`❌ ${res.message || "Row delete failed !!!."}`, true);
+  }, [editId, gridRows, purchaseDate, redirectIfDualLogin, sess.Comid, toast]);
 
   const handleCellChange = useCallback((rowKey, colKey, value) => {
     setGridRows((prev) => {
@@ -1533,7 +1571,8 @@ if (colKey === "MfgDate") {
       if (idx === -1) return prev;
       let row = {
   ...prev[idx],
-  ProductRefId:    p.Id,
+  Id:              p.PDId          || 0,
+  ProductRefId:    p.ProductRefId,
   ProductCode:     p.ProductCode || p.Prod_Code || "",
   ProductName:     p.ProductName || p.PName     || "",
   HSNCode:         p.HSNCode     || "",
@@ -1833,7 +1872,10 @@ const handleF5View = useCallback(async (objlist = {}) => {
   const sanitizeDetailRow = useCallback((r) => {
     const n = (v) => { const x = parseFloat(v); return isNaN(x) ? 0 : x; };
     const i = (v) => { const x = parseInt(v, 10); return isNaN(x) ? 0 : x; };
+    const resolvedLotNo = (r.LotNo ?? r.Bat_No ?? "").toString().trim();
+    const resolvedMark = (r.Mark ?? "").toString().trim();
     return {
+       Id:i(r.PDId) ??0,
       PDId: i(r.PDId), ProductRefId: i(r.ProductRefId),
       ProductCode: r.ProductCode || "", ProductName: r.ProductName || "",
       HSNCode: r.HSNCode || "", UOM: r.UOM || "",
@@ -1851,9 +1893,9 @@ const handleF5View = useCallback(async (objlist = {}) => {
       StockQty: n(r.StockQty), StockQtyNew: n(r.StockQtyNew),
       Nstock: n(r.Nstock), RealQty: n(r.RealQty),
       TotalPcs: n(r.TotalPcs), Meter: n(r.Meter), Pcs: n(r.Pcs),
-      Bags: n(r.Bags), LotNo: r.LotNo || "", Mark: r.Mark || "",
+      Bags: n(r.Bags), LotNo: resolvedLotNo, Mark: resolvedMark,
       ExpiryDate: r.ExpiryDate || "", MfgDate: (r.MfgDate && r.MfgDate.trim() !== "") ? r.MfgDate : ((r.ExpiryDate && r.ExpiryDate.trim() !== "") ? CC.today() : ""),
-      Bat_No: r.Bat_No || "", BatchRefId: r.BatchRefId ? (parseInt(r.BatchRefId, 10) || null) : null,
+      Bat_No: resolvedLotNo, BatchRefId: r.BatchRefId ? (parseInt(r.BatchRefId, 10) || null) : null,
       BatchStatus: i(r.BatchStatus), Expirydays: i(r.Expirydays),
       Salerate: n(r.Salerate), WholeSalerate: n(r.WholeSalerate),
       ProfitPer: n(r.ProfitPer), ProfitAmt: n(r.ProfitAmt),
@@ -2067,8 +2109,9 @@ if (savedArrivalType) {
         ColorId: r.ColorId ? String(r.ColorId) : "",
         SizeId:  r.SizeId  ? String(r.SizeId)  : "",
         Bags:    r.Bags != null ? fmt2(r.Bags) : "0.00",
-        LotNo:   r.LotNo || "",
-        Mark:    r.Mark  || "",
+        LotNo:   r.LotNo || r.Bat_No || "",
+        Bat_No:  r.Bat_No || r.LotNo || "",
+        Mark:    r.Mark || "",
         _origItemQty:        valNum(r.ItemQty),
         _origBatchRefId:     r.BatchRefId || 0,
         MfgDate:    r.MfgDate    ? jsonDate(r.MfgDate)    : "",
@@ -2487,7 +2530,6 @@ if (savedArrivalType) {
       VehicleNo: pattyMode ? pattyVehicleNo : "",
       Person:    pattyMode ? pattyPerson    : "",
     }];
-console.log("Saving purchaseMaster:", purchaseMaster);
     const res = await CC.insertapi(CC.InsertPurchase, purchaseMaster, {
       Comid: String(sess.Comid), MirrorTable: String(sess.MirrorTable), IdComList: String(sess.IdComList),
       batchstockstatus: (() => {
@@ -2504,7 +2546,7 @@ console.log("Saving purchaseMaster:", purchaseMaster);
       BatchDigit: String(parseInt(sess.BatchDigit, 10) || 0),
       LocalDB: String(parseInt(sess.LocalDB, 10) || 0),
       // ── Patty flag on the insert-api mapping — reflects the current mode ──
-      Patty: pattyMode ? "1" : "0",
+      Patty: PattyStatus!=3 ? "1" : "0",
       DayClose: "0", BillFormatName: "", PrintA4Invoice: "0",
     });
     setLoading(false);
