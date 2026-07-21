@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common";
@@ -212,12 +213,20 @@ export default function SupplierAgingReport() {
   // combo built on this ApiSelect contract elsewhere in the app family).
   // Props, data fetching, and the onChange({ value, label }) contract are
   // unchanged — only the selection UI gained a filter box.
+  //
+  // The results popup is rendered through a portal into document.body and
+  // positioned with `fixed` coordinates computed from the trigger button's
+  // bounding rect. This keeps the full result list fully visible, floating
+  // above the card, instead of being squeezed/clipped inside the form panel.
   const ApiSelect = ({ url, payload, headers = {}, labelKey, valueKey, value, onChange, placeholder }) => {
     const [list, setList] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
+    const [popRect, setPopRect] = useState(null); // { top, left, width } for portal placement
     const wrapRef = useRef(null);
+    const btnRef = useRef(null);
+    const popRef = useRef(null);
     const searchRef = useRef(null);
 
     useEffect(() => {
@@ -238,11 +247,22 @@ export default function SupplierAgingReport() {
       return () => { active = false; };
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
-    // Close the popup on outside click, same as a native select losing focus.
+    // Compute/refresh the popup's fixed-position coordinates from the button.
+    const updatePopRect = useCallback(() => {
+      if (!btnRef.current) return;
+      const r = btnRef.current.getBoundingClientRect();
+      setPopRect({ top: r.bottom + 6, left: r.left, width: r.width });
+    }, []);
+
+    // Close the popup on outside click — now checks both the trigger wrap
+    // AND the portal popup itself, since the popup no longer lives inside
+    // wrapRef in the DOM tree.
     useEffect(() => {
       if (!open) return;
       const handleClick = (e) => {
-        if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        const insideTrigger = wrapRef.current && wrapRef.current.contains(e.target);
+        const insidePopup = popRef.current && popRef.current.contains(e.target);
+        if (!insideTrigger && !insidePopup) {
           setOpen(false);
           setQuery("");
         }
@@ -250,6 +270,21 @@ export default function SupplierAgingReport() {
       document.addEventListener("mousedown", handleClick);
       return () => document.removeEventListener("mousedown", handleClick);
     }, [open]);
+
+    // Keep the popup glued to the button on scroll/resize while open, and
+    // close it if the trigger scrolls out of the viewport entirely (avoids
+    // an orphaned popup floating over unrelated page content).
+    useEffect(() => {
+      if (!open) return;
+      updatePopRect();
+      const handleReposition = () => updatePopRect();
+      window.addEventListener("scroll", handleReposition, true);
+      window.addEventListener("resize", handleReposition);
+      return () => {
+        window.removeEventListener("scroll", handleReposition, true);
+        window.removeEventListener("resize", handleReposition);
+      };
+    }, [open, updatePopRect]);
 
     // Autofocus the search box the moment the popup opens.
     useEffect(() => {
@@ -266,6 +301,7 @@ export default function SupplierAgingReport() {
 
     const handleToggle = () => {
       if (loadingList) return;
+      if (!open) updatePopRect();
       setOpen((o) => !o);
     };
 
@@ -281,6 +317,51 @@ export default function SupplierAgingReport() {
       setQuery("");
     };
 
+    const popup =
+      open && !loadingList && popRect ? (
+        <div
+          ref={popRef}
+          className="sa-select-pop sa-select-pop-portal"
+          style={{ top: popRect.top, left: popRect.left, width: popRect.width }}
+        >
+          <div className="sa-select-search-wrap">
+            <input
+              ref={searchRef}
+              type="text"
+              className="sa-select-search"
+              placeholder={`Search ${placeholder.replace("Select ", "")}...`}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setOpen(false);
+                  setQuery("");
+                } else if (e.key === "Enter" && filtered.length === 1) {
+                  handleSelect(filtered[0]);
+                }
+              }}
+            />
+          </div>
+          <div className="sa-select-list">
+            {filtered.length === 0 ? (
+              <div className="sa-select-empty">No matches found</div>
+            ) : (
+              filtered.map((o) => (
+                <div
+                  key={o[valueKey]}
+                  className={`sa-select-opt${
+                    String(value?.value ?? "") === String(o[valueKey]) ? " is-selected" : ""
+                  }`}
+                  onClick={() => handleSelect(o)}
+                >
+                  {o[labelKey]}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null;
+
     return (
       <div className="sa-field">
         <label className="sa-label" htmlFor="sa-supplier">{placeholder.replace("Select ", "")}</label>
@@ -288,6 +369,7 @@ export default function SupplierAgingReport() {
           <button
             type="button"
             id="sa-supplier"
+            ref={btnRef}
             className="sa-input sa-select-btn"
             disabled={loadingList}
             onClick={handleToggle}
@@ -309,45 +391,7 @@ export default function SupplierAgingReport() {
             <span className="sa-select-caret" aria-hidden="true">▾</span>
           </button>
 
-          {open && !loadingList && (
-            <div className="sa-select-pop">
-              <div className="sa-select-search-wrap">
-                <input
-                  ref={searchRef}
-                  type="text"
-                  className="sa-select-search"
-                  placeholder={`Search ${placeholder.replace("Select ", "")}...`}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setOpen(false);
-                      setQuery("");
-                    } else if (e.key === "Enter" && filtered.length === 1) {
-                      handleSelect(filtered[0]);
-                    }
-                  }}
-                />
-              </div>
-              <div className="sa-select-list">
-                {filtered.length === 0 ? (
-                  <div className="sa-select-empty">No matches found</div>
-                ) : (
-                  filtered.map((o) => (
-                    <div
-                      key={o[valueKey]}
-                      className={`sa-select-opt${
-                        String(value?.value ?? "") === String(o[valueKey]) ? " is-selected" : ""
-                      }`}
-                      onClick={() => handleSelect(o)}
-                    >
-                      {o[labelKey]}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+          {popup && createPortal(popup, document.body)}
         </div>
       </div>
     );
@@ -388,11 +432,20 @@ export default function SupplierAgingReport() {
     .sa-select-clear:hover { background: #fff0f0; color: #dc3545; }
     .sa-select-caret { flex-shrink: 0; font-size: 10px; color: #8a94a3; }
 
+    /* Base popup look. Positioning differs for the portal variant below. */
     .sa-select-pop { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; background: #fff; border: 1px solid #c7cdd6; border-radius: 8px; box-shadow: 0 8px 24px rgba(26,43,80,.16); overflow: hidden; }
-    .sa-select-search-wrap { padding: 8px; border-bottom: 1px solid #e8ecf0; }
+
+    /* Portal variant: rendered into document.body, so it's positioned with
+       fixed viewport coordinates (set inline via popRect) instead of being
+       anchored relative to a parent. This is what lets the full result list
+       float above the card instead of being clipped/squeezed inside it. */
+    .sa-select-pop-portal { position: fixed; right: auto; z-index: 3000; max-height: min(320px, calc(100vh - 24px)); display: flex; flex-direction: column; }
+
+    .sa-select-search-wrap { padding: 8px; border-bottom: 1px solid #e8ecf0; flex-shrink: 0; }
     .sa-select-search { width: 100%; height: 32px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; box-sizing: border-box; outline: none; transition: border-color .15s, box-shadow .15s; }
     .sa-select-search:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
-    .sa-select-list { max-height: 220px; overflow-y: auto; }
+    .sa-select-list { max-height: 260px; overflow-y: auto; }
+    .sa-select-pop-portal .sa-select-list { max-height: none; overflow-y: auto; flex: 1; }
     .sa-select-opt { padding: 8px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; transition: background .12s; }
     .sa-select-opt:hover { background: #eef3ff; }
     .sa-select-opt.is-selected { background: #e3ecff; color: #1a4fd1; font-weight: 600; }
