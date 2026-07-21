@@ -38,10 +38,26 @@
 //      Ctrl+V on selected F5 row → PrintView → open BankVoucherPrint
 //  10. F12 → Column settings (show/hide + width, persisted in localStorage)
 //  11. Esc → close open popup or confirm quit to /Home
+//
+//  VISUAL REDESIGN NOTE:
+//  Only the presentational layer was changed to match the "bm-*" card design
+//  system used in BrandMaster.jsx (blue card border + gradient header,
+//  rounded card, bm-btn pill buttons, bm-cell-input focus glow,
+//  bm-grid-wrap fixed-height scrollable grid, lucide-react icons, etc.).
+//  The bm-* classes live in the same MasterPage.css imported below.
+//  The Type/Bank/Date/Total top form row keeps its own field layout — it
+//  isn't part of Brand's design (Brand has no header fields) and was only
+//  relocated into the card body, not restyled. The 4 overlay popups
+//  (PopupWindow/SearchableList, PasswordModal, PrintViewDialog,
+//  F5ViewWindow, F12Popup) are completely untouched — independent modals,
+//  not part of the bm-* card.
+//  All state, effects, handlers, API calls, validation, variable names and
+//  control flow are 100% unchanged from the original BankVoucher.jsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, RotateCw, ClipboardList, Settings, XCircle, Trash2 } from "lucide-react";
 import "../Master/MasterPage.css";
 
 import Topbar from "../components/Topbar";
@@ -974,14 +990,7 @@ export default function BankVoucher() {
     const value   = row[field] ?? (type === "float" || type === "int" ? "0.00" : "");
     const readOnly = false; // BankVoucher: rows remain editable even after load
 
-    const base = {
-      background:  "#fff",
-      border:      "1px solid #93c5fd",
-      borderRadius: 4,
-      color:       "#1e293b",
-      boxShadow:   "0 0 0 2px rgba(59,130,246,.12)",
-      cursor:      "text",
-    };
+    const base = { cursor: "text" };
     const numStyle = { ...base, textAlign:"right" };
     const ref = el => {
       if (el) inputRefs.current[`${realIdx}-${field}`] = el;
@@ -1001,7 +1010,7 @@ export default function BankVoucher() {
           onClick={() => updateCell(realIdx, field, !isOn)}
           style={{ display:"flex",justifyContent:"center",alignItems:"center",outline:"none",borderRadius:4 }}
           onFocus={() => setSelIdx(realIdx)}>
-          <div style={{ width:34,height:18,borderRadius:9,background:isOn?"#16a34a":"#d1d5db",
+          <div style={{ width:34,height:18,borderRadius:9,background:isOn?"#1e7e34":"#d1d5db",
             position:"relative",cursor:"pointer",transition:"background .2s",flexShrink:0 }}>
             <div style={{ position:"absolute",top:2,left:isOn?16:2,width:14,height:14,borderRadius:"50%",
               background:"#fff",boxShadow:"0 1px 3px rgba(0,0,0,.25)",transition:"left .2s" }} />
@@ -1014,7 +1023,7 @@ export default function BankVoucher() {
     if (type === "popup") {
       const openPopup = () => setAccountPopup({ open:true, rowIdx:realIdx, prefill:String(value) });
       return (
-        <input ref={ref} className="mp-cell-input" type="text"
+        <input ref={ref} className="bm-cell-input" type="text"
           value={String(value)}
           style={{ ...base, cursor:"pointer", background:"#f8fafc" }}
           placeholder="Enter to select…"
@@ -1027,7 +1036,7 @@ export default function BankVoucher() {
 
     // date
     if (type === "date") return (
-      <input ref={ref} className="mp-cell-input" type="date"
+      <input ref={ref} className="bm-cell-input" type="date"
         value={String(value).slice(0,10) || ""}
         style={{ ...base, width:"100%", fontSize:12 }}
         onFocus={() => setSelIdx(realIdx)}
@@ -1038,7 +1047,7 @@ export default function BankVoucher() {
     // numeric / string
     const isNum = type === "float" || type === "int";
     return (
-      <input ref={ref} className="mp-cell-input" type="text"
+      <input ref={ref} className="bm-cell-input" type="text"
         value={String(value)}
         style={isNum ? numStyle : base}
         onFocus={() => setSelIdx(realIdx)}
@@ -1087,7 +1096,7 @@ export default function BankVoucher() {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap bankvoucher-page">
+    <div className="bm-shell">
       {ConfirmUI}
 
       {/* ── Account Name Popup ── */}
@@ -1129,16 +1138,30 @@ export default function BankVoucher() {
 
       <Topbar />
 
-      <div className="mp-body">
-        {/* ── TOP TOOLBAR ── */}
-        <div className="mp-toolbar" style={{ display:"flex",alignItems:"center",gap:8,padding:"6px 10px",flexWrap:"wrap" }}>
-          <div className="mp-toolbar-title">Bank Voucher</div>
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Bank Voucher</div>
+            <button
+              type="button"
+              className="bm-close-x"
+              aria-label="Close"
+              onClick={() => confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/Home"); })}
+            >
+              ✕
+            </button>
+          </div>
 
+          <div className="bm-card-body">
+            <div className="bm-report-title">Bank Voucher</div>
+
+        {/* ── TOP FORM ── */}
+        <div style={{ display:"flex",alignItems:"center",gap:8,paddingBottom:14,borderBottom:"1px solid #e8ecf0",flexWrap:"wrap" }}>
           {/* Type dropdown */}
           <div style={{ display:"flex",alignItems:"center",gap:6,marginLeft:12 }}>
             <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>Type</label>
-            <select ref={typeRef} className="mp-cell-input"
-              style={{ height:30,width:140,border:"1px solid #93c5fd",borderRadius:4 }}
+            <select ref={typeRef} className="bm-cell-input"
+              style={{ height:30,width:140 }}
               value={voucherType}
               onChange={e => setVoucherType(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { if (!voucherType) toast("❌ Select Type", true); else bankRef.current?.focus(); } }}>
@@ -1149,8 +1172,8 @@ export default function BankVoucher() {
           {/* Bank dropdown */}
           <div style={{ display:"flex",alignItems:"center",gap:6 }}>
             <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>Bank</label>
-            <select ref={bankRef} className="mp-cell-input"
-              style={{ height:30,width:200,border:"1px solid #93c5fd",borderRadius:4 }}
+            <select ref={bankRef} className="bm-cell-input"
+              style={{ height:30,width:200 }}
               value={bankId ?? ""}
               onChange={e => {
                 const id = Number(e.target.value);
@@ -1166,8 +1189,8 @@ export default function BankVoucher() {
           {/* Date picker */}
           <div style={{ display:"flex",alignItems:"center",gap:6 }}>
             <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>Date</label>
-            <input ref={dateRef} type="date" className="mp-cell-input"
-              style={{ height:28,width:150,border:"1px solid #93c5fd",borderRadius:4 }}
+            <input ref={dateRef} type="date" className="bm-cell-input"
+              style={{ height:28,width:150 }}
               value={selDate}
               onChange={e => setSelDate(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") fillGridData(1); }} />
@@ -1182,21 +1205,21 @@ export default function BankVoucher() {
         </div>
 
         {/* ── GRID ── */}
-        <div className="mp-grid-wrap" style={{ overflowX:"auto",overflowY:"auto" }}>
-          <table className="mp-tbl" style={{
+        <div className="bm-grid-wrap" style={{ overflowX:"auto",overflowY:"auto" }}>
+          <table className="bm-tbl" style={{
             minWidth: visibleColumns.reduce((a,c) => a + c.width, 110) + "px",
             tableLayout:"fixed", width:"100%"
           }}>
             <thead>
               <tr>
-                <th style={{ width:44 }}>S.No</th>
+                <th style={{ width:50 }}>S.No</th>
                 {visibleColumns.map(c => (
                   <th key={c.field} style={{ width:c.width, minWidth:c.width,
                     textAlign: c.type==="float" || c.type==="toggle" ? "center" : undefined }}>
                     {c.label}
                   </th>
                 ))}
-                <th style={{ width:44,textAlign:"center" }}>Del</th>
+                <th style={{ width:44,textAlign:"center" }}></th>
               </tr>
             </thead>
             <tbody>
@@ -1223,8 +1246,8 @@ export default function BankVoucher() {
                       </td>
                     ))}
                     <td style={{ textAlign:"center",padding:"2px 4px" }}>
-                      <button className="mp-del-btn"
-                        onClick={e => { e.stopPropagation(); deleteRow(idx); }}>🗑</button>
+                      <button className="bm-icon-btn del" title="Delete row"
+                        onClick={e => { e.stopPropagation(); deleteRow(idx); }}><Trash2 size={15} /></button>
                     </td>
                   </tr>
                 );
@@ -1232,24 +1255,41 @@ export default function BankVoucher() {
             </tbody>
           </table>
           {grid.length === 0 && !loading && (
-            <div className="mp-empty">No records. Press ➕ to add a row.</div>
+            <div className="bm-empty">No records. Press ➕ Add Row to add a row.</div>
           )}
         </div>
 
         {/* ── BOTTOM TOOLBAR ── */}
-        <div className="mp-toolbar" style={{ display:"flex",alignItems:"center",gap:6,padding:"6px 10px",flexWrap:"wrap" }}>
-          <button className="mp-btn nw" onClick={addRow} disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn sv" onClick={bankSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn" style={{ background:"#0891b2",color:"#fff",borderColor:"#0891b2" }}
-            onClick={() => fillGridData(1)} disabled={loading}>🔄 Reload Date</button>
-          <button className="mp-btn" style={{ background:"#7c3aed",color:"#fff",borderColor:"#7c3aed" }}
-            onClick={() => setF5Open(true)} disabled={loading}>📋 F5 View</button>
-          <button className="mp-btn"
-            style={{ background:"var(--color-background-secondary)",color:"var(--color-text-primary)",border:"1px solid #9ca3af" }}
-            onClick={() => setF12Open(true)}>⚙ F12 Columns</button>
-          <button className="mp-btn dl"
+        <div className="bm-actions">
+          <button className="bm-btn" onClick={addRow} disabled={loading}>
+            <Plus size={16} />
+            Add Row
+          </button>
+          <button className="bm-btn bm-btn-primary" onClick={bankSave} disabled={loading}>
+            <Save size={16} />
+            F1 Save
+          </button>
+          <button className="bm-btn" onClick={() => fillGridData(1)} disabled={loading}>
+            <RotateCw size={16} />
+            Reload Date
+          </button>
+          <button className="bm-btn" onClick={() => setF5Open(true)} disabled={loading}>
+            <ClipboardList size={16} />
+            F5 View
+          </button>
+          <button className="bm-btn" onClick={() => setF12Open(true)}>
+            <Settings size={16} />
+            F12 Columns
+          </button>
+          <button
+            className="bm-btn bm-btn-secondary"
             onClick={() => confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/Home"); })}
-            style={{ marginLeft:"auto" }}>✕ Esc Quit</button>
+          >
+            <XCircle size={16} />
+            Esc Quit
+          </button>
+        </div>
+          </div>
         </div>
       </div>
 

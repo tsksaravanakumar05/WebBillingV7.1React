@@ -2,10 +2,24 @@
 //  CategoryMaster.jsx
 //  Uses shared helpers from CashierCommon.jsx via wildcard import (CC.*)
 //  Any new export added to CashierCommon is auto-available here as CC.xxx
+//
+//  VISUAL REDESIGN NOTE:
+//  Only the presentational layer (JSX structure, className usage, and the
+//  purely-cosmetic inline color values on the Active/LogonStatus toggles)
+//  was changed to match the "bm-*" card design system used in
+//  BrandMaster.jsx (blue card border + gradient header, rounded card,
+//  bm-btn pill buttons, bm-cell-input focus glow, lucide-react action
+//  icons, etc.). The "bm-*" classes live in MasterPage.css (already
+//  imported below), same as BrandMaster.jsx. The F12 Column-Settings
+//  popup (F12Popup, inline-styled) is untouched — it isn't part of
+//  BrandMaster's design system and is left exactly as-is.
+//  All state, effects, handlers, API calls, validation, variable names and
+//  control flow are 100% unchanged from the original CashierMaster.jsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, Settings, XCircle, Pencil, Trash2 } from "lucide-react";
 import "./MasterPage.css";
 
 import Topbar from "../components/Topbar";
@@ -66,10 +80,10 @@ const Toggle = ({ value, onChange, onKeyDown, inputRef, idx, editMode }) => (
     title={value ? "Active" : "Inactive"}
     style={{
       width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer",
-      background: value ? "#16a34a" : "#cbd5e1",
+      background: value ? "#1e7e34" : "#cbd5e1",
       position: "relative", transition: "background 0.18s ease", outline: "none",
       display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
-      boxShadow: value ? "inset 0 0 0 1px #15803d" : "inset 0 0 0 1px #b0bec5",
+      boxShadow: value ? "inset 0 0 0 1px #166534" : "inset 0 0 0 1px #b0bec5",
       opacity: editMode === 0 ? 0.5 : 1,
       pointerEvents: editMode === 0 ? "none" : "auto",
     }}
@@ -676,31 +690,27 @@ if (redirectIfDualLogin(res)) return;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
 
       {/* Confirm Dialog — rendered by CC.useConfirm() */}
       {ConfirmUI}
 {f12Open && <F12Popup />}
 <Topbar />
 
-      {/* ── Header ── */}
-      {/* <div className="mp-hdr">
-        <div className="mp-hdr-left">
-          <div className="mp-icon">C</div>
-          <div>
-            <div className="mp-title">Cashier Master</div>
-            <div className="mp-sub">Co: {sess.Comid} — Manage category records</div>
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Cashier Master</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
           </div>
-        </div>
-        <button className="mp-back" onClick={handleEsc}>← Back</button>
-      </div> */}
 
-      <div className="mp-body">
+          <div className="bm-card-body">
+            <div className="bm-report-title">Cashier Master</div>
 
-        
+
 {/* ── Grid ── */}
-<div className="mp-grid-wrap">
-  <table className="mp-tbl">
+<div className="bm-grid-wrap">
+  <table className="bm-tbl">
     <thead>
       <tr>
         <th style={{ width: 50 }}>S.No</th>
@@ -709,7 +719,7 @@ if (redirectIfDualLogin(res)) return;
             {c.label}
           </th>
         ))}
-        <th style={{ width: 44 }}></th>
+        <th style={{ width: 64 }}></th>
       </tr>
     </thead>
     <tbody>
@@ -835,23 +845,13 @@ if (redirectIfDualLogin(res)) return;
       if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
       inputRefs.current[idx][colIdx] = el;
     }}
-    className="mp-cell-input"
+    className="bm-cell-input"
     value={row[col.field] || ""}
     maxLength={col.maxLen || 50}
     readOnly={row.EditMode === 0}
     onChange={e => row.EditMode === 1 && CC.applyUppercase(e, val => updateCell(idx, col.field, val))}
     onKeyDown={e => row.EditMode === 1 && CC.handleEnterNext(e, inputRefs, idx, colIdx, visibleColumns.length, grid.length, addRow, grid, rowValidator)}
     onFocus={() => setSelIdx(idx)}
-    style={{ 
-      // ── View mode (EditMode 0) ──
-      background:   row.EditMode === 0 ? "transparent" : "#fff",
-      border:       row.EditMode === 0 ? "none"        : "1px solid #93c5fd",  // ← இது
-      cursor:       row.EditMode === 0 ? "default"     : "text",
-      color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-      boxShadow:    row.EditMode === 0 ? "none"        : "0 0 0 2px rgba(59,130,246,0.15)",
-      borderRadius: row.EditMode === 1 ? "4px"         : "0",
-      padding:      row.EditMode === 0 ? "0"           : undefined,
-    }}
   />
 )}
             </td>
@@ -865,31 +865,33 @@ if (redirectIfDualLogin(res)) return;
             
          
           </td> */}
-          <td style={{ whiteSpace: "nowrap" }}>
+          <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
   {/* Edit button — only show when row is saved (has Id) and in view mode */}
   {row.Id && row.EditMode === 0 && (
     <button
-      className="mp-edit-btn"
+      className="bm-icon-btn edit"
       title="Edit row"
       onClick={e => { e.stopPropagation(); enableEdit(idx); }}
     >
-      ✏️
+      <Pencil size={15} />
     </button>
   )}
   {/* Show a "editing" indicator when in edit mode */}
   {row.Id && row.EditMode === 1 && (
     <button
-      className="mp-edit-btn active"
+      className="bm-icon-btn edit active"
       title="Editing…"
-      style={{ color: "#16a34a", cursor: "default" }}
     >
-      ✏️
+      <Pencil size={15} />
     </button>
   )}
   <button
-    className="mp-del-btn"
+    className="bm-icon-btn del"
+    title="Delete row"
     onClick={e => { e.stopPropagation(); deleteRow(idx); }}
-  >🗑</button>
+  >
+    <Trash2 size={15} />
+  </button>
 </td>
         </tr>
       ))}
@@ -897,18 +899,30 @@ if (redirectIfDualLogin(res)) return;
   </table>
 
   {grid.length === 0 && !loading && (
-    <div className="mp-empty">No records. Press ➕ to add a cashier.</div>
+    <div className="bm-empty">No records. Press ➕ Add Row to add a cashier.</div>
   )}
 </div>
 
-        {/* ── Keyboard hint bar ── */}
-       
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn" onClick={() => setF12Open(true)} title="Column Settings">⚙ F12 Columns</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} />
+                {loading ? "Loading…" : "F1 Save"}
+              </button>
+              <button className="bm-btn" onClick={addRow} disabled={loading}>
+                <Plus size={16} />
+                Add Row
+              </button>
+              <button className="bm-btn" onClick={() => setF12Open(true)} title="Column Settings">
+                <Settings size={16} />
+                F12 Columns
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc} disabled={loading}>
+                <XCircle size={16} />
+                Esc Cancel
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

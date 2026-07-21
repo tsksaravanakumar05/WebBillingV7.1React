@@ -11,9 +11,9 @@
 //  Styling: MasterPage.css tokens only — no new theme colors.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -126,6 +126,14 @@ export default function SupplierAgingReport() {
     setMsg(null);
   }, []);
 
+  // ── Header close (X) button — same "Do You Want To Quit Page?" confirm
+  //    used by the Esc key handler above, so both exits behave identically.
+  const handleClose = useCallback(() => {
+    if (window.confirm("Do You Want To Quit Page?")) {
+      navigate("/Login/Home");
+    }
+  }, [navigate]);
+
   // ── Report viewer opener — same pattern as ClosingStock.jsx ─────────────
   const openReportViewer = useCallback((params) => {
     const qs = new URLSearchParams(params).toString();
@@ -197,9 +205,20 @@ export default function SupplierAgingReport() {
     }
   }, [supplierSel, session, openReportViewer]);
 
+  // ── Supplier combo — same ApiSelect pattern used across converted pages ──
+  // Enhanced: native <select> replaced with a searchable dropdown popup so the
+  // user can instant-filter long lookup lists (Supplier here; the same
+  // component pattern applies to any Brand/Category/Group/Company/Customer
+  // combo built on this ApiSelect contract elsewhere in the app family).
+  // Props, data fetching, and the onChange({ value, label }) contract are
+  // unchanged — only the selection UI gained a filter box.
   const ApiSelect = ({ url, payload, headers = {}, labelKey, valueKey, value, onChange, placeholder }) => {
     const [list, setList] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState("");
+    const wrapRef = useRef(null);
+    const searchRef = useRef(null);
 
     useEffect(() => {
       let active = true;
@@ -219,31 +238,117 @@ export default function SupplierAgingReport() {
       return () => { active = false; };
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
+    // Close the popup on outside click, same as a native select losing focus.
+    useEffect(() => {
+      if (!open) return;
+      const handleClick = (e) => {
+        if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+          setOpen(false);
+          setQuery("");
+        }
+      };
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }, [open]);
+
+    // Autofocus the search box the moment the popup opens.
+    useEffect(() => {
+      if (open && searchRef.current) searchRef.current.focus();
+    }, [open]);
+
+    const filtered = query.trim()
+      ? list.filter((o) =>
+          String(o[labelKey] ?? "")
+            .toLowerCase()
+            .includes(query.trim().toLowerCase())
+        )
+      : list;
+
+    const handleToggle = () => {
+      if (loadingList) return;
+      setOpen((o) => !o);
+    };
+
+    const handleSelect = (opt) => {
+      onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
+      setOpen(false);
+      setQuery("");
+    };
+
+    const handleClear = (e) => {
+      e.stopPropagation();
+      onChange(null);
+      setQuery("");
+    };
+
     return (
       <div className="sa-field">
         <label className="sa-label" htmlFor="sa-supplier">{placeholder.replace("Select ", "")}</label>
-        <select
-          id="sa-supplier"
-          className="sa-input"
-          value={value?.value ?? ""}
-          disabled={loadingList}
-          onChange={(e) => {
-            const selectedVal = e.target.value;
-            const opt = list.find((o) => String(o[valueKey]) === selectedVal);
-            if (opt) {
-              onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
-            } else {
-              onChange(null);
-            }
-          }}
-        >
-          <option value="">{loadingList ? "Loading..." : placeholder}</option>
-          {list.map((o) => (
-            <option key={o[valueKey]} value={o[valueKey]}>
-              {o[labelKey]}
-            </option>
-          ))}
-        </select>
+        <div className="sa-select-wrap" ref={wrapRef}>
+          <button
+            type="button"
+            id="sa-supplier"
+            className="sa-input sa-select-btn"
+            disabled={loadingList}
+            onClick={handleToggle}
+          >
+            <span className={`sa-select-btn-text${!value ? " is-placeholder" : ""}`}>
+              {loadingList ? "Loading..." : value?.label || placeholder}
+            </span>
+            {value && !loadingList && (
+              <span
+                className="sa-select-clear"
+                onClick={handleClear}
+                role="button"
+                aria-label="Clear selection"
+                title="Clear"
+              >
+                ✕
+              </span>
+            )}
+            <span className="sa-select-caret" aria-hidden="true">▾</span>
+          </button>
+
+          {open && !loadingList && (
+            <div className="sa-select-pop">
+              <div className="sa-select-search-wrap">
+                <input
+                  ref={searchRef}
+                  type="text"
+                  className="sa-select-search"
+                  placeholder={`Search ${placeholder.replace("Select ", "")}...`}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setOpen(false);
+                      setQuery("");
+                    } else if (e.key === "Enter" && filtered.length === 1) {
+                      handleSelect(filtered[0]);
+                    }
+                  }}
+                />
+              </div>
+              <div className="sa-select-list">
+                {filtered.length === 0 ? (
+                  <div className="sa-select-empty">No matches found</div>
+                ) : (
+                  filtered.map((o) => (
+                    <div
+                      key={o[valueKey]}
+                      className={`sa-select-opt${
+                        String(value?.value ?? "") === String(o[valueKey]) ? " is-selected" : ""
+                      }`}
+                      onClick={() => handleSelect(o)}
+                    >
+                      {o[labelKey]}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -254,10 +359,12 @@ export default function SupplierAgingReport() {
     .sa-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
 
     .sa-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
-    .sa-card { width: 100%; max-width: 480px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
+    .sa-card { width: 100%; max-width: 480px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); }
 
-    .sa-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .sa-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-radius: 8px 8px 0 0; }
     .sa-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .sa-close-btn { flex-shrink: 0; width: 26px; height: 26px; border-radius: 6px; border: none; background: rgba(255,255,255,.18); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s; padding: 0; }
+    .sa-close-btn:hover { background: rgba(255,255,255,.3); }
 
     .sa-card-body { padding: 24px 32px 30px; }
     .sa-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
@@ -270,6 +377,26 @@ export default function SupplierAgingReport() {
     .sa-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.sa-input { appearance: auto; cursor: pointer; }
     .sa-input:disabled { background: #f5f6f8; cursor: not-allowed; }
+
+    /* Searchable select (Supplier / Brand / Category / Group / Company / Customer, etc.) */
+    .sa-select-wrap { position: relative; width: 100%; }
+    .sa-select-btn { display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; font-family: inherit; }
+    .sa-select-btn:disabled { cursor: not-allowed; }
+    .sa-select-btn-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sa-select-btn-text.is-placeholder { color: #8a94a3; }
+    .sa-select-clear { flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #8a94a3; transition: background .15s, color .15s; }
+    .sa-select-clear:hover { background: #fff0f0; color: #dc3545; }
+    .sa-select-caret { flex-shrink: 0; font-size: 10px; color: #8a94a3; }
+
+    .sa-select-pop { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; background: #fff; border: 1px solid #c7cdd6; border-radius: 8px; box-shadow: 0 8px 24px rgba(26,43,80,.16); overflow: hidden; }
+    .sa-select-search-wrap { padding: 8px; border-bottom: 1px solid #e8ecf0; }
+    .sa-select-search { width: 100%; height: 32px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; box-sizing: border-box; outline: none; transition: border-color .15s, box-shadow .15s; }
+    .sa-select-search:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .sa-select-list { max-height: 220px; overflow-y: auto; }
+    .sa-select-opt { padding: 8px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; transition: background .12s; }
+    .sa-select-opt:hover { background: #eef3ff; }
+    .sa-select-opt.is-selected { background: #e3ecff; color: #1a4fd1; font-weight: 600; }
+    .sa-select-empty { padding: 14px 12px; font-size: 13px; color: #8a94a3; text-align: center; }
 
     .sa-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
     .sa-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
@@ -321,6 +448,15 @@ export default function SupplierAgingReport() {
           <div className="sa-card">
             <div className="sa-card-header">
               <div className="sa-card-header-title">Supplier Aging Report</div>
+              <button
+                type="button"
+                className="sa-close-btn"
+                onClick={handleClose}
+                aria-label="Close"
+                title="Close"
+              >
+                <X size={16} />
+              </button>
             </div>
 
             <div className="sa-card-body">
