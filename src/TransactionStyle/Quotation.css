@@ -16,7 +16,7 @@
    Every .sb-* rule uses var(--clr-primary), var(--clr-primary-dark) etc.
    Overriding them here shadows MasterPage's blue values for this page only.
 ─────────────────────────────────────────────────────────────────────────────  */
-:root {
+:where(.quotation-theme-local-vars) {
     /* ── Brand / Primary Blue ── */
     --clr-primary:           #1f65de;   /* buttons, accents, links */
     --clr-primary-hover:     #1750b0;   /* primary hover state */

@@ -3,7 +3,7 @@
    All colors are defined here. Change once, applies everywhere.
    ═══════════════════════════════════════════════════ */
 
-   :root {
+   :where(.menu-master-theme-local-vars) {
     /* ── Brand / Primary Blue ── */
     --clr-primary:           #1f65de;
     --clr-primary-hover:     #1750b0;
