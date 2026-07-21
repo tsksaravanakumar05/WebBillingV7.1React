@@ -80,6 +80,16 @@ const f2    = v => parseFloat(vn(v).toFixed(2));
 const ns    = v => (v == null ? "" : String(v));
 const today = () => new Date().toISOString().slice(0, 10);
 
+const exceedsDecimalLimit = (value, decimals) => {
+  const str = String(value ?? "");
+  const dotIdx = str.indexOf(".");
+  if (dotIdx === -1) return false;
+  const fracLen = str.length - dotIdx - 1;
+  const limit = vn(decimals);
+  if (limit === 0) return true;
+  return fracLen > limit;
+};
+
 let _rid = 3000;
 const genRid = () => ++_rid;
 
@@ -1319,7 +1329,7 @@ const applyBillLoadItems = useCallback((selectedItems) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
       if (colKey === "ReturnQty") {
-        if (r.UOMDecimal === 0 && String(value).includes(".")) {
+        if (exceedsDecimalLimit(value, r.UOMDecimal)) {
           return r;
         }
       }

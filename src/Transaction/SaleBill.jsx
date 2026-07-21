@@ -178,9 +178,45 @@ function calcSaleRow(row) {
   };
 }
 
+const exceedsDecimalLimit = (value, decimals) => {
+  const str = String(value ?? "");
+  const dotIdx = str.indexOf(".");
+  if (dotIdx === -1) return false;
+  const fracLen = str.length - dotIdx - 1;
+  const limit = CC.vn(decimals);
+  if (limit === 0) return true;
+  return fracLen > limit;
+};
+
+const getEnglishProductName = source =>
+  source?.EnglishDescription ||
+  source?.PName ||
+  source?.ProductName ||
+  "";
+
+const getTamilProductName = source =>
+  source?.TamilDescription ||
+  source?.PrinterName ||
+  source?.PrintName ||
+  "";
+
+const withRowProductNames = (row, isTamil) => {
+  const englishDescription = getEnglishProductName(row);
+  const tamilDescription = getTamilProductName(row);
+
+  return {
+    ...row,
+    EnglishDescription: englishDescription,
+    TamilDescription: tamilDescription,
+    PrinterName: tamilDescription,
+    ProductName: isTamil && tamilDescription ? tamilDescription : englishDescription,
+  };
+};
+
 const mkRow = () => ({
   _rid: CC.genRid(), _isNew: true, _dirty: false,
   SDId: 0, ProductRefId: 0, ProductCode: "", ProductName: "",
+  EnglishDescription: "", TamilDescription: "",
   MRP: 0, SaleRate: 0, ItemQty: "", UOMDecimal: 0,
   TaxPercent: 0, TaxAmt: 0, CESSPer: 0, CESSAmount: 0,
   SPLCESS: 0, SPLCESSAmount: 0, DiscountPercent: 0, DiscountAmt: 0,
@@ -197,6 +233,9 @@ const fmtRow = obj => ({
   ...obj,
   _rid: obj._rid || CC.genRid(),
   _isNew: false, _dirty: false,
+  EnglishDescription: getEnglishProductName(obj),
+  TamilDescription: getTamilProductName(obj),
+  PrinterName: getTamilProductName(obj),
   MRP:             CC.f2(CC.vn(obj.MRP)),
   SaleRate:        CC.f2(CC.vn(obj.SaleRate)),
   ItemQty:         CC.ns(obj.ItemQty),
@@ -1339,6 +1378,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
 }, [sess.Comid]);
   const [perm,         setPerm]         = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [tamilMode, setTamilMode] = useState(sess.Tamil);
 
   const [customers,  setCustomers]  = useState([]);
   const [salesmen,   setSalesmen]   = useState([]);
@@ -1416,6 +1456,27 @@ const loadFocusCols = useCallback(async (mcomid) => {
       custOpCrmValue
     };
   }, [curBal, custCardRefId, crmPointRate, crmValueRate, custOpCrmPoints, custOpCrmValue]);
+
+  useEffect(() => {
+    setRows(prev => {
+      let changed = false;
+      const next = prev.map(row => {
+        const updatedRow = withRowProductNames(row, tamilMode);
+        if (
+          updatedRow.ProductName !== row.ProductName ||
+          updatedRow.EnglishDescription !== row.EnglishDescription ||
+          updatedRow.TamilDescription !== row.TamilDescription ||
+          updatedRow.PrinterName !== row.PrinterName
+        ) {
+          changed = true;
+          return updatedRow;
+        }
+        return row;
+      });
+      return changed ? next : prev;
+    });
+  }, [tamilMode]);
+
   const custRef  = useRef(null);
   const smRef    = useRef(null);
   const ratePasswordVerifiedRef = useRef(false);
@@ -1965,12 +2026,12 @@ const getRowEnabledCols = useCallback((rid) => {
   const fillItemIntoRow = useCallback((rid, item) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
-      const newRow = {
+      const newRow = withRowProductNames({
         ...r,
         ProductRefId:    item.Id,
         ProductCode:     item.Prod_Code ? item.Prod_Code : item.ProductCode,
-        ProductName:     sess.Tamil ? (item.PrinterName || item.PName) : item.PName ? item.PName : item.ProductName,
-        PrinterName:     item.PrinterName || "",
+        EnglishDescription: item.PName ? item.PName : item.ProductName,
+        TamilDescription: item.PrinterName || "",
         MRP:             CC.f2(CC.vn(item.MRP)),
         SaleRate:        CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
         PurchaseRate:    CC.f2(CC.vn(item.PurRate)),
@@ -1990,7 +2051,7 @@ const getRowEnabledCols = useCallback((rid) => {
        StockQtyNew: "1",
         ItemQty:         "1",
         _dirty: true,
-      };
+      }, tamilMode);
       setStockLbl(CC.vn(item.Stock).toFixed(0));
      return calcSaleRow(newRow); 
     }));
@@ -2013,7 +2074,7 @@ const getRowEnabledCols = useCallback((rid) => {
     //   if (el) { el.focus(); el.select?.(); }
     // }, 50);
     setTimeout(() => goToNextField(rid, "ProductCode"), 50);
-  }, [sess, visCols, goToNextField]);
+  }, [tamilMode, goToNextField]);
 
   // ── Fetch product by code ──────────────────────────────────────────────────
   const fetchProductByCode = useCallback(async (rid, code) => {
@@ -2058,12 +2119,12 @@ const getRowEnabledCols = useCallback((rid) => {
   const fillBatchItemIntoRow = useCallback(async (rid, batchItem) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
-      const newRow = {
+      const newRow = withRowProductNames({
         ...r,
         ProductRefId:    batchItem.Id,
         ProductCode:     batchItem.ProductCode,
-        ProductName:     sess.Tamil ? (batchItem.PrinterName || batchItem.ProductName) : batchItem.ProductName,
-        PrinterName:     batchItem.PrinterName || "",
+        EnglishDescription: batchItem.ProductName || "",
+        TamilDescription: batchItem.PrinterName || "",
         _origSaleRate:   CC.f2(CC.vn(batchItem.SalesRate || batchItem.SaleRate)),
         MRP:             CC.f2(CC.vn(batchItem.MRP)),
         SaleRate:        CC.f2(CC.vn(batchItem.SalesRate || batchItem.SaleRate)),
@@ -2082,7 +2143,7 @@ const getRowEnabledCols = useCallback((rid) => {
         CRMPoints:       batchItem.CRMPoints ? 1 : 0,
         ItemQty:         "1",
         _dirty: true,
-      };
+      }, tamilMode);
       setStockLbl(CC.vn(batchItem.Stock).toFixed(0));
        return calcSaleRow(newRow); 
     }));
@@ -2098,14 +2159,14 @@ const getRowEnabledCols = useCallback((rid) => {
     }
 
     setTimeout(() => goToNextField(rid, "ProductCode"), 50);
-  }, [sess, visCols, goToNextField]);
+  }, [sess, tamilMode, goToNextField]);
 
   // ── Cell change ────────────────────────────────────────────────────────────
   const handleCellChange = useCallback((rid, colKey, value) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
       if (colKey === "ItemQty") {
-        if (r.UOMDecimal === 0 && value.includes(".")) {
+        if (exceedsDecimalLimit(value, r.UOMDecimal)) {
           return r;
         }
       }
@@ -2884,7 +2945,7 @@ const payload = [{
     setLoading(true); setLdMsg("Loading bill...");
     const res = await CC.api(CC.SaleEditUrl, null, {}, {
       Id: id, SaleNo: 0, Date: billDate, Comid: sess.Comid,
-      Cid: 0, Estimate: 0, CustId: 0, Tamil: sess.Tamil ? true : false,
+      Cid: 0, Estimate: 0, CustId: 0, Tamil: tamilMode ? true : false,
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
@@ -2905,7 +2966,7 @@ const payload = [{
     setRemarks(CC.ns(data[0].Remarks));
     setOtherPlus(CC.ns(data[0].OthersplusAmt || ""));
     setOtherMinus(CC.ns(data[0].OtherssubAmt || ""));
- const loadedRows = saledetails.map(r => calcSaleRow(fmtRow({
+ const loadedRows = saledetails.map(r => calcSaleRow(withRowProductNames(fmtRow({
   ...mkRow(),
   ...r,
   _rid: CC.genRid(),
@@ -2915,7 +2976,7 @@ const payload = [{
   _origExpiryDate: r.ExpiryDate || "",
   _origPDRefid: r.PDRefid || null,
   _origBags: r.Pcs || 0,
-})));
+}), tamilMode)));
 setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
 
@@ -2951,7 +3012,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
           };
     }));
   // eslint-disable-next-line
-  }, [sess, billDate, perm, customers]);
+  }, [sess, billDate, perm, customers, tamilMode]);
   const handleF5EditRequest = useCallback((id) => {
     setF5Open(false);
     pwOkRef.current = () => doEditBill(id);
@@ -3027,7 +3088,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
     if (arr.length > 0) {
-      const loaded = arr.map(r => calcSaleRow(fmtRow({ ...mkRow(), ...r, _rid: CC.genRid() })));
+      const loaded = arr.map(r => calcSaleRow(withRowProductNames(fmtRow({ ...mkRow(), ...r, _rid: CC.genRid() }), tamilMode)));
       setRows(loaded); setBillHoldName(name);
       if (arr[0].CustomerRefid) {
         const cid = CC.ns(arr[0].CustomerRefid);
@@ -3038,7 +3099,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       }
     }
   // eslint-disable-next-line
-  }, [sess, customers]);
+  }, [sess, customers, tamilMode]);
 
   const deleteHold = useCallback(async (name) => {
     const ok = await confirm(`Delete hold "${name}"?`);
@@ -3048,9 +3109,26 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     else toast("❌ " + (res.message || "Failed"), true);
   }, [sess, confirm, toast]);
 
+  const toggleTamilPrint = useCallback(() => {
+    setTamilMode(prev => {
+      const next = !prev;
+      toast(next ? "✅ Tamil Print Enabled" : "✅ English Print Enabled");
+      return next;
+    });
+  }, [toast]);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
-    const onKey = e => {
+    const handleKeyDown = e => {
+      if (e.repeat) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleTamilPrint();
+        return;
+      }
+
       if (prodPopup || holdOpen || f5Open || pw || f12Open || custPopup || ctrlGOpen
           || batchPopup || expiryListPopup) return;
 
@@ -3066,11 +3144,11 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       if (e.key === "Escape") { e.preventDefault(); confirm("Do You Want To Quit?").then(ok => ok && navigate(-1)); }
       if (e.ctrlKey && e.key === "g") { e.preventDefault(); setCtrlGOpen(true); }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   // eslint-disable-next-line
   }, [prodPopup, holdOpen, f5Open, pw, f12Open, custPopup, ctrlGOpen,
-      doSave, doCreditSave, doBillHold, openF5, doDeleteBill, clearForm, editId]);
+      doSave, doCreditSave, doBillHold, openF5, doDeleteBill, clearForm, editId, toggleTamilPrint]);
 
   if (!isAuthorized) return null;
 
@@ -3156,6 +3234,15 @@ onView={() => {
                     fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                 >🔍</button>
+                <button
+                  type="button"
+                  className={`language-mode-badge ${tamilMode ? "tamil" : "english"}`}
+                  onClick={toggleTamilPrint}
+                  title="Click to switch Tamil / English"
+                  aria-label={`Current language: ${tamilMode ? "Tamil" : "English"}. Click to switch language.`}
+                >
+                  {tamilMode ? "Tamil" : "English"}
+                </button>
               </div>
               <span className="sb-field-lbl-sm" style={{ marginLeft: 8 }}>SalesMan</span>
               <ComboBox
@@ -3622,7 +3709,7 @@ onView={() => {
      {prodPopup && (
   <ProductSearchPopup
     products={prodList}
-    isTamil={sess.Tamil}
+    isTamil={tamilMode}
     onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
     onClose={() => setProdPopup(null)}
     anchorPos={prodPopup.pos}
