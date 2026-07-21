@@ -1438,7 +1438,7 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
   // ── Scoped styles (same naming convention family as SaleOrderReport.jsx, "sr-" prefix) ──
   const styles = `
     .sr-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .sr-layout { display: flex; flex: 1; justify-content: center; padding: 24px; max-width: 1300px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+    .sr-layout { display: flex; flex: 1; justify-content: center; padding: 24px; max-width: 900px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 
     .sr-card { width: 100%; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; display: flex; flex-direction: column; }
     .sr-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
