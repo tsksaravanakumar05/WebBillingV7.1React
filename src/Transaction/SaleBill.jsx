@@ -178,6 +178,16 @@ function calcSaleRow(row) {
   };
 }
 
+const exceedsDecimalLimit = (value, decimals) => {
+  const str = String(value ?? "");
+  const dotIdx = str.indexOf(".");
+  if (dotIdx === -1) return false;
+  const fracLen = str.length - dotIdx - 1;
+  const limit = CC.vn(decimals);
+  if (limit === 0) return true;
+  return fracLen > limit;
+};
+
 const mkRow = () => ({
   _rid: CC.genRid(), _isNew: true, _dirty: false,
   SDId: 0, ProductRefId: 0, ProductCode: "", ProductName: "",
@@ -1339,6 +1349,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
 }, [sess.Comid]);
   const [perm,         setPerm]         = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [tamilMode, setTamilMode] = useState(sess.Tamil);
 
   const [customers,  setCustomers]  = useState([]);
   const [salesmen,   setSalesmen]   = useState([]);
@@ -1969,7 +1980,7 @@ const getRowEnabledCols = useCallback((rid) => {
         ...r,
         ProductRefId:    item.Id,
         ProductCode:     item.Prod_Code ? item.Prod_Code : item.ProductCode,
-        ProductName:     sess.Tamil ? (item.PrinterName || item.PName) : item.PName ? item.PName : item.ProductName,
+        ProductName:     tamilMode ? (item.PrinterName || item.PName) : item.PName ? item.PName : item.ProductName,
         PrinterName:     item.PrinterName || "",
         MRP:             CC.f2(CC.vn(item.MRP)),
         SaleRate:        CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
@@ -2062,7 +2073,7 @@ const getRowEnabledCols = useCallback((rid) => {
         ...r,
         ProductRefId:    batchItem.Id,
         ProductCode:     batchItem.ProductCode,
-        ProductName:     sess.Tamil ? (batchItem.PrinterName || batchItem.ProductName) : batchItem.ProductName,
+        ProductName:     tamilMode ? (batchItem.PrinterName || batchItem.ProductName) : batchItem.ProductName,
         PrinterName:     batchItem.PrinterName || "",
         _origSaleRate:   CC.f2(CC.vn(batchItem.SalesRate || batchItem.SaleRate)),
         MRP:             CC.f2(CC.vn(batchItem.MRP)),
@@ -2105,7 +2116,7 @@ const getRowEnabledCols = useCallback((rid) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
       if (colKey === "ItemQty") {
-        if (r.UOMDecimal === 0 && value.includes(".")) {
+        if (exceedsDecimalLimit(value, r.UOMDecimal)) {
           return r;
         }
       }
@@ -2884,7 +2895,7 @@ const payload = [{
     setLoading(true); setLdMsg("Loading bill...");
     const res = await CC.api(CC.SaleEditUrl, null, {}, {
       Id: id, SaleNo: 0, Date: billDate, Comid: sess.Comid,
-      Cid: 0, Estimate: 0, CustId: 0, Tamil: sess.Tamil ? true : false,
+      Cid: 0, Estimate: 0, CustId: 0, Tamil: tamilMode ? true : false,
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
@@ -3048,9 +3059,26 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     else toast("❌ " + (res.message || "Failed"), true);
   }, [sess, confirm, toast]);
 
+  const toggleTamilPrint = useCallback(() => {
+    setTamilMode(prev => {
+      const next = !prev;
+      toast(next ? "✅ Tamil Print Enabled" : "✅ English Print Enabled");
+      return next;
+    });
+  }, [toast]);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
-    const onKey = e => {
+    const handleKeyDown = e => {
+      if (e.repeat) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleTamilPrint();
+        return;
+      }
+
       if (prodPopup || holdOpen || f5Open || pw || f12Open || custPopup || ctrlGOpen
           || batchPopup || expiryListPopup) return;
 
@@ -3066,11 +3094,11 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       if (e.key === "Escape") { e.preventDefault(); confirm("Do You Want To Quit?").then(ok => ok && navigate(-1)); }
       if (e.ctrlKey && e.key === "g") { e.preventDefault(); setCtrlGOpen(true); }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   // eslint-disable-next-line
   }, [prodPopup, holdOpen, f5Open, pw, f12Open, custPopup, ctrlGOpen,
-      doSave, doCreditSave, doBillHold, openF5, doDeleteBill, clearForm, editId]);
+      doSave, doCreditSave, doBillHold, openF5, doDeleteBill, clearForm, editId, toggleTamilPrint]);
 
   if (!isAuthorized) return null;
 
@@ -3156,6 +3184,15 @@ onView={() => {
                     fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                 >🔍</button>
+                <button
+                  type="button"
+                  className={`language-mode-badge ${tamilMode ? "tamil" : "english"}`}
+                  onClick={toggleTamilPrint}
+                  title="Click to switch Tamil / English"
+                  aria-label={`Current language: ${tamilMode ? "Tamil" : "English"}. Click to switch language.`}
+                >
+                  {tamilMode ? "Tamil" : "English"}
+                </button>
               </div>
               <span className="sb-field-lbl-sm" style={{ marginLeft: 8 }}>SalesMan</span>
               <ComboBox
@@ -3622,7 +3659,7 @@ onView={() => {
      {prodPopup && (
   <ProductSearchPopup
     products={prodList}
-    isTamil={sess.Tamil}
+    isTamil={tamilMode}
     onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
     onClose={() => setProdPopup(null)}
     anchorPos={prodPopup.pos}

@@ -279,7 +279,7 @@ export default function CustomerBalance() {
           setCustomerSel(null);
           return;
         }
-        GroupByText = customerSel.label;
+        GroupByText = customerSel.value;
       }
     }
     if (activeGroup === GROUP.AREA) {
