@@ -665,7 +665,7 @@
   align-items: center;
   gap: 9px;
   padding: 0 8px;
-  height: var(--ms-sub-item-h);
+  min-height: var(--ms-sub-item-h);
   border-radius: var(--ms-r);
   text-decoration: none;
   font-family: var(--ms-font);
