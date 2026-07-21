@@ -37,7 +37,7 @@
 //    data.ok === true).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common"
@@ -72,6 +72,117 @@ const toMMDDYYYY = (isoDate) => {
   return `${m}/${d}/${y}`;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  SearchableSelect
+//  Drop-in replacement for a native <select> lookup field (Supplier, Customer,
+//  Brand, Category, ...). Same visual footprint (uses the .so-input class)
+//  but adds an instant-filter text popup so users can type to narrow long
+//  master-data lists instead of scrolling. Selection/clear behaviour matches
+//  the original <select onChange> exactly — it just calls onChange(value)
+//  with "" for the placeholder row, same as before.
+// ─────────────────────────────────────────────────────────────────────────────
+function SearchableSelect({ id, options, labelKey = "label", value, onChange, disabled, placeholder = "-- Select --" }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapRef = useRef(null);
+
+  const getLabel = useCallback(
+    (opt) => String(opt?.[labelKey] ?? opt?.label ?? ""),
+    [labelKey]
+  );
+
+  const selected = useMemo(
+    () => options.find((o) => String(o.value) === String(value ?? "")) || null,
+    [options, value]
+  );
+
+  // Keep the visible text in sync whenever the underlying value changes
+  // (including external resets like the Refresh button).
+  useEffect(() => {
+    setQuery(selected ? getLabel(selected) : "");
+  }, [selected, getLabel]);
+
+  // Close + revert unsaved typed text on outside click.
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery(selected ? getLabel(selected) : "");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [selected, getLabel]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || (selected && q === getLabel(selected).toLowerCase())) return options;
+    return options.filter((o) => getLabel(o).toLowerCase().includes(q));
+  }, [options, query, selected, getLabel]);
+
+  const handleSelect = (opt) => {
+    onChange(String(opt.value));
+    setQuery(getLabel(opt));
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    onChange("");
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <div className="so-combo-wrap" ref={wrapRef}>
+      <input
+        id={id}
+        className="so-input"
+        type="text"
+        autoComplete="off"
+        disabled={disabled}
+        placeholder={placeholder}
+        value={query}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setOpen(false);
+            setQuery(selected ? getLabel(selected) : "");
+          }
+        }}
+      />
+      {open && !disabled && (
+        <div className="so-combo-list" role="listbox">
+          <div
+            className="so-combo-item so-combo-item-clear"
+            onMouseDown={(e) => { e.preventDefault(); handleClear(); }}
+          >
+            {placeholder}
+          </div>
+          {filtered.length === 0 ? (
+            <div className="so-combo-empty">No matches found</div>
+          ) : (
+            filtered.map((opt) => (
+              <div
+                key={opt.value}
+                className={`so-combo-item${String(opt.value) === String(value ?? "") ? " active" : ""}`}
+                role="option"
+                aria-selected={String(opt.value) === String(value ?? "")}
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(opt); }}
+              >
+                {getLabel(opt)}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PurchaseRetunCons() {
   const navigate = useNavigate();
 
@@ -100,6 +211,17 @@ export default function PurchaseRetunCons() {
 
   // ── Combo data ───────────────────────────────────────────────────────────
   const [suppliers, setSuppliers] = useState([]);
+
+  // Normalized {value,label} list for the searchable Supplier combo —
+  // same Id/Name resolution the native <select> used, just precomputed.
+  const supplierOptions = useMemo(
+    () =>
+      suppliers.map((s, idx) => ({
+        value: s.Id ?? s.SupplierId ?? s.value ?? idx,
+        label: s.AccountName,
+      })),
+    [suppliers]
+  );
 
   // ── UI feedback state ───────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -289,6 +411,14 @@ export default function PurchaseRetunCons() {
     .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.so-input { appearance: auto; cursor: pointer; }
 
+    /* ── Searchable lookup dropdown (Supplier / Customer / Brand / Category ...) ── */
+    .so-combo-wrap { position: relative; width: 100%; }
+    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.15); z-index: 20; padding: 4px; box-sizing: border-box; }
+    .so-combo-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; line-height: 1.3; }
+    .so-combo-item:hover, .so-combo-item.active { background: #eef3ff; color: #1a56db; }
+    .so-combo-item-clear { color: #8a94a6; font-style: italic; border-bottom: 1px solid #ececec; margin-bottom: 2px; border-radius: 0; }
+    .so-combo-empty { padding: 10px; font-size: 12px; color: #9aa5b1; text-align: center; }
+
     .so-toggle-row { display: flex; align-items: center; gap: 10px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #1e293b; font-weight: 500; user-select: none; transition: border-color .15s; }
     .so-toggle-row:hover { border-color: #1a56db; }
     .so-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #1a56db; cursor: pointer; }
@@ -375,20 +505,14 @@ export default function PurchaseRetunCons() {
                 <div className="so-right">
                   <div className="so-field">
                     <label className="so-label" htmlFor="so-supplier">Supplier</label>
-                    <select
+                    <SearchableSelect
                       id="so-supplier"
-                      className="so-input"
+                      options={supplierOptions}
+                      labelKey="label"
                       value={selectedSupplier}
-                      onChange={(e) => setSelectedSupplier(e.target.value)}
-                    >
-                      <option value="">-- Select Supplier --</option>
-                      {suppliers.map((s, idx) => (
-                        <option key={s.Id ?? s.SupplierId ?? idx} value={s.Id ?? s.SupplierId ?? s.value ?? ""}>
-                      
-                          {s.AccountName }
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setSelectedSupplier(val)}
+                      placeholder="-- Select Supplier --"
+                    />
                   </div>
 
                   <div className="so-field">

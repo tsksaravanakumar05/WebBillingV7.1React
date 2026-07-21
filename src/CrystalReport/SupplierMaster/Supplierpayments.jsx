@@ -276,6 +276,9 @@ export default function SupplierPayments() {
   const ApiSelect = ({ url, payload, headers = {}, labelKey, valueKey, value, onChange, placeholder }) => {
     const [list, setList] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState("");
+    const wrapRef = useRef(null);
 
     useEffect(() => {
       let active = true;
@@ -303,30 +306,92 @@ export default function SupplierPayments() {
       };
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
+    // Keep the visible text in sync whenever the selection changes
+    // externally (Refresh button, invalid-selection reset, etc.).
+    useEffect(() => {
+      setQuery(value?.label ?? "");
+    }, [value]);
+
+    // Close + revert unsaved typed text on outside click.
+    useEffect(() => {
+      const handleClickOutside = (e) => {
+        if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+          setOpen(false);
+          setQuery(value?.label ?? "");
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [value]);
+
+    const q = query.trim().toLowerCase();
+    const isSelectedText = value && q === String(value.label ?? "").toLowerCase();
+    const filtered =
+      !q || isSelectedText
+        ? list
+        : list.filter((o) => String(o[labelKey] ?? "").toLowerCase().includes(q));
+
+    const handleSelect = (opt) => {
+      onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
+      setQuery(opt[labelKey]);
+      setOpen(false);
+    };
+
+    const handleClear = () => {
+      onChange(null);
+      setQuery("");
+      setOpen(false);
+    };
+
     return (
       <div className="so-field">
         <label className="so-label">{placeholder.replace("Select ", "")}</label>
-        <select
-          className="so-input"
-          value={value?.value ?? ""}
-          disabled={loadingList}
-          onChange={(e) => {
-            const selectedVal = e.target.value;
-            const opt = list.find((o) => String(o[valueKey]) === selectedVal);
-            if (opt) {
-              onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
-            } else {
-              onChange(null);
-            }
-          }}
-        >
-          <option value="">{loadingList ? "Loading..." : placeholder}</option>
-          {list.map((o) => (
-            <option key={o[valueKey]} value={o[valueKey]}>
-              {o[labelKey]}
-            </option>
-          ))}
-        </select>
+        <div className="so-combo-wrap" ref={wrapRef}>
+          <input
+            className="so-input"
+            type="text"
+            autoComplete="off"
+            disabled={loadingList}
+            placeholder={loadingList ? "Loading..." : placeholder}
+            value={query}
+            onFocus={() => setOpen(true)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setOpen(false);
+                setQuery(value?.label ?? "");
+              }
+            }}
+          />
+          {open && !loadingList && (
+            <div className="so-combo-list" role="listbox">
+              <div
+                className="so-combo-item so-combo-item-clear"
+                onMouseDown={(e) => { e.preventDefault(); handleClear(); }}
+              >
+                {placeholder}
+              </div>
+              {filtered.length === 0 ? (
+                <div className="so-combo-empty">No matches found</div>
+              ) : (
+                filtered.map((o) => (
+                  <div
+                    key={o[valueKey]}
+                    className={`so-combo-item${value && String(value.value) === String(o[valueKey]) ? " active" : ""}`}
+                    role="option"
+                    aria-selected={value && String(value.value) === String(o[valueKey])}
+                    onMouseDown={(e) => { e.preventDefault(); handleSelect(o); }}
+                  >
+                    {o[labelKey]}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -377,6 +442,14 @@ export default function SupplierPayments() {
     .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     .so-input:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
     select.so-input { appearance: auto; cursor: pointer; }
+
+    /* ── Searchable lookup dropdown (Supplier / Customer / Brand / Category ...) ── */
+    .so-combo-wrap { position: relative; width: 100%; }
+    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.15); z-index: 20; padding: 4px; box-sizing: border-box; }
+    .so-combo-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; line-height: 1.3; }
+    .so-combo-item:hover, .so-combo-item.active { background: #eef3ff; color: #1a56db; }
+    .so-combo-item-clear { color: #8a94a6; font-style: italic; border-bottom: 1px solid #ececec; margin-bottom: 2px; border-radius: 0; }
+    .so-combo-empty { padding: 10px; font-size: 12px; color: #9aa5b1; text-align: center; }
 
     .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
     .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }

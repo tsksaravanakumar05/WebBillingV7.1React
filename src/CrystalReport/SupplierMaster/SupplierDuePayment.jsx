@@ -34,7 +34,7 @@
 //     already clears the selection here.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
@@ -236,9 +236,16 @@ export default function SupplierDuePayment() {
   }, [supplierSel, fromDate, session, openReportViewer]);
 
   // ── Reusable combo component (same pattern as other converted pages) ───
+  // Same external contract as before: value={value}/onChange({value,label}) —
+  // only the picker UI changed, from a native <select> to a searchable
+  // popup, so it gets instant-filter without touching any surrounding logic.
   const ApiSelect = ({ url, payload, headers = {}, labelKey, valueKey, value, onChange, placeholder }) => {
     const [list, setList] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const wrapRef = useRef(null);
+    const searchRef = useRef(null);
 
     useEffect(() => {
       let active = true;
@@ -266,30 +273,89 @@ export default function SupplierDuePayment() {
       };
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
+    // Close popup on outside click.
+    useEffect(() => {
+      const handleClickOutside = (e) => {
+        if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+          setOpen(false);
+          setSearch("");
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // Focus the search box the moment the popup opens.
+    useEffect(() => {
+      if (open) searchRef.current?.focus();
+    }, [open]);
+
+    const filteredList = useMemo(() => {
+      const q = search.trim().toLowerCase();
+      if (!q) return list;
+      return list.filter((o) => String(o[labelKey] ?? "").toLowerCase().includes(q));
+    }, [list, search, labelKey]);
+
+    const selectOption = (opt) => {
+      onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
+      setOpen(false);
+      setSearch("");
+    };
+
+    const clearSelection = (e) => {
+      e.stopPropagation();
+      onChange(null);
+      setSearch("");
+    };
+
     return (
       <div className="so-field">
         <label className="so-label">{placeholder.replace("Select ", "")}</label>
-        <select
-          className="so-input"
-          value={value?.value ?? ""}
-          disabled={loadingList}
-          onChange={(e) => {
-            const selectedVal = e.target.value;
-            const opt = list.find((o) => String(o[valueKey]) === selectedVal);
-            if (opt) {
-              onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
-            } else {
-              onChange(null);
-            }
-          }}
-        >
-          <option value="">{loadingList ? "Loading..." : placeholder}</option>
-          {list.map((o) => (
-            <option key={o[valueKey]} value={o[valueKey]}>
-              {o[labelKey]}
-            </option>
-          ))}
-        </select>
+        <div className="so-select-wrap" ref={wrapRef}>
+          <button
+            type="button"
+            className="so-input so-select-btn"
+            disabled={loadingList}
+            onClick={() => setOpen((o) => !o)}
+          >
+            <span className={`so-select-btn-text${value ? "" : " so-select-placeholder"}`}>
+              {loadingList ? "Loading..." : value ? value.label : placeholder}
+            </span>
+            {value && !loadingList && (
+              <span className="so-select-clear" onClick={clearSelection} aria-label="Clear selection">✕</span>
+            )}
+            <span className="so-select-caret" aria-hidden="true">▾</span>
+          </button>
+
+          {open && !loadingList && (
+            <div className="so-select-popup">
+              <input
+                ref={searchRef}
+                type="text"
+                className="so-select-search"
+                placeholder="Type to search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="so-select-options">
+                {filteredList.length === 0 ? (
+                  <div className="so-select-empty">No matches found</div>
+                ) : (
+                  filteredList.map((o) => (
+                    <div
+                      key={o[valueKey]}
+                      className={`so-select-option${value?.value === String(o[valueKey]) ? " active" : ""}`}
+                      onClick={() => selectOption(o)}
+                    >
+                      {o[labelKey]}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -321,6 +387,24 @@ export default function SupplierDuePayment() {
     .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
     .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-select-wrap { position: relative; }
+    .so-select-btn { display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; }
+    .so-select-btn:disabled { cursor: not-allowed; opacity: .7; }
+    .so-select-btn-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .so-select-placeholder { color: #8492a6; }
+    .so-select-caret { font-size: 11px; color: #8492a6; flex-shrink: 0; }
+    .so-select-clear { font-size: 11px; color: #8492a6; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; line-height: 1; }
+    .so-select-clear:hover { color: #dc3545; background: #fff0f0; }
+
+    .so-select-popup { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(20,30,50,.16); overflow: hidden; }
+    .so-select-search { width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; border: none; border-bottom: 1px solid #e8ecf0; font-size: 13px; color: #1e2d3d; outline: none; }
+    .so-select-search:focus { border-bottom-color: #1a56db; }
+    .so-select-options { max-height: 220px; overflow-y: auto; }
+    .so-select-option { padding: 9px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; }
+    .so-select-option:hover { background: #eef3ff; }
+    .so-select-option.active { background: #e3ecff; font-weight: 600; color: #1a56db; }
+    .so-select-empty { padding: 12px; font-size: 13px; color: #8492a6; text-align: center; }
 
     .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
     .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
