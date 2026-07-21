@@ -213,6 +213,28 @@ const withRowProductNames = (row, isTamil) => {
   };
 };
 
+const getLotDateKey = value => String(value ?? "").slice(0, 10);
+
+const getRowBatchWiseId = source =>
+  source?.BatchWiseIdNewRefId ??
+  source?.BatchWiseIdNewRefID ??
+  source?.idnew11 ??
+  null;
+
+const getRowOpenItemMasterId = source =>
+  source?.OpenItemMasterid ??
+  source?.OpenItemMasterId ??
+  null;
+
+const isSameSaleLotRow = (left, right) =>
+  String(left?.ProductRefId || 0) === String(right?.ProductRefId || 0) &&
+  CC.f2(CC.vn(left?.SaleRate)) === CC.f2(CC.vn(right?.SaleRate)) &&
+  String(left?.BatchRefid || "") === String(right?.BatchRefid || "") &&
+  String(left?.PDRefid || "") === String(right?.PDRefid || "") &&
+  String(getRowBatchWiseId(left) || "") === String(getRowBatchWiseId(right) || "") &&
+  getLotDateKey(left?.ExpDate || left?.ExpiryDate) === getLotDateKey(right?.ExpDate || right?.ExpiryDate) &&
+  getLotDateKey(left?.MfgDate) === getLotDateKey(right?.MfgDate);
+
 const mkRow = () => ({
   _rid: CC.genRid(), _isNew: true, _dirty: false,
   SDId: 0, ProductRefId: 0, ProductCode: "", ProductName: "",
@@ -225,7 +247,7 @@ const mkRow = () => ({
   PurchaseRate: 0, StockQty: 0,StockQtyNew:0, BatchRefid: null, NegativetStock: false,
   SalesRateType: true, WithoutTaxRate: 0, FreeQty: 0, Remarks: "",
   PrinterName: "", NStock: 0, SRDetailsId: 0, Bat_No: "",
-  ExpDate: "", MfgDate: "",
+  ExpDate: "", MfgDate: "", PDRefid: null, BatchWiseIdNewRefId: null, OpenItemMasterid: null, RealQty: 0,
   CRMPoints: 0, SalesManCode: 0, SalesManComm: 0,
 });
 
@@ -2034,7 +2056,7 @@ const getRowEnabledCols = useCallback((rid) => {
         TamilDescription: item.PrinterName || "",
         MRP:             CC.f2(CC.vn(item.MRP)),
         SaleRate:        CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
-        PurchaseRate:    CC.f2(CC.vn(item.PurRate)),
+        PurchaseRate:    CC.f2(CC.vn(item.PurRate || item.PurchaseRate)),
         _origSaleRate:   CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
         TaxPercent:      CC.f2(CC.vn(item.GST)),
         CESSPer:         CC.f2(CC.vn(item.CESS)),
@@ -2042,13 +2064,21 @@ const getRowEnabledCols = useCallback((rid) => {
         UOM:             item.UOM || "",
         UOMDecimal:      item.UOMDecimal || 0,
         HSNCode:         item.HSNCode || "",
-        StockQty:        CC.vn(item.Stock),
+        StockQty:        CC.vn(item.Stock ?? item.StockQty),
+        BatchRefid:      item.Batchid || item.BatchRefid || null,
+        Bat_No:          item.BatchNo || item.Bat_No || "",
+        ExpDate:         item.Expdate || item.ExpDate || item.ExpiryDate || "",
+        MfgDate:         item.MFdate || item.MfgDate || "",
+        PDRefid:         item.PDRefid || item.PDRefId || null,
+        BatchWiseIdNewRefId: getRowBatchWiseId(item),
+        OpenItemMasterid: getRowOpenItemMasterId(item),
         SalesRateType:   item.SaleRateType,
         NegativetStock:  !!item.NegativetStock,
         NStock:          item.Nstock || 0,
         DiscountPercent: CC.f2(CC.vn(item.SaleDiscountPer)),
         CRMPoints:       item.CRMPoints ? 1 : 0,
-       StockQtyNew: "1",
+        RealQty:         CC.vn(item.RealQty || 1),
+        StockQtyNew:     "1",
         ItemQty:         "1",
         _dirty: true,
       }, tamilMode);
@@ -2135,12 +2165,18 @@ const getRowEnabledCols = useCallback((rid) => {
         UOM:             batchItem.UOM || "",
         UOMDecimal:      batchItem.UOMDecimal || 0,
         HSNCode:         batchItem.HSNCode || "",
-        StockQty:        CC.vn(batchItem.Stock),
+        StockQty:        CC.vn(batchItem.Stock ?? batchItem.StockQty),
         BatchRefid:      batchItem.Batchid || null,
         Bat_No:          batchItem.BatchNo || "",
+        ExpDate:         batchItem.Expdate || batchItem.ExpDate || batchItem.ExpiryDate || "",
+        MfgDate:         batchItem.MFdate || batchItem.MfgDate || "",
+        PDRefid:         batchItem.PDRefid || batchItem.PDRefId || null,
+        BatchWiseIdNewRefId: getRowBatchWiseId(batchItem),
+        OpenItemMasterid: getRowOpenItemMasterId(batchItem),
         SalesRateType:   batchItem.SaleRateType,
         DiscountPercent: CC.f2(CC.vn(batchItem.SaleDiscountPer)),
         CRMPoints:       batchItem.CRMPoints ? 1 : 0,
+        RealQty:         CC.vn(batchItem.RealQty || 1),
         ItemQty:         "1",
         _dirty: true,
       }, tamilMode);
@@ -2327,8 +2363,7 @@ const getRowEnabledCols = useCallback((rid) => {
 
       const duplicate = rowsRef.current.find(r =>
         r._rid !== rid &&
-        r.ProductRefId === curRow.ProductRefId &&
-        CC.f2(CC.vn(r.SaleRate)) === CC.f2(CC.vn(curRow.SaleRate)) &&
+        isSameSaleLotRow(r, curRow) &&
         !r._isFree
       );
 
@@ -2612,6 +2647,8 @@ const doSave = useCallback(async (isCashBill = false, overridePayRows = null) =>
     STAmount: CC.f2(CC.vn(r.STAmount)), PurchaseRate: CC.f2(CC.vn(r.PurchaseRate)),
     UOM: r.UOM || "", HSNcode: r.HSNCode || "", StockQty: CC.vn(r.StockQty),StockQtyNew:CC.f2(CC.vn(r.ItemQty)),
     BatchRefid: r.BatchRefid || null,
+    PDRefid: r.PDRefid || null,
+    RealQty: CC.f2(CC.vn(r.RealQty || r.ItemQty)),
     ExpiryDate: r.ExpDate || r.ExpiryDate || null,
     MfgDate: r.MfgDate || null,
     SalesmanRefid: r.SalesManCode ? parseInt(r.SalesManCode) : (smId ? parseInt(smId) : null),
@@ -2620,6 +2657,7 @@ const doSave = useCallback(async (isCashBill = false, overridePayRows = null) =>
     SaleRate_org: CC.f2(CC.vn(r.OrgRate)), remarks: r.Remarks || "",
      CRMPoints: CC.vn(r.CRMPoints) === 1 ? 1 : 0,
     SRDetailsId: r.SRDetailsId || 0, Bat_No: r.Bat_No || "",
+    BatchWiseIdNewRefId: getRowBatchWiseId(r),
   }));
 
   const payFiltered = effectivePayRows.filter(p => CC.vn(p.Amount) > 0).map(p => ({
@@ -3663,6 +3701,9 @@ onView={() => {
                 Bat_No:     item.BatchNo || r.Bat_No || "",
                 BatchRefid: item.Batchid || r.BatchRefid || null,
                 StockQty:   CC.vn(item.Stock),
+                PDRefid:    item.PDRefid || item.PDRefId || r.PDRefid || null,
+                BatchWiseIdNewRefId: getRowBatchWiseId(item) || r.BatchWiseIdNewRefId || null,
+                OpenItemMasterid: getRowOpenItemMasterId(item) || r.OpenItemMasterid || null,
                 _dirty: true,
               }
             ));
