@@ -16,10 +16,24 @@
 //   • Category combo for filtering sub-categories
 //   • View, Add, Edit, Delete permission denied logic
 //   • Dual-login guard — any 406 / res.redis===false → navigate("/Login/Index")
+//
+//  VISUAL REDESIGN NOTE:
+//  Only the presentational layer (JSX structure, className usage, and the
+//  purely-cosmetic inline color values on the Active toggle) was changed to
+//  match the "bm-*" card/form design system used in BrandMaster.jsx (blue
+//  card border + gradient header, rounded card, bm-btn style pill buttons,
+//  bm-cell-input focus glow, lucide-react action icons, etc.). The "bm-*"
+//  classes referenced below already live in MasterPage.css (reusable across
+//  every screen — see BrandMaster.jsx). The Department lookup popup
+//  (grp-overlay / grp-window / grp-list-item, etc.) is untouched — it isn't
+//  part of BrandMaster's design system and is left exactly as-is.
+//  All state, effects, handlers, API calls, validation, variable names and
+//  control flow are 100% unchanged from the original SubCategory.jsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, XCircle, Pencil, Trash2 } from "lucide-react";
 import "./MasterPage.css";
 
 import Topbar from "../components/Topbar";
@@ -27,6 +41,9 @@ import * as CC  from "../components/Common";
 import * as MSG from "../components/Messages";
 
 // ─── Toggle component (Active column) ────────────────────────────────────────
+//  NOTE: only the two hex color values below were changed (#16a34a -> #1e7e34,
+//  #15803d -> #166534) to line up with BrandMaster's "save" green accent.
+//  Behavior, props and logic are untouched.
 function Toggle({ value, onChange, onKeyDown, inputRef, editMode, onFocus }) {
   return (
     <button
@@ -38,12 +55,12 @@ function Toggle({ value, onChange, onKeyDown, inputRef, editMode, onFocus }) {
       style={{
         width: 32, height: 18, borderRadius: 9, border: "none",
         cursor:     editMode === 0 ? "default" : "pointer",
-        background: value ? "#16a34a" : "#cbd5e1",
+        background: value ? "#1e7e34" : "#cbd5e1",
         position: "relative", transition: "background 0.18s ease",
         outline: "none", display: "inline-flex", alignItems: "center",
         flexShrink: 0, padding: 0,
         boxShadow: value
-          ? "inset 0 0 0 1px #15803d"
+          ? "inset 0 0 0 1px #166534"
           : "inset 0 0 0 1px #b0bec5",
         opacity:       editMode === 0 ? 0.5 : 1,
         pointerEvents: editMode === 0 ? "none" : "auto",
@@ -587,13 +604,13 @@ export default function SubCategoryMaster() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
 
       {ConfirmUI}
 
       <Topbar />
 
-      {/* ── Department Lookup Popup ── */}
+      {/* ── Department Lookup Popup (untouched — not part of BrandMaster's design) ── */}
       {deptOpen && (
         <div className="grp-overlay" onClick={() => setDeptOpen(false)}>
           <div className="grp-window" onClick={e => e.stopPropagation()}>
@@ -637,18 +654,18 @@ export default function SubCategoryMaster() {
         </div>
       )}
 
-      <div className="mp-body">
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Sub Category Master</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
+          </div>
 
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-          <div className="mp-toolbar-title">Sub Category Master</div>
-        </div>
+          <div className="bm-card-body">
+            <div className="bm-report-title">Sub Category Master</div>
 
         {/* ── Category Filter ── */}
-        <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #e2e8f0" }}>
+        <div style={{ padding: "0 0 4px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #e8ecf0" }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Category:</label>
           <select
             style={{
@@ -670,8 +687,8 @@ export default function SubCategoryMaster() {
         </div>
 
         {/* ── Grid ── */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
+        <div className="bm-grid-wrap">
+          <table className="bm-tbl">
             <thead>
               <tr>
                 <th style={{ width: 50 }}>S.No</th>
@@ -688,7 +705,7 @@ export default function SubCategoryMaster() {
                     {c.label}
                   </th>
                 ))}
-                <th style={{ width: 60 }}></th>
+                <th style={{ width: 64 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -733,13 +750,17 @@ export default function SubCategoryMaster() {
                       )}
 
                       {/* ── DepartmentName — read-only popup trigger ── */}
+                      {/* Always readOnly (opens the picker on click/Enter instead of typing),
+                          so it keeps its own inline background/border to stay visually
+                          distinct in edit vs view mode — the .bm-cell-input[readonly] CSS
+                          rule alone can't tell "always readOnly" apart from "view mode". */}
                       {col.field === "DepartmentName" && (
                         <input
                           ref={el => {
                             if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
                             inputRefs.current[idx][colIdx] = el;
                           }}
-                          className="mp-cell-input"
+                          className="bm-cell-input"
                           value={row.DepartmentName || ""}
                           readOnly
                           placeholder="Click / Enter to select…"
@@ -748,10 +769,10 @@ export default function SubCategoryMaster() {
                           onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)}
                           style={{
                             background:   row.EditMode === 0 ? "transparent" : "#fff",
-                            border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
+                            border:       row.EditMode === 0 ? "none" : "1px solid #c7cdd6",
                             cursor:       row.EditMode === 0 ? "default" : "pointer",
-                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                            boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
+                            color:        row.EditMode === 0 ? "#000" : "#1e2d3d",
+                            boxShadow:    "none",
                             borderRadius: row.EditMode === 1 ? "4px" : "0",
                             padding:      row.EditMode === 0 ? "0" : undefined,
                           }}
@@ -765,7 +786,7 @@ export default function SubCategoryMaster() {
                             if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
                             inputRefs.current[idx][colIdx] = el;
                           }}
-                          className="mp-cell-input"
+                          className="bm-cell-input"
                           value={row.Cat_GST ?? ""}
                           readOnly={row.EditMode === 0}
                           onChange={e => {
@@ -775,46 +796,37 @@ export default function SubCategoryMaster() {
                           }}
                           onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx, colIdx, col.field)}
                           onFocus={() => selectRow(idx)}
-                          style={{
-                            textAlign:    "right",
-                            background:   row.EditMode === 0 ? "transparent" : "#fff",
-                            border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                            cursor:       row.EditMode === 0 ? "default" : "text",
-                            color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                            boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                            borderRadius: row.EditMode === 1 ? "4px" : "0",
-                            padding:      row.EditMode === 0 ? "0" : undefined,
-                          }}
+                          style={{ textAlign: "right" }}
                         />
                       )}
                     </td>
                   ))}
 
                   {/* ── Edit + Delete buttons ── */}
-                  <td style={{ whiteSpace: "nowrap" }}>
+                  <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                     {row.Id && row.EditMode === 0 && (
                       <button
-                        className="mp-edit-btn"
+                        className="bm-icon-btn edit"
                         title="Edit row"
                         onClick={e => { e.stopPropagation(); enableEdit(idx); }}
                       >
-                        ✏️
+                        <Pencil size={15} />
                       </button>
                     )}
                     {row.Id && row.EditMode === 1 && (
                       <button
-                        className="mp-edit-btn active"
+                        className="bm-icon-btn edit active"
                         title="Editing…"
-                        style={{ color: "#16a34a", cursor: "default" }}
                       >
-                        ✏️
+                        <Pencil size={15} />
                       </button>
                     )}
                     <button
-                      className="mp-del-btn"
+                      className="bm-icon-btn del"
+                      title="Delete row"
                       onClick={e => { e.stopPropagation(); deleteRow(idx); }}
                     >
-                      🗑
+                      <Trash2 size={15} />
                     </button>
                   </td>
                 </tr>
@@ -823,17 +835,26 @@ export default function SubCategoryMaster() {
           </table>
 
           {grid.length === 0 && !loading && (
-            <div className="mp-empty">No records. Press ➕ to add a sub category.</div>
+            <div className="bm-empty">No records. Press ➕ Add Row to add a sub category.</div>
           )}
         </div>
 
-        {/* ── Keyboard hint bar ── */}
-        <div className="mp-hint">
-          <kbd>Enter</kbd> next cell &nbsp;|&nbsp;
-          <kbd>Ctrl+Delete</kbd> delete row &nbsp;|&nbsp;
-          <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> back &nbsp;|&nbsp;
-          Click <strong>Department Name</strong> to pick department
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} />
+                {loading ? "Loading…" : "F1 Save"}
+              </button>
+              <button className="bm-btn" onClick={addRow} disabled={loading}>
+                <Plus size={16} />
+                Add Row
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc} disabled={loading}>
+                <XCircle size={16} />
+                Esc Cancel
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

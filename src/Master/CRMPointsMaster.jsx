@@ -17,6 +17,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, XCircle, Pencil, Trash2 } from "lucide-react";
 import "./MasterPage.css";
 import Topbar from "../components/Topbar";
 
@@ -469,37 +470,60 @@ export default function CRMPointsMaster() {
     return true;
   };
 
+  // ── Toggle component (Active column) — matches BrandMaster's Active toggle ──
+  //   Presentation only: still calls the existing updateCell() handler, so the
+  //   underlying logic/state transitions are identical to before.
+  const Toggle = ({ value, onChange, onKeyDown, inputRef, idx, editMode }) => (
+    <button
+      ref={inputRef}
+      onClick={() => onChange(!value)}
+      onKeyDown={onKeyDown}
+      onFocus={() => selectRow(idx)}
+      title={value ? "Active" : "Inactive"}
+      style={{
+        width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer",
+        background: value ? "#1e7e34" : "#cbd5e1",
+        position: "relative", transition: "background 0.18s ease", outline: "none",
+        display: "inline-flex", alignItems: "center", flexShrink: 0, padding: 0,
+        boxShadow: value ? "inset 0 0 0 1px #166534" : "inset 0 0 0 1px #b0bec5",
+        opacity: editMode === 0 ? 0.5 : 1,
+        pointerEvents: editMode === 0 ? "none" : "auto",
+      }}
+    >
+      <span style={{
+        position: "absolute", top: 3, left: value ? 15 : 3,
+        width: 12, height: 12, borderRadius: "50%", background: "#fff",
+        transition: "left 0.18s ease",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+        display: "block",
+      }} />
+    </button>
+  );
+
   if (!isAuthorized) return null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
+
+      {/* Confirm Dialog */}
       {ConfirmUI}
 
       <Topbar />
 
-      {loading && (
-        <div className="mp-loader-ov">
-          <div className="mp-ldr-box">
-            <div className="mp-spin" />
-            <div className="mp-ldr-msg">Loading...</div>
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">CRM Points Master</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
           </div>
-        </div>
-      )}
 
-      <div className="mp-body">
+          <div className="bm-card-body">
+            <div className="bm-report-title">CRM Points Master</div>
 
-        {/* Toolbar */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} title="F1 – Save">💾 Save (F1)</button>
-          <button className="mp-btn nw" onClick={addRow} title="Add new row">＋ New Row</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-          <div className="mp-mp-toolbar-title">CRM Points Master</div>
-        </div>
-
-        {/* Grid */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
+            {/* ── Grid ── */}
+            <div className="bm-grid-wrap">
+              <table className="bm-tbl">
             <thead>
               <tr>
                 <th style={{ width: 50 }}>S.No</th>
@@ -516,7 +540,7 @@ export default function CRMPointsMaster() {
                     {c.label}
                   </th>
                 ))}
-                <th style={{ width: 80 }}>Actions</th>
+                <th style={{ width: 64 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -539,7 +563,7 @@ export default function CRMPointsMaster() {
                         if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
                         inputRefs.current[idx][0] = el;
                       }}
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       type="text"
                       readOnly
                       value={row.TypeName ?? ""}
@@ -605,7 +629,7 @@ export default function CRMPointsMaster() {
                         if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
                         inputRefs.current[idx][1] = el;
                       }}
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       type="text"
                       readOnly={row.EditMode === 0}
                       value={row.BillAmount ?? ""}
@@ -616,16 +640,7 @@ export default function CRMPointsMaster() {
                       }}
                       onKeyDown={e => onCellKeyDown(e, idx, 1, "BillAmount")}
                       onFocus={() => selectRow(idx)}
-                      style={{
-                        textAlign:    "right",
-                        background:   row.EditMode === 0 ? "transparent" : "#fff",
-                        border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                        cursor:       row.EditMode === 0 ? "default" : "text",
-                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                        boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                        borderRadius: row.EditMode === 1 ? "4px" : "0",
-                        padding:      row.EditMode === 0 ? "0" : undefined,
-                      }}
+                      style={{ textAlign: "right" }}
                     />
                   </td>
 
@@ -636,7 +651,7 @@ export default function CRMPointsMaster() {
                         if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
                         inputRefs.current[idx][2] = el;
                       }}
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       type="text"
                       readOnly={row.EditMode === 0}
                       value={row.Points ?? ""}
@@ -647,16 +662,7 @@ export default function CRMPointsMaster() {
                       }}
                       onKeyDown={e => onCellKeyDown(e, idx, 2, "Points")}
                       onFocus={() => selectRow(idx)}
-                      style={{
-                        textAlign:    "right",
-                        background:   row.EditMode === 0 ? "transparent" : "#fff",
-                        border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                        cursor:       row.EditMode === 0 ? "default" : "text",
-                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                        boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                        borderRadius: row.EditMode === 1 ? "4px" : "0",
-                        padding:      row.EditMode === 0 ? "0" : undefined,
-                      }}
+                      style={{ textAlign: "right" }}
                     />
                   </td>
 
@@ -667,7 +673,7 @@ export default function CRMPointsMaster() {
                         if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
                         inputRefs.current[idx][3] = el;
                       }}
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       type="text"
                       readOnly={row.EditMode === 0}
                       value={row.Value ?? ""}
@@ -678,30 +684,21 @@ export default function CRMPointsMaster() {
                       }}
                       onKeyDown={e => onCellKeyDown(e, idx, 3, "Value")}
                       onFocus={() => selectRow(idx)}
-                      style={{
-                        textAlign:    "right",
-                        background:   row.EditMode === 0 ? "transparent" : "#fff",
-                        border:       row.EditMode === 0 ? "none" : "1px solid #93c5fd",
-                        cursor:       row.EditMode === 0 ? "default" : "text",
-                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                        boxShadow:    row.EditMode === 0 ? "none" : "0 0 0 2px rgba(59,130,246,0.15)",
-                        borderRadius: row.EditMode === 1 ? "4px" : "0",
-                        padding:      row.EditMode === 0 ? "0" : undefined,
-                      }}
+                      style={{ textAlign: "right" }}
                     />
                   </td>
 
-                  {/* Active Toggle Box */}
+                  {/* Active Toggle */}
                   <td style={{ textAlign: "center" }}>
-                    <input
-                      ref={el => {
+                    <Toggle
+                      value={row.Active === true || row.Active === 1}
+                      idx={idx}
+                      editMode={row.EditMode}
+                      inputRef={el => {
                         if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
                         inputRefs.current[idx][4] = el;
                       }}
-                      type="checkbox"
-                      disabled={row.EditMode === 0}
-                      checked={row.Active === true || row.Active === 1}
-                      onChange={e => updateCell(idx, "Active", e.target.checked)}
+                      onChange={val => row.EditMode === 1 && updateCell(idx, "Active", val)}
                       onFocus={() => selectRow(idx)}
                       onKeyDown={e => {
                         if (e.key === "Enter") {
@@ -709,58 +706,84 @@ export default function CRMPointsMaster() {
                           onCellKeyDown(e, idx, 4, "Active");
                         }
                       }}
-                      style={{ width: 16, height: 16, cursor: row.EditMode === 0 ? "default" : "pointer" }}
                     />
                   </td>
 
-                  {/* Edit + Delete Actions */}
+                  {/* Edit + Delete action column */}
                   <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+
+                    {/* Edit button — only for saved rows in view mode */}
                     {row.Id && row.EditMode === 0 && (
                       <button
-                        className="mp-edit-btn"
+                        className="bm-icon-btn edit"
                         title="Edit row"
                         onClick={e => { e.stopPropagation(); enableEdit(idx); }}
                       >
-                        ✏️
+                        <Pencil size={15} />
                       </button>
                     )}
+
+                    {/* Editing indicator — saved row currently in edit mode */}
                     {row.Id && row.EditMode === 1 && (
                       <button
-                        className="mp-edit-btn active"
+                        className="bm-icon-btn edit active"
                         title="Editing…"
-                        style={{ color: "#16a34a", cursor: "default" }}
                       >
-                        ✏️
+                        <Pencil size={15} />
                       </button>
                     )}
+
                     <button
-                      className="mp-del-btn"
+                      className="bm-icon-btn del"
+                      title="Delete row"
                       onClick={e => { e.stopPropagation(); deleteRow(idx); }}
                     >
-                      🗑
+                      <Trash2 size={15} />
                     </button>
+
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          
-          {grid.length === 0 && !loading && (
-            <div className="mp-empty">No records. Press ＋ to add a CRM Point configuration.</div>
-          )}
-        </div>
 
-        {/* Hint bar */}
-        <div className="mp-hint">
-          <kbd>F1</kbd> Save &nbsp;|&nbsp;
-          <kbd>Enter</kbd> Next Cell &nbsp;|&nbsp;
-          <kbd>Esc</kbd> Quit &nbsp;|&nbsp;
-          <kbd>Shift+Delete</kbd> Delete Row &nbsp;|&nbsp;
-          Click <strong>CustomerCardType</strong> cell to open combo
-        </div>
+              {grid.length === 0 && !loading && (
+                <div className="bm-empty">No records. Press ➕ Add Row to add a CRM point configuration.</div>
+              )}
+            </div>
 
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} />
+                {loading ? "Loading…" : "F1 Save"}
+              </button>
+              <button className="bm-btn" onClick={addRow} disabled={loading}>
+                <Plus size={16} />
+                Add Row
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc} disabled={loading}>
+                <XCircle size={16} />
+                Esc Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* ── Loading overlay ── */}
+      {loading && (
+        <div className="mp-loader-ov">
+          <div className="mp-ldr-box">
+            <div className="mp-spin" />
+            <div className="mp-ldr-msg">Processing…</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast notifications ── */}
       <MSG.ToastList toasts={toasts} />
+
     </div>
   );
 }

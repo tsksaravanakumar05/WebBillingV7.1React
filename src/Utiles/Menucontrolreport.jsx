@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import "../Master/MasterPage.css";
 import "../Utilesstyle/Menucontrolreport.css";
 import * as CC from "../components/Common";
@@ -74,7 +75,7 @@ function TreeNode({ node, expandedMap, onToggleExpand, onContextMenu, depth }) {
             onClick={() => onToggleExpand(node.id)}
             aria-label={isExpanded ? "Collapse" : "Expand"}
           >
-            {isExpanded ? "▾" : "▸"}
+            {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
           </button>
         ) : (
           <span className="mctr-toggle mctr-toggle-leaf" />
@@ -343,93 +344,103 @@ export default function Menucontrolreport() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
       {/* Confirm Dialog */}
       {ConfirmUI}
 
       <Topbar />
 
-      <div className="mp-body">
-        {/* ── Filter bar: UserName combobox + report type radio buttons ── */}
-        <div className="mp-toolbar">
-          <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--clr-text-primary)" }}>
-            User Name
-          </label>
-          <select
-            ref={userRef}
-            className="mp-cell-select"
-            style={{ width: 220, height: 30 }}
-            value={selUserId}
-            onChange={handleUserChange}
-            onKeyDown={handleUserKeyDown}
-          >
-            <option value="">-- Select User --</option>
-            {userList.map((u) => (
-              <option key={u.Id} value={u.Id}>
-                {u.UserName}
-              </option>
-            ))}
-          </select>
-
-          <div className="mctr-radio-group">
-            <label className="mctr-radio">
-              <input
-                type="radio"
-                name="reportType"
-                checked={reportType === "All"}
-                onChange={() => selectReportType("All")}
-              />
-              All
-            </label>
-            <label className="mctr-radio">
-              <input
-                type="radio"
-                name="reportType"
-                checked={reportType === "Crystal Report"}
-                onChange={() => selectReportType("Crystal Report1")}
-              />
-              Crystal Report
-            </label>
-            <label className="mctr-radio">
-              <input
-                type="radio"
-                name="reportType"
-                checked={reportType === "Reports"}
-                onChange={() => selectReportType("Reports")}
-              />
-              Reports
-            </label>
-            {/* Graphic Charts option intentionally disabled — same as the commented-out block in the original */}
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Menu Control Report</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
           </div>
-        </div>
 
-        {/* ── Tree ── */}
-        <div className="mp-grid-wrap mctr-tree-wrap" ref={treeWrapRef}>
-          {treeItems.length > 0 ? (
-            <ul className="mctr-tree">
-              {treeItems.map((node) => (
-                <TreeNode
-                  key={node.id}
-                  node={node}
-                  expandedMap={expandedMap}
-                  onToggleExpand={toggleExpand}
-                  onContextMenu={handleNodeContextMenu}
-                  depth={0}
-                />
-              ))}
-            </ul>
-          ) : (
-            !loading && (
-              <div className="mp-empty">
-                Select a User Name and a Report Type to view the menu tree.
+          <div className="bm-card-body">
+            <div className="bm-report-title">Menu Control Report</div>
+
+            {/* ── Filter bar: UserName combobox + report type radio buttons ── */}
+            <div style={{
+              background: "#fff", border: "1px solid #c7cdd6", borderRadius: 8,
+              padding: "10px 14px", display: "flex", gap: 14,
+              alignItems: "center", flexWrap: "wrap",
+            }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2e4a", whiteSpace: "nowrap" }}>
+                User Name
+              </label>
+              <select
+                ref={userRef}
+                className="bm-cell-input"
+                style={{ width: 220, height: 30 }}
+                value={selUserId}
+                onChange={handleUserChange}
+                onKeyDown={handleUserKeyDown}
+              >
+                <option value="">-- Select User --</option>
+                {userList.map((u) => (
+                  <option key={u.Id} value={u.Id}>
+                    {u.UserName}
+                  </option>
+                ))}
+              </select>
+
+              <div className="mctr-radio-group">
+                <label className="mctr-radio">
+                  <input
+                    type="radio"
+                    name="reportType"
+                    checked={reportType === "All"}
+                    onChange={() => selectReportType("All")}
+                  />
+                  All
+                </label>
+                <label className="mctr-radio">
+                  <input
+                    type="radio"
+                    name="reportType"
+                    checked={reportType === "Crystal Report"}
+                    onChange={() => selectReportType("Crystal Report1")}
+                  />
+                  Crystal Report
+                </label>
+                <label className="mctr-radio">
+                  <input
+                    type="radio"
+                    name="reportType"
+                    checked={reportType === "Reports"}
+                    onChange={() => selectReportType("Reports")}
+                  />
+                  Reports
+                </label>
+                {/* Graphic Charts option intentionally disabled — same as the commented-out block in the original */}
               </div>
-            )
-          )}
-        </div>
+            </div>
 
-        <div className="mp-hint">
-          Right-click a menu item to set it <b>Visible</b> or <b>Hidden</b>. Press{" "}
-          <kbd>Esc</kbd> to quit.
+            {/* ── Tree ── */}
+            <div className="bm-grid-wrap mctr-tree-wrap" ref={treeWrapRef}>
+              {treeItems.length > 0 ? (
+                <ul className="mctr-tree">
+                  {treeItems.map((node) => (
+                    <TreeNode
+                      key={node.id}
+                      node={node}
+                      expandedMap={expandedMap}
+                      onToggleExpand={toggleExpand}
+                      onContextMenu={handleNodeContextMenu}
+                      depth={0}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                !loading && (
+                  <div className="bm-empty">
+                    Select a User Name and a Report Type to view the menu tree.
+                  </div>
+                )
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

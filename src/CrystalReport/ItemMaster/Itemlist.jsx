@@ -6,7 +6,7 @@
 //  no new theme colors.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
@@ -60,6 +60,117 @@ const buildComboOption = (row, aliases = []) => {
     row.Name ?? row.name ?? row.Description ?? String(value);
   return { value, label };
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SearchableSelect
+//  Drop-in replacement for a native <select> lookup field (Brand, Category,
+//  Department, Supplier, UOM, Item Description, Item Code, ...). Same visual
+//  footprint (uses the .so-input class) but adds an instant-filter text popup
+//  so users can type to narrow long master-data lists instead of scrolling.
+//  Selection/clear behaviour matches the original <select onChange> exactly —
+//  it just calls onChange(value) with "" for "-- Select --" like before.
+// ─────────────────────────────────────────────────────────────────────────────
+function SearchableSelect({ id, options, labelKey = "label", value, onChange, disabled, placeholder = "-- Select --" }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapRef = useRef(null);
+
+  const getLabel = useCallback(
+    (opt) => String(opt?.[labelKey] ?? opt?.label ?? ""),
+    [labelKey]
+  );
+
+  const selected = useMemo(
+    () => options.find((o) => String(o.value) === String(value ?? "")) || null,
+    [options, value]
+  );
+
+  // Keep the visible text in sync whenever the underlying value changes
+  // (including external resets like the Refresh button / group-field switch).
+  useEffect(() => {
+    setQuery(selected ? getLabel(selected) : "");
+  }, [selected, getLabel]);
+
+  // Close + revert unsaved typed text on outside click.
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery(selected ? getLabel(selected) : "");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [selected, getLabel]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || (selected && q === getLabel(selected).toLowerCase())) return options;
+    return options.filter((o) => getLabel(o).toLowerCase().includes(q));
+  }, [options, query, selected, getLabel]);
+
+  const handleSelect = (opt) => {
+    onChange(String(opt.value));
+    setQuery(getLabel(opt));
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    onChange("");
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <div className="so-combo-wrap" ref={wrapRef}>
+      <input
+        id={id}
+        className="so-input"
+        type="text"
+        autoComplete="off"
+        disabled={disabled}
+        placeholder={placeholder}
+        value={query}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setOpen(false);
+            setQuery(selected ? getLabel(selected) : "");
+          }
+        }}
+      />
+      {open && !disabled && (
+        <div className="so-combo-list" role="listbox">
+          <div
+            className="so-combo-item so-combo-item-clear"
+            onMouseDown={(e) => { e.preventDefault(); handleClear(); }}
+          >
+            {placeholder}
+          </div>
+          {filtered.length === 0 ? (
+            <div className="so-combo-empty">No matches found</div>
+          ) : (
+            filtered.map((opt) => (
+              <div
+                key={opt.value}
+                className={`so-combo-item${String(opt.value) === String(value ?? "") ? " active" : ""}`}
+                role="option"
+                aria-selected={String(opt.value) === String(value ?? "")}
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(opt); }}
+              >
+                {getLabel(opt)}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ItemList() {
   const navigate = useNavigate();
@@ -470,6 +581,14 @@ export default function ItemList() {
     .so-input:disabled { background: #f5f6f8; color: #9aa5b1; cursor: not-allowed; }
     select.so-input { appearance: auto; cursor: pointer; }
 
+    /* ── Searchable lookup dropdown (Brand/Category/Department/Supplier/UOM/Description/Code) ── */
+    .so-combo-wrap { position: relative; width: 100%; }
+    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.15); z-index: 20; padding: 4px; box-sizing: border-box; }
+    .so-combo-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; line-height: 1.3; }
+    .so-combo-item:hover, .so-combo-item.active { background: #eef3ff; color: #1a56db; }
+    .so-combo-item-clear { color: #8a94a6; font-style: italic; border-bottom: 1px solid #ececec; margin-bottom: 2px; border-radius: 0; }
+    .so-combo-empty { padding: 10px; font-size: 12px; color: #9aa5b1; text-align: center; }
+
     .so-toggle-row { display: flex; align-items: center; gap: 10px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #1e293b; font-weight: 500; user-select: none; transition: border-color .15s, background .15s; }
     .so-toggle-row:hover { border-color: #1a56db; background: #f2f6ff; }
     .so-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #1a56db; cursor: pointer; }
@@ -565,19 +684,14 @@ export default function ItemList() {
                 <label className="so-label" htmlFor="il-combo">
                   {navItems.find((n) => n.value === groupField)?.label}
                 </label>
-                <select
+                <SearchableSelect
                   id="il-combo"
-                  className="so-input"
+                  options={activeCombo.list}
+                  labelKey={activeCombo.labelKey}
                   value={selections[groupField]?.value ?? ""}
-                  onChange={(e) => handleComboChange(groupField, e.target.value, activeCombo.list)}
-                >
-                  <option value="">-- Select --</option>
-                  {activeCombo.list.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt[activeCombo.labelKey] ?? opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleComboChange(groupField, val, activeCombo.list)}
+                  placeholder="-- Select --"
+                />
               </div>
             )}
 

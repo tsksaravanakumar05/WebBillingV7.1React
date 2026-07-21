@@ -15,7 +15,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import "../Master/MasterPage.css"; // reuse existing CSS
+import { Save, XCircle } from "lucide-react";
+import "../Utilesstyle/Menumastersetting.css"; // BrandMaster-matching bm-* design system
 
 import Topbar from "../components/Topbar";
 import * as CC  from "../components/Common";
@@ -577,32 +578,34 @@ export default function MainSetting() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
       <Topbar/>
 
-      <div className="mp-body">
-        {/* Toolbar */}
-        <div className="mp-toolbar">
-          <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Back</button>
-          <div className="mp-toolbar-title">Main Settings</div>
-        </div>
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Main Settings</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
+          </div>
 
-        {/* Tab Bar */}
-        <div style={tabBarStyle}>
-          {TABS.map((t, i) => (
-            <button
-              key={t}
-              onClick={() => setActiveTab(i)}
-              style={{ ...tabBtnStyle, ...(activeTab === i ? tabActivStyle : {}) }}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+          <div className="bm-card-body">
+            <div className="bm-report-title">Main Settings</div>
 
-        {/* Tab Panels */}
-        <div className="mp-grid-wrap" style={{ padding: "14px 18px", overflowY: "auto" }}>
+            {/* Tab Bar */}
+            <div style={tabBarStyle}>
+              {TABS.map((t, i) => (
+                <button
+                  key={t}
+                  onClick={() => setActiveTab(i)}
+                  style={{ ...tabBtnStyle, ...(activeTab === i ? tabActivStyle : {}) }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Panels */}
+            <div className="bm-grid-wrap" style={{ padding: "14px 18px" }}>
 
           {/* ── 0. Setting 1 ── */}
           {activeTab === 0 && (
@@ -791,13 +794,22 @@ export default function MainSetting() {
             </Section>
           )}
 
-        </div>{/* end mp-grid-wrap */}
+        </div>{/* end bm-grid-wrap */}
 
-        <div className="mp-hint">
-          <kbd>F1</kbd> Save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> Back to Home
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+                <Save size={16} />
+                {loading ? "Loading…" : "F1 Save"}
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc} disabled={loading}>
+                <XCircle size={16} />
+                Esc Back
+              </button>
+            </div>
+          </div>
         </div>
-      </div>{/* end mp-body */}
+      </div>
 
       {/* ── Loading overlay ── */}
       {loading && (
@@ -859,7 +871,7 @@ function ToggleRow({ label, value, onChange }) {
         onClick={() => onChange(!value)}
         style={{
           width: 90, height: 27, borderRadius: 14, border: "1px solid #d4dbe8",
-          background: value ? "#1a2e4a" : "#e6e9ef",
+          background: value ? "#1e7e34" : "#e6e9ef",
           position: "relative", cursor: "pointer", transition: "background .15s",
           padding: 0,
         }}
@@ -904,7 +916,7 @@ const tabBtnStyle = {
 };
 
 const tabActivStyle = {
-  background: "#1a2e4a",
+  background: "#1a56db",
   color: "#fff",
-  border: "1px solid #1a2e4a",
+  border: "1px solid #1a56db",
 };

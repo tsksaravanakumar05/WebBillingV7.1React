@@ -6,6 +6,7 @@ import React, {
   useRef,
 } from "react";
 import Topbar from "../components/Topbar";
+import { Eye, RefreshCw, XCircle } from "lucide-react";
 import '../Utilesstyle/Menumastersetting.css';
 import { useToast, useConfirm, ToastList, SelectMenuMaster, UpdateMenuMaster, api, insertapi } from "../components/Common";
 
@@ -460,13 +461,18 @@ export default function Menumastersetting() {
     return () => document.removeEventListener("contextmenu", handler);
   }, []);
 
+  // ── Quit page — mirrors original Escape-key handler logic ─────────────
+  const handleQuit = useCallback(async () => {
+    const reply = await showConfirm("Do You Want To Quit Page?");
+    if (reply === "Yes") window.location.href = "/Home";
+  }, [showConfirm]);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = async (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        const reply = await showConfirm("Do You Want To Quit Page?");
-        if (reply === "Yes") window.location.href = "/Home";
+        handleQuit();
       } else if (e.key === "F5") {
         e.preventDefault();
         if (selectedNode) setViewPopup({ open: true, item: selectedNode });
@@ -475,7 +481,7 @@ export default function Menumastersetting() {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [showConfirm, selectedNode, showAlert]);
+  }, [handleQuit, selectedNode, showAlert]);
 
   // ── Initial load ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -506,81 +512,98 @@ export default function Menumastersetting() {
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
-      {/* Header */}
+    <div className="bm-shell">
       <Topbar />
 
-      {/* Body */}
-      <div className="mp-body">
-        {/* Toolbar */}
-        <div className="mp-toolbar">
-          <div className="mp-radio-group">
-            {MENU_TYPES.filter((t) => t.visible).map((t) => (
-              <label key={t.id} className="mp-radio-item">
-                <input
-                  type="radio"
-                  name="options"
-                  checked={selectedType === t.value}
-                  onChange={() => handleTypeChange(t.value)}
-                />
-                <span>{t.label}</span>
-              </label>
-            ))}
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Menu Master Setting</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleQuit}>✕</button>
           </div>
 
-          <span style={{ flex: 1 }} />
+          <div className="bm-card-body">
+            <div className="bm-report-title">Menu Master Setting</div>
 
-          <input
-            type="text"
-            className="mp-search-input"
-            placeholder="Search menu..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+            {/* ── Filter bar (type radios + search) ── */}
+            <div className="mp-toolbar">
+              <div className="mp-radio-group">
+                {MENU_TYPES.filter((t) => t.visible).map((t) => (
+                  <label key={t.id} className="mp-radio-item">
+                    <input
+                      type="radio"
+                      name="options"
+                      checked={selectedType === t.value}
+                      onChange={() => handleTypeChange(t.value)}
+                    />
+                    <span>{t.label}</span>
+                  </label>
+                ))}
+              </div>
 
-          <button
-            className="mp-btn info"
-            onClick={() =>
-              selectedNode
-                ? setViewPopup({ open: true, item: selectedNode })
-                : showAlert("Select an item to view!!!")
-            }
-          >
-            View
-          </button>
-          <button className="mp-btn nw" onClick={refreshPage}>Refresh</button>
-          <button
-            className="mp-btn nw"
-            onClick={() => { setSearchTerm(""); setSelectedNode(null); setExpandedIds(new Set()); }}
-          >
-            Clear
-          </button>
-        </div>
+              <span style={{ flex: 1 }} />
 
-        {/* Tree */}
-        <div className="mp-grid-wrap mp-tree-wrap">
-          {visibleTree.length === 0 && !loading ? (
-            <div className="mp-empty-state">No menu items found.</div>
-          ) : (
-            <ul
-              className="mp-tree-ul mp-tree-root"
-              style={{ maxHeight: gridHeight, overflowY: "auto" }}
-              ref={gridHeightRef}
-            >
-              {visibleTree.map((node) => (
-                <TreeNode
-                  key={node.id}
-                  node={node}
-                  depth={0}
-                  selectedId={selectedNode?.id}
-                  expandedIds={expandedIds}
-                  onSelect={handleSelectNode}
-                  onToggleExpand={handleToggleExpand}
-                  onContextMenu={handleTreeContextMenu}
-                />
-              ))}
-            </ul>
-          )}
+              <input
+                type="text"
+                className="mp-search-input"
+                placeholder="Search menu..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* ── Tree ── */}
+            <div className="bm-grid-wrap mp-tree-wrap" style={{ height: "auto", maxHeight: "none" }}>
+              {visibleTree.length === 0 && !loading ? (
+                <div className="mp-empty-state">No menu items found.</div>
+              ) : (
+                <ul
+                  className="mp-tree-ul mp-tree-root"
+                  style={{ maxHeight: gridHeight, overflowY: "auto" }}
+                  ref={gridHeightRef}
+                >
+                  {visibleTree.map((node) => (
+                    <TreeNode
+                      key={node.id}
+                      node={node}
+                      depth={0}
+                      selectedId={selectedNode?.id}
+                      expandedIds={expandedIds}
+                      onSelect={handleSelectNode}
+                      onToggleExpand={handleToggleExpand}
+                      onContextMenu={handleTreeContextMenu}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button
+                className="bm-btn bm-btn-primary"
+                onClick={() =>
+                  selectedNode
+                    ? setViewPopup({ open: true, item: selectedNode })
+                    : showAlert("Select an item to view!!!")
+                }
+              >
+                <Eye size={16} />
+                View
+              </button>
+              <button className="bm-btn" onClick={refreshPage}>
+                <RefreshCw size={16} />
+                Refresh
+              </button>
+              <button
+                className="bm-btn bm-btn-secondary"
+                onClick={() => { setSearchTerm(""); setSelectedNode(null); setExpandedIds(new Set()); }}
+              >
+                <XCircle size={16} />
+                Clear
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

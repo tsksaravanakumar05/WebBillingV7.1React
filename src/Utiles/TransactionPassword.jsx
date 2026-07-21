@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, XCircle, Pencil, Lock } from "lucide-react";
 import "../Utilesstyle/TransactionPassword.css";
 import Topbar from "../components/Topbar";
 
@@ -286,7 +287,7 @@ export default function TransactionMaster() {
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="mp-wrap">
+    <div className="bm-shell">
 
       {/* Confirm Dialog */}
       {ConfirmUI}
@@ -295,7 +296,9 @@ export default function TransactionMaster() {
       {pwdModal && (
         <div className="mp-ov" style={{ zIndex: 99999 }}>
           <div className="mp-modal-box" style={{ width: 280, padding: "20px 24px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#1f65de" }}>🔐 {pwdModalTitle}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#1a56db", display: "flex", alignItems: "center", gap: 6 }}>
+              <Lock size={15} /> {pwdModalTitle}
+            </div>
             {pwdError && (
               <div style={{
                 fontSize: 11, color: "#991b1b", background: "#fee2e2",
@@ -317,8 +320,8 @@ export default function TransactionMaster() {
               style={{ width: "100%", padding: "6px 10px", border: "1px solid #c5d8f8", borderRadius: 4, fontSize: 13, marginBottom: 14, outline: "none" }}
             />
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button className="mp-btn" onClick={() => setPwdModal(false)}>Cancel</button>
-              <button className="mp-btn sv" onClick={submitPwd} disabled={loading}>OK</button>
+              <button className="bm-btn bm-btn-secondary" onClick={() => setPwdModal(false)}>Cancel</button>
+              <button className="bm-btn bm-btn-primary" onClick={submitPwd} disabled={loading}>OK</button>
             </div>
           </div>
         </div>
@@ -327,20 +330,28 @@ export default function TransactionMaster() {
       {/* ── Header ── */}
       <Topbar />
 
-      <div className="mp-body">
+      <div className="bm-layout">
+        <div className="bm-card">
+          <div className="bm-card-header">
+            <div className="bm-card-header-title">Transaction Password</div>
+            <button type="button" className="bm-close-x" aria-label="Close" onClick={handleEsc}>✕</button>
+          </div>
 
-        {/* ── Grid ── */}
-        <div className="mp-grid-wrap">
-          <table className="mp-tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 50 }}>S.No</th>
-                <th style={{ width: 150 }}>Transaction Name</th>
-                <th style={{ width: 100 }}>Password</th>
-                <th style={{ width: 60, textAlign: "center" }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
+          <div className="bm-card-body">
+            <div className="bm-report-title">Transaction Password</div>
+
+            {/* ── Grid ── */}
+            <div className="bm-grid-wrap">
+              <table className="bm-tbl">
+                <thead>
+                  <tr>
+                    <th style={{ width: 50 }}>S.No</th>
+                    <th style={{ width: 150 }}>Transaction Name</th>
+                    <th style={{ width: 100 }}>Password</th>
+                    <th style={{ width: 60, textAlign: "center" }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
               {grid.map((row, idx) => (
                 <tr
                   key={row._uid}
@@ -358,18 +369,10 @@ export default function TransactionMaster() {
                   {/* Transaction Name — read-only (mirrors editable: false) */}
                   <td>
                     <input
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       value={row.UserName || ""}
                       readOnly
                       tabIndex={-1}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "default",
-                        color: "var(--color-text-secondary)",
-                        padding: 0,
-                        outline: "none"
-                      }}
                     />
                   </td>
 
@@ -380,7 +383,7 @@ export default function TransactionMaster() {
                         if (!inputRefs.current[idx]) inputRefs.current[idx] = [];
                         inputRefs.current[idx][0] = el;
                       }}
-                      className="mp-cell-input"
+                      className="bm-cell-input"
                       type="text"
                       value={row.Password || ""}
                       maxLength={50}
@@ -388,15 +391,6 @@ export default function TransactionMaster() {
                       onChange={e => row.EditMode === 1 && CC.applyUppercase(e, val => updateCell(idx, "Password", val))}
                       onKeyDown={e => row.EditMode === 1 && onCellKeyDown(e, idx)}
                       onFocus={() => setSelIdx(idx)}
-                      style={{
-                        background:   row.EditMode === 0 ? "transparent"               : "#fff",
-                        border:       row.EditMode === 0 ? "none"                      : "1px solid #93c5fd",
-                        cursor:       row.EditMode === 0 ? "default"                   : "text",
-                        color:        row.EditMode === 0 ? "var(--color-text-secondary)" : "#1e293b",
-                        boxShadow:    row.EditMode === 0 ? "none"                      : "0 0 0 2px rgba(59,130,246,0.15)",
-                        borderRadius: row.EditMode === 1 ? "4px"                       : "0",
-                        padding:      row.EditMode === 0 ? "0"                         : undefined,
-                      }}
                     />
                   </td>
 
@@ -404,58 +398,52 @@ export default function TransactionMaster() {
                   <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                     {row.EditMode === 0 && (
                       <button
-                        className="mp-edit-btn"
+                        className="bm-icon-btn edit"
                         title="Edit row"
                         onClick={e => { e.stopPropagation(); updateCell(idx, "Password", row.Password || ""); setTimeout(() => inputRefs.current[idx]?.[0]?.focus(), 50); }}
                       >
-                        ✏️
+                        <Pencil size={15} />
                       </button>
                     )}
                     {row.EditMode === 1 && (
                       <button
-                        className="mp-edit-btn active"
+                        className="bm-icon-btn edit active"
                         title="Editing…"
-                        style={{ color: "#16a34a", cursor: "default" }}
                       >
-                        ✏️
+                        <Pencil size={15} />
                       </button>
                     )}
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
 
-          {grid.length === 0 && !loading && pageUnlocked && (
-            <div style={{ padding: "24px", textAlign: "center", color: "#8b99b5", fontSize: 12 }}>
-              No transaction password records found.
+              {grid.length === 0 && !loading && pageUnlocked && (
+                <div className="bm-empty">No transaction password records found.</div>
+              )}
+
+              {!pageUnlocked && !pwdModal && (
+                <div className="bm-empty">Please verify your password to access this page.</div>
+              )}
             </div>
-          )}
 
-          {!pageUnlocked && !pwdModal && (
-            <div style={{ padding: "24px", textAlign: "center", color: "#8b99b5", fontSize: 12 }}>
-              Please verify your password to access this page.
+            {/* ── Toolbar ── */}
+            <div className="bm-actions">
+              <button
+                className="bm-btn bm-btn-primary"
+                onClick={handleSave}
+                disabled={loading || !pageUnlocked}
+              >
+                <Save size={16} />
+                {loading ? "Loading…" : "F1 Save"}
+              </button>
+              <button className="bm-btn bm-btn-secondary" onClick={handleEsc}>
+                <XCircle size={16} />
+                Esc Cancel
+              </button>
             </div>
-          )}
-        </div>
-
-        {/* ── Toolbar ── */}
-        <div className="mp-toolbar">
-          <button
-            className="mp-btn sv"
-            onClick={handleSave}
-            disabled={loading || !pageUnlocked}
-          >
-            💾 F1 Save
-          </button>
-          <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
-        </div>
-
-        {/* ── Keyboard hint bar ── */}
-        <div className="mp-hint">
-          <kbd>Enter</kbd> next row &nbsp;|&nbsp;
-          <kbd>F1</kbd> save &nbsp;|&nbsp;
-          <kbd>Esc</kbd> quit page
+          </div>
         </div>
       </div>
 
