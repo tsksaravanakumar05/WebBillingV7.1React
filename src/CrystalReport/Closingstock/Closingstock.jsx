@@ -9,7 +9,7 @@
 //  Styling: MasterPage.css only — no inline color values, no new theme colors.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
@@ -546,9 +546,17 @@ export default function ClosingStock() {
     }
   };
 
+  // ApiSelect: same props/behavior contract as before (loads {url,payload,headers},
+  // reports selection via onChange({value,label})) — now rendered as a searchable
+  // combo box instead of a plain <select>, so users can type to instantly filter
+  // long lookup lists (Brand, Category, Supplier, etc).
   const ApiSelect = ({ url, payload, headers = {}, labelKey, valueKey, value, onChange, placeholder }) => {
     const [list, setList] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const boxRef = useRef(null);
+    const searchRef = useRef(null);
 
     useEffect(() => {
       let active = true;
@@ -568,30 +576,92 @@ export default function ClosingStock() {
       return () => { active = false; };
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
+    // Close the popup on outside click, and reset the search box each time it closes.
+    useEffect(() => {
+      if (!open) return;
+      const handleClickOutside = (e) => {
+        if (boxRef.current && !boxRef.current.contains(e.target)) {
+          setOpen(false);
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [open]);
+
+    useEffect(() => {
+      if (open) {
+        setSearch("");
+        // Let the popup mount before focusing.
+        setTimeout(() => searchRef.current?.focus(), 0);
+      }
+    }, [open]);
+
+    const filteredList = useMemo(() => {
+      const q = search.trim().toLowerCase();
+      if (!q) return list;
+      return list.filter((o) => String(o[labelKey] ?? "").toLowerCase().includes(q));
+    }, [list, search, labelKey]);
+
+    const handlePick = (opt) => {
+      onChange(opt ? { value: String(opt[valueKey]), label: opt[labelKey] } : null);
+      setOpen(false);
+    };
+
     return (
       <div className="so-field">
         <label className="so-label">{placeholder.replace("Select ", "")}</label>
-        <select
-          className="so-input"
-          value={value?.value ?? ""}
-          disabled={loading}
-          onChange={(e) => {
-            const selectedVal = e.target.value;
-            const opt = list.find((o) => String(o[valueKey]) === selectedVal);
-            if (opt) {
-              onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
-            } else {
-              onChange(null);
-            }
-          }}
-        >
-          <option value="">{loading ? "Loading..." : placeholder}</option>
-          {list.map((o) => (
-            <option key={o[valueKey]} value={o[valueKey]}>
-              {o[labelKey]}
-            </option>
-          ))}
-        </select>
+        <div className="so-combo" ref={boxRef}>
+          <button
+            type="button"
+            className="so-input so-combo-toggle"
+            disabled={loading}
+            onClick={() => setOpen((o) => !o)}
+          >
+            <span className={`so-combo-value${value?.label ? "" : " ph"}`}>
+              {loading ? "Loading..." : value?.label || placeholder}
+            </span>
+            <span className="so-combo-caret" aria-hidden="true">▾</span>
+          </button>
+
+          {open && !loading && (
+            <div className="so-combo-panel">
+              <input
+                ref={searchRef}
+                type="text"
+                className="so-combo-search"
+                placeholder="Type to search…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setOpen(false);
+                  if (e.key === "Enter" && filteredList.length === 1) handlePick(filteredList[0]);
+                }}
+              />
+              <ul className="so-combo-list" role="listbox">
+                <li
+                  className={`so-combo-option so-combo-clear${!value ? " active" : ""}`}
+                  onClick={() => handlePick(null)}
+                >
+                  {placeholder}
+                </li>
+                {filteredList.length === 0 && (
+                  <li className="so-combo-empty">No matches found</li>
+                )}
+                {filteredList.map((o) => (
+                  <li
+                    key={o[valueKey]}
+                    className={`so-combo-option${String(value?.value) === String(o[valueKey]) ? " active" : ""}`}
+                    onClick={() => handlePick(o)}
+                    role="option"
+                    aria-selected={String(value?.value) === String(o[valueKey])}
+                  >
+                    {o[labelKey]}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -638,6 +708,22 @@ export default function ClosingStock() {
     .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
     .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-combo { position: relative; }
+    .so-combo-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; }
+    .so-combo-toggle:disabled { cursor: not-allowed; opacity: .65; }
+    .so-combo-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1e2d3d; }
+    .so-combo-value.ph { color: #8492a6; }
+    .so-combo-caret { flex-shrink: 0; font-size: 10px; color: #8492a6; }
+    .so-combo-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; background: #fff; border: 1px solid #1a56db; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.18); overflow: hidden; }
+    .so-combo-search { width: 100%; height: 32px; border: none; border-bottom: 1px solid #e8ecf0; padding: 0 10px; font-size: 13px; color: #1e2d3d; box-sizing: border-box; outline: none; background: #f8fafc; }
+    .so-combo-search:focus { background: #eef3ff; }
+    .so-combo-list { list-style: none; margin: 0; padding: 4px 0; max-height: 220px; overflow-y: auto; }
+    .so-combo-option { padding: 7px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .so-combo-option:hover { background: #eef3ff; }
+    .so-combo-option.active { background: #e3ecff; color: #1a4fd1; font-weight: 600; }
+    .so-combo-option.so-combo-clear { color: #8492a6; font-style: italic; border-bottom: 1px solid #e8ecf0; margin-bottom: 2px; }
+    .so-combo-empty { padding: 10px 12px; font-size: 12.5px; color: #8492a6; text-align: center; }
 
     .so-toggle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; max-width: 460px; }
     .so-toggle-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }

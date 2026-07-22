@@ -12,7 +12,7 @@
 //  Styling: MasterPage.css tokens only — no new theme colors.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
@@ -45,6 +45,118 @@ const toMMDDYYYY = (isoDate) => {
   const [y, m, d] = isoDate.split("-");
   return `${m}/${d}/${y}`;
 };
+
+// ── SearchableSelect ─────────────────────────────────────────────────────────
+// Drop-in replacement for a plain <select> lookup field: same "so-field" /
+// "so-label" / "so-input" classes and layout, but opens a small popup with an
+// instant-filter search box above the option list. Defined at module scope
+// (not inside the page component) so its own open/query/highlight state is
+// stable across parent re-renders (e.g. date field edits) instead of being
+// remounted every render.
+function SearchableSelect({ options, labelKey, value, onSelect, placeholder, loading }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [hi, setHi] = useState(0);
+  const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const filtered = query.trim()
+    ? options.filter((o) => String(o[labelKey] ?? "").toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
+
+  // Close on outside click.
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  // Reset search + focus the box whenever the popup opens.
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    setHi(0);
+    const t = setTimeout(() => inputRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [open]);
+
+  // Keep the keyboard highlight in range as the filtered list changes.
+  useEffect(() => {
+    setHi(0);
+  }, [query]);
+
+  const commit = (opt) => {
+    onSelect(opt);
+    setOpen(false);
+  };
+
+  const onSearchKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHi((p) => Math.min(p + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHi((p) => Math.max(p - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filtered[hi]) commit(filtered[hi]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+    }
+  };
+
+  const label = placeholder.replace("Select ", "");
+
+  return (
+    <div className="so-field so-ss" ref={wrapRef}>
+      <label className="so-label">{label}</label>
+      <div className="so-ss-wrap">
+        <button
+          type="button"
+          className="so-input so-ss-btn"
+          disabled={loading}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className={`so-ss-val${value ? "" : " ph"}`}>
+            {loading ? "Loading..." : value ? value.label : placeholder}
+          </span>
+          <span className="so-ss-caret">▾</span>
+        </button>
+
+        {open && (
+          <div className="so-ss-pop">
+            <input
+              ref={inputRef}
+              type="text"
+              className="so-ss-search"
+              placeholder="Type to search…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onSearchKeyDown}
+            />
+            <div className="so-ss-list">
+              {filtered.length === 0 && <div className="so-ss-empty">No matches</div>}
+              {filtered.map((o, idx) => (
+                <div
+                  key={o.Id}
+                  className={`so-ss-item${idx === hi ? " hl" : ""}${value?.value === String(o.Id) ? " sel" : ""}`}
+                  onMouseEnter={() => setHi(idx)}
+                  onClick={() => commit(o)}
+                >
+                  {o[labelKey]}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ItemwiseStockDetails() {
   const navigate = useNavigate();
@@ -83,6 +195,7 @@ export default function ItemwiseStockDetails() {
   const [mrpOpen, setMrpOpen] = useState(false);
   const [mrpRows, setMrpRows] = useState([]);
   const [mrpHighlight, setMrpHighlight] = useState(0);
+  const [mrpSearch, setMrpSearch] = useState(""); // instant filter text for the MRP picker popup
   const mrpListRef = useRef(null);
 
   // ── UI feedback state ───────────────────────────────────────────────────
@@ -269,6 +382,7 @@ export default function ItemwiseStockDetails() {
         // MRPWindow(...) in the original file.
         setMrpRows(matches);
         setMrpHighlight(0);
+        setMrpSearch("");
         setMrpOpen(true);
         setSelectedItemId("");
       } else {
@@ -278,14 +392,31 @@ export default function ItemwiseStockDetails() {
     [productList]
   );
 
-  // ── MRP modal keyboard nav — mirrors gridmrp keydown (down arrow / enter) ─
+  // ── Instant filter for the MRP picker popup — matches the search text
+  //    against every visible column (case-insensitive substring match) ────
+  const filteredMrpRows = useMemo(() => {
+    const q = mrpSearch.trim().toLowerCase();
+    if (!q) return mrpRows;
+    return mrpRows.filter((row) =>
+      Object.entries(row).some(([k, v]) => k !== "Id" && String(v ?? "").toLowerCase().includes(q))
+    );
+  }, [mrpRows, mrpSearch]);
+
+  // Keep the keyboard highlight in range whenever the search text narrows
+  // (or widens) the visible row list.
+  useEffect(() => {
+    setMrpHighlight(0);
+  }, [mrpSearch]);
+
+  // ── MRP modal keyboard nav — mirrors gridmrp keydown (down arrow / enter),
+  //    now navigating/selecting against the search-filtered row list ──────
   useEffect(() => {
     if (!mrpOpen) return;
     const handler = (e) => {
       if (e.keyCode === 40) {
         // ArrowDown
         e.preventDefault();
-        setMrpHighlight((prev) => Math.min(prev + 1, mrpRows.length - 1));
+        setMrpHighlight((prev) => Math.min(prev + 1, filteredMrpRows.length - 1));
       } else if (e.keyCode === 38) {
         // ArrowUp
         e.preventDefault();
@@ -293,7 +424,7 @@ export default function ItemwiseStockDetails() {
       } else if (e.keyCode === 13) {
         // Enter — selects the highlighted row and closes, then loads
         e.preventDefault();
-        const row = mrpRows[mrpHighlight];
+        const row = filteredMrpRows[mrpHighlight];
         if (row) {
           setMrpOpen(false);
           setSelectedItemId(String(row.Id));
@@ -306,7 +437,7 @@ export default function ItemwiseStockDetails() {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [mrpOpen, mrpRows, mrpHighlight, loadFun]);
+  }, [mrpOpen, filteredMrpRows, mrpHighlight, loadFun]);
 
   const pickMrpRow = useCallback(
     (row) => {
@@ -324,6 +455,7 @@ export default function ItemwiseStockDetails() {
     setSelectedItemId("");
     setFromDate(todayStr());
     setToDate(todayStr());
+    setMrpSearch("");
     setMsg(null);
   }, []);
 
@@ -338,31 +470,6 @@ export default function ItemwiseStockDetails() {
 
     loadFun(GroupByText);
   }, [selectedItemId, loadFun]);
-
-  // ── Re-usable API-backed <select>, same pattern as ClosingStock.jsx's
-  //    ApiSelect but driven off the already-fetched productList ───────────
-  const ProductSelect = ({ labelKey, value, from, placeholder }) => (
-    <div className="so-field">
-      <label className="so-label">{placeholder.replace("Select ", "")}</label>
-      <select
-        className="so-input"
-        value={value?.value ?? ""}
-        disabled={productLoading}
-        onChange={(e) => {
-          const selectedVal = e.target.value;
-          const opt = productList.find((o) => String(o.Id) === selectedVal);
-          handleItemPicked(opt || null, from);
-        }}
-      >
-        <option value="">{productLoading ? "Loading..." : placeholder}</option>
-        {productList.map((o) => (
-          <option key={o.Id} value={o.Id}>
-            {o[labelKey]}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
 
   // Column keys to display in the MRP picker table — every field on the row
   // except Id, shown generically since the exact batch/MRP schema varies.
@@ -400,6 +507,22 @@ export default function ItemwiseStockDetails() {
     .so-input:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
     select.so-input { appearance: auto; cursor: pointer; }
 
+    /* ── Searchable dropdown (Item Name / Item Code lookups) ────────────── */
+    .so-ss-wrap { position: relative; width: 100%; }
+    .so-ss-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; }
+    .so-ss-btn:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
+    .so-ss-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .so-ss-val.ph { color: #8b95a1; }
+    .so-ss-caret { font-size: 10px; color: #6b7684; flex-shrink: 0; }
+    .so-ss-pop { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #1a56db; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.18); z-index: 50; overflow: hidden; }
+    .so-ss-search { width: 100%; box-sizing: border-box; height: 32px; border: none; border-bottom: 1px solid #e8ecf0; padding: 0 10px; font-size: 13px; color: #1e2d3d; outline: none; background: #f7f9fc; }
+    .so-ss-search:focus { background: #eef3ff; }
+    .so-ss-list { max-height: 220px; overflow-y: auto; }
+    .so-ss-item { padding: 8px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; }
+    .so-ss-item:hover, .so-ss-item.hl { background: #eef3ff; }
+    .so-ss-item.sel { font-weight: 700; color: #1a56db; }
+    .so-ss-empty { padding: 10px 12px; font-size: 13px; color: #a0aab5; text-align: center; }
+
     .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
     .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
     .so-btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -417,10 +540,14 @@ export default function ItemwiseStockDetails() {
     .so-modal { background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,.25); width: min(560px, 92vw); max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
     .so-modal-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); padding: 14px 20px; font-size: 14px; font-weight: 700; color: #fff; }
     .so-modal-sub { font-size: 12px; color: rgba(255,255,255,.85); font-weight: 500; margin-top: 4px; }
+    .so-modal-search-wrap { padding: 12px 20px; border-bottom: 1px solid #e8ecf0; flex-shrink: 0; }
+    .so-modal-search { width: 100%; box-sizing: border-box; height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; outline: none; transition: border-color .15s, box-shadow .15s; }
+    .so-modal-search:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     .so-modal-list { overflow-y: auto; flex: 1; }
     .so-modal-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .so-modal-table th { text-align: left; padding: 8px 14px; background: #f7f9fc; color: #1a56db; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; position: sticky; top: 0; }
     .so-modal-table td { padding: 9px 14px; border-top: 1px solid #eef1f5; color: #1e2d3d; }
+    .so-modal-empty { text-align: center; color: #a0aab5; padding: 18px 14px; }
     .so-modal-row { cursor: pointer; }
     .so-modal-row:hover { background: #eef3ff; }
     .so-modal-row.hl { background: #dde9fd; }
@@ -470,8 +597,22 @@ export default function ItemwiseStockDetails() {
 
               <div className="so-content">
                 <div className="so-right">
-                  <ProductSelect labelKey="ProductName" value={descriptionSel} from="description" placeholder="Select Item Name" />
-                  <ProductSelect labelKey="ProductCode" value={codeSel} from="code" placeholder="Select Item Code" />
+                  <SearchableSelect
+                    options={productList}
+                    labelKey="ProductName"
+                    value={descriptionSel}
+                    loading={productLoading}
+                    placeholder="Select Item Name"
+                    onSelect={(opt) => handleItemPicked(opt, "description")}
+                  />
+                  <SearchableSelect
+                    options={productList}
+                    labelKey="ProductCode"
+                    value={codeSel}
+                    loading={productLoading}
+                    placeholder="Select Item Code"
+                    onSelect={(opt) => handleItemPicked(opt, "code")}
+                  />
 
                   <div className="so-field">
                     <label className="so-label" htmlFor="iw-from-date">From Date</label>
@@ -532,6 +673,16 @@ export default function ItemwiseStockDetails() {
                   This code matches more than one item — pick the exact one (↑ ↓ then Enter, or click a row).
                 </div>
               </div>
+              <div className="so-modal-search-wrap">
+                <input
+                  type="text"
+                  className="so-modal-search"
+                  placeholder="Search…"
+                  value={mrpSearch}
+                  onChange={(e) => setMrpSearch(e.target.value)}
+                  autoFocus
+                />
+              </div>
               <div className="so-modal-list">
                 <table className="so-modal-table">
                   <thead>
@@ -542,7 +693,14 @@ export default function ItemwiseStockDetails() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mrpRows.map((row, idx) => (
+                    {filteredMrpRows.length === 0 && (
+                      <tr>
+                        <td className="so-modal-empty" colSpan={mrpColumns.length || 1}>
+                          No matches
+                        </td>
+                      </tr>
+                    )}
+                    {filteredMrpRows.map((row, idx) => (
                       <tr
                         key={row.Id}
                         className={`so-modal-row${idx === mrpHighlight ? " hl" : ""}`}

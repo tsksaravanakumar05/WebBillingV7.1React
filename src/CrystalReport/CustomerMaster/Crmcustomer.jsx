@@ -10,7 +10,8 @@
 //  "cc-" (unused by any other converted page: cs-/iq-/iw-/ca- are taken).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
@@ -447,34 +448,174 @@ export default function CRMCustomer() {
     }
   }, [lookupBy, reportType, customerSel, crmNoSel, mobileSel, fromDate, toDate, tillDate, session, customerList, openReportViewer]);
 
-  // ── Shared <select> renderer over the customer master list ─────────────
-  const CustomerSelect = ({ id, label, labelKey, value, onChange, placeholder }) => (
-    <div className="so-field">
-      <label className="so-label" htmlFor={id}>{label}</label>
-      <select
-        id={id}
-        className="so-input"
-        value={value?.value ?? ""}
-        disabled={customerListLoading}
-        onChange={(e) => {
-          const selectedVal = e.target.value;
-          const opt = customerList.find((o) => String(o.Id) === selectedVal);
-          if (opt) {
-            onChange({ value: String(opt.Id), label: opt[labelKey] });
-          } else {
-            onChange(null);
-          }
-        }}
-      >
-        <option value="">{customerListLoading ? "Loading..." : placeholder}</option>
-        {customerList.map((o) => (
-          <option key={o.Id} value={o.Id}>
-            {o[labelKey]}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+  // ── Shared combo renderer over the customer master list — same searchable
+  //    dropdown pattern as CustomerList.jsx's ApiSelect, adapted to read off
+  //    the already-loaded `customerList`/`customerListLoading` state instead
+  //    of fetching its own list per-instance (this page's three combos —
+  //    CRM No / Mobile Number / Customer Name — are all label-views over the
+  //    same shared list, mirroring the original's `objClist` lookup). Native
+  //    <select> replaced with a searchable popup so the user can instant-
+  //    filter the list; results render through a portal into document.body,
+  //    positioned with `fixed` coordinates from the trigger button's rect so
+  //    they float fully visible above the card. The onChange({ value, label })
+  //    contract is unchanged — only the selection UI changed.
+  const CustomerSelect = ({ id, label, labelKey, value, onChange, placeholder }) => {
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState("");
+    const [popRect, setPopRect] = useState(null); // { top, left, width } for portal placement
+    const wrapRef = useRef(null);
+    const btnRef = useRef(null);
+    const popRef = useRef(null);
+    const searchRef = useRef(null);
+
+    // Compute/refresh the popup's fixed-position coordinates from the button.
+    const updatePopRect = useCallback(() => {
+      if (!btnRef.current) return;
+      const r = btnRef.current.getBoundingClientRect();
+      setPopRect({ top: r.bottom + 6, left: r.left, width: r.width });
+    }, []);
+
+    // Close the popup on outside click — checks both the trigger wrap AND
+    // the portal popup itself, since the popup no longer lives inside
+    // wrapRef in the DOM tree.
+    useEffect(() => {
+      if (!open) return;
+      const handleClick = (e) => {
+        const insideTrigger = wrapRef.current && wrapRef.current.contains(e.target);
+        const insidePopup = popRef.current && popRef.current.contains(e.target);
+        if (!insideTrigger && !insidePopup) {
+          setOpen(false);
+          setQuery("");
+        }
+      };
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }, [open]);
+
+    // Keep the popup glued to the button on scroll/resize while open, and
+    // close it if the trigger scrolls out of the viewport entirely.
+    useEffect(() => {
+      if (!open) return;
+      updatePopRect();
+      const handleReposition = () => updatePopRect();
+      window.addEventListener("scroll", handleReposition, true);
+      window.addEventListener("resize", handleReposition);
+      return () => {
+        window.removeEventListener("scroll", handleReposition, true);
+        window.removeEventListener("resize", handleReposition);
+      };
+    }, [open, updatePopRect]);
+
+    // Autofocus the search box the moment the popup opens.
+    useEffect(() => {
+      if (open && searchRef.current) searchRef.current.focus();
+    }, [open]);
+
+    const filtered = query.trim()
+      ? customerList.filter((o) =>
+          String(o[labelKey] ?? "")
+            .toLowerCase()
+            .includes(query.trim().toLowerCase())
+        )
+      : customerList;
+
+    const handleToggle = () => {
+      if (customerListLoading) return;
+      if (!open) updatePopRect();
+      setOpen((o) => !o);
+    };
+
+    const handleSelect = (opt) => {
+      onChange({ value: String(opt.Id), label: opt[labelKey] });
+      setOpen(false);
+      setQuery("");
+    };
+
+    const handleClear = (e) => {
+      e.stopPropagation();
+      onChange(null);
+      setQuery("");
+    };
+
+    const popup =
+      open && !customerListLoading && popRect ? (
+        <div
+          ref={popRef}
+          className="so-select-pop so-select-pop-portal"
+          style={{ top: popRect.top, left: popRect.left, width: popRect.width }}
+        >
+          <div className="so-select-search-wrap">
+            <input
+              ref={searchRef}
+              type="text"
+              className="so-select-search"
+              placeholder={`Search ${label}...`}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setOpen(false);
+                  setQuery("");
+                } else if (e.key === "Enter" && filtered.length === 1) {
+                  handleSelect(filtered[0]);
+                }
+              }}
+            />
+          </div>
+          <div className="so-select-list">
+            {filtered.length === 0 ? (
+              <div className="so-select-empty">No matches found</div>
+            ) : (
+              filtered.map((o) => (
+                <div
+                  key={o.Id}
+                  className={`so-select-opt${
+                    String(value?.value ?? "") === String(o.Id) ? " is-selected" : ""
+                  }`}
+                  onClick={() => handleSelect(o)}
+                >
+                  {o[labelKey]}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null;
+
+    return (
+      <div className="so-field">
+        <label className="so-label" htmlFor={id}>{label}</label>
+        <div className="so-select-wrap" ref={wrapRef}>
+          <button
+            type="button"
+            id={id}
+            ref={btnRef}
+            className="so-input so-select-btn"
+            disabled={customerListLoading}
+            onClick={handleToggle}
+          >
+            <span className={`so-select-btn-text${!value ? " is-placeholder" : ""}`}>
+              {customerListLoading ? "Loading..." : value?.label || placeholder}
+            </span>
+            {value && !customerListLoading && (
+              <span
+                className="so-select-clear"
+                onClick={handleClear}
+                role="button"
+                aria-label="Clear selection"
+                title="Clear"
+              >
+                ✕
+              </span>
+            )}
+            <span className="so-select-caret" aria-hidden="true">▾</span>
+          </button>
+
+          {popup && createPortal(popup, document.body)}
+        </div>
+      </div>
+    );
+  };
 
   const reportTypeChips = useMemo(
     () => [
@@ -531,6 +672,36 @@ export default function CRMCustomer() {
     .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
     .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.so-input { appearance: auto; cursor: pointer; }
+    .so-input:disabled { background: #f5f6f8; cursor: not-allowed; }
+
+    /* Searchable select (CRM No / Mobile Number / Customer Name) */
+    .so-select-wrap { position: relative; width: 100%; }
+    .so-select-btn { display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; font-family: inherit; }
+    .so-select-btn:disabled { cursor: not-allowed; }
+    .so-select-btn-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .so-select-btn-text.is-placeholder { color: #8a94a3; }
+    .so-select-clear { flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #8a94a3; transition: background .15s, color .15s; }
+    .so-select-clear:hover { background: #fff0f0; color: #dc3545; }
+    .so-select-caret { flex-shrink: 0; font-size: 10px; color: #8a94a3; }
+
+    /* Base popup look. Positioning differs for the portal variant below. */
+    .so-select-pop { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; background: #fff; border: 1px solid #c7cdd6; border-radius: 8px; box-shadow: 0 8px 24px rgba(26,43,80,.16); overflow: hidden; }
+
+    /* Portal variant: rendered into document.body, so it's positioned with
+       fixed viewport coordinates (set inline via popRect) instead of being
+       anchored relative to a parent. This is what lets the full result list
+       float above the card instead of being clipped/squeezed inside it. */
+    .so-select-pop-portal { position: fixed; right: auto; z-index: 3000; max-height: min(320px, calc(100vh - 24px)); display: flex; flex-direction: column; }
+
+    .so-select-search-wrap { padding: 8px; border-bottom: 1px solid #e8ecf0; flex-shrink: 0; }
+    .so-select-search { width: 100%; height: 32px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; box-sizing: border-box; outline: none; transition: border-color .15s, box-shadow .15s; }
+    .so-select-search:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .so-select-list { max-height: 260px; overflow-y: auto; }
+    .so-select-pop-portal .so-select-list { max-height: none; overflow-y: auto; flex: 1; }
+    .so-select-opt { padding: 8px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; transition: background .12s; }
+    .so-select-opt:hover { background: #eef3ff; }
+    .so-select-opt.is-selected { background: #e3ecff; color: #1a4fd1; font-weight: 600; }
+    .so-select-empty { padding: 14px 12px; font-size: 13px; color: #8a94a3; text-align: center; }
 
     .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
     .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }

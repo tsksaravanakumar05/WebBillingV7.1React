@@ -107,14 +107,12 @@ export default function SupplierAgingReport() {
     });
   }, [navigate]);
 
-  // ── Esc key — "Do you want to quit page?" (same as other converted pages) ──
+  // ── Esc key — navigates away directly (confirm popup removed) ───────────
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -127,12 +125,9 @@ export default function SupplierAgingReport() {
     setMsg(null);
   }, []);
 
-  // ── Header close (X) button — same "Do You Want To Quit Page?" confirm
-  //    used by the Esc key handler above, so both exits behave identically.
+  // ── Header close (X) button — navigates away directly (confirm popup removed) ──
   const handleClose = useCallback(() => {
-    if (window.confirm("Do You Want To Quit Page?")) {
-      navigate("/Login/Home");
-    }
+    navigate("/dashboard");
   }, [navigate]);
 
   // ── Report viewer opener — same pattern as ClosingStock.jsx ─────────────

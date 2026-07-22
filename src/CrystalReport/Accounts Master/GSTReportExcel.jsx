@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -233,6 +233,8 @@ export default function GSTReportExcel() {
     .so-card { width: 100%; max-width: 620px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
     .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
     .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-card-close-btn { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; border: none; background: rgba(255,255,255,.16); color: #fff; cursor: pointer; padding: 0; transition: background .15s; }
+    .so-card-close-btn:hover { background: rgba(255,255,255,.3); }
     .so-card-body { padding: 24px 32px 30px; }
     .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
 
@@ -296,6 +298,14 @@ export default function GSTReportExcel() {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">GST Report Excel</div>
+              <button
+                type="button"
+                className="so-card-close-btn"
+                onClick={() => navigate(-1)}
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
             </div>
 
             <div className="so-card-body">

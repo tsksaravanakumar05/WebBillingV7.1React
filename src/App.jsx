@@ -40,7 +40,7 @@ import PurchaseMasterPage from "./presentation/pages/PurchaseMasterPage";
 import Estimate from "./Transaction/EstimateBill";
 import SaleReturn from "./Transaction/SaleReturn";
 import SaleOrder from "./Transaction/Saleorder";
-import PurchasesMaster from "./Purchases/PurchasesMaster";
+import PurchasesMaster from "./Transaction/PurchasesMaster";
 import CustomerReceipt from "./Transaction/Customerreceipt";
 import PurchaseReturn from "./Transaction/Purchasereturn";
 import Supplierpayment from "./Transaction/Supplierpayment";
@@ -121,6 +121,10 @@ import StockAdjustmentItemwise from "./CrystalReport/Closingstock/Stockadjustmen
 import Stockadjustment from "./CrystalReport/Closingstock/Stockadjustment";
 import Physicalstockapplyreport from "./CrystalReport/Closingstock/Physicalstockapplyreport";
 import DCBBranchReport from "./CrystalReport/Closingstock/Dcbbranchstockreport";
+
+import SalesManStockReport from "./CrystalReport/Closingstock/SalesManStockReport";
+
+
 import Supplierlist from "./CrystalReport/SupplierMaster/Supplierlist";
 import Supplierbalance from "./CrystalReport/SupplierMaster/Supplierbalance";
 import SupplierDuePayment from "./CrystalReport/SupplierMaster/SupplierDuePayment";
@@ -274,6 +278,7 @@ function App() {
        <Route path="/Report/StockAdjustmentItemwise" element={<StockAdjustmentItemwise />} />
        <Route path="/Report/PhysicalStockEntry" element={<Physicalstockapplyreport />} />
        <Route path="/Report/DCBBranchReport" element={<DCBBranchReport />} />
+       <Route path="/Report/SalesManStockReport" element={<SalesManStockReport />} />
        <Route path="/Report/Supplierlist" element={<Supplierlist />} />
       <Route path="/Report/Supplierbalance" element={<Supplierbalance />} />
       <Route path="/Report/SupplierPayment" element={<Supplierpayments />} />

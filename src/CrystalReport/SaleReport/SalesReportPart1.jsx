@@ -308,6 +308,14 @@ export default function SaleReportPart1() {
   const [counterList, setCounterList]   = useState([]);
   const [saleTypeList, setSaleTypeList] = useState([]);
 
+  // ── Pane2 Group-By combo — searchable dropdown UI state ─────────────────
+  // Same client-side-filter pattern as the F11 combobox below: typing never
+  // triggers a network call, it only narrows the already-loaded list for
+  // whichever mode (Customer/Salesman/Cashier/Counter/SaleType) is active.
+  const [groupComboSearchText, setGroupComboSearchText]   = useState("");
+  const [groupComboDropdownOpen, setGroupComboDropdownOpen] = useState(false);
+  const [groupComboHighlightIndex, setGroupComboHighlightIndex] = useState(0);
+
   // ── Pane22 — Salesman Itemwise sub-type (only shown when univercell) ────
   const [itemwiseSubType, setItemwiseSubType] = useState("all"); // "ItemWise" | "PackageQty" | "commission" | "all"
 
@@ -503,6 +511,9 @@ export default function SaleReportPart1() {
     setCashier(null);
     setCounter(null);
     setSaleType(null);
+    setGroupComboSearchText("");
+    setGroupComboDropdownOpen(false);
+    setGroupComboHighlightIndex(0);
     setCheckBillno(false);
     setDaily(false);
     setHourlyUpto(false);
@@ -533,6 +544,9 @@ export default function SaleReportPart1() {
     setCashier(null);
     setCounter(null);
     setSaleType(null);
+    setGroupComboSearchText("");
+    setGroupComboDropdownOpen(false);
+    setGroupComboHighlightIndex(0);
   }, []);
 
   const handleComboChange = useCallback((mode, option) => {
@@ -542,6 +556,8 @@ export default function SaleReportPart1() {
     setCashier(mode === GROUP_BY.CASHIER ? option : null);
     setCounter(mode === GROUP_BY.COUNTER ? option : null);
     setSaleType(mode === GROUP_BY.SALETYPE ? option : null);
+    setGroupComboSearchText(option?.label || "");
+    setGroupComboDropdownOpen(false);
   }, []);
 
   // ── checkBillno toggle ("Panelsalebilltype") ────────────────────────────
@@ -563,6 +579,9 @@ export default function SaleReportPart1() {
     setCashier(null);
     setCounter(null);
     setSaleType(null);
+    setGroupComboSearchText("");
+    setGroupComboDropdownOpen(false);
+    setGroupComboHighlightIndex(0);
     setCheckBillno(false);
     setDaily(false);
     setHourlyUpto(false);
@@ -1544,6 +1563,23 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
   ];
   const anyGroupByEnabled = groupByPills.some((p) => !p.disabled);
 
+  // Whichever Group-By pill is currently active (Customer/Salesman/Cashier/
+  // Counter/SaleType) — same lookup used in three places below, kept in one
+  // spot so the combo, its list and its label all stay in sync.
+  const activeGroupByPill = groupByPills.find((p) => p.mode === groupByMode) || null;
+
+  // Client-side filter of the active pill's list against the typed search
+  // text — mirrors f11FilteredOptions: no network call, just narrows down
+  // whatever was already loaded for this mode. Plain computation (not
+  // useMemo) since this sits after the pageAccess early-returns above, where
+  // a hook here would violate the rules of hooks — the list is small enough
+  // that recomputing on every render is cheap regardless.
+  const groupComboAllOptions = activeGroupByPill?.list || [];
+  const groupComboQuery = groupComboSearchText.trim().toLowerCase();
+  const groupComboFilteredOptions = !groupComboQuery
+    ? groupComboAllOptions
+    : groupComboAllOptions.filter((o) => o.label.toLowerCase().includes(groupComboQuery));
+
   return (
     <>
       <style>{styles}</style>
@@ -1719,21 +1755,65 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
 
                 {groupByMode && (
                   <div className="sr-form-grid">
-                    <label className="sr-label">{groupByPills.find((p) => p.mode === groupByMode)?.label} Name</label>
-                    <select
-                      className="sr-select"
-                      value={groupByPills.find((p) => p.mode === groupByMode)?.combo?.value || ""}
-                      onChange={(e) => {
-                        const p = groupByPills.find((g) => g.mode === groupByMode);
-                        const opt = p.list.find((o) => String(o.value) === e.target.value) || null;
-                        handleComboChange(groupByMode, opt);
-                      }}
-                    >
-                      <option value="">-- Select --</option>
-                      {groupByPills.find((p) => p.mode === groupByMode)?.list.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
+                    <label className="sr-label" htmlFor="sr-groupby-select">{activeGroupByPill?.label} Name</label>
+                    <div className="sr-combobox">
+                      <input
+                        id="sr-groupby-select"
+                        type="text"
+                        className="sr-input"
+                        autoComplete="off"
+                        placeholder="Type to search…"
+                        value={groupComboSearchText}
+                        onChange={(e) => {
+                          setGroupComboSearchText(e.target.value);
+                          handleComboChange(groupByMode, null); // typing invalidates the previous pick
+                          setGroupComboDropdownOpen(true);
+                          setGroupComboHighlightIndex(0);
+                        }}
+                        onFocus={() => setGroupComboDropdownOpen(true)}
+                        onBlur={() => {
+                          // small delay so a click on an option registers before the list closes
+                          setTimeout(() => setGroupComboDropdownOpen(false), 150);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setGroupComboDropdownOpen(true);
+                            setGroupComboHighlightIndex((i) => Math.min(i + 1, groupComboFilteredOptions.length - 1));
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setGroupComboHighlightIndex((i) => Math.max(i - 1, 0));
+                          } else if (e.key === "Enter") {
+                            e.preventDefault();
+                            const opt = groupComboDropdownOpen ? groupComboFilteredOptions[groupComboHighlightIndex] : null;
+                            if (opt) handleComboChange(groupByMode, opt);
+                          } else if (e.key === "Escape") {
+                            setGroupComboDropdownOpen(false);
+                          }
+                        }}
+                      />
+                      {groupComboDropdownOpen && (
+                        <ul className="sr-combobox-list">
+                          {groupComboFilteredOptions.length === 0 ? (
+                            <li className="sr-combobox-empty">No matches</li>
+                          ) : (
+                            groupComboFilteredOptions.map((o, i) => (
+                              <li
+                                key={o.value}
+                                className={`sr-combobox-item${i === groupComboHighlightIndex ? " active" : ""}`}
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); // fire before the input's onBlur closes the list
+                                  handleComboChange(groupByMode, o);
+                                }}
+                                onMouseEnter={() => setGroupComboHighlightIndex(i)}
+                              >
+                                {o.label}
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

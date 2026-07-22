@@ -12,9 +12,9 @@
 //  Styling: MasterPage.css only — no inline color values, no new theme colors.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -395,9 +395,16 @@ export default function StockAdjustmentItemwise() {
     []
   );
 
+  // ApiSelect: same props/behavior contract as before — now rendered as a
+  // searchable combo box instead of a plain <select>, so users can type to
+  // instantly filter long lookup lists (Brand, Category, Supplier, etc).
   const ApiSelect = ({ url, payload, headers = {}, labelKey, valueKey, value, onChange, placeholder }) => {
     const [list, setList] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const boxRef = useRef(null);
+    const searchRef = useRef(null);
 
     useEffect(() => {
       let active = true;
@@ -417,30 +424,91 @@ export default function StockAdjustmentItemwise() {
       return () => { active = false; };
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
+    // Close the popup on outside click.
+    useEffect(() => {
+      if (!open) return;
+      const handleClickOutside = (e) => {
+        if (boxRef.current && !boxRef.current.contains(e.target)) {
+          setOpen(false);
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [open]);
+
+    useEffect(() => {
+      if (open) {
+        setSearch("");
+        setTimeout(() => searchRef.current?.focus(), 0);
+      }
+    }, [open]);
+
+    const filteredList = useMemo(() => {
+      const q = search.trim().toLowerCase();
+      if (!q) return list;
+      return list.filter((o) => String(o[labelKey] ?? "").toLowerCase().includes(q));
+    }, [list, search, labelKey]);
+
+    const handlePick = (opt) => {
+      onChange(opt ? { value: String(opt[valueKey]), label: opt[labelKey] } : null);
+      setOpen(false);
+    };
+
     return (
       <div className="si-field">
         <label className="si-label">{placeholder.replace("Select ", "")}</label>
-        <select
-          className="si-input"
-          value={value?.value ?? ""}
-          disabled={loading}
-          onChange={(e) => {
-            const selectedVal = e.target.value;
-            const opt = list.find((o) => String(o[valueKey]) === selectedVal);
-            if (opt) {
-              onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
-            } else {
-              onChange(null);
-            }
-          }}
-        >
-          <option value="">{loading ? "Loading..." : placeholder}</option>
-          {list.map((o) => (
-            <option key={o[valueKey]} value={o[valueKey]}>
-              {o[labelKey]}
-            </option>
-          ))}
-        </select>
+        <div className="si-combo" ref={boxRef}>
+          <button
+            type="button"
+            className="si-input si-combo-toggle"
+            disabled={loading}
+            onClick={() => setOpen((o) => !o)}
+          >
+            <span className={`si-combo-value${value?.label ? "" : " ph"}`}>
+              {loading ? "Loading..." : value?.label || placeholder}
+            </span>
+            <span className="si-combo-caret" aria-hidden="true">▾</span>
+          </button>
+
+          {open && !loading && (
+            <div className="si-combo-panel">
+              <input
+                ref={searchRef}
+                type="text"
+                className="si-combo-search"
+                placeholder="Type to search…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setOpen(false);
+                  if (e.key === "Enter" && filteredList.length === 1) handlePick(filteredList[0]);
+                }}
+              />
+              <ul className="si-combo-list" role="listbox">
+                <li
+                  className={`si-combo-option si-combo-clear${!value ? " active" : ""}`}
+                  onClick={() => handlePick(null)}
+                >
+                  {placeholder}
+                </li>
+                {filteredList.length === 0 && (
+                  <li className="si-combo-empty">No matches found</li>
+                )}
+                {filteredList.map((o) => (
+                  <li
+                    key={o[valueKey]}
+                    className={`si-combo-option${String(value?.value) === String(o[valueKey]) ? " active" : ""}`}
+                    onClick={() => handlePick(o)}
+                    role="option"
+                    aria-selected={String(value?.value) === String(o[valueKey])}
+                  >
+                    {o[labelKey]}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -452,6 +520,8 @@ export default function StockAdjustmentItemwise() {
     .si-card { width: 100%; max-width: 1000px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
     .si-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
     .si-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .si-card-close-btn { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; border: none; background: rgba(255,255,255,.16); color: #fff; cursor: pointer; padding: 0; transition: background .15s; }
+    .si-card-close-btn:hover { background: rgba(255,255,255,.3); }
     .si-card-body { padding: 24px 32px 30px; }
     .si-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
 
@@ -481,6 +551,22 @@ export default function StockAdjustmentItemwise() {
     .si-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
     .si-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.si-input { appearance: auto; cursor: pointer; }
+
+    .si-combo { position: relative; }
+    .si-combo-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; }
+    .si-combo-toggle:disabled { cursor: not-allowed; opacity: .65; }
+    .si-combo-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1e2d3d; }
+    .si-combo-value.ph { color: #8492a6; }
+    .si-combo-caret { flex-shrink: 0; font-size: 10px; color: #8492a6; }
+    .si-combo-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; background: #fff; border: 1px solid #1a56db; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.18); overflow: hidden; }
+    .si-combo-search { width: 100%; height: 32px; border: none; border-bottom: 1px solid #e8ecf0; padding: 0 10px; font-size: 13px; color: #1e2d3d; box-sizing: border-box; outline: none; background: #f8fafc; }
+    .si-combo-search:focus { background: #eef3ff; }
+    .si-combo-list { list-style: none; margin: 0; padding: 4px 0; max-height: 220px; overflow-y: auto; }
+    .si-combo-option { padding: 7px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .si-combo-option:hover { background: #eef3ff; }
+    .si-combo-option.active { background: #e3ecff; color: #1a4fd1; font-weight: 600; }
+    .si-combo-option.si-combo-clear { color: #8492a6; font-style: italic; border-bottom: 1px solid #e8ecf0; margin-bottom: 2px; }
+    .si-combo-empty { padding: 10px 12px; font-size: 12.5px; color: #8492a6; text-align: center; }
     .si-input:disabled { background: #f5f6f8; cursor: not-allowed; }
 
     .si-toggle-row { display: flex; align-items: center; gap: 8px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #1e293b; font-weight: 500; user-select: none; width: fit-content; }
@@ -538,6 +624,14 @@ export default function StockAdjustmentItemwise() {
           <div className="si-card">
             <div className="si-card-header">
               <div className="si-card-header-title">Stock Adjustment Itemwise Report</div>
+              <button
+                type="button"
+                className="si-card-close-btn"
+                onClick={() => navigate(-1)}
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
             </div>
 
             <div className="si-card-body">

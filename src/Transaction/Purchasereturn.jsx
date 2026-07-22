@@ -2247,12 +2247,12 @@ const res = await CC.insertapi(
                       onDragStart={() => handleFocusFormDragStart(idx)}
                       onDragOver={(e) => handleFocusFormDragOver(e, idx)}
                       onDragEnd={handleFocusFormDragEnd}
-                      style={{ background: focusFormDragIdx === idx ? "#e0f2fe" : "transparent", cursor: "grab" }}>
+                      style={{ background: focusFormDragIdx === idx ? "var(--clr-bg-row-hover)" : "transparent", cursor: "grab" }}>
                       <td style={{ textAlign: "center", userSelect: "none", fontWeight: 600 }}>{idx + 1}</td>
                       <td>{d.label || d.column}</td>
                       <td style={{ textAlign: "center" }}>
                         <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, cursor: "pointer" }}>
-                          <input type="checkbox" checked={!!d.Focus} onChange={() => handleFocusFormToggle(idx, !d.Focus)} style={{ width: 14, height: 14, accentColor: "#1f65de" }} />
+                          <input type="checkbox" checked={!!d.Focus} onChange={() => handleFocusFormToggle(idx, !d.Focus)} style={{ width: 14, height: 14, accentColor: "var(--clr-primary)" }} />
                         </label>
                       </td>
                     </tr>
@@ -2355,10 +2355,10 @@ const res = await CC.insertapi(
       </div>
 
       {/* ── GRID ──────────────────────────────────────────────────────────────── */}
-      <div className="grid-wrap">
+      <div className="mp-grid-wrap">
         {/* <div className="grid-header"></div> */}
-        <div className="grid-scroll">
-          <table className="pur-grid">
+        <div className="mp-gscroll">
+          <table className="mp-tbl">
             <thead>
               <tr>
                 <th className="sno-col">S.No</th>
@@ -2947,7 +2947,7 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
           </div>
         </div>
         <div className="popup-footer">
-          <span style={{ flex: 1, fontSize: 13, color: "#555" }}>
+          <span style={{ flex: 1, fontSize: 13, color: "var(--clr-text-mid)" }}>
             <b>Records:</b> {masterList.length} &nbsp;|&nbsp;
             <b>Total: ₹</b>{fmt2(masterList.reduce((s, r) => s + valNum(r.NetAmt), 0))}
           </span>
@@ -3233,7 +3233,7 @@ function CtrlGPopup({ cols, onColsChange, onSave, saving, onClose }) {
                   onDragStart={() => handleDragStart(idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDragEnd={handleDragEnd}
-                  style={{ background: dragIdx === idx ? "#e0f2fe" : "transparent", cursor: "grab" }}
+                  style={{ background: dragIdx === idx ? "var(--clr-bg-row-hover)" : "transparent", cursor: "grab" }}
                 >
                   <td style={{ textAlign: "center", userSelect: "none", fontWeight: 600 }}>
                     {idx + 1}
@@ -3245,7 +3245,7 @@ function CtrlGPopup({ cols, onColsChange, onSave, saving, onClose }) {
                         type="checkbox"
                         checked={!!c.Focus}
                         onChange={() => onColsChange((prev) => prev.map((col) => col.key === c.key ? { ...col, Focus: !col.Focus } : col))}
-                        style={{ width: 14, height: 14, accentColor: "#1f65de" }}
+                        style={{ width: 14, height: 14, accentColor: "var(--clr-primary)" }}
                       />
                     </label>
                   </td>

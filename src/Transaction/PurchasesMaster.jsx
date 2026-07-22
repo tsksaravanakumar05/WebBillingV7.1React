@@ -25,7 +25,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import "./PurchasesMaster.css";
+import "../Master/MasterPage.css";
+import "../TransactionStyle/PurchasesMaster.css";
 import Topbar from "../components/Topbar";
 import * as CC  from "../components/Common";
 import * as CC1 from "../components/Common";
@@ -141,17 +142,17 @@ function GridComboPopup({ state, setState, sess, setLoading, handleCellChange, s
             if (e.key === "Escape") { e.preventDefault(); onClose(); }
           }}
           placeholder={`Search ${state.title}...`}
-          style={{ margin: "7px 8px", width: "calc(100% - 16px)", padding: "5px 8px", border: "1px solid #c5d8f8", borderRadius: 4, fontSize: 12, outline: "none", boxSizing: "border-box" }}
+          style={{ margin: "7px 8px", width: "calc(100% - 16px)", padding: "5px 8px", border: "1px solid var(--clr-border-default)", borderRadius: 4, fontSize: 12, outline: "none", boxSizing: "border-box" }}
         />
         <div ref={listRef} style={{ flex: 1, overflowY: "auto", minHeight: 150 }}>
           {localLoading ? (
-            <div style={{ padding: "10px", textAlign: "center", color: "#666" }}>Saving...</div>
+            <div style={{ padding: "10px", textAlign: "center", color: "var(--clr-text-mid)" }}>Saving...</div>
           ) : filt.length === 0 ? (
-            <div className="mp-dd-empty" style={{ padding: "10px", color: "#999" }}>No results for "{q}"</div>
+            <div className="mp-dd-empty" style={{ padding: "10px", color: "var(--clr-text-faint)" }}>No results for "{q}"</div>
           ) : (
             filt.map((item, idx) => (
               <div key={item[state.valueProp]} data-idx={idx}
-                style={{ padding: "6px 12px", cursor: "pointer", background: idx === hilite ? "#3b82f6" : "#fff", color: idx === hilite ? "#fff" : "#333" }}
+                style={{ padding: "6px 12px", cursor: "pointer", background: idx === hilite ? "var(--clr-primary)" : "var(--clr-bg-white)", color: idx === hilite ? "var(--clr-text-white)" : "var(--clr-text-primary)" }}
                 onClick={() => onSelect(item)}
                 onMouseEnter={() => setHilite(idx)}>
                 {item[state.labelProp]}
@@ -160,7 +161,7 @@ function GridComboPopup({ state, setState, sess, setLoading, handleCellChange, s
           )}
         </div>
         {isNew && !localLoading && (
-          <div style={{ padding: "8px", background: "#f0fdf4", color: "#166534", borderTop: "1px solid #bbf7d0", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+          <div style={{ padding: "8px", background: "var(--clr-success-bg)", color: "var(--clr-success-text)", borderTop: "1px solid var(--clr-success-border)", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
             onClick={onCreate}>
             ➕ Create new {state.title}: <strong>"{q.trim()}"</strong>
           </div>
@@ -2616,7 +2617,7 @@ if (savedArrivalType) {
     if (!col.editable) {
       return (
         <td key={col.key} className={`grid-cell readonly ${col.align === "right" ? "right" : ""} ${isFreeRow ? "free-product-row" : ""}`}
-          style={isFreeRow ? { background: "#e6f9ec" } : undefined}>
+          style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
           {row[col.key] ?? ""}
         </td>
       );
@@ -2645,11 +2646,11 @@ if (savedArrivalType) {
         };
         return (
           <td key={col.key} className={`grid-cell editable ${isSelected ? "selected" : ""} right ${isFreeRow ? "free-product-row" : ""}`}
-            style={isFreeRow ? { background: "#e6f9ec" } : undefined}>
+            style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
             <input
               id={cellId}
               className="cell-input right"
-              style={{ width: "100%", cursor: "pointer", background: isFreeRow ? "#e6f9ec" : "#f1f5f9" }}
+              style={{ width: "100%", cursor: "pointer", background: isFreeRow ? "var(--clr-success-bg)" : "var(--clr-bg-soft)" }}
               value={row[col.key] ?? ""}
               readOnly
               title="Serial No item — click to enter Serial Numbers"
@@ -2671,11 +2672,11 @@ if (savedArrivalType) {
       const needsBatch = valNum(row.BatchStatus) === 1 && !row.Bat_No?.trim();
       return (
         <td key={col.key} className={`grid-cell editable ${isSelected ? "selected" : ""} ${isFreeRow ? "free-product-row" : ""}`}
-          style={isFreeRow ? { background: "#e6f9ec" } : undefined}>
+          style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
           <input id={cellId} type="text" className="cell-input" value={row[col.key] ?? ""}
             onChange={(e) => handleCellChange(row._key, col.key, e.target.value)}
             onFocus={onFocus} onKeyDown={(e) => handleGridKeyDown(e, row._key, col.key)} tabIndex={0}
-            style={needsBatch ? { borderBottom: "2px solid #ef4444", background: "#fff7f7" } : (isFreeRow ? { background: "#e6f9ec" } : {})}
+            style={needsBatch ? { borderBottom: "2px solid var(--clr-danger)", background: "var(--clr-danger-bg)" } : (isFreeRow ? { background: "var(--clr-success-bg)" } : {})}
             title={needsBatch ? "Batch No required for this item" : ""}
           />
         </td>
@@ -2696,8 +2697,8 @@ if (savedArrivalType) {
         const dispText = selectedItem ? selectedItem[ddConfig.labelProp] : "";
         return (
           <td key={col.key} className={`grid-cell editable ${isSelected ? "selected" : ""} ${isFreeRow ? "free-product-row" : ""}`}
-            style={isFreeRow ? { background: "#e6f9ec" } : undefined}>
-            <input id={cellId} className="cell-input" style={{ width: "100%", cursor: "pointer", background: isFreeRow ? "#e6f9ec" : "#fff" }} value={dispText} readOnly
+            style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
+            <input id={cellId} className="cell-input" style={{ width: "100%", cursor: "pointer", background: isFreeRow ? "var(--clr-success-bg)" : "var(--clr-bg-white)" }} value={dispText} readOnly
               onFocus={() => {
                 setSelectedCell({ rowKey: row._key, colKey: col.key });
                 setGridComboPopup({ open: true, rowKey: row._key, colKey: col.key, query: "", list: ddConfig.list, valueProp: ddConfig.valueProp, labelProp: ddConfig.labelProp, title: ddConfig.title });
@@ -2715,8 +2716,8 @@ if (savedArrivalType) {
       }
       return (
         <td key={col.key} className={`grid-cell editable ${isSelected ? "selected" : ""} ${isFreeRow ? "free-product-row" : ""}`}
-          style={isFreeRow ? { background: "#e6f9ec" } : undefined}>
-          <select id={cellId} className="cell-input" style={{ width: "100%", background: isFreeRow ? "#e6f9ec" : undefined }} value={row[col.key] ?? ""}
+          style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
+          <select id={cellId} className="cell-input" style={{ width: "100%", background: isFreeRow ? "var(--clr-success-bg)" : undefined }} value={row[col.key] ?? ""}
             onFocus={() => setSelectedCell({ rowKey: row._key, colKey: col.key })}
             onChange={(e) => handleCellChange(row._key, col.key, e.target.value)}
             onKeyDown={(e) => handleGridKeyDown(e, row._key, col.key)} tabIndex={0}>
@@ -2732,10 +2733,10 @@ if (savedArrivalType) {
     // Default: text / date / number
     return (
       <td key={col.key} className={`grid-cell editable ${isSelected ? "selected" : ""} ${col.align === "right" ? "right" : ""} ${isFreeRow ? "free-product-row" : ""}`}
-        style={isFreeRow ? { background: "#e6f9ec" } : undefined}>
+        style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
         <input id={cellId} type={col.type === "date" ? "date" : "text"}
           className={`cell-input ${col.align === "right" ? "right" : ""}`}
-          style={isFreeRow ? { background: "#e6f9ec" } : undefined}
+          style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}
           value={row[col.key] ?? ""}
           onChange={(e) => handleCellChange(row._key, col.key, e.target.value)}
           onFocus={onFocus} onKeyDown={(e) => handleGridKeyDown(e, row._key, col.key)} tabIndex={0}
@@ -2776,13 +2777,13 @@ if (savedArrivalType) {
                       onDragStart={() => handleFocusFormDragStart(idx)}
                       onDragOver={(e) => handleFocusFormDragOver(e, idx)}
                       onDragEnd={handleFocusFormDragEnd}
-                      style={{ background: focusFormDragIdx === idx ? "#e0f2fe" : "transparent", cursor: "grab" }}>
+                      style={{ background: focusFormDragIdx === idx ? "var(--clr-bg-row-hover)" : "transparent", cursor: "grab" }}>
                       <td style={{ textAlign: "center", fontWeight: 600 }}>{idx + 1}</td>
                       <td>{d.label}</td>
                       <td style={{ textAlign: "center" }}>
                         <input type="checkbox" checked={!!d.Focus}
                           onChange={() => handleFocusFormToggle(idx, !d.Focus)}
-                          style={{ width: 14, height: 14, accentColor: "#1f65de" }} />
+                          style={{ width: 14, height: 14, accentColor: "var(--clr-primary)" }} />
                       </td>
                     </tr>
                   ))}
@@ -2888,14 +2889,14 @@ if (savedArrivalType) {
 
       {/* ── F3: Purchase No Prompt Modal ── */}
       {f3PromptOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(10,20,40,0.45)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000 }}>
-          <div style={{ background: "#fff", borderRadius: 10, padding: "22px 28px 18px", minWidth: 260, maxWidth: 320, boxShadow: "0 8px 32px rgba(0,0,0,0.22)", border: "1px solid #c5d8f8", textAlign: "center" }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#1e293b" }}>🔍 Edit {modeLabels.no} (F3)</div>
-            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, textAlign: "left" }}>Enter the {modeLabels.no}</div>
+        <div style={{ position: "fixed", inset: 0, background: "var(--clr-modal-overlay)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000 }}>
+          <div style={{ background: "var(--clr-bg-white)", borderRadius: 10, padding: "22px 28px 18px", minWidth: 260, maxWidth: 320, boxShadow: "0 8px 32px var(--clr-shadow-box)", border: "1px solid var(--clr-border-default)", textAlign: "center" }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "var(--clr-text-primary)" }}>🔍 Edit {modeLabels.no} (F3)</div>
+            <div style={{ fontSize: 12, color: "var(--clr-text-muted)", marginBottom: 8, textAlign: "left" }}>Enter the {modeLabels.no}</div>
             <input
               ref={f3InputRef}
               type="text"
-              style={{ width: "100%", padding: "7px 10px", border: "1px solid #c5d8f8", borderRadius: 6, fontSize: 14, outline: "none", boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--clr-border-default)", borderRadius: 6, fontSize: 14, outline: "none", boxSizing: "border-box" }}
               value={f3PromptValue}
               onChange={(e) => { setF3PromptValue(e.target.value); setF3PromptError(""); }}
               onKeyDown={(e) => {
@@ -2904,17 +2905,17 @@ if (savedArrivalType) {
               }}
               placeholder="e.g. 1024"
             />
-            {f3PromptError && <div style={{ color: "#dc2626", fontSize: 12, marginTop: 6 }}>{f3PromptError}</div>}
+            {f3PromptError && <div style={{ color: "var(--clr-danger-dark)", fontSize: 12, marginTop: 6 }}>{f3PromptError}</div>}
             <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "center" }}>
               <button
-                style={{ padding: "7px 22px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#3b82f6,#1d4ed8)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+                style={{ padding: "7px 22px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,var(--clr-primary),var(--clr-primary-hover))", color: "var(--clr-text-white)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
                 onClick={handleF3PromptSubmit}
                 disabled={!f3PromptValue.trim()}
               >
                 ✔ OK
               </button>
               <button
-                style={{ padding: "7px 22px", borderRadius: 6, border: "1px solid #c5d8f8", background: "#f5f9ff", color: "#6b7a99", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+                style={{ padding: "7px 22px", borderRadius: 6, border: "1px solid var(--clr-border-default)", background: "var(--clr-bg-soft)", color: "var(--clr-text-muted)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
                 onClick={() => setF3PromptOpen(false)}
               >
                 ✘ Cancel
@@ -2932,7 +2933,7 @@ if (savedArrivalType) {
               <span>Purchase List View (F5)</span>
               <button className="popup-close" onClick={() => { setListViewOpen(false); setF5MasterList([]); setF5DetailList([]); setF5SupplierId(""); setFromDate(today()); setToDate(today()); }}>✕</button>
             </div>
-            <div style={{ padding: "12px", borderBottom: "1px solid #c5d8f8", background: "#f5f9ff" }}>
+            <div style={{ padding: "12px", borderBottom: "1px solid var(--clr-border-default)", background: "var(--clr-bg-soft)" }}>
               <div style={{ display: "grid", gridTemplateColumns: "90px 140px 80px 140px 180px", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
                 <label>From Date</label>
                 <input type="date" className="form-ctrl" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
@@ -2953,16 +2954,16 @@ if (savedArrivalType) {
                     }}
                   />
                   {f5SupplierOpen && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, width: "100%", maxHeight: 200, overflowY: "auto", background: "#fff", border: "1px solid #c5d8f8", borderRadius: 3, zIndex: 9999, boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
+                    <div style={{ position: "absolute", top: "100%", left: 0, width: "100%", maxHeight: 200, overflowY: "auto", background: "var(--clr-bg-white)", border: "1px solid var(--clr-border-default)", borderRadius: 3, zIndex: 9999, boxShadow: "0 4px 6px var(--clr-shadow-light)" }}>
                       {supplierList.filter(s => !f5SupplierSearch || s.AccountName.toLowerCase().includes(f5SupplierSearch.trim().toLowerCase())).map((s, idx) => (
-                        <div key={s.Id} style={{ padding: "6px 8px", fontSize: 13, cursor: "pointer", background: idx === f5SupplierHi ? "#e8f0fe" : "transparent", color: "#1a2e4a" }}
+                        <div key={s.Id} style={{ padding: "6px 8px", fontSize: 13, cursor: "pointer", background: idx === f5SupplierHi ? "var(--clr-bg-row-hover)" : "transparent", color: "var(--clr-text-primary)" }}
                           onMouseEnter={() => setF5SupplierHi(idx)}
                           onClick={() => { setF5SupplierId(String(s.Id)); setF5SupplierSearch(s.AccountName); setF5SupplierOpen(false); }}>
                           {s.AccountName}
                         </div>
                       ))}
                       {supplierList.filter(s => !f5SupplierSearch || s.AccountName.toLowerCase().includes(f5SupplierSearch.trim().toLowerCase())).length === 0 && (
-                        <div style={{ padding: "6px 8px", fontSize: 13, color: "#94a3b8" }}>No suppliers found</div>
+                        <div style={{ padding: "6px 8px", fontSize: 13, color: "var(--clr-text-faint)" }}>No suppliers found</div>
                       )}
                     </div>
                   )}
@@ -2972,7 +2973,7 @@ if (savedArrivalType) {
                 <label style={{ width: "90px" }}>Search No</label>
                 <input className="form-ctrl" style={{ width: "140px" }} value={searchNo} onChange={(e) => setSearchNo(e.target.value)} />
                 <button className="tbtn tbtn-save" onClick={() => handleF5View({ fromdate: fromDate, todate: toDate, supplierid: f5SupplierId })}>View</button>
-                <div style={{ marginLeft: "auto", color: "#16a34a", fontWeight: "bold", fontSize: "20px" }}>Total Amt : {f5TotalAmt}</div>
+                <div style={{ marginLeft: "auto", color: "var(--clr-green)", fontWeight: "bold", fontSize: "20px" }}>Total Amt : {f5TotalAmt}</div>
               </div>
             </div>
             <div className="popup-body" style={{ overflowY: "auto", flex: 1, padding: 0 }}>
@@ -2982,14 +2983,14 @@ if (savedArrivalType) {
                 </thead>
                 <tbody>
                   {f5MasterList.length === 0 && (
-                    <tr><td colSpan={7} className="no-data" style={{ textAlign: "center", padding: 18, color: "#94a3b8" }}>No records found. Enter a search term and press Search.</td></tr>
+                    <tr><td colSpan={7} className="no-data" style={{ textAlign: "center", padding: 18, color: "var(--clr-text-faint)" }}>No records found. Enter a search term and press Search.</td></tr>
                   )}
                   {f5MasterList.map((m) => {
                     const isExpanded = f5ExpandedRow === m.Id;
                     const rowDetails = getDetailsForMaster(m.Id);
                     return (
                       <React.Fragment key={m.Id}>
-                        <tr className="view-row" style={{ cursor: "pointer", background: isExpanded ? "#deeafb" : undefined }}>
+                        <tr className="view-row" style={{ cursor: "pointer", background: isExpanded ? "var(--clr-bg-row-hover)" : undefined }}>
                           <td style={{ textAlign: "center", width: 32, userSelect: "none", fontSize: 12 }} onClick={() => toggleF5Row(m.Id)} title={isExpanded ? "Collapse" : "Expand"}>{isExpanded ? "▼" : "▶"}</td>
                           <td>{m.PurNo}</td>
                           <td>{jsonDate(m.PurchaseDate)}</td>
@@ -3003,13 +3004,13 @@ if (savedArrivalType) {
                         </tr>
                         {isExpanded && (
                           <tr key={`d_${m.Id}`}>
-                            <td colSpan={7} style={{ padding: "6px 24px 10px 42px", background: "#f8fafc", borderBottom: "2px solid #bfdbfe" }}>
+                            <td colSpan={7} style={{ padding: "6px 24px 10px 42px", background: "var(--clr-bg-soft)", borderBottom: "2px solid var(--clr-primary-light)" }}>
                               {rowDetails.length === 0 ? (
-                                <span style={{ color: "#94a3b8", fontSize: 12 }}>No product details found.</span>
+                                <span style={{ color: "var(--clr-text-faint)", fontSize: 12 }}>No product details found.</span>
                               ) : (
                                 <table className="view-grid nested-grid" style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                                   <thead>
-                                    <tr style={{ background: "#2d4a9f", color: "#fff" }}>
+                                    <tr style={{ background: "var(--clr-pay-hdr-secondary)", color: "var(--clr-text-white)" }}>
                                       <th style={{ width: 100 }}>Code</th><th style={{ width: 220 }}>Description</th>
                                       <th className="right" style={{ width: 80 }}>MRP</th><th className="right" style={{ width: 90 }}>Pur. Rate</th>
                                       <th className="right" style={{ width: 70 }}>Qty</th><th className="right" style={{ width: 70 }}>GST(%)</th>
@@ -3019,7 +3020,7 @@ if (savedArrivalType) {
                                   </thead>
                                   <tbody>
                                     {rowDetails.map((d, idx) => (
-                                      <tr key={`${m.Id}_detail_${idx}`} className="view-row" style={{ background: idx % 2 === 0 ? "#fff" : "#f5f9ff" }}>
+                                      <tr key={`${m.Id}_detail_${idx}`} className="view-row" style={{ background: idx % 2 === 0 ? "var(--clr-bg-white)" : "var(--clr-bg-soft)" }}>
                                         <td>{d.ProductCode}</td><td>{d.ProductName}</td>
                                         <td className="right">{fmt2(d.MRP)}</td><td className="right">{fmt2(d.PurchaseRate)}</td>
                                         <td className="right">{fmt2(d.ItemQty)}</td><td className="right">{fmt2(d.TaxPercent)}</td>
@@ -3058,7 +3059,7 @@ if (savedArrivalType) {
       <label className="radio-label"><input type="radio" checked={purchaseMode === "PATTY"}      onChange={() => setPurchaseMode("PATTY")} /> Patty Bill</label>
     </>
   )}
-  <span style={{ marginLeft: 12, fontWeight: 700, color: "#1f2937" }}>{modeLabels.title}</span>
+  <span style={{ marginLeft: 12, fontWeight: 700, color: "var(--clr-text-primary)" }}>{modeLabels.title}</span>
 </div>
 
         {/* ── Arrival-only fields (Days / Dispatched Date — matches the screenshot) ── */}
@@ -3113,10 +3114,10 @@ if (savedArrivalType) {
               }, 180)}
               placeholder="Type or click to browse suppliers…" autoComplete="off" />
             {supplierDDOpen && (
-              <div style={{ position: "absolute", zIndex: 9000, top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #cbd5e1", borderRadius: "0 0 6px 6px", boxShadow: "0 4px 16px rgba(0,0,0,0.13)", maxHeight: 220, overflowY: "auto" }}>
+              <div style={{ position: "absolute", zIndex: 9000, top: "100%", left: 0, right: 0, background: "var(--clr-bg-white)", border: "1px solid var(--clr-border-default)", borderRadius: "0 0 6px 6px", boxShadow: "0 4px 16px var(--clr-shadow-toast)", maxHeight: 220, overflowY: "auto" }}>
                 {supplierDropdown.map((s, i) => (
                   <div key={s.Id} onMouseDown={() => confirmSupplierSelection(s)}
-                    style={{ padding: "6px 10px", cursor: "pointer", fontSize: 13, background: i === supplierSelIdx ? "#deeafb" : "#fff", borderBottom: "1px solid #f1f5f9", fontWeight: i === supplierSelIdx ? 600 : 400 }}>
+                    style={{ padding: "6px 10px", cursor: "pointer", fontSize: 13, background: i === supplierSelIdx ? "var(--clr-bg-row-hover)" : "var(--clr-bg-white)", borderBottom: "1px solid var(--clr-bg-soft)", fontWeight: i === supplierSelIdx ? 600 : 400 }}>
                     {s.AccountName}
                   </div>
                 ))}
@@ -3164,9 +3165,9 @@ if (savedArrivalType) {
       </div>
 
       {/* ── Grid ── */}
-      <div className="grid-wrap" ref={gridRef}>
-        <div className="grid-scroll">
-          <table className="pur-grid">
+      <div className="mp-grid-wrap" ref={gridRef}>
+        <div className="mp-gscroll">
+          <table className="mp-tbl">
             <thead>
               <tr>
                 <th className="sno-col">S.No</th>
@@ -3185,14 +3186,14 @@ if (savedArrivalType) {
                 return (
                   <tr key={row._key}
                     className={`grid-row ${selectedCell.rowKey === row._key ? "row-active" : ""} ${isFreeRow ? "free-product-row" : ""}`}
-                    style={isFreeRow ? { background: "#e6f9ec" } : undefined}
+                    style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}
                     title={isFreeRow ? "Free Product Row (F2)" : undefined}>
-                    <td className="sno-col center" style={isFreeRow ? { background: "#e6f9ec" } : undefined}>{idx + 1}</td>
+                    <td className="sno-col center" style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>{idx + 1}</td>
                     {orderedGridColumns.filter(isColVisible).map((c) => {
                       const cfg = colConfig.find((x) => x.key === c.key);
                       return renderCell(row, { ...c, width: cfg ? cfg.width : c.defaultWidth });
                     })}
-                    <td className="del-col center" style={isFreeRow ? { background: "#e6f9ec" } : undefined}>
+                    <td className="del-col center" style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
                       {row.ProductCode && <button className="del-row-btn" onClick={() => deleteGridRow(row._key)} title="Delete Row (Shift+Del)">✕</button>}
                     </td>
                   </tr>
@@ -3230,9 +3231,9 @@ if (savedArrivalType) {
               branch order from frmpurchase.cs (Lorry Freight × TotKgs, Cooly × TotBags). */}
         {pattyMode && (
   <div className="gst-split-panel" style={{ marginTop: 10 }}>
-    <div style={{ maxHeight: 150, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 4 }}>
+    <div style={{ maxHeight: 150, overflowY: "auto", border: "1px solid var(--clr-border-table)", borderRadius: 4 }}>
       <table className="gst-table" style={{ width: "100%" }}>
-        <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
+        <thead style={{ position: "sticky", top: 0, background: "var(--clr-bg-soft)", zIndex: 1 }}>
           <tr><th style={{ textAlign: "left" }}>Patty</th><th>%</th><th>Bag Rate</th><th>Amount</th></tr>
         </thead>
         <tbody>
@@ -3273,7 +3274,7 @@ if (savedArrivalType) {
         </tbody>
       </table>
     </div>
-    <div style={{ fontSize: 11, color: "#64748b", padding: "4px 2px" }}>
+    <div style={{ fontSize: 11, color: "var(--clr-text-muted)", padding: "4px 2px" }}>
       Total Kgs: {fmt2(totKgs)} &nbsp;|&nbsp; Total Bags: {fmt2(totBags)}
     </div>
   </div>
@@ -3344,12 +3345,12 @@ if (savedArrivalType) {
                         onDragStart={() => handleFocusDragStart(idx)}
                         onDragOver={(e) => handleFocusDragOver(e, idx)}
                         onDragEnd={handleFocusDragEnd}
-                        style={{ background: focusColDragIdx === idx ? "#e0f2fe" : "transparent", cursor: "grab" }}>
+                        style={{ background: focusColDragIdx === idx ? "var(--clr-bg-row-hover)" : "transparent", cursor: "grab" }}>
                         <td style={{ textAlign: "center", userSelect: "none", fontWeight: 600 }}>{idx + 1}</td>
                         <td>{base?.label || d.column}</td>
                         <td style={{ textAlign: "center" }}>
                           <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, cursor: "pointer" }}>
-                            <input type="checkbox" checked={!!d.Focus} onChange={() => handleFocusToggle(idx, "Focus", !d.Focus)} style={{ width: 14, height: 14, accentColor: "#1f65de" }} />
+                            <input type="checkbox" checked={!!d.Focus} onChange={() => handleFocusToggle(idx, "Focus", !d.Focus)} style={{ width: 14, height: 14, accentColor: "var(--clr-primary)" }} />
                           </label>
                         </td>
                       </tr>
@@ -3394,22 +3395,22 @@ if (savedArrivalType) {
 
       {/* ── Edit Password Modal ── */}
       {editPwdOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(10,20,40,0.45)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000 }}>
-          <div style={{ background: "#fff", borderRadius: 10, padding: "22px 28px 18px", minWidth: 240, maxWidth: 300, boxShadow: "0 8px 32px rgba(0,0,0,0.22)", border: "1px solid #c5d8f8", textAlign: "center" }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#1e293b" }}>🔒 Edit Password</div>
+        <div style={{ position: "fixed", inset: 0, background: "var(--clr-modal-overlay)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000 }}>
+          <div style={{ background: "var(--clr-bg-white)", borderRadius: 10, padding: "22px 28px 18px", minWidth: 240, maxWidth: 300, boxShadow: "0 8px 32px var(--clr-shadow-box)", border: "1px solid var(--clr-border-default)", textAlign: "center" }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "var(--clr-text-primary)" }}>🔒 Edit Password</div>
             <input type="password" autoFocus
-              style={{ width: "100%", padding: "7px 10px", border: "1px solid #c5d8f8", borderRadius: 6, fontSize: 14, outline: "none", boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--clr-border-default)", borderRadius: 6, fontSize: 14, outline: "none", boxSizing: "border-box" }}
               value={editPwdValue}
               onChange={(e) => { setEditPwdValue(e.target.value); setEditPwdError(""); }}
               onKeyDown={(e) => { if (e.key === "Enter") handleEditPasswordSubmit(); if (e.key === "Escape") { setEditPwdOpen(false); setPendingEditAction(null); } }}
               placeholder="Enter password…" disabled={editPwdLoading} />
-            {editPwdError && <div style={{ color: "#dc2626", fontSize: 12, marginTop: 6 }}>{editPwdError}</div>}
+            {editPwdError && <div style={{ color: "var(--clr-danger-dark)", fontSize: 12, marginTop: 6 }}>{editPwdError}</div>}
             <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "center" }}>
-              <button style={{ padding: "7px 22px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#3b82f6,#1d4ed8)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+              <button style={{ padding: "7px 22px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,var(--clr-primary),var(--clr-primary-hover))", color: "var(--clr-text-white)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
                 onClick={handleEditPasswordSubmit} disabled={editPwdLoading || !editPwdValue.trim()}>
                 {editPwdLoading ? "…" : "✔ OK"}
               </button>
-              <button style={{ padding: "7px 22px", borderRadius: 6, border: "1px solid #c5d8f8", background: "#f5f9ff", color: "#6b7a99", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+              <button style={{ padding: "7px 22px", borderRadius: 6, border: "1px solid var(--clr-border-default)", background: "var(--clr-bg-soft)", color: "var(--clr-text-muted)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
                 onClick={() => { setEditPwdOpen(false); setPendingEditAction(null); }} disabled={editPwdLoading}>
                 ✘ Cancel
               </button>
@@ -3510,7 +3511,7 @@ function MRPSelectionPopup({ mrpPopup, setMrpPopup, applyProductToRow }) {
       <div className="popup-window product-popup" style={{ maxWidth: 620 }}>
         <div className="popup-header"><span>Select MRP / Batch Variant</span><button className="popup-close" onClick={close}>✕</button></div>
         <div className="popup-body">
-          <p style={{ margin: "0 0 8px", fontSize: 12, color: "#64748b" }}>Multiple variants found. Select one to add to the grid.</p>
+          <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--clr-text-muted)" }}>Multiple variants found. Select one to add to the grid.</p>
           <div className="popup-list-wrap">
             <table className="popup-table">
               <thead><tr><th>Code</th><th>Description</th><th>MRP</th><th>Pur.Rate</th><th>UOM</th><th>Stock</th><th>Batch No</th></tr></thead>
@@ -3529,7 +3530,7 @@ function MRPSelectionPopup({ mrpPopup, setMrpPopup, applyProductToRow }) {
               </tbody>
             </table>
           </div>
-          <div style={{ marginTop: 8, fontSize: 11, color: "#94a3b8" }}>↑↓ to navigate · Enter to select · Esc to cancel</div>
+          <div style={{ marginTop: 8, fontSize: 11, color: "var(--clr-text-faint)" }}>↑↓ to navigate · Enter to select · Esc to cancel</div>
         </div>
       </div>
     </div>
@@ -3565,9 +3566,9 @@ function ItemCreatePopup({ itemCreatePopup, setItemCreatePopup, applyProductToRo
           <button className="popup-close" onClick={handleClose}>✕</button>
         </div>
         <iframe src="/Itemmaster" title="ItemMaster" style={{ flex: 1, border: "none", width: "100%" }} />
-        <div style={{ padding: "8px 16px", background: "#f8fafc", borderTop: "1px solid #e2e8f0", fontSize: 12, color: "#64748b", flexShrink: 0 }}>
+        <div style={{ padding: "8px 16px", background: "var(--clr-bg-soft)", borderTop: "1px solid var(--clr-border-table)", fontSize: 12, color: "var(--clr-text-muted)", flexShrink: 0 }}>
           Create the new item above, then close this window to auto-load it into the grid.
-          <button style={{ marginLeft: 16, padding: "4px 16px", borderRadius: 5, border: "none", background: "#3b82f6", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 12 }} onClick={handleClose}>
+          <button style={{ marginLeft: 16, padding: "4px 16px", borderRadius: 5, border: "none", background: "var(--clr-primary)", color: "var(--clr-text-white)", fontWeight: 600, cursor: "pointer", fontSize: 12 }} onClick={handleClose}>
             ✔ Done — Close &amp; Load Item
           </button>
         </div>
@@ -3659,14 +3660,14 @@ function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSeria
             <tbody>
               {rows.map((r, i) => (
                 <tr key={r.id}>
-                  <td style={{ textAlign: "center", color: "#64748b" }}>{i + 1}</td>
+                  <td style={{ textAlign: "center", color: "var(--clr-text-muted)" }}>{i + 1}</td>
                   <td>
                     <input ref={(el) => { inputRefs.current[r.id] = el; }} className="cell-input" style={{ width: "100%" }}
                       value={r.value} onChange={(e) => handleChange(r.id, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, i)} autoComplete="off" />
                   </td>
                   <td>
-                    <button style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 13 }}
+                    <button style={{ background: "none", border: "none", color: "var(--clr-danger)", cursor: "pointer", fontSize: 13 }}
                       onClick={() => setRows((prev) => { const next = prev.filter((_, j) => j !== i); return next.length === 0 ? [{ id: uid(), value: "" }] : next; })}
                       title="Remove row (Shift+Del)">✕</button>
                   </td>
@@ -3674,8 +3675,8 @@ function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSeria
               ))}
             </tbody>
           </table>
-          {error && <div style={{ color: "#dc2626", fontSize: 12, padding: "4px 8px" }}>{error}</div>}
-          <div style={{ fontSize: 11, color: "#94a3b8", padding: "4px 8px" }}>Enter → next row &nbsp;|&nbsp; F1 → Done &nbsp;|&nbsp; Shift+Del → remove row</div>
+          {error && <div style={{ color: "var(--clr-danger-dark)", fontSize: 12, padding: "4px 8px" }}>{error}</div>}
+          <div style={{ fontSize: 11, color: "var(--clr-text-faint)", padding: "4px 8px" }}>Enter → next row &nbsp;|&nbsp; F1 → Done &nbsp;|&nbsp; Shift+Del → remove row</div>
         </div>
         <div className="popup-footer">
           <button className="btn btn-primary btn-sm" onClick={handleDone}>✔ F1 Done ({rows.filter(r => r.value.trim()).length} serials)</button>

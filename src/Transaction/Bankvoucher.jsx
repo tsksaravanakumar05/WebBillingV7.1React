@@ -1074,7 +1074,7 @@ export default function BankVoucher() {
         if (f5Open)  { setF5Open(false); return; }
         if (f12Open) { setF12Open(false); return; }
         if (pwModal) return;
-        confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/Home"); });
+        confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/dashboard"); });
         return;
       }
       if (anyPopupOpen()) return;
@@ -1146,7 +1146,7 @@ export default function BankVoucher() {
               type="button"
               className="bm-close-x"
               aria-label="Close"
-              onClick={() => confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/Home"); })}
+              onClick={() => confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/dashboard"); })}
             >
               ✕
             </button>
@@ -1283,7 +1283,7 @@ export default function BankVoucher() {
           </button>
           <button
             className="bm-btn bm-btn-secondary"
-            onClick={() => confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/Home"); })}
+            onClick={() => confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/dashboard"); })}
           >
             <XCircle size={16} />
             Esc Quit

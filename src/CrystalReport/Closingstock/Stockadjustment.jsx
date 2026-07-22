@@ -10,7 +10,7 @@
 //  Styling: MasterPage.css only — no inline color values, no new theme colors.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
@@ -243,6 +243,100 @@ export default function StockAdjustmentDetails() {
     }
   }, [stockTypeSel, fromDate, toDate, daily, session, openReportViewer]);
 
+  // ── Searchable select for the static Stock Type list ────────────────────
+  // Same visual/interaction pattern as the ApiSelect combo used on the other
+  // converted report pages, just backed by a fixed local array instead of an
+  // API call (the legacy combo's `source` was hard-coded, not fetched).
+  const SearchableSelect = ({ options, value, onChange, placeholder }) => {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const boxRef = useRef(null);
+    const searchRef = useRef(null);
+
+    useEffect(() => {
+      if (!open) return;
+      const handleClickOutside = (e) => {
+        if (boxRef.current && !boxRef.current.contains(e.target)) {
+          setOpen(false);
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [open]);
+
+    useEffect(() => {
+      if (open) {
+        setSearch("");
+        setTimeout(() => searchRef.current?.focus(), 0);
+      }
+    }, [open]);
+
+    const filteredOptions = useMemo(() => {
+      const q = search.trim().toLowerCase();
+      if (!q) return options;
+      return options.filter((o) => o.toLowerCase().includes(q));
+    }, [options, search]);
+
+    const handlePick = (opt) => {
+      onChange(opt ? { value: opt, label: opt } : null);
+      setOpen(false);
+    };
+
+    return (
+      <div className="so-combo" ref={boxRef}>
+        <button
+          type="button"
+          className="so-input so-combo-toggle"
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className={`so-combo-value${value?.label ? "" : " ph"}`}>
+            {value?.label || placeholder}
+          </span>
+          <span className="so-combo-caret" aria-hidden="true">▾</span>
+        </button>
+
+        {open && (
+          <div className="so-combo-panel">
+            <input
+              ref={searchRef}
+              type="text"
+              className="so-combo-search"
+              placeholder="Type to search…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setOpen(false);
+                if (e.key === "Enter" && filteredOptions.length === 1) handlePick(filteredOptions[0]);
+              }}
+            />
+            <ul className="so-combo-list" role="listbox">
+              <li
+                className={`so-combo-option so-combo-clear${!value ? " active" : ""}`}
+                onClick={() => handlePick(null)}
+              >
+                {placeholder}
+              </li>
+              {filteredOptions.length === 0 && (
+                <li className="so-combo-empty">No matches found</li>
+              )}
+              {filteredOptions.map((o) => (
+                <li
+                  key={o}
+                  className={`so-combo-option${value?.value === o ? " active" : ""}`}
+                  onClick={() => handlePick(o)}
+                  role="option"
+                  aria-selected={value?.value === o}
+                >
+                  {o}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ── Design system: recolored/restructured to match BranchWise.jsx exactly ──
   //   Border / header / heading -> blue (#1a56db)
   //   Save-style accents        -> green (#1e7e34)
@@ -274,6 +368,22 @@ export default function StockAdjustmentDetails() {
     .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     .so-input:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
     select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-combo { position: relative; flex: 1; min-width: 0; }
+    .so-combo-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; }
+    .so-combo-toggle:disabled { cursor: not-allowed; opacity: .65; }
+    .so-combo-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1e2d3d; }
+    .so-combo-value.ph { color: #8492a6; }
+    .so-combo-caret { flex-shrink: 0; font-size: 10px; color: #8492a6; }
+    .so-combo-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; background: #fff; border: 1px solid #1a56db; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.18); overflow: hidden; }
+    .so-combo-search { width: 100%; height: 32px; border: none; border-bottom: 1px solid #e8ecf0; padding: 0 10px; font-size: 13px; color: #1e2d3d; box-sizing: border-box; outline: none; background: #f8fafc; }
+    .so-combo-search:focus { background: #eef3ff; }
+    .so-combo-list { list-style: none; margin: 0; padding: 4px 0; max-height: 220px; overflow-y: auto; }
+    .so-combo-option { padding: 7px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .so-combo-option:hover { background: #eef3ff; }
+    .so-combo-option.active { background: #e3ecff; color: #1a4fd1; font-weight: 600; }
+    .so-combo-option.so-combo-clear { color: #8492a6; font-style: italic; border-bottom: 1px solid #e8ecf0; margin-bottom: 2px; }
+    .so-combo-empty { padding: 10px 12px; font-size: 12.5px; color: #8492a6; text-align: center; }
 
     .so-checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; margin-top: 4px; }
     .so-checkbox input { position: absolute; opacity: 0; width: 0; height: 0; }
@@ -342,22 +452,12 @@ export default function StockAdjustmentDetails() {
                 <div className="so-right">
                   <div className="so-field">
                     <label className="so-label" htmlFor="sa-stock-type">Stock Type</label>
-                    <select
-                      id="sa-stock-type"
-                      className="so-input"
-                      value={stockTypeSel?.value ?? ""}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setStockTypeSel(v ? { value: v, label: v } : null);
-                      }}
-                    >
-                      <option value="">Select Stock Type</option>
-                      {STOCK_TYPE_OPTIONS.map((o) => (
-                        <option key={o} value={o}>
-                          {o}
-                        </option>
-                      ))}
-                    </select>
+                    <SearchableSelect
+                      options={STOCK_TYPE_OPTIONS}
+                      value={stockTypeSel}
+                      onChange={setStockTypeSel}
+                      placeholder="Select Stock Type"
+                    />
                   </div>
 
                   <div className="so-field">
