@@ -93,20 +93,33 @@ const ns  = v => (v == null ? "" : String(v));
 const F2K = ["MRP","PurchaseRate","GST","GSTAmt","TransPer","TransAmt","CESS","CESSAmt","SPLCESS","LandingCost","ProfitPer","ProfitAmt","SalesRate","WholeSaleRate","SaleDiscountPer","SaleDiscountAmt","ReorderLevelMin","ReorderLevelMax","CRMPoints","DMPer","DMAmt","CardRate","LessAmt","NomsPCRate"];
 const F3K = ["NetWeight"];
 const INK = ["ExpriyDays","ExpiryBeforeDays","NomsQty"];
+const getPattyColumn = (col, sess) => {
+  if (!sess?.CMBTPatty) return col;
+  if (col.key === "Repacking") return { ...col, visible:true, label:"PattyItem", bool:false, type:"int" };
+  if (col.key === "ExpriyDays") return { ...col, visible:true, label:"OnionItem" };
+  if (col.key === "BrandType" && sess.SalesA4FullName === "PattyBillPRN") return { ...col, label:"SubItem" };
+  return col;
+};
 
-const mkEmpty = () => {
+const mkEmpty = (sess) => {
   const r = { _rid:genRid(), _isNew:true, _dirty:false, _editMode:1 };
   COLUMNS.forEach(c => { r[c.key] = c.bool ? false : ""; });
   ["BrandId","CategoryId","DepartmentId","SupplierId","UOMId","LocationMasterId","ProductImage","Id"].forEach(k => { r[k]=""; });
   r.Active=true; r.StockNeed=true; r.SalesRateType=true;
+  if (sess?.CMBTPatty) {
+    r.Repacking = 0;
+    r.ExpriyDays = 0;
+  }
   return r;
 };
 
-const fmtRow = obj => {
+const fmtRow = (obj, sess) => {
   const r = { ...obj, _rid:obj._rid||genRid(), _isNew:false, _dirty:false, _editMode:0 };
   F2K.forEach(k => { if (r[k]!==undefined) r[k]=parseFloat(vn(r[k]).toFixed(2)); });
   F3K.forEach(k => { if (r[k]!==undefined) r[k]=parseFloat(vn(r[k]).toFixed(3)); });
   INK.forEach(k => { if (r[k]!==undefined) r[k]=parseInt(vn(r[k]))||0; });
+  r.Repacking = sess?.CMBTPatty ? (parseInt(r.Repacking, 10) || 0) : !!r.Repacking;
+  r.ExpriyDays = parseInt(r.ExpriyDays, 10) || 0;
   return r;
 };
 
@@ -434,6 +447,11 @@ const [isAuthorized, setIsAuthorized] = useState(false);
         MulipleMRP:!!com0.MultiMRP, MirrorTable:0,
        
         LandingCostCompare:!!main0.LandingCostCompare,
+        CMBTPatty:
+          main0.CMBTPatty === true ||
+          main0.CMBTPatty === 1 ||
+          main0.CMBTPatty === "1",
+        SalesA4FullName:String(main0.SalesA4FullName || ""),
         PurchaseProfitSaleRateChange:!!main0.PurchaseProfitSaleRateChange,
         univercell:!!main0.univercell, MultipleUOMBilling:!!main0.MultipleUOMBilling,
         GroupCommission:!!main0.GroupCommission,
@@ -444,7 +462,7 @@ const [isAuthorized, setIsAuthorized] = useState(false);
         menudata:(CC.getLocal("menulist")||[]).filter(o=>o.PageName==="Item Master"),
       };
     } catch {
-      return { Comid:"1",MComid:"1",IdComList:"1",MirrorTable:0,menudata:[],Productcodeautogen:false,Productcodedigit:0,Productcodeprefix:"" };
+      return { Comid:"1",MComid:"1",IdComList:"1",MirrorTable:0,menudata:[],CMBTPatty:false,SalesA4FullName:"",Productcodeautogen:false,Productcodedigit:0,Productcodeprefix:"" };
     }
   });
     const focusEntry = useCallback(colKey => {
@@ -521,7 +539,7 @@ const [isAuthorized, setIsAuthorized] = useState(false);
     ExpriyDays:       parseInt(src.ExpriyDays) || 0,
     ExpiryBeforeDays: parseInt(src.ExpiryBeforeDays) || 0,
     ManufactureDate:  !!src.ManufactureDate,
-    Repacking:        !!src.Repacking,
+    Repacking:        sess.CMBTPatty ? (parseInt(src.Repacking, 10) || 0) : !!src.Repacking,
     BrandType:        !!src.BrandType,
     ModelType:        !!src.ModelType,
     ColorType:        !!src.ColorType,
@@ -662,7 +680,7 @@ const saveBarcodes = useCallback(async () => {
   const [selRid,     setSelRid]    = useState(null);
   const [page,       setPage]      = useState(1);
   const [totCnt,     setTotCnt]    = useState(0);
-  const [entryRow,   setEntryRow]  = useState(() => mkEmpty());
+  const [entryRow,   setEntryRow]  = useState(() => mkEmpty(sess));
   const [colFilters, setColFilters]= useState({});
   const [vErr,       setVErr]      = useState("");
   const [loading,    setLoading]   = useState(false);
@@ -714,10 +732,12 @@ const redirectIfDualLogin = useCallback((res) => {
   useEffect(() => { rowsRef.current = rows; },      [rows]);
   useEffect(() => { entryRowRef.current = entryRow; }, [entryRow]);
 
-  const visCols = cols.filter(c => c.visible);
+  const visCols = cols
+    .map(col => getPattyColumn(col, sess))
+    .filter(col => col.visible);
 
   const editableKeys = visCols
-    .map(vc => COLUMNS.find(c => c.key===vc.key))
+    .map(vc => getPattyColumn(COLUMNS.find(c => c.key===vc.key) || vc, sess))
     .filter(cd => cd && !cd.calc)
     .map(cd => cd.key);
 
@@ -784,10 +804,10 @@ const redirectIfDualLogin = useCallback((res) => {
   }, [sess,redirectIfDualLogin]);
 
   const resetEntry = useCallback(async () => {
-    let r=mkEmpty(); r=await autoGenCode(r);
+    let r=mkEmpty(sess); r=await autoGenCode(r);
     setEntryRow(r); setVErr("");
     setTimeout(() => focusEntry(editableKeys[0]), 50);
-  }, [autoGenCode, focusEntry, editableKeys]);
+  }, [autoGenCode, focusEntry, editableKeys, sess]);
 
   useEffect(() => {
     if (!draftOk.current) return;
@@ -886,7 +906,7 @@ const loadColCfg = useCallback(async () => {
     const arr = Array.isArray(res.data)?res.data:Array.isArray(res)?res:[];
     if(isInit) setTotCnt(res.Count||arr.length);
   // In loadItems — keep it simple, no _editMode change here:
-const fmt = arr.map(fmtRow);
+const fmt = arr.map(item => fmtRow(item, sess));
 setRows(fmt);
 // remove the setSelRid for single row here too
 setPage(Math.max(1, Math.ceil(fmt.length / ROWS_PER_PAGE)));
@@ -1008,8 +1028,8 @@ const validateRow = useCallback(async row => {
 }, [sess, showAlert, focusEntry, focusCell]); // ← add showAlert here
   const buildPayload = useCallback(row => {
     const n=v=>parseFloat(v)||0,ni=v=>parseInt(v)||0,bi=v=>(v===true||v==="true"||v===1||v==="1")?1:0,b=v=>v===true||v==="true"||v===1||v==="1",s=v=>String(v==null?"":v);
-    return { Id:ni(row.Id),ProductCode:s(row.ProductCode).trim(),SecondCode:s(row.SecondCode),ProductName:s(row.ProductName).trim(),PrinterName:s(row.PrinterName),HSNCode:s(row.HSNCode),Brand:s(row.Brand),BrandId:ni(row.BrandId),Category:s(row.Category),CategoryId:ni(row.CategoryId),Department:s(row.Department),DepartmentId:ni(row.DepartmentId),Supplier:s(row.Supplier),SupplierId:ni(row.SupplierId),UOM:s(row.UOM),UOMId:ni(row.UOMId),LocationMaster:s(row.LocationMaster),LocationMasterId:ni(row.LocationMasterId),NomsQty:ni(row.NomsQty),MRP:n(row.MRP),DMPer:n(row.DMPer),DMAmt:n(row.DMAmt),PurchaseRate:n(row.PurchaseRate),GST:n(row.GST),GSTAmt:n(row.GSTAmt),TransPer:n(row.TransPer),TransAmt:n(row.TransAmt),CESS:n(row.CESS),CESSAmt:n(row.CESSAmt),SPLCESS:n(row.SPLCESS),LandingCost:n(row.LandingCost),ProfitPer:n(row.ProfitPer),ProfitAmt:n(row.ProfitAmt),SalesRate:n(row.SalesRate),CardRate:n(row.CardRate),WholeSaleRate:n(row.WholeSaleRate),NomsPCRate:n(row.NomsPCRate),SalesRateType:b(row.SalesRateType),SaleDiscountPer:n(row.SaleDiscountPer),SaleDiscountAmt:n(row.SaleDiscountAmt),ReorderLevelMin:n(row.ReorderLevelMin),ReorderLevelMax:n(row.ReorderLevelMax),MaxSaleQty:n(row.MaxSaleQty),LessAmt:n(row.LessAmt),StockNeed:bi(row.StockNeed),ExpriyDate:bi(row.ExpriyDate),OnlineShow:bi(row.OnlineShow),BrandType:bi(row.BrandType),ModelType:bi(row.ModelType),ColorType:bi(row.ColorType),SizeType:bi(row.SizeType),SerialNoType:bi(row.SerialNoType),BatchwiseStock:bi(row.BatchwiseStock),Active:bi(row.Active),NegativetStock:b(row.NegativetStock),Repacking:b(row.Repacking),ExpriyDays:ni(row.ExpriyDays),ExpiryBeforeDays:ni(row.ExpiryBeforeDays),NetWeight:n(row.NetWeight),CRMPoints:n(row.CRMPoints),Remarks:s(row.Remarks),ProductImage:s(row.ProductImage) };
-  }, []);
+    return { Id:ni(row.Id),ProductCode:s(row.ProductCode).trim(),SecondCode:s(row.SecondCode),ProductName:s(row.ProductName).trim(),PrinterName:s(row.PrinterName),HSNCode:s(row.HSNCode),Brand:s(row.Brand),BrandId:ni(row.BrandId),Category:s(row.Category),CategoryId:ni(row.CategoryId),Department:s(row.Department),DepartmentId:ni(row.DepartmentId),Supplier:s(row.Supplier),SupplierId:ni(row.SupplierId),UOM:s(row.UOM),UOMId:ni(row.UOMId),LocationMaster:s(row.LocationMaster),LocationMasterId:ni(row.LocationMasterId),NomsQty:ni(row.NomsQty),MRP:n(row.MRP),DMPer:n(row.DMPer),DMAmt:n(row.DMAmt),PurchaseRate:n(row.PurchaseRate),GST:n(row.GST),GSTAmt:n(row.GSTAmt),TransPer:n(row.TransPer),TransAmt:n(row.TransAmt),CESS:n(row.CESS),CESSAmt:n(row.CESSAmt),SPLCESS:n(row.SPLCESS),LandingCost:n(row.LandingCost),ProfitPer:n(row.ProfitPer),ProfitAmt:n(row.ProfitAmt),SalesRate:n(row.SalesRate),CardRate:n(row.CardRate),WholeSaleRate:n(row.WholeSaleRate),NomsPCRate:n(row.NomsPCRate),SalesRateType:b(row.SalesRateType),SaleDiscountPer:n(row.SaleDiscountPer),SaleDiscountAmt:n(row.SaleDiscountAmt),ReorderLevelMin:n(row.ReorderLevelMin),ReorderLevelMax:n(row.ReorderLevelMax),MaxSaleQty:n(row.MaxSaleQty),LessAmt:n(row.LessAmt),StockNeed:bi(row.StockNeed),ExpriyDate:bi(row.ExpriyDate),OnlineShow:bi(row.OnlineShow),BrandType:bi(row.BrandType),ModelType:bi(row.ModelType),ColorType:bi(row.ColorType),SizeType:bi(row.SizeType),SerialNoType:bi(row.SerialNoType),BatchwiseStock:bi(row.BatchwiseStock),Active:bi(row.Active),NegativetStock:b(row.NegativetStock),Repacking:sess.CMBTPatty?ni(row.Repacking):b(row.Repacking),ExpriyDays:ni(row.ExpriyDays),ExpiryBeforeDays:ni(row.ExpiryBeforeDays),NetWeight:n(row.NetWeight),CRMPoints:n(row.CRMPoints),Remarks:s(row.Remarks),ProductImage:s(row.ProductImage) };
+  }, [sess.CMBTPatty]);
 
   const doDeleteRow = useCallback(async rid => {
     const row=rows.find(r=>r._rid===rid); if(!row)return;
@@ -1597,7 +1617,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
 
       if(!draftRestored){
         await loadItems("","",true);
-        if(sess.Productcodeautogen){const r=await autoGenCode(mkEmpty());setEntryRow(r);}
+        if(sess.Productcodeautogen){const r=await autoGenCode(mkEmpty(sess));setEntryRow(r);}
       }
      else {
   await loadItems("", "", true); // ← இதை add பண்ணு (always load)
@@ -1666,7 +1686,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
 
   // ── renderCell ────────────────────────────────────────────────────────────
   const renderCell = useCallback((row, col, rowIdx) => {
-    const cd=COLUMNS.find(c=>c.key===col.key); if(!cd) return null;
+    const cd=getPattyColumn(COLUMNS.find(c=>c.key===col.key), sess); if(!cd) return null;
     const rid=row._rid, val=row[cd.key];
     const colIdx=editableKeys.indexOf(cd.key);
     const onFocus = () => {
@@ -1734,7 +1754,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
     );
 
     if(cd.type==="int") return (
-      <input ref={regRowRef} type="text" inputMode="numeric" step="1"
+      <input ref={regRowRef} type="number" inputMode="numeric" step="1"
         value={editMode === 0 ? (val||"0") : (val===""||val===undefined?"":val)}
         className="mp-cell-input"
         style={cellInputStyle(editMode)}
@@ -1778,10 +1798,10 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
         placeholder={editMode === 1 ? cd.label : ""}
       />
     );
-  }, [handleCellChange,handleCellKeyDown,regRef,openCombo,editableKeys,cellInputStyle,fmtDisplay]);
+  }, [handleCellChange,handleCellKeyDown,regRef,openCombo,editableKeys,cellInputStyle,fmtDisplay, sess]);
 
   const renderEntryCell = useCallback(col => {
-    const cd=COLUMNS.find(c=>c.key===col.key); if(!cd) return null;
+    const cd=getPattyColumn(COLUMNS.find(c=>c.key===col.key), sess); if(!cd) return null;
     const val=entryRow[cd.key];
     const reg=el=>{if(entryRefs.current) entryRefs.current[cd.key]=el;};
 
@@ -1816,7 +1836,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
     );
 
     if(cd.type==="int") return (
-      <input ref={reg} type="text" inputMode="numeric" step="1"
+      <input ref={reg} type="number" inputMode="numeric" step="1"
         value={entryRow[cd.key]??""} className="mp-cell-input entry"
         onChange={e=>handleEntryChange(cd.key,e.target.value)}
         onKeyDown={e=>handleEntryKeyDown(e,cd.key)} placeholder="0" />
@@ -2013,7 +2033,7 @@ if (!isAuthorized) return null;
     </th>
     <th style={{width:EDIT_W, position:"sticky", top:0, zIndex:5}}></th>
     {visCols.map(c => {
-      const cd = COLUMNS.find(x => x.key === c.key);
+      const cd = getPattyColumn(COLUMNS.find(x => x.key === c.key), sess);
       return (
         <th key={c.key} style={{
           width:c.width, minWidth:c.width,
@@ -2094,7 +2114,7 @@ if (!isAuthorized) return null;
                         {visCols.map(col => (
                           <td
                             key={col.key}
-                            style={{ textAlign: COLUMNS.find(x=>x.key===col.key)?.bool ? "center" : undefined }}
+                            style={{ textAlign: getPattyColumn(COLUMNS.find(x=>x.key===col.key), sess)?.bool ? "center" : undefined }}
                             onClick={e => {
                               e.stopPropagation();
                               selectRow(row._rid);
@@ -2128,7 +2148,7 @@ if (!isAuthorized) return null;
                   <td className="mp-entry-sno">★ New</td>
                   <td></td>
                   {visCols.map(col=>(
-                    <td key={col.key} style={{ textAlign: COLUMNS.find(x=>x.key===col.key)?.bool ? "center" : undefined }}>
+                    <td key={col.key} style={{ textAlign: getPattyColumn(COLUMNS.find(x=>x.key===col.key), sess)?.bool ? "center" : undefined }}>
                       {renderEntryCell(col)}
                     </td>
                   ))}

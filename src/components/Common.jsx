@@ -396,6 +396,8 @@ export const buildSession = (pageName) => {
       CommoncompanyDiffStock:       String(main0.CommonCompanyDiffStock      ?? false),
       SupplierMulitipleAllow:       String(main0.SupplierMulitipleAllow      ?? false),
       MulipleMRP:                   String(com0.MultiMRP                 ?? false),
+      CMBTPatty:                      String(main0.CMBTPatty                  ?? false),
+      MultipleUOMBilling       : String(main0.MultipleUOMBilling          ?? false),
       BatchPerfix:                  String(main0.BatchPerfix                ?? ""),
       BatchDigit:                   String(main0.BatchNoDigit               ?? 0),
       LocalDB:                      String(main0.LocalDB                    ?? 0),

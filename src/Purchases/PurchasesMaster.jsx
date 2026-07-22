@@ -693,7 +693,14 @@ const [pattyFeatureEnabled, setPattyFeatureEnabled] = useState(true);
   //  ROW CALCULATION
   // ─────────────────────────────────────────────────────────────────────────
   const calcRow = useCallback((row) => {
-    const qty        = valNum(row.ItemQty) + valNum(row.NomQty);
+     const qty        = valNum(row.ItemQty) ;
+    if(sess.MultipleUOMBilling==true){
+    if(row.ItemQty==0){
+         const qty        = valNum(row.NomQty) ;
+    }
+
+    }
+   
     const nomqty     = valNum(row.NomQty) === 0 ? 1 : valNum(row.NomQty);
     const purRate    = valNum(row.PurchaseRate);
 
