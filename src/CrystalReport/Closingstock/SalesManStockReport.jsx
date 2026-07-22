@@ -30,7 +30,7 @@
 //      exactly as in the legacy validation block.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
@@ -327,37 +327,136 @@ export default function SalesManStockReport() {
     setMsg(null);
   }, []);
 
-  // ── Re-usable SalesMan <select>, same pattern as ItemwiseStockDetails.jsx's
-  //    ProductSelect but driven off the already-fetched salesManList ───────
-  const SalesManSelect = () => (
-    <div className="so-field">
-      <label className="so-label" htmlFor="sm-salesman">SalesMan</label>
-      <select
-        id="sm-salesman"
-        className="so-input"
-        value={salesManSel?.value ?? ""}
-        disabled={salesManLoading}
-        onChange={(e) => {
-          const selectedVal = e.target.value;
-          if (selectedVal === "") {
-            setSalesManSel(null);
-            return;
-          }
-          const opt = salesManList.find((o) => String(o.Id) === selectedVal);
-          if (opt) {
-            setSalesManSel({ value: String(opt.Id), label: opt.Name ?? opt.SalesManName ?? "" });
-          }
-        }}
-      >
-        <option value="">{salesManLoading ? "Loading..." : "Select SalesMan"}</option>
-        {salesManList.map((o) => (
-          <option key={o.Id} value={o.Id}>
-            {o.Name ?? o.SalesManName}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+  // ── Re-usable SalesMan combo, driven off the already-fetched salesManList —
+  //    now a searchable dropdown instead of a plain <select> so users can
+  //    instant-filter by name, while keeping the exact same salesManSel
+  //    {value, label} contract used by handleView/handleRefresh. ──
+  const SalesManSelect = () => {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const wrapRef = useRef(null);
+    const searchRef = useRef(null);
+
+    useEffect(() => {
+      const handleClickOutside = (e) => {
+        if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+          setOpen(false);
+          setSearch("");
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+      if (open && searchRef.current) searchRef.current.focus();
+    }, [open]);
+
+    const filteredList = useMemo(() => {
+      const q = search.trim().toLowerCase();
+      if (!q) return salesManList;
+      return salesManList.filter((o) =>
+        String(o.Name ?? o.SalesManName ?? "").toLowerCase().includes(q)
+      );
+    }, [salesManList, search]);
+
+    const handleSelect = (opt) => {
+      setSalesManSel({ value: String(opt.Id), label: opt.Name ?? opt.SalesManName ?? "" });
+      setOpen(false);
+      setSearch("");
+    };
+
+    const handleClear = (e) => {
+      e.stopPropagation();
+      setSalesManSel(null);
+    };
+
+    const handleToggle = () => {
+      if (salesManLoading) return;
+      setOpen((o) => !o);
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleToggle();
+      } else if (e.key === "Escape") {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+
+    return (
+      <div className="so-field">
+        <label className="so-label" htmlFor="sm-salesman">SalesMan</label>
+        <div className="so-select-wrap" ref={wrapRef}>
+          <div
+            id="sm-salesman"
+            className={`so-input so-select-trigger${open ? " open" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            onClick={handleToggle}
+            onKeyDown={handleKeyDown}
+          >
+            <span className={`so-select-value${!salesManSel ? " placeholder" : ""}`}>
+              {salesManLoading ? "Loading..." : salesManSel ? salesManSel.label : "Select SalesMan"}
+            </span>
+            {salesManSel && !salesManLoading && (
+              <span
+                className="so-select-clear"
+                role="button"
+                tabIndex={0}
+                aria-label="Clear selection"
+                onClick={handleClear}
+                onKeyDown={(e) => e.key === "Enter" && handleClear(e)}
+              >
+                ×
+              </span>
+            )}
+            <span className="so-select-caret" aria-hidden="true">▾</span>
+          </div>
+
+          {open && !salesManLoading && (
+            <div className="so-select-popup" role="listbox">
+              <input
+                ref={searchRef}
+                type="text"
+                className="so-select-search"
+                placeholder="Type to search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setOpen(false);
+                    setSearch("");
+                  }
+                }}
+              />
+              <div className="so-select-list">
+                {filteredList.length === 0 && (
+                  <div className="so-select-empty">No matches found</div>
+                )}
+                {filteredList.map((o) => (
+                  <div
+                    key={o.Id}
+                    role="option"
+                    aria-selected={salesManSel?.value === String(o.Id)}
+                    className={`so-select-option${salesManSel?.value === String(o.Id) ? " selected" : ""}`}
+                    onClick={() => handleSelect(o)}
+                  >
+                    {o.Name ?? o.SalesManName}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // ── Design system: recolored/restructured to match BranchWise.jsx exactly ──
   //   Border / header / heading -> blue (#1a56db)
@@ -402,6 +501,24 @@ export default function SalesManStockReport() {
     .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     .so-input:disabled { background: #f5f6f8; color: #a0aab5; cursor: not-allowed; }
     select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-select-wrap { position: relative; width: 100%; }
+    .so-select-trigger { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .so-select-trigger.open { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .so-select-value { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .so-select-value.placeholder { color: #8a94a6; }
+    .so-select-clear { flex-shrink: 0; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #8a94a6; font-size: 14px; line-height: 1; cursor: pointer; transition: background .15s, color .15s; }
+    .so-select-clear:hover { background: #eef1f5; color: #dc3545; }
+    .so-select-caret { flex-shrink: 0; font-size: 10px; color: #8a94a6; }
+
+    .so-select-popup { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(30,45,61,.14); overflow: hidden; }
+    .so-select-search { width: 100%; height: 32px; border: none; border-bottom: 1px solid #e8ecf0; padding: 0 10px; font-size: 13px; color: #1e2d3d; outline: none; box-sizing: border-box; }
+    .so-select-search:focus { background: #f7f9fc; }
+    .so-select-list { max-height: 220px; overflow-y: auto; }
+    .so-select-option { padding: 8px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; transition: background .12s; }
+    .so-select-option:hover { background: #eef3ff; }
+    .so-select-option.selected { background: #eef3ff; color: #1a56db; font-weight: 600; }
+    .so-select-empty { padding: 10px 12px; font-size: 12.5px; color: #8a94a6; text-align: center; }
 
     .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
     .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }

@@ -5,9 +5,9 @@
 //  Styling: MasterPage.css only — no inline color values, no new theme colors.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common"
 import Topbar from "../../components/Topbar";
 
@@ -268,6 +268,111 @@ export default function CashVoucherReport() {
     []
   );
 
+  // Same fallback field lookups used by the original <option> rendering,
+  // factored out so the searchable list can filter/display consistently.
+  const getAccountValue = (opt) => opt.AccountName ?? opt.value ?? opt.Value ?? "";
+  const getAccountLabel = (opt) => opt.AccountName ?? opt.label ?? opt.Label ?? opt.text ?? opt.Text ?? "";
+
+  // Account Name combo (Customer + Supplier + Bank merged list) — now a
+  // searchable popup instead of a plain <select>, since this list can be
+  // long. Keeps the same contract as before: `value` is the plain account
+  // name string, `onChange` receives that string directly.
+  const AccountSelect = ({ options, value, onChange, placeholder }) => {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const boxRef = useRef(null);
+    const searchRef = useRef(null);
+
+    useEffect(() => {
+      if (!open) return;
+      const handleClickOutside = (e) => {
+        if (boxRef.current && !boxRef.current.contains(e.target)) {
+          setOpen(false);
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [open]);
+
+    useEffect(() => {
+      if (open) {
+        setSearch("");
+        setTimeout(() => searchRef.current?.focus(), 0);
+      }
+    }, [open]);
+
+    const filteredOptions = useMemo(() => {
+      const q = search.trim().toLowerCase();
+      if (!q) return options;
+      return options.filter((o) => getAccountLabel(o).toLowerCase().includes(q));
+    }, [options, search]);
+
+    const currentLabel = useMemo(() => {
+      if (!value) return "";
+      const match = options.find((o) => getAccountValue(o) === value);
+      return match ? getAccountLabel(match) : value;
+    }, [options, value]);
+
+    const handlePick = (opt) => {
+      onChange(opt ? getAccountValue(opt) : "");
+      setOpen(false);
+    };
+
+    return (
+      <div className="so-combo" ref={boxRef}>
+        <button
+          type="button"
+          className="so-input so-combo-toggle"
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className={`so-combo-value${currentLabel ? "" : " ph"}`}>
+            {currentLabel || placeholder}
+          </span>
+          <span className="so-combo-caret" aria-hidden="true">▾</span>
+        </button>
+
+        {open && (
+          <div className="so-combo-panel">
+            <input
+              ref={searchRef}
+              type="text"
+              className="so-combo-search"
+              placeholder="Type to search…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setOpen(false);
+                if (e.key === "Enter" && filteredOptions.length === 1) handlePick(filteredOptions[0]);
+              }}
+            />
+            <ul className="so-combo-list" role="listbox">
+              <li
+                className={`so-combo-option so-combo-clear${!value ? " active" : ""}`}
+                onClick={() => handlePick(null)}
+              >
+                {placeholder}
+              </li>
+              {filteredOptions.length === 0 && (
+                <li className="so-combo-empty">No matches found</li>
+              )}
+              {filteredOptions.map((o, idx) => (
+                <li
+                  key={getAccountValue(o) || idx}
+                  className={`so-combo-option${value === getAccountValue(o) ? " active" : ""}`}
+                  onClick={() => handlePick(o)}
+                  role="option"
+                  aria-selected={value === getAccountValue(o)}
+                >
+                  {getAccountLabel(o)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const styles = `
     .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
     .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
@@ -279,6 +384,8 @@ export default function CashVoucherReport() {
     .so-card { width: 100%; max-width: 820px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
     .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
     .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-card-close-btn { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; border: none; background: rgba(255,255,255,.16); color: #fff; cursor: pointer; padding: 0; transition: background .15s; }
+    .so-card-close-btn:hover { background: rgba(255,255,255,.3); }
     .so-card-body { padding: 24px 32px 30px; }
     .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
 
@@ -305,6 +412,22 @@ export default function CashVoucherReport() {
     .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
     .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-combo { position: relative; }
+    .so-combo-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; }
+    .so-combo-toggle:disabled { cursor: not-allowed; opacity: .65; }
+    .so-combo-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1e2d3d; }
+    .so-combo-value.ph { color: #8492a6; }
+    .so-combo-caret { flex-shrink: 0; font-size: 10px; color: #8492a6; }
+    .so-combo-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; background: #fff; border: 1px solid #1a56db; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.18); overflow: hidden; }
+    .so-combo-search { width: 100%; height: 32px; border: none; border-bottom: 1px solid #e8ecf0; padding: 0 10px; font-size: 13px; color: #1e2d3d; box-sizing: border-box; outline: none; background: #f8fafc; }
+    .so-combo-search:focus { background: #eef3ff; }
+    .so-combo-list { list-style: none; margin: 0; padding: 4px 0; max-height: 220px; overflow-y: auto; }
+    .so-combo-option { padding: 7px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .so-combo-option:hover { background: #eef3ff; }
+    .so-combo-option.active { background: #e3ecff; color: #1a4fd1; font-weight: 600; }
+    .so-combo-option.so-combo-clear { color: #8492a6; font-style: italic; border-bottom: 1px solid #e8ecf0; margin-bottom: 2px; }
+    .so-combo-empty { padding: 10px 12px; font-size: 12.5px; color: #8492a6; text-align: center; }
 
     .so-toggle-row { display: flex; align-items: center; gap: 10px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #1e293b; font-weight: 500; user-select: none; transition: border-color .15s; }
     .so-toggle-row:hover { border-color: #1a56db; }
@@ -361,6 +484,14 @@ export default function CashVoucherReport() {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">Cash Voucher Report</div>
+              <button
+                type="button"
+                className="so-card-close-btn"
+                onClick={() => navigate(-1)}
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
             </div>
 
             <div className="so-card-body">
@@ -395,22 +526,12 @@ export default function CashVoucherReport() {
 
             <div className="so-form-grid">
               <label className="so-label" htmlFor="cv-account">Account Name</label>
-              <select
-                id="cv-account"
-                className="so-input"
+              <AccountSelect
+                options={accountOptions}
                 value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-              >
-                <option value="">-- All --</option>
-                {accountOptions.map((opt) => (
-                  <option
-                    key={opt.Id ?? opt.value ?? opt.Value}
-                    value={opt.AccountName ?? opt.value ?? opt.Value ?? ""}
-                  >
-                    {opt.AccountName ?? opt.label ?? opt.Label ?? opt.text ?? opt.Text ?? ""}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setAccountName(v || "")}
+                placeholder="-- All --"
+              />
 
               <label className="so-label" htmlFor="cv-from-date">From Date</label>
               <input id="cv-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />

@@ -773,7 +773,7 @@ setLoading(true);
         }
         if (editPwdOpen) { setEditPwdOpen(false); return; }
         if (f5Open)      { setF5Open(false);      return; }
-        confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/Home"); });
+        confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); });
         return;
       }
     };
@@ -809,7 +809,7 @@ setLoading(true);
               type="button"
               className="bm-close-x"
               aria-label="Close"
-              onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/Home"); })}
+              onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); })}
             >
               ✕
             </button>
@@ -861,7 +861,7 @@ setLoading(true);
 
       {/* ── GRID ──────────────────────────────────────────────────────────────── */}
       <div className="bm-grid-wrap">
-          <table className="bm-tbl pur-grid">
+          <table className="bm-tbl">
             <thead>
               <tr>
                 <th className="sno-col" style={{ width: 50 }}>S.No</th>
@@ -970,7 +970,7 @@ setLoading(true);
               </button>
               <button
                 className="bm-btn bm-btn-secondary"
-                onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/Home"); })}
+                onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); })}
                 disabled={loading}
               >
                 <XCircle size={16} />

@@ -42,6 +42,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
@@ -171,7 +172,7 @@ export default function SupplierBalance() {
       if (e.keyCode === 27) {
         e.preventDefault();
         if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
+          navigate("/dashboard");
         }
       }
     };
@@ -305,15 +306,22 @@ export default function SupplierBalance() {
   }, [groupMode, supplierSel, salesManSel, fromDate, orderBy, session, openReportViewer]);
 
   // ── Reusable combo component (same pattern as other converted pages) ───
-  // Same external contract as before: value={value}/onChange({value,label}) —
-  // only the picker UI changed, from a native <select> to a searchable
-  // popup, so every consumer (Supplier, Salesman) gets instant-filter for free.
+  // Ported from SupplierAgingReport.jsx: the popup now renders through a
+  // portal into document.body, positioned with fixed coordinates computed
+  // from the trigger button's bounding rect, instead of being absolutely
+  // positioned inside the (possibly clipped/narrow) so-combo-slot. Same
+  // external contract as before: value={value}/onChange({value,label}) —
+  // only the picker UI changed, so every consumer (Supplier, Salesman)
+  // keeps working exactly as before.
   const ApiSelect = ({ url, payload, headers = {}, labelKey, valueKey, value, onChange, placeholder }) => {
     const [list, setList] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
+    const [popRect, setPopRect] = useState(null); // { top, left, width } for portal placement
     const wrapRef = useRef(null);
+    const btnRef = useRef(null);
+    const popRef = useRef(null);
     const searchRef = useRef(null);
 
     useEffect(() => {
@@ -342,17 +350,44 @@ export default function SupplierBalance() {
       };
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
-    // Close popup on outside click.
+    // Compute/refresh the popup's fixed-position coordinates from the button.
+    const updatePopRect = useCallback(() => {
+      if (!btnRef.current) return;
+      const r = btnRef.current.getBoundingClientRect();
+      setPopRect({ top: r.bottom + 6, left: r.left, width: r.width });
+    }, []);
+
+    // Close the popup on outside click — checks both the trigger wrap AND
+    // the portal popup itself, since the popup no longer lives inside
+    // wrapRef in the DOM tree.
     useEffect(() => {
+      if (!open) return;
       const handleClickOutside = (e) => {
-        if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        const insideTrigger = wrapRef.current && wrapRef.current.contains(e.target);
+        const insidePopup = popRef.current && popRef.current.contains(e.target);
+        if (!insideTrigger && !insidePopup) {
           setOpen(false);
           setSearch("");
         }
       };
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+    }, [open]);
+
+    // Keep the popup glued to the button on scroll/resize while open, and
+    // close it if the trigger scrolls out of the viewport entirely (avoids
+    // an orphaned popup floating over unrelated page content).
+    useEffect(() => {
+      if (!open) return;
+      updatePopRect();
+      const handleReposition = () => updatePopRect();
+      window.addEventListener("scroll", handleReposition, true);
+      window.addEventListener("resize", handleReposition);
+      return () => {
+        window.removeEventListener("scroll", handleReposition, true);
+        window.removeEventListener("resize", handleReposition);
+      };
+    }, [open, updatePopRect]);
 
     // Focus the search box the moment the popup opens.
     useEffect(() => {
@@ -364,6 +399,12 @@ export default function SupplierBalance() {
       if (!q) return list;
       return list.filter((o) => String(o[labelKey] ?? "").toLowerCase().includes(q));
     }, [list, search, labelKey]);
+
+    const handleToggle = () => {
+      if (loadingList) return;
+      if (!open) updatePopRect();
+      setOpen((o) => !o);
+    };
 
     const selectOption = (opt) => {
       onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
@@ -377,15 +418,61 @@ export default function SupplierBalance() {
       setSearch("");
     };
 
+    const popup =
+      open && !loadingList && popRect ? (
+        <div
+          ref={popRef}
+          className="so-select-pop so-select-pop-portal"
+          style={{ top: popRect.top, left: popRect.left, width: popRect.width }}
+        >
+          <div className="so-select-search-wrap">
+            <input
+              ref={searchRef}
+              type="text"
+              className="so-select-search"
+              placeholder="Type to search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setOpen(false);
+                  setSearch("");
+                } else if (e.key === "Enter" && filteredList.length === 1) {
+                  selectOption(filteredList[0]);
+                }
+              }}
+            />
+          </div>
+          <div className="so-select-list">
+            {filteredList.length === 0 ? (
+              <div className="so-select-empty">No matches found</div>
+            ) : (
+              filteredList.map((o) => (
+                <div
+                  key={o[valueKey]}
+                  className={`so-select-opt${
+                    String(value?.value ?? "") === String(o[valueKey]) ? " is-selected" : ""
+                  }`}
+                  onClick={() => selectOption(o)}
+                >
+                  {o[labelKey]}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null;
+
     return (
       <div className="so-select-wrap" ref={wrapRef}>
         <button
           type="button"
+          ref={btnRef}
           className="so-input so-select-btn"
           disabled={loadingList}
-          onClick={() => setOpen((o) => !o)}
+          onClick={handleToggle}
         >
-          <span className={`so-select-btn-text${value ? "" : " so-select-placeholder"}`}>
+          <span className={`so-select-btn-text${value ? "" : " is-placeholder"}`}>
             {loadingList ? "Loading..." : value ? value.label : placeholder}
           </span>
           {value && !loadingList && (
@@ -394,34 +481,7 @@ export default function SupplierBalance() {
           <span className="so-select-caret" aria-hidden="true">▾</span>
         </button>
 
-        {open && !loadingList && (
-          <div className="so-select-popup">
-            <input
-              ref={searchRef}
-              type="text"
-              className="so-select-search"
-              placeholder="Type to search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <div className="so-select-options">
-              {filteredList.length === 0 ? (
-                <div className="so-select-empty">No matches found</div>
-              ) : (
-                filteredList.map((o) => (
-                  <div
-                    key={o[valueKey]}
-                    className={`so-select-option${value?.value === String(o[valueKey]) ? " active" : ""}`}
-                    onClick={() => selectOption(o)}
-                  >
-                    {o[labelKey]}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
+        {popup && createPortal(popup, document.body)}
       </div>
     );
   };
@@ -466,21 +526,31 @@ export default function SupplierBalance() {
     select.so-input { appearance: auto; cursor: pointer; }
 
     .so-select-wrap { position: relative; }
-    .so-select-btn { display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; }
+    .so-select-btn { display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; font-family: inherit; }
     .so-select-btn:disabled { cursor: not-allowed; opacity: .7; }
     .so-select-btn-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .so-select-placeholder { color: #8492a6; }
+    .so-select-btn-text.is-placeholder { color: #8492a6; }
     .so-select-caret { font-size: 11px; color: #8492a6; flex-shrink: 0; }
     .so-select-clear { font-size: 11px; color: #8492a6; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; line-height: 1; }
     .so-select-clear:hover { color: #dc3545; background: #fff0f0; }
 
-    .so-select-popup { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(20,30,50,.16); overflow: hidden; }
-    .so-select-search { width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; border: none; border-bottom: 1px solid #e8ecf0; font-size: 13px; color: #1e2d3d; outline: none; }
-    .so-select-search:focus { border-bottom-color: #1a56db; }
-    .so-select-options { max-height: 220px; overflow-y: auto; }
-    .so-select-option { padding: 9px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; }
-    .so-select-option:hover { background: #eef3ff; }
-    .so-select-option.active { background: #e3ecff; font-weight: 600; color: #1a56db; }
+    /* Base popup look. Positioning differs for the portal variant below. */
+    .so-select-pop { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; background: #fff; border: 1px solid #c7cdd6; border-radius: 8px; box-shadow: 0 8px 24px rgba(20,30,50,.16); overflow: hidden; }
+
+    /* Portal variant: rendered into document.body, so it's positioned with
+       fixed viewport coordinates (set inline via popRect) instead of being
+       anchored relative to a parent. This is what lets the full result list
+       float above the card instead of being clipped/squeezed inside it. */
+    .so-select-pop-portal { position: fixed; right: auto; z-index: 3000; max-height: min(320px, calc(100vh - 24px)); display: flex; flex-direction: column; }
+
+    .so-select-search-wrap { padding: 8px; border-bottom: 1px solid #e8ecf0; flex-shrink: 0; }
+    .so-select-search { width: 100%; box-sizing: border-box; height: 32px; padding: 0 10px; border: 1px solid #c7cdd6; border-radius: 4px; font-size: 13px; color: #1e2d3d; outline: none; transition: border-color .15s, box-shadow .15s; }
+    .so-select-search:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .so-select-list { max-height: 220px; overflow-y: auto; }
+    .so-select-pop-portal .so-select-list { max-height: none; overflow-y: auto; flex: 1; }
+    .so-select-opt { padding: 9px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; transition: background .12s; }
+    .so-select-opt:hover { background: #eef3ff; }
+    .so-select-opt.is-selected { background: #e3ecff; font-weight: 600; color: #1a56db; }
     .so-select-empty { padding: 12px; font-size: 13px; color: #8492a6; text-align: center; }
 
     .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }

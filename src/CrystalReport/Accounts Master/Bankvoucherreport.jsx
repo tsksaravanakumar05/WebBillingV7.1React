@@ -5,9 +5,9 @@
 //  Styling: MasterPage.css only — no inline color values, no new theme colors.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common"
 import Topbar from "../../components/Topbar";
 
@@ -255,6 +255,130 @@ export default function BankVoucherReport() {
     []
   );
 
+  // ── Reusable searchable dropdown — drop-in replacement for a plain
+  // <select> that filters its (already-loaded) options list instantly as
+  // the user types. Contract: value is {value, label}, onChange fires
+  // {value, label} or {value:"", label:""} on clear, matching the existing
+  // accountName/bankName state shape exactly. ──
+  const SearchableSelect = ({ id, options, value, onChange, placeholder = "-- Select --" }) => {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const wrapRef = useRef(null);
+    const searchRef = useRef(null);
+
+    useEffect(() => {
+      const handleClickOutside = (e) => {
+        if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+          setOpen(false);
+          setSearch("");
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+      if (open && searchRef.current) searchRef.current.focus();
+    }, [open]);
+
+    const filteredOptions = useMemo(() => {
+      const q = search.trim().toLowerCase();
+      if (!q) return options;
+      return options.filter((o) => String(o.label ?? "").toLowerCase().includes(q));
+    }, [options, search]);
+
+    const handleSelect = (opt) => {
+      onChange({ value: opt.value, label: opt.label });
+      setOpen(false);
+      setSearch("");
+    };
+
+    const handleClear = (e) => {
+      e.stopPropagation();
+      onChange({ value: "", label: "" });
+    };
+
+    const handleToggle = () => setOpen((o) => !o);
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleToggle();
+      } else if (e.key === "Escape") {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+
+    return (
+      <div className="so-select-wrap" ref={wrapRef}>
+        <div
+          id={id}
+          className={`so-input so-select-trigger${open ? " open" : ""}`}
+          role="button"
+          tabIndex={0}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={handleToggle}
+          onKeyDown={handleKeyDown}
+        >
+          <span className={`so-select-value${!value?.value ? " placeholder" : ""}`}>
+            {value?.value ? value.label : placeholder}
+          </span>
+          {value?.value && (
+            <span
+              className="so-select-clear"
+              role="button"
+              tabIndex={0}
+              aria-label="Clear selection"
+              onClick={handleClear}
+              onKeyDown={(e) => e.key === "Enter" && handleClear(e)}
+            >
+              ×
+            </span>
+          )}
+          <span className="so-select-caret" aria-hidden="true">▾</span>
+        </div>
+
+        {open && (
+          <div className="so-select-popup" role="listbox">
+            <input
+              ref={searchRef}
+              type="text"
+              className="so-select-search"
+              placeholder="Type to search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setOpen(false);
+                  setSearch("");
+                }
+              }}
+            />
+            <div className="so-select-list">
+              {filteredOptions.length === 0 && (
+                <div className="so-select-empty">No matches found</div>
+              )}
+              {filteredOptions.map((o) => (
+                <div
+                  key={o.value}
+                  role="option"
+                  aria-selected={value?.value === o.value}
+                  className={`so-select-option${value?.value === o.value ? " selected" : ""}`}
+                  onClick={() => handleSelect(o)}
+                >
+                  {o.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const styles = `
     .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
     .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
@@ -266,6 +390,8 @@ export default function BankVoucherReport() {
     .so-card { width: 100%; max-width: 820px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
     .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
     .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .so-card-close-btn { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; border: none; background: rgba(255,255,255,.16); color: #fff; cursor: pointer; padding: 0; transition: background .15s; }
+    .so-card-close-btn:hover { background: rgba(255,255,255,.3); }
     .so-card-body { padding: 24px 32px 30px; }
     .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
 
@@ -292,6 +418,24 @@ export default function BankVoucherReport() {
     .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
     .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.so-input { appearance: auto; cursor: pointer; }
+
+    .so-select-wrap { position: relative; }
+    .so-select-trigger { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .so-select-trigger.open { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .so-select-value { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .so-select-value.placeholder { color: #8a94a6; }
+    .so-select-clear { flex-shrink: 0; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #8a94a6; font-size: 14px; line-height: 1; cursor: pointer; transition: background .15s, color .15s; }
+    .so-select-clear:hover { background: #eef1f5; color: #dc3545; }
+    .so-select-caret { flex-shrink: 0; font-size: 10px; color: #8a94a6; }
+
+    .so-select-popup { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(30,45,61,.14); overflow: hidden; }
+    .so-select-search { width: 100%; height: 32px; border: none; border-bottom: 1px solid #e8ecf0; padding: 0 10px; font-size: 13px; color: #1e2d3d; outline: none; box-sizing: border-box; }
+    .so-select-search:focus { background: #f7f9fc; }
+    .so-select-list { max-height: 220px; overflow-y: auto; }
+    .so-select-option { padding: 8px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; transition: background .12s; }
+    .so-select-option:hover { background: #eef3ff; }
+    .so-select-option.selected { background: #eef3ff; color: #1a56db; font-weight: 600; }
+    .so-select-empty { padding: 10px 12px; font-size: 12.5px; color: #8a94a6; text-align: center; }
 
     .so-toggle-row { display: flex; align-items: center; gap: 10px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #1e293b; font-weight: 500; user-select: none; transition: border-color .15s; }
     .so-toggle-row:hover { border-color: #1a56db; }
@@ -348,6 +492,14 @@ export default function BankVoucherReport() {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">Bank Voucher Report</div>
+              <button
+                type="button"
+                className="so-card-close-btn"
+                onClick={() => navigate(-1)}
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
             </div>
 
             <div className="so-card-body">
@@ -388,36 +540,22 @@ export default function BankVoucherReport() {
               <input id="bv-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
 
               <label className="so-label" htmlFor="bv-account">Account Name</label>
-              <select
+              <SearchableSelect
                 id="bv-account"
-                className="so-input"
-                value={accountName.value}
-                onChange={(e) => {
-                  const opt = accountOptions.find((o) => String(o.value) === e.target.value);
-                  setAccountName(opt ? { value: opt.value, label: opt.label } : { value: "", label: "" });
-                }}
-              >
-                <option value="">-- Select --</option>
-                {accountOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+                options={accountOptions}
+                value={accountName}
+                onChange={setAccountName}
+                placeholder="-- Select --"
+              />
 
               <label className="so-label" htmlFor="bv-bank">Bank</label>
-              <select
+              <SearchableSelect
                 id="bv-bank"
-                className="so-input"
-                value={bankName.value}
-                onChange={(e) => {
-                  const opt = bankOptions.find((o) => String(o.value) === e.target.value);
-                  setBankName(opt ? { value: opt.value, label: opt.label } : { value: "", label: "" });
-                }}
-              >
-                <option value="">-- Select --</option>
-                {bankOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+                options={bankOptions}
+                value={bankName}
+                onChange={setBankName}
+                placeholder="-- Select --"
+              />
 
               <label className="so-label">Date Wise</label>
               <label className="so-toggle-row">

@@ -158,7 +158,7 @@ export default function SupplierPayments() {
       if (e.keyCode === 27) {
         e.preventDefault();
         if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
+          navigate("/dashboard");
         }
       }
     };

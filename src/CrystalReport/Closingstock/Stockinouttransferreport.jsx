@@ -15,9 +15,9 @@
 //  exactly (one active type at a time, each loading its own combo source).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -499,11 +499,19 @@ export default function StockInOutTransferReport() {
   // - rdbitemwise/rdbdetails (Pane2): hidden entirely in EcoTech mode.
   const showReportItemwise = !session.Ecotech;
 
-  // Re-usable API-backed <select> — identical pattern to ClosingStock.jsx's
-  // ApiSelect, so it hits the same style of dropdown endpoints.
+  // Re-usable API-backed searchable combo — same data-loading pattern as the
+  // original ApiSelect (identical to ClosingStock.jsx's), but the plain
+  // <select> is replaced with a text-filterable dropdown popup so any combo
+  // built on this (Supplier, Customer, To Branch, Category, ...) gets
+  // instant search for free. onChange contract is unchanged: fires
+  // {value, label} or null, exactly as before.
   const ApiSelect = ({ url, payload, headers = {}, labelKey, valueKey, value, onChange, placeholder }) => {
     const [list, setList] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const wrapRef = useRef(null);
+    const searchRef = useRef(null);
 
     useEffect(() => {
       let active = true;
@@ -523,30 +531,123 @@ export default function StockInOutTransferReport() {
       return () => { active = false; };
     }, [url, JSON.stringify(payload), JSON.stringify(headers)]);
 
+    // Close popup on outside click, and reset the search box each time.
+    useEffect(() => {
+      const handleClickOutside = (e) => {
+        if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+          setOpen(false);
+          setSearch("");
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // Autofocus the search box the moment the popup opens.
+    useEffect(() => {
+      if (open && searchRef.current) searchRef.current.focus();
+    }, [open]);
+
+    // Instant client-side filter — case-insensitive substring match on the label.
+    const filteredList = useMemo(() => {
+      const q = search.trim().toLowerCase();
+      if (!q) return list;
+      return list.filter((o) => String(o[labelKey] ?? "").toLowerCase().includes(q));
+    }, [list, search, labelKey]);
+
+    const handleSelect = (opt) => {
+      onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
+      setOpen(false);
+      setSearch("");
+    };
+
+    const handleClear = (e) => {
+      e.stopPropagation();
+      onChange(null);
+    };
+
+    const handleToggle = () => {
+      if (loadingList) return;
+      setOpen((o) => !o);
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleToggle();
+      } else if (e.key === "Escape") {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+
     return (
-      <div className="sio-field">
+      <div className="sio-field" ref={wrapRef}>
         <label className="sio-label">{placeholder.replace("Select ", "")}</label>
-        <select
-          className="sio-input"
-          value={value?.value ?? ""}
-          disabled={loadingList}
-          onChange={(e) => {
-            const selectedVal = e.target.value;
-            const opt = list.find((o) => String(o[valueKey]) === selectedVal);
-            if (opt) {
-              onChange({ value: String(opt[valueKey]), label: opt[labelKey] });
-            } else {
-              onChange(null);
-            }
-          }}
-        >
-          <option value="">{loadingList ? "Loading..." : placeholder}</option>
-          {list.map((o) => (
-            <option key={o[valueKey]} value={o[valueKey]}>
-              {o[labelKey]}
-            </option>
-          ))}
-        </select>
+        <div className="sio-select-wrap">
+          <div
+            className={`sio-input sio-select-trigger${open ? " open" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            onClick={handleToggle}
+            onKeyDown={handleKeyDown}
+          >
+            <span className={`sio-select-value${!value ? " placeholder" : ""}`}>
+              {loadingList ? "Loading..." : value ? value.label : placeholder}
+            </span>
+            {value && !loadingList && (
+              <span
+                className="sio-select-clear"
+                role="button"
+                tabIndex={0}
+                aria-label="Clear selection"
+                onClick={handleClear}
+                onKeyDown={(e) => e.key === "Enter" && handleClear(e)}
+              >
+                ×
+              </span>
+            )}
+            <span className="sio-select-caret" aria-hidden="true">▾</span>
+          </div>
+
+          {open && !loadingList && (
+            <div className="sio-select-popup" role="listbox">
+              <input
+                ref={searchRef}
+                type="text"
+                className="sio-select-search"
+                placeholder="Type to search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setOpen(false);
+                    setSearch("");
+                  }
+                }}
+              />
+              <div className="sio-select-list">
+                {filteredList.length === 0 && (
+                  <div className="sio-select-empty">No matches found</div>
+                )}
+                {filteredList.map((o) => (
+                  <div
+                    key={o[valueKey]}
+                    role="option"
+                    aria-selected={value?.value === String(o[valueKey])}
+                    className={`sio-select-option${value?.value === String(o[valueKey]) ? " selected" : ""}`}
+                    onClick={() => handleSelect(o)}
+                  >
+                    {o[labelKey]}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -559,6 +660,8 @@ export default function StockInOutTransferReport() {
     .sio-card { width: 100%; max-width: 1000px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
     .sio-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
     .sio-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .sio-card-close-btn { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; border: none; background: rgba(255,255,255,.16); color: #fff; cursor: pointer; padding: 0; transition: background .15s; }
+    .sio-card-close-btn:hover { background: rgba(255,255,255,.3); }
     .sio-card-body { padding: 24px 32px 30px; }
     .sio-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
 
@@ -594,6 +697,24 @@ export default function StockInOutTransferReport() {
     .sio-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
     select.sio-input { appearance: auto; cursor: pointer; }
     .sio-input:disabled { background: #f5f6f8; cursor: not-allowed; }
+
+    .sio-select-wrap { position: relative; }
+    .sio-select-trigger { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .sio-select-trigger.open { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
+    .sio-select-value { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sio-select-value.placeholder { color: #8a94a6; }
+    .sio-select-clear { flex-shrink: 0; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #8a94a6; font-size: 14px; line-height: 1; cursor: pointer; transition: background .15s, color .15s; }
+    .sio-select-clear:hover { background: #eef1f5; color: #dc3545; }
+    .sio-select-caret { flex-shrink: 0; font-size: 10px; color: #8a94a6; }
+
+    .sio-select-popup { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(30,45,61,.14); overflow: hidden; }
+    .sio-select-search { width: 100%; height: 32px; border: none; border-bottom: 1px solid #e8ecf0; padding: 0 10px; font-size: 13px; color: #1e2d3d; outline: none; box-sizing: border-box; }
+    .sio-select-search:focus { background: #f7f9fc; }
+    .sio-select-list { max-height: 220px; overflow-y: auto; }
+    .sio-select-option { padding: 8px 12px; font-size: 13px; color: #1e2d3d; cursor: pointer; transition: background .12s; }
+    .sio-select-option:hover { background: #eef3ff; }
+    .sio-select-option.selected { background: #eef3ff; color: #1a56db; font-weight: 600; }
+    .sio-select-empty { padding: 10px 12px; font-size: 12.5px; color: #8a94a6; text-align: center; }
 
     .sio-actions { display: flex; gap: 12px; margin-top: 28px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
     .sio-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
@@ -647,6 +768,14 @@ export default function StockInOutTransferReport() {
           <div className="sio-card">
             <div className="sio-card-header">
               <div className="sio-card-header-title">Stock Inward/Outward/Transfer Report</div>
+              <button
+                type="button"
+                className="sio-card-close-btn"
+                onClick={() => navigate(-1)}
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
             </div>
 
             <div className="sio-card-body">
