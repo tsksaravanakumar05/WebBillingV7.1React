@@ -96,11 +96,12 @@
 //    literal.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, Calendar as CalendarIcon } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import "../Reportstyles.css";
 
 const BASE_URL = "http://localhost:64215";
 
@@ -116,8 +117,9 @@ const SupplierListUrl = "/api/SupplierApp/GetSupplier";
 const UOMListUrl = "/api/UOMApp/SelectUOM";
 const ProductListUrl = "/api/ItemMasterApp/GetProductList";
 
-// Fixed literal forwarded to ReportViewer (source hard-codes this)
-const RICE_UOM_SETTING = "0";
+// Hardcoded in the legacy file (`var RiceUOMSetting = "0";`) and never
+// reassigned — carried over as-is rather than invented/derived.
+const RiceUOMSetting = "0";
 
 const todayStr = () => {
   const d = new Date();
@@ -131,164 +133,317 @@ const toMMDDYYYY = (isoDate) => {
   return `${m}/${d}/${y}`;
 };
 
-// Seven group-by options — order, keys and validation copy kept literal
-// from source. `field` selects whether GroupByText is read from a
-// value-style field (Brand/Category/Department/Supplier/UOM) or a
-// label-style field (Description/Code), matching item.value vs
-// item.label in the jQuery source.
-const GROUP_OPTIONS = [
-  { key: "Brand",       radioLabel: "Brand",       fieldLabel: "Brand",       validationLabel: "Brand Name",       listUrl: BrandListUrl,      field: "value" },
-  { key: "Category",    radioLabel: "Category",    fieldLabel: "Category",    validationLabel: "Category Name",    listUrl: CategoryListUrl,   field: "value" },
-  { key: "Department",  radioLabel: "Department",  fieldLabel: "Department",  validationLabel: "Department Name",  listUrl: DepartmentListUrl, field: "value" },
-  { key: "Supplier",    radioLabel: "Supplier",    fieldLabel: "Supplier",    validationLabel: "Supplier Name",    listUrl: SupplierListUrl,   field: "value" },
-  { key: "UOM",         radioLabel: "UOM",         fieldLabel: "UOM",         validationLabel: "UOM Name",         listUrl: UOMListUrl,        field: "value" },
-  { key: "Description", radioLabel: "Description", fieldLabel: "Item Name",   validationLabel: "Item Name",        listUrl: ProductListUrl,    field: "label" },
-  { key: "Code",        radioLabel: "Code",        fieldLabel: "Item Code",   validationLabel: "Item Code",        listUrl: ProductListUrl,    field: "label" },
-];
+// ── DD-MM-YYYY segmented date input ─────────────────────────────────────────
+// Same component/design as PurchaseDet.jsx: three real segment inputs (DD /
+// MM / YYYY) instead of relying on native <input type="date"> text-editing,
+// whose typing order/cursor behaviour follows the browser/OS locale and
+// can't be forced into DD-MM-YYYY with CSS alone. The calendar icon button
+// opens a visually-hidden native date input for the picker UI; typing is
+// handled entirely by the segment inputs below.
+//
+// Public value/onChange contract is plain ISO "YYYY-MM-DD" text, identical
+// to the native <input type="date"> it replaces — fromDate/toDate state,
+// toMMDDYYYY(), and handleView's validation are all completely unchanged.
 
-// Extracts { value, label } pairs per combo type from raw API rows.
-// Adjust the field-name fallback chains if your backend's payload differs.
-const extractOption = (groupKey, row, idx) => {
-  switch (groupKey) {
-    case "Brand":
-      return { id: row.Id ?? row.BrandId ?? idx, text: row.BrandName ?? row.Name ?? row.value ?? "" };
-    case "Category":
-      return { id: row.Id ?? row.CategoryId ?? idx, text: row.Cat_Name ?? row.Name ?? row.value ?? "" };
-    case "Department":
-      return { id: row.Id ?? row.DepartmentId ?? idx, text: row.DepartmentName ?? row.Name ?? row.value ?? "" };
-    case "Supplier":
-      return { id: row.Id ?? row.SupplierId ?? idx, text: row.AccountName ?? row.Name ?? row.value ?? "" };
-    case "UOM":
-      return { id: row.Id ?? row.UomId ?? idx, text: row.UOMName ?? row.Name ?? row.value ?? "" };
-    case "Description":
-      return { id: row.Id ?? row.ProductId ?? idx, text: row.ProductName ?? row.Name ?? row.label ?? "" };
-    case "Code":
-      return { id: row.Id ?? row.ProductId ?? idx, text: row.Productcode ?? row.Code ?? row.label ?? "" };
-    default:
-      return { id: idx, text: "" };
-  }
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const parseIsoDate = (iso) => {
+  if (!iso) return { d: "", m: "", y: "" };
+  const [y, m, d] = iso.split("-");
+  return { d: d || "", m: m || "", y: y || "" };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SearchableSelect
-//  Drop-in replacement for a native <select> lookup field (Brand, Category,
-//  Department, Supplier, UOM, Item Description, Item Code, ...). Same visual
-//  footprint (uses the .so-input class) but adds an instant-filter text
-//  popup so users can type to narrow long master-data lists instead of
-//  scrolling. Forwards its ref to the underlying <input> so existing
-//  `comboRef.current.focus()` validation calls keep working unchanged.
-//  Selection/clear behaviour matches the original <select onChange> exactly
-//  — it just calls onChange(value) with "" for the placeholder row.
-// ─────────────────────────────────────────────────────────────────────────────
-const SearchableSelect = forwardRef(function SearchableSelect(
-  { id, options, labelKey = "label", value, onChange, disabled, placeholder = "-- Select --" },
-  ref
-) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const wrapRef = useRef(null);
+// Real calendar validity check (rejects e.g. 31-04-2026, 29-02-2027).
+const isValidDMY = (d, m, y) => {
+  if (!d || !m || y.length !== 4) return false;
+  const dd = parseInt(d, 10);
+  const mm = parseInt(m, 10);
+  const yy = parseInt(y, 10);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return false;
+  const dt = new Date(yy, mm - 1, dd);
+  return dt.getFullYear() === yy && dt.getMonth() === mm - 1 && dt.getDate() === dd;
+};
 
-  const getLabel = useCallback(
-    (opt) => String(opt?.[labelKey] ?? opt?.label ?? ""),
-    [labelKey]
-  );
+// Static config for the 7 group-by fields. `valueField` tells handleView
+// whether GroupByText should read the item's `value` or `label` — the
+// legacy code uses `.value` for Brand/Category/Department/Supplier/UOM and
+// `.label` for Description/Code.
+const GROUPS = [
+  { key: "Brand", title: "Brand", placeholder: "Type to search brand…", errMsg: "Please Select Valid Brand Name !!!.", valueField: "value" },
+  { key: "Category", title: "Category", placeholder: "Type to search category…", errMsg: "Please Select Valid Category Name !!!.", valueField: "value" },
+  { key: "Department", title: "Department", placeholder: "Type to search department…", errMsg: "Please Select Valid Department Name !!!.", valueField: "value" },
+  { key: "Supplier", title: "Supplier", placeholder: "Type to search supplier…", errMsg: "Please Select Valid Supplier Name !!!.", valueField: "value" },
+  { key: "UOM", title: "UOM", placeholder: "Type to search UOM…", errMsg: "Please Select Valid UOM Name !!!.", valueField: "value" },
+  { key: "Description", title: "Description", placeholder: "Type to search item name…", errMsg: "Please Select Valid Item Name !!!.", valueField: "label" },
+  { key: "Code", title: "Code", placeholder: "Type to search item code…", errMsg: "Please Select Valid Item Code !!!.", valueField: "label" },
+];
 
-  const selected = useMemo(
-    () => options.find((o) => String(o.value) === String(value ?? "")) || null,
-    [options, value]
-  );
+function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
+  const initial = parseIsoDate(value);
+  const [day, setDay] = useState(initial.d);
+  const [month, setMonth] = useState(initial.m);
+  const [year, setYear] = useState(initial.y);
 
-  // Keep the visible text in sync whenever the underlying value changes
-  // (including external resets like the Refresh button / group-by switch).
+  const dayRef = useRef(null);
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
+  const nativeRef = useRef(null);
+
+  // Stay in sync when the value changes from outside this component —
+  // e.g. the native calendar-picker icon, or a programmatic reset.
   useEffect(() => {
-    setQuery(selected ? getLabel(selected) : "");
-  }, [selected, getLabel]);
+    const p = parseIsoDate(value);
+    setDay(p.d);
+    setMonth(p.m);
+    setYear(p.y);
+  }, [value]);
 
-  // Close + revert unsaved typed text on outside click.
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setOpen(false);
-        setQuery(selected ? getLabel(selected) : "");
+  const commitIfValid = useCallback(
+    (d, m, y) => {
+      if (isValidDMY(d, m, y)) {
+        onChange(`${y}-${pad2(parseInt(m, 10))}-${pad2(parseInt(d, 10))}`);
       }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [selected, getLabel]);
+    },
+    [onChange]
+  );
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q || (selected && q === getLabel(selected).toLowerCase())) return options;
-    return options.filter((o) => getLabel(o).toLowerCase().includes(q));
-  }, [options, query, selected, getLabel]);
-
-  const handleSelect = (opt) => {
-    onChange(String(opt.value));
-    setQuery(getLabel(opt));
-    setOpen(false);
+  const handleDayChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setDay(v);
+    // Auto-advance to Month once 2 digits are entered, or immediately if a
+    // single digit can only be a one-digit day (4-9, since 40-99 is invalid).
+    if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 3)) {
+      const padded = v.padStart(2, "0");
+      setDay(padded);
+      commitIfValid(padded, month, year);
+      monthRef.current?.focus();
+      monthRef.current?.select();
+    } else {
+      commitIfValid(v, month, year);
+    }
   };
 
-  const handleClear = () => {
-    onChange("");
-    setQuery("");
-    setOpen(false);
+  const handleMonthChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setMonth(v);
+    if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 1)) {
+      const padded = v.padStart(2, "0");
+      setMonth(padded);
+      commitIfValid(day, padded, year);
+      yearRef.current?.focus();
+      yearRef.current?.select();
+    } else {
+      commitIfValid(day, v, year);
+    }
+  };
+
+  const handleYearChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setYear(v);
+    commitIfValid(day, month, v);
+  };
+
+  const handleSegmentKeyDown = (segment) => (e) => {
+    const el = e.target;
+    const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
+    const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+
+    if (e.key === "Backspace" && atStart) {
+      if (segment === "month") { dayRef.current?.focus(); dayRef.current?.select(); }
+      if (segment === "year") { monthRef.current?.focus(); monthRef.current?.select(); }
+    } else if (e.key === "ArrowLeft" && atStart) {
+      if (segment === "month") dayRef.current?.focus();
+      if (segment === "year") monthRef.current?.focus();
+    } else if (e.key === "ArrowRight" && atEnd) {
+      if (segment === "day") monthRef.current?.focus();
+      if (segment === "month") yearRef.current?.focus();
+    }
+  };
+
+  // Picker selection (native <input type="date">) updates all three
+  // segments and commits the value exactly like typing does.
+  const handleNativePickerChange = (e) => {
+    const iso = e.target.value;
+    if (!iso) return;
+    const p = parseIsoDate(iso);
+    setDay(p.d);
+    setMonth(p.m);
+    setYear(p.y);
+    onChange(iso);
+  };
+
+  const openPicker = () => {
+    const el = nativeRef.current;
+    if (!el || disabled) return;
+    if (typeof el.showPicker === "function") {
+      try {
+        el.showPicker();
+        return;
+      } catch {
+        // fall through to focus-based fallback below
+      }
+    }
+    el.focus();
   };
 
   return (
-    <div className="so-combo-wrap" ref={wrapRef}>
+    <div className={`so-date-wrap${disabled ? " so-date-wrap-disabled" : ""}`}>
+      <div className="so-date-segments">
+        <input
+          id={id}
+          ref={dayRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="DD"
+          maxLength={2}
+          className="so-date-seg so-date-seg-dd"
+          value={day}
+          disabled={disabled}
+          onChange={handleDayChange}
+          onKeyDown={handleSegmentKeyDown("day")}
+          onFocus={(e) => e.target.select()}
+        />
+        <span className="so-date-sep">-</span>
+        <input
+          ref={monthRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="MM"
+          maxLength={2}
+          className="so-date-seg so-date-seg-mm"
+          value={month}
+          disabled={disabled}
+          onChange={handleMonthChange}
+          onKeyDown={handleSegmentKeyDown("month")}
+          onFocus={(e) => e.target.select()}
+        />
+        <span className="so-date-sep">-</span>
+        <input
+          ref={yearRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="YYYY"
+          maxLength={4}
+          className="so-date-seg so-date-seg-yyyy"
+          value={year}
+          disabled={disabled}
+          onChange={handleYearChange}
+          onKeyDown={handleSegmentKeyDown("year")}
+          onFocus={(e) => e.target.select()}
+        />
+      </div>
+
+      <button
+        type="button"
+        className="so-date-icon-btn"
+        onClick={openPicker}
+        disabled={disabled}
+        tabIndex={-1}
+        aria-label="Open calendar picker"
+      >
+        <CalendarIcon size={15} />
+      </button>
+
+      {/* Native date input kept only for the calendar picker UI — visually
+          hidden, never used for typing, always mirrors the ISO value above. */}
+      <input
+        ref={nativeRef}
+        type="date"
+        className="so-date-native-hidden"
+        value={value || ""}
+        onChange={handleNativePickerChange}
+        tabIndex={-1}
+        aria-hidden="true"
+        disabled={disabled}
+      />
+    </div>
+  );
+}
+
+// ── Reusable searchable combobox, matching PurOrderItemwise's ComboField
+// markup/CSS exactly (so-combo / so-combo-list / so-combo-item classes),
+// parameterized so it can be reused for all seven group-by fields without
+// duplicating the dropdown markup seven times.
+function ComboField({ id, list, selected, onSelect, disabled, placeholder }) {
+  const [search, setSearch] = useState(selected?.label ?? "");
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    setSearch(selected?.label ?? "");
+  }, [selected]);
+
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = (search || "").trim().toLowerCase();
+    if (!q) return list || [];
+    return (list || []).filter((o) => String(o.label ?? "").toLowerCase().includes(q));
+  }, [list, search]);
+
+  return (
+    <div className="so-combo" ref={wrapRef}>
       <input
         id={id}
-        ref={ref}
-        className="so-input"
         type="text"
+        className="so-input"
         autoComplete="off"
         disabled={disabled}
         placeholder={placeholder}
-        value={query}
-        onFocus={() => setOpen(true)}
+        value={search}
+        onFocus={() => { if (!disabled) setOpen(true); }}
         onChange={(e) => {
-          setQuery(e.target.value);
+          setSearch(e.target.value);
           setOpen(true);
+          if (selected) onSelect(null);
         }}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             setOpen(false);
-            setQuery(selected ? getLabel(selected) : "");
+          } else if (e.key === "Enter" && filtered.length === 1) {
+            e.preventDefault();
+            const only = filtered[0];
+            onSelect({ label: only.label, value: only.value });
+            setOpen(false);
           }
         }}
       />
       {open && !disabled && (
-        <div className="so-combo-list" role="listbox">
-          <div
-            className="so-combo-item so-combo-item-clear"
-            onMouseDown={(e) => { e.preventDefault(); handleClear(); }}
-          >
-            {placeholder}
-          </div>
+        <ul className="so-combo-list">
           {filtered.length === 0 ? (
-            <div className="so-combo-empty">No matches found</div>
+            <li className="so-combo-empty">No matches</li>
           ) : (
-            filtered.map((opt, i) => (
-              <div
-                key={`${opt.value}-${i}`}
-                className={`so-combo-item${String(opt.value) === String(value ?? "") ? " active" : ""}`}
-                role="option"
-                aria-selected={String(opt.value) === String(value ?? "")}
-                onMouseDown={(e) => { e.preventDefault(); handleSelect(opt); }}
+            filtered.map((o, idx) => (
+              <li
+                key={o.value ?? `opt-${idx}`}
+                className="so-combo-item"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onSelect({ label: o.label, value: o.value });
+                  setOpen(false);
+                }}
               >
-                {getLabel(opt)}
-              </div>
+                {o.label}
+              </li>
             ))
           )}
-        </div>
+        </ul>
       )}
     </div>
   );
-});
+}
 
-export default function PurchaseReturnItemWise() {
+export default function PurReturnItemwise() {
   const navigate = useNavigate();
-  const comboRef = useRef(null);
 
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
@@ -297,33 +452,49 @@ export default function PurchaseReturnItemWise() {
     pageview: 0,
   });
 
-  // ── Company / settings state ────────────────────────────────────────────
+  // ── Company / settings state (loaded once from localStorage, same as jQuery) ──
   const [session, setSession] = useState({
     Comid: "",
     MComid: "",
+    CommonCompany: "",
     CName: "",
     CAddress: "",
     CPhone: "",
   });
 
   // ── Form state (controlled inputs replacing jqx widgets) ───────────────
-  const [groupBy, setGroupBy] = useState("");          // "" | "Brand" | "Category" | ...
-  const [groupByText, setGroupByText] = useState("");  // selected combo value/text
   const [fromDate, setFromDate] = useState(todayStr());
   const [toDate, setToDate] = useState(todayStr());
-  const [daily, setDaily] = useState(false);   // chkdaily
-  const [mrp, setMrp] = useState(false);       // chkmrp
 
-  // ── Combo data, keyed by group option key ───────────────────────────────
-  const [lists, setLists] = useState({
-    Brand: [], Category: [], Department: [], Supplier: [], UOM: [], Description: [], Code: [],
+  // Which of the 7 group-by radios is on ("" = none, matches legacy default
+  // of no radio pre-checked on load).
+  const [selectedGroup, setSelectedGroup] = useState("");
+
+  // One combo selection slot per group — mirrors PurOrderItemwise's
+  // selectedBrand/selectedCategory/... state, just kept in one object here
+  // since this screen already had a GROUPS config to drive off of.
+  const [groupSelections, setGroupSelections] = useState({
+    Brand: null, Category: null, Department: null, Supplier: null,
+    UOM: null, Description: null, Code: null,
   });
+  const setGroupSelection = useCallback((key, value) => {
+    setGroupSelections((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  // Source lists for each combo, loaded once page access is granted.
+  const [lists, setLists] = useState({
+    Brand: [], Category: [], Department: [], Supplier: [],
+    UOM: [], Description: [], Code: [],
+  });
+
+  // Daily / MRP checkboxes (#chkdaily / #chkmrp).
+  const [dailyChecked, setDailyChecked] = useState(false);
+  const [mrpChecked, setMrpChecked] = useState(false);
 
   // ── UI feedback state ───────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null); // { text, isErr }
 
-  // Bootstrap: permission gate + session + all combo lists.
   useEffect(() => {
     const menulist = CC.getLocal("menulist");
     if (menulist == null) {
@@ -338,16 +509,19 @@ export default function PurchaseReturnItemWise() {
       setTimeout(() => navigate("/Login/Home"), 3000);
       return;
     }
+
     // NOTE: source has no `menudata[0].View == 0` gate for this screen —
     // intentionally not reproduced here.
 
     const Comid = CC.getStr("Comid");
     const MComid = CC.getStr("MComid");
+    const CommonCompany = CC.getStr("CommonCompany");
     const ComSet = CC.getLocal("Companysetting") || [{}];
 
     setSession({
       Comid,
       MComid,
+      CommonCompany,
       CName: ComSet[0]?.CName || "",
       CAddress: ComSet[0]?.CAddress || "",
       CPhone: ComSet[0]?.CPhone || "",
@@ -361,85 +535,149 @@ export default function PurchaseReturnItemWise() {
       pageedit: menudata[0].Edit,
       pagedelete: menudata[0].Delete,
     });
-
-    const loadLists = async () => {
-      try {
-        const [brandRes, categoryRes, departmentRes, supplierRes, uomRes, productRes] = await Promise.all([
-          CC.api(BrandListUrl, null, {}, { Comid }),
-          CC.api(CategoryListUrl, null, {}, { Comid }),
-          CC.api(DepartmentListUrl, null, {}, { Comid }),
-          CC.api(SupplierListUrl, null, {}, { Comid, AccountType: "SUPPLIER" }),
-          CC.api(UOMListUrl, null, {}, { Comid }),
-          CC.api(ProductListUrl, null, {}, { Comid }),
-        ]);
-
-        const pick = (res) => res?.Data1 || res?.data || [];
-        const brandList = pick(brandRes);
-        const categoryList = pick(categoryRes);
-        const departmentList = pick(departmentRes);
-        const supplierList = pick(supplierRes);
-        const uomList = pick(uomRes);
-        const productList = pick(productRes);
-
-        setLists({
-          Brand: Array.isArray(brandList) ? brandList : [],
-          Category: Array.isArray(categoryList) ? categoryList : [],
-          Department: Array.isArray(departmentList) ? departmentList : [],
-          Supplier: Array.isArray(supplierList) ? supplierList : [],
-          UOM: Array.isArray(uomList) ? uomList : [],
-          Description: Array.isArray(productList) ? productList : [],
-          Code: Array.isArray(productList) ? productList : [],
-        });
-      } catch (err) {
-        // Combo load failure shouldn't block the page — same as jQuery,
-        // where the various loadXcombo() failures just leave the
-        // combobox empty.
-        console.error("PurchaseReturnItemWise combo load error:", err);
-      }
-    };
-    loadLists();
   }, [navigate]);
 
-  // Current active group option's config (or null if nothing checked yet)
-  const activeOption = useMemo(
-    () => GROUP_OPTIONS.find((o) => o.key === groupBy) || null,
-    [groupBy]
-  );
+  // Normalizes whatever shape the backend actually sends into the
+  // { label, value } shape every combo in this screen uses.
+  const normalize = (rawList, labelKeys, valueKeys) =>
+    (Array.isArray(rawList) ? rawList : []).map((item) => {
+      let label = "";
+      for (const k of labelKeys) { if (item[k] != null) { label = item[k]; break; } }
+      let value = "";
+      for (const k of valueKeys) { if (item[k] != null) { value = item[k]; break; } }
+      return { label, value };
+    });
 
-  const activeOptions = useMemo(() => {
-    if (!activeOption) return [];
-    const rows = lists[activeOption.key] || [];
-    return rows.map((row, idx) => extractOption(activeOption.key, row, idx));
-  }, [activeOption, lists]);
+  // Loads all 7 combo sources once page access is granted — replaces the
+  // legacy methods.load() calls to loadbrandcombo / loadcategorycombo /
+  // loaddepartmentcombo / loadsuppliercombo / loaduomcombo / loadproductcombo.
+  useEffect(() => {
+    if (!pageAccess.ready || !pageAccess.allowed) return;
+    if (!session.Comid) return;
 
-  // Searchable-combo option list — value is the option's text itself,
-  // exactly like the native <select>'s value={o.text}, so groupByText
-  // keeps holding the same plain string it always did.
-  const comboOptions = useMemo(
-    () => activeOptions.map((o) => ({ value: o.text, label: o.text })),
-    [activeOptions]
-  );
+    let cancelled = false;
+    (async () => {
+      const fetchList = async (url) => {
+        try {
+          // AccountType தேவைப்பட்டால் மட்டும் அனுப்பவும், இல்லையெனில் நீக்கவும்
+          const params = { Comid: session.Comid };
+          
+          // Supplier-க்கு மட்டும் தேவை என்றால் மட்டும் இதை சேர்க்கவும்
+          if (url.includes("SupplierApp")) {
+            params.AccountType = "SUPPLIER";
+          }
+      
+          const res = await CC.api(url, null, {}, params);
+          if (res?.IsSuccess === false) return [];
+          return res?.Data || res?.data || res?.Data1 || [];
+        } catch {
+          return [];
+        }
+      };
+      const [brandRaw, categoryRaw, departmentRaw, supplierRaw, uomRaw] = await Promise.all([
+        fetchList(BrandListUrl),
+        fetchList(CategoryListUrl),
+        fetchList(DepartmentListUrl),
+        fetchList(SupplierListUrl),
+        fetchList(UOMListUrl),
+      ]);
 
+      // Product list: fetched and normalized exactly as PurOrderItemwise.jsx
+      // does it (direct CC.api call, same Data/data/Data1 fallback,
+      // same field-fallback order for description/code/value) rather than through
+      // the generic fetchList helper used by the other combos above.
+      let productRaw = [];
+      try {
+        const res = await CC.api(ProductListUrl, null, {}, { Comid: session.Comid, AccountType: "SUPPLIER" });
+        productRaw = res?.Data || res?.data || res?.Data1 || [];
+      } catch (err) {
+        if (!cancelled) setMsg({ text: err.message || "Unable to load product list.", isErr: true });
+      }
+
+      if (cancelled) return;
+
+      const normalizedProduct = (Array.isArray(productRaw) ? productRaw : []).map((p) => ({
+        description:
+          p.ProductName ??
+          p.PrintName ??
+          p.ProductDescription ??
+          p.Description ??
+          p.Cat_Name ??
+          p.Name ??
+          p.Text ??
+          "",
+        code:
+          p.Productcode ??
+          p.ProductCode ??
+          p.ItemCode ??
+          p.Code ??
+          "",
+        value:
+          p.Id ??
+          p.ProductId ??
+          "",
+      }));
+
+      setLists({
+        Brand: normalize(brandRaw, ["BrandName", "label", "Label", "Name", "Text"], ["value", "Value", "BrandId", "Id"]),
+        Category: normalize(categoryRaw, ["CategoryName", "Cat_Name", "label", "Label", "Name", "Text"], ["value", "Value", "CategoryId", "Id"]),
+        Department: normalize(departmentRaw, ["DepartmentName", "label", "Label", "Name", "Text"], ["value", "Value", "DepartmentId", "Id"]),
+        Supplier: normalize(supplierRaw, ["SupplierName", "AccountName", "label", "Label", "Name", "Text"], ["value", "Value", "SupplierId", "Id"]),
+        UOM: normalize(uomRaw, ["UOMName", "UomName", "label", "Label", "Name", "Text"], ["value", "Value", "UOMId", "UomId", "Id"]),
+        // Description combo shows the product name; Code combo shows the
+        // product code — both derived from the same normalized product list.
+        Description: normalizedProduct.map((p) => ({ label: p.description, value: p.value })),
+        Code: normalizedProduct.map((p) => ({ label: p.code, value: p.value })),
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pageAccess.ready, pageAccess.allowed, session.Comid]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.keyCode === 27) {
+        e.preventDefault();
+        if (window.confirm("Do You Want To Quit Page?")) {
+          navigate("/Login/Home");
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [navigate]);
+
+  // Replaces the old toggle-button click handler. Matches PurOrderItemwise's
+  // handleGroupByChange: switching the active group clears every group's
+  // stored combo selection in one step.
   const handleGroupByChange = useCallback((key) => {
-    // Mirrors source: switching radios clears whatever combo value was
-    // previously selected (the old radio's `change` handler resets its
-    // combo's selectedIndex to -1 the instant it becomes unchecked).
-    setGroupBy(key);
-    setGroupByText("");
+    setSelectedGroup(key);
+    setGroupSelections({
+      Brand: null, Category: null, Department: null, Supplier: null,
+      UOM: null, Description: null, Code: null,
+    });
   }, []);
 
+  // Matches the legacy #btnrefresh handler: clears every combo selection,
+  // turns off all 7 group-by radios, unchecks Daily / MRP. Dates are left
+  // untouched, same as the legacy code (it only re-initialises the
+  // date-picker widgets with the same format string, never assigns a new
+  // date).
   const handleRefresh = useCallback(() => {
-    setGroupBy("");
-    setGroupByText("");
-    setFromDate(todayStr());
-    setToDate(todayStr());
-    setDaily(false);
-    setMrp(false);
+    setGroupSelections({
+      Brand: null, Category: null, Department: null, Supplier: null,
+      UOM: null, Description: null, Code: null,
+    });
+    setSelectedGroup("");
+    setDailyChecked(false);
+    setMrpChecked(false);
   }, []);
 
   const openReportViewer = useCallback((params) => {
     const qs = new URLSearchParams(params).toString();
-    const url = `${BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
+    const url = `${CC.BASE_URL}/Reports/ReportViewer.aspx?${qs}`;
 
     const w = window.open(
       url,
@@ -448,34 +686,39 @@ export default function PurchaseReturnItemWise() {
       `menubar=0,scrollbars=yes,resizable=no,` +
       `width=${screen.width},height=${screen.height - 100}`
     );
-
     if (w) {
-      w.addEventListener(
-        "load",
-        function () {
-          w.document.title = "Purchase Return Itemwise-Report";
-        },
-        false
-      );
+      w.addEventListener("load", () => { w.document.title = "Purchase Return Itemwise-Report"; }, false);
     }
   }, []);
 
+  // Mirrors methods.Clear() — called after the report request completes
+  // (success or not), clearing all 7 combo selections but leaving the group
+  // radio, dates, and checkboxes untouched.
+  const clearAllSelections = useCallback(() => {
+    setGroupSelections({
+      Brand: null, Category: null, Department: null, Supplier: null,
+      UOM: null, Description: null, Code: null,
+    });
+  }, []);
+
   const handleView = useCallback(async () => {
-    // ── Group-by combo validation (only fires if a value was picked but
-    //    resolved to nothing — mirrors source's defensive null check) ──
-    if (activeOption && groupByText !== "" && groupByText == null) {
-      setMsg({ text: `Please Select Valid ${activeOption.validationLabel} !!!.`, isErr: true });
-      setGroupByText("");
-      if (comboRef.current) comboRef.current.focus();
-      return;
-    }
+    let GroupBy = "";
+    let GroupByText = "";
 
-    const GroupBy = groupBy;
-    const GroupByText = groupByText;
-
-    if (!fromDate || !toDate) {
-      setMsg({ text: "Please select From Date and To Date.", isErr: true });
-      return;
+    if (selectedGroup) {
+      const config = GROUPS.find((g) => g.key === selectedGroup);
+      GroupBy = selectedGroup;
+      const item = groupSelections[selectedGroup];
+      if (item) {
+        GroupByText = item[config.valueField];
+        if (GroupByText == null || GroupByText === "") {
+          setMsg({ text: config.errMsg, isErr: true });
+          setGroupSelection(selectedGroup, null);
+          return;
+        }
+      }
+      // If no item was picked under the selected group, GroupByText simply
+      // stays "" — the legacy code only validates when an item IS selected.
     }
 
     const Fromdate = toMMDDYYYY(fromDate);
@@ -486,45 +729,43 @@ export default function PurchaseReturnItemWise() {
       return;
     }
 
-    // MRP flag is inverted: default "Pur.Rate", blank when checked.
-    const MRP = mrp ? "" : "Pur.Rate";
-    // Daily flag: blank by default, "YES" when checked.
-    const Daily = daily ? "YES" : "";
+    // mrp defaults to "Pur.Rate"; checking the MRP box switches it to "".
+    const mrp = mrpChecked ? "" : "Pur.Rate";
+    const daily = dailyChecked ? "YES" : "";
 
     setLoading(true);
     setMsg(null);
 
     try {
-      const Comid = session.Comid;
-      const MComid = session.MComid;
-
       const res = await CC.api(PurchaseReturnItemWiseReportUrl, null, {React:1}, {
-        Daily,
-        MRP,
+        Daily: daily,
+        MRP: mrp,
         GroupBy,
         GroupByText,
         Fromdate,
         Todate,
-        Comid,
-        MComid,
+        Comid: session.Comid,
+        MComid: session.MComid,
       });
 
-      if (res.ok === true || res.IsSuccess) {
-        const cacheKey = res.Data15 || "";
-        // NOTE: GroupByText is deliberately NOT forwarded here — matches
-        // source, which omits it from the ReportViewer query string.
+      if (res?.ok === true) {
+        const cacheKey =
+          res.data15 ??
+          res.Data15 ??
+          res.data?.Data15 ??
+          "";
         openReportViewer({
           ReportName: "PurchaseReturnItemWise",
           CacheKey: cacheKey,
-          RiceUOMSetting: RICE_UOM_SETTING,
+          RiceUOMSetting,
           GroupBy,
           Fromdate,
           Todate,
-          Daily,
-          MRP,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          Daily: daily,
+          MRP: mrp,
+          CName: session?.CName || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+          CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
         });
       } else {
         setMsg({ text: "No Record !!!.", isErr: true });
@@ -533,98 +774,15 @@ export default function PurchaseReturnItemWise() {
       setMsg({ text: err.message || "Something went wrong.", isErr: true });
     } finally {
       setLoading(false);
-      // Source calls methods.Clear() after every View click, success or
-      // not — clearing all combo selections unconditionally.
-      setGroupByText("");
+      // Legacy calls methods.Clear() unconditionally right after the
+      // (synchronous, async:false) $.ajax call returns, win or lose.
+      clearAllSelections();
     }
-  }, [activeOption, groupBy, groupByText, fromDate, toDate, daily, mrp, session, openReportViewer]);
-
-  // ── Shared "so-" design system — identical to sibling Purchase* screens ──
-  //   Border / header / heading : blue  #1a56db
-  //   Save accent                : green #1e7e34
-  //   Cancel / link accent       : red   #dc3545
-  const styles = `
-    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
-    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
-    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
-    .so-close-btn:hover { background: rgba(255,255,255,.28); }
-
-    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
-    .so-card { width: 100%; max-width: 740px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
-
-    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
-    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
-    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
-    .so-close-x:hover { background: rgba(255,255,255,.28); }
-
-    .so-card-body { padding: 24px 32px 30px; }
-    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
-
-    .so-content { display: flex; gap: 32px; }
-
-    .so-left { flex: 0 0 190px; display: flex; flex-direction: column; gap: 12px; }
-    .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 320px; }
-
-    .so-radio-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
-    .so-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
-
-    .so-field { display: flex; align-items: center; gap: 14px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
-    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
-    .so-input:disabled { background: #f3f5f8; color: #94a3b8; cursor: not-allowed; }
-    select.so-input { appearance: auto; cursor: pointer; }
-
-    /* ── Searchable lookup dropdown (Brand/Category/Department/Supplier/UOM/Description/Code) ── */
-    .so-combo-wrap { position: relative; width: 100%; }
-    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.15); z-index: 20; padding: 4px; box-sizing: border-box; }
-    .so-combo-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; line-height: 1.3; }
-    .so-combo-item:hover, .so-combo-item.active { background: #eef3ff; color: #1a56db; }
-    .so-combo-item-clear { color: #8a94a6; font-style: italic; border-bottom: 1px solid #ececec; margin-bottom: 2px; border-radius: 0; }
-    .so-combo-empty { padding: 10px; font-size: 12px; color: #9aa5b1; text-align: center; }
-
-    .so-toggle-row { display: flex; align-items: center; gap: 10px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #1e293b; font-weight: 500; user-select: none; transition: border-color .15s; }
-    .so-toggle-row:hover { border-color: #1a56db; }
-    .so-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #1a56db; cursor: pointer; }
-
-    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
-    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn:not(:disabled):hover { background: #eef3ff; }
-    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
-    .so-btn-primary .so-icon-save { color: #1e7e34; }
-    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
-    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
-
-    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
-    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-
-    .mp-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f0f2f5; }
-    .mp-body { padding: 24px; }
-    .mp-msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
-    .mp-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .mp-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-
-    .mp-loader-ov { position: fixed; inset: 0; background: rgba(15,23,42,.35); display: flex; align-items: center; justify-content: center; z-index: 999; }
-    .mp-ldr-box { background: #fff; padding: 22px 30px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.25); }
-    .mp-spin { width: 30px; height: 30px; border: 3px solid #dbe4f5; border-top-color: #1a56db; border-radius: 50%; animation: mp-spin-anim .8s linear infinite; }
-    .mp-ldr-msg { font-size: 13px; color: #334155; font-weight: 600; }
-    @keyframes mp-spin-anim { to { transform: rotate(360deg); } }
-
-    @media (max-width: 620px) {
-      .so-card-body { padding: 20px; }
-      .so-content { flex-direction: column; gap: 22px; }
-      .so-left { flex: none; }
-      .so-right { max-width: none; }
-    }
-  `;
+  }, [fromDate, toDate, selectedGroup, groupSelections, dailyChecked, mrpChecked, session, openReportViewer, clearAllSelections, setGroupSelection]);
 
   if (!pageAccess.ready) {
     return (
       <div className="mp-wrap">
-        <style>{styles}</style>
         <div className="mp-body">
           {msg && <div className={`mp-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
         </div>
@@ -635,7 +793,6 @@ export default function PurchaseReturnItemWise() {
   if (!pageAccess.allowed) {
     return (
       <div className="mp-wrap">
-        <style>{styles}</style>
         <div className="mp-body">
           <div className="mp-msg err">Page Access Permission Denied !!!.</div>
         </div>
@@ -645,11 +802,10 @@ export default function PurchaseReturnItemWise() {
 
   return (
     <>
-      <style>{styles}</style>
       <div className="so-shell">
         <Topbar />
         <div className="so-layout">
-          <div className="so-card">
+          <div className="so-card so-card-wide">
             <div className="so-card-header">
               <div className="so-card-header-title">Purchase Return Itemwise</div>
               <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
@@ -658,74 +814,71 @@ export default function PurchaseReturnItemWise() {
             <div className="so-card-body">
               <div className="so-report-title">Purchase Return Itemwise - Report</div>
 
-              <div className="so-content">
-                {/* ── Left: group-by (Brand / Category / Department / Supplier / UOM / Description / Code) ── */}
-                <div className="so-left">
-                  {GROUP_OPTIONS.map((opt) => (
-                    <label key={opt.key} className="so-radio-row">
-                      <input
-                        type="radio"
-                        name="priw-group-by"
-                        checked={groupBy === opt.key}
-                        onChange={() => handleGroupByChange(opt.key)}
-                      />
-                      {opt.radioLabel}
+              <div className="so-content so-content-groupby">
+                <section className="so-groupby-col">
+                  <div className="so-col-title">Group By</div>
+                  <div className="so-groupby-grid">
+                    {GROUPS.map((group) => (
+                      <React.Fragment key={group.key}>
+                        <label className="so-radio-row" htmlFor={`pri-rbt-${group.key.toLowerCase()}`}>
+                          <input
+                            id={`pri-rbt-${group.key.toLowerCase()}`}
+                            type="radio"
+                            name="pri-groupby"
+                            checked={selectedGroup === group.key}
+                            onChange={() => handleGroupByChange(group.key)}
+                          />
+                          <span>{group.title}</span>
+                        </label>
+                        <ComboField
+                          id={`pri-cmb-${group.key.toLowerCase()}`}
+                          list={lists[group.key]}
+                          selected={groupSelections[group.key]}
+                          onSelect={(item) => setGroupSelection(group.key, item)}
+                          disabled={selectedGroup !== group.key}
+                          placeholder={group.placeholder}
+                        />
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="so-filters-col">
+                  <div className="so-col-title">Filters</div>
+                  <div className="so-filters-grid">
+                    <label className="so-label" htmlFor="pri-from-date">From Date</label>
+                    <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
+
+                    <label className="so-label" htmlFor="pri-to-date">To Date</label>
+                    <DateFieldDDMMYYYY id="pri-to-date" value={toDate} onChange={setToDate} />
+
+                    <span className="so-label">Daily</span>
+                    <label className="so-toggle-row" htmlFor="pri-chk-daily">
+                      <input id="pri-chk-daily" type="checkbox" checked={dailyChecked} onChange={(e) => setDailyChecked(e.target.checked)} />
+                      <span>Daily report</span>
                     </label>
-                  ))}
-                </div>
 
-                {/* ── Right: dynamic combo (bound to active group-by) + dates + toggles ── */}
-                <div className="so-right">
-                  <div className="so-field">
-                    <label className="so-label" htmlFor="priw-combo">
-                      {activeOption ? activeOption.fieldLabel : "Group By"}
+                    <span className="so-label">MRP</span>
+                    <label className="so-toggle-row" htmlFor="pri-chk-mrp">
+                      <input id="pri-chk-mrp" type="checkbox" checked={mrpChecked} onChange={(e) => setMrpChecked(e.target.checked)} />
+                      <span>Use MRP (unchecked uses Pur. Rate)</span>
                     </label>
-                    <SearchableSelect
-                      id="priw-combo"
-                      ref={comboRef}
-                      options={comboOptions}
-                      labelKey="label"
-                      value={groupByText}
-                      disabled={!activeOption}
-                      onChange={(val) => setGroupByText(val)}
-                      placeholder={activeOption ? `-- Select ${activeOption.fieldLabel} --` : "-- Select a group by option first --"}
-                    />
                   </div>
 
-                  <div className="so-field">
-                    <label className="so-label" htmlFor="priw-from-date">From Date</label>
-                    <input id="priw-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                  <div className="so-actions">
+                    <button type="button" className="so-btn so-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
+                      <Save size={16} className="so-icon-save" />
+                      {loading ? "Loading…" : "View"}
+                    </button>
+                    <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                      <XCircle size={16} className="so-icon-cancel" />
+                      Refresh
+                    </button>
                   </div>
 
-                  <div className="so-field">
-                    <label className="so-label" htmlFor="priw-to-date">To Date</label>
-                    <input id="priw-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-                  </div>
-
-                  <label className="so-toggle-row">
-                    <input type="checkbox" checked={daily} onChange={(e) => setDaily(e.target.checked)} />
-                    Daily
-                  </label>
-
-                  <label className="so-toggle-row">
-                    <input type="checkbox" checked={mrp} onChange={(e) => setMrp(e.target.checked)} />
-                    MRP
-                  </label>
-                </div>
+                  {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
+                </section>
               </div>
-
-              <div className="so-actions">
-                <button type="button" className="so-btn so-btn-primary" disabled={loading} onClick={handleView}>
-                  <Save size={16} className="so-icon-save" />
-                  {loading ? "Loading…" : "View"}
-                </button>
-                <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
-                  <XCircle size={16} className="so-icon-cancel" />
-                  Refresh
-                </button>
-              </div>
-
-              {msg && <div className={`so-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
             </div>
           </div>
         </div>

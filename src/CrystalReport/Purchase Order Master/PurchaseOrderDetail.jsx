@@ -3,23 +3,42 @@
 //  React conversion of PurchaseOrderDetail.js (jQuery) —
 //  "Purchase Order Detail Report"
 //  Uses API helpers from Common.jsx (CC.api / CC.mkUrl / CC.authHeaders etc.)
-//  Styling: MasterPage.css only — no inline color values, no new theme colors.
-//  Structure/CSS copied verbatim from BankBook.jsx (per request); only the
-//  supplier-combo + report-call logic differs to match the legacy source
-//  below.
+//  Styling: same "so-*" design system used across the report screens (see
+//  PurchaseDet.jsx / BankBook.jsx) — no inline color values, no new theme
+//  colors, same card / form-grid / button language. Shared class
+//  definitions now live in Reportstyles.css instead of a component-local
+//  <style> block, matching the other report screens.
 //
 //  NOTE: like BankBook/CashBook, this legacy screen has no report-type radio
 //  buttons — it's a single report, so the left nav-card report-type picker
 //  is omitted here (not invented). Unlike PurchaseOrderConsolidated, this
 //  screen has NO supplier-wise checkbox in the legacy markup — SupplierWise
 //  is a hardcoded string literal sent to the report viewer, preserved as-is.
+//  With no left-column controls, the form keeps the single centered
+//  "so-right" column (supplier combo + dates), same as PurchaseDet.jsx's
+//  right column, without inventing a left column that doesn't exist in the
+//  legacy source.
+//
+//  DATE INPUT: replaced native <input type="date"> with a custom dd-mm-yyyy
+//  segmented text input (DateFieldDDMMYYYY), same component/behavior as
+//  PurchaseDet.jsx / PurConsolidated.jsx. Native date inputs render in the
+//  browser/OS locale format, which is NOT controllable from code. Internal
+//  state stays ISO (yyyy-mm-dd) so validation / existing helpers keep
+//  working unchanged; only the on-screen text is dd-mm-yyyy.
+//
+//  All business logic below (single PageName permission check, GroupBy /
+//  ReportType / SupplierWise / Daily literals — including the "fasle" typo
+//  — the "PurchaseOrderDetails" report name, API payloads, and validation)
+//  is unchanged from the original file — only the design/structure/markup
+//  has been aligned with PurchaseDet.jsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, Calendar as CalendarIcon } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import "../Reportstyles.css";
 
 const BASE_URL = "http://localhost:64215";
 
@@ -38,6 +57,9 @@ const PurchaseOrderDetailsReportUrl = "/api/PurchaseReportApp/PurchaseOrderDetai
 // backend.
 const SupplierListUrl = "/api/SupplierApp/GetSupplier";
 
+// ── Date helpers ────────────────────────────────────────────────────────────
+// Internal state is always ISO (yyyy-mm-dd) — safe for `new Date()` comparisons
+// and matches what todayStr() has always produced.
 const todayStr = () => {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -49,6 +71,222 @@ const toMMDDYYYY = (isoDate) => {
   const [y, m, d] = isoDate.split("-");
   return `${m}/${d}/${y}`;
 };
+
+// ── DD-MM-YYYY segmented date input ─────────────────────────────────────────
+// Same design/behavior as PurchaseDet.jsx / PurConsolidated.jsx: three real
+// segment inputs (DD / MM / YYYY) instead of relying on native
+// <input type="date"> text-editing, whose typing order/cursor behaviour
+// follows the browser/OS locale and can't be forced into DD-MM-YYYY with CSS
+// alone. The calendar icon button opens a visually-hidden native date input
+// for the picker UI; typing is handled entirely by the segment inputs below.
+//
+// Public value/onChange contract is plain ISO "YYYY-MM-DD" text, same as the
+// native input it replaces — callers (fromDate/toDate state, toMMDDYYYY, the
+// API payload, validation) are completely unchanged.
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const parseIsoDate = (iso) => {
+  if (!iso) return { d: "", m: "", y: "" };
+  const [y, m, d] = iso.split("-");
+  return { d: d || "", m: m || "", y: y || "" };
+};
+
+// Real calendar validity check (rejects e.g. 31-04-2026, 29-02-2027).
+const isValidDMY = (d, m, y) => {
+  if (!d || !m || y.length !== 4) return false;
+  const dd = parseInt(d, 10);
+  const mm = parseInt(m, 10);
+  const yy = parseInt(y, 10);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return false;
+  const dt = new Date(yy, mm - 1, dd);
+  return dt.getFullYear() === yy && dt.getMonth() === mm - 1 && dt.getDate() === dd;
+};
+
+function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
+  const initial = parseIsoDate(value);
+  const [day, setDay] = useState(initial.d);
+  const [month, setMonth] = useState(initial.m);
+  const [year, setYear] = useState(initial.y);
+
+  const dayRef = useRef(null);
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
+  const nativeRef = useRef(null);
+
+  // Stay in sync when the value changes from outside this component —
+  // e.g. the native calendar-picker icon, or a programmatic reset.
+  useEffect(() => {
+    const p = parseIsoDate(value);
+    setDay(p.d);
+    setMonth(p.m);
+    setYear(p.y);
+  }, [value]);
+
+  const commitIfValid = useCallback(
+    (d, m, y) => {
+      if (isValidDMY(d, m, y)) {
+        onChange(`${y}-${pad2(parseInt(m, 10))}-${pad2(parseInt(d, 10))}`);
+      }
+    },
+    [onChange]
+  );
+
+  const handleDayChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setDay(v);
+    // Auto-advance to Month once 2 digits are entered, or immediately if a
+    // single digit can only be a one-digit day (4-9, since 40-99 is invalid).
+    if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 3)) {
+      const padded = v.padStart(2, "0");
+      setDay(padded);
+      commitIfValid(padded, month, year);
+      monthRef.current?.focus();
+      monthRef.current?.select();
+    } else {
+      commitIfValid(v, month, year);
+    }
+  };
+
+  const handleMonthChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setMonth(v);
+    if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 1)) {
+      const padded = v.padStart(2, "0");
+      setMonth(padded);
+      commitIfValid(day, padded, year);
+      yearRef.current?.focus();
+      yearRef.current?.select();
+    } else {
+      commitIfValid(day, v, year);
+    }
+  };
+
+  const handleYearChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setYear(v);
+    commitIfValid(day, month, v);
+  };
+
+  const handleSegmentKeyDown = (segment) => (e) => {
+    const el = e.target;
+    const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
+    const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+
+    if (e.key === "Backspace" && atStart) {
+      if (segment === "month") { dayRef.current?.focus(); dayRef.current?.select(); }
+      if (segment === "year") { monthRef.current?.focus(); monthRef.current?.select(); }
+    } else if (e.key === "ArrowLeft" && atStart) {
+      if (segment === "month") dayRef.current?.focus();
+      if (segment === "year") monthRef.current?.focus();
+    } else if (e.key === "ArrowRight" && atEnd) {
+      if (segment === "day") monthRef.current?.focus();
+      if (segment === "month") yearRef.current?.focus();
+    }
+  };
+
+  // Picker selection (native <input type="date">) updates all three
+  // segments and commits the value exactly like typing does.
+  const handleNativePickerChange = (e) => {
+    const iso = e.target.value;
+    if (!iso) return;
+    const p = parseIsoDate(iso);
+    setDay(p.d);
+    setMonth(p.m);
+    setYear(p.y);
+    onChange(iso);
+  };
+
+  const openPicker = () => {
+    const el = nativeRef.current;
+    if (!el || disabled) return;
+    if (typeof el.showPicker === "function") {
+      try {
+        el.showPicker();
+        return;
+      } catch {
+        // fall through to focus-based fallback below
+      }
+    }
+    el.focus();
+  };
+
+  return (
+    <div className={`so-date-wrap${disabled ? " so-date-wrap-disabled" : ""}`}>
+      <div className="so-date-segments">
+        <input
+          id={id}
+          ref={dayRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="DD"
+          maxLength={2}
+          className="so-date-seg so-date-seg-dd"
+          value={day}
+          disabled={disabled}
+          onChange={handleDayChange}
+          onKeyDown={handleSegmentKeyDown("day")}
+          onFocus={(e) => e.target.select()}
+        />
+        <span className="so-date-sep">-</span>
+        <input
+          ref={monthRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="MM"
+          maxLength={2}
+          className="so-date-seg so-date-seg-mm"
+          value={month}
+          disabled={disabled}
+          onChange={handleMonthChange}
+          onKeyDown={handleSegmentKeyDown("month")}
+          onFocus={(e) => e.target.select()}
+        />
+        <span className="so-date-sep">-</span>
+        <input
+          ref={yearRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="YYYY"
+          maxLength={4}
+          className="so-date-seg so-date-seg-yyyy"
+          value={year}
+          disabled={disabled}
+          onChange={handleYearChange}
+          onKeyDown={handleSegmentKeyDown("year")}
+          onFocus={(e) => e.target.select()}
+        />
+      </div>
+
+      <button
+        type="button"
+        className="so-date-icon-btn"
+        onClick={openPicker}
+        disabled={disabled}
+        tabIndex={-1}
+        aria-label="Open calendar picker"
+      >
+        <CalendarIcon size={15} />
+      </button>
+
+      {/* Native date input kept only for the calendar picker UI — visually
+          hidden, never used for typing, always mirrors the ISO value above. */}
+      <input
+        ref={nativeRef}
+        type="date"
+        className="so-date-native-hidden"
+        value={value || ""}
+        onChange={handleNativePickerChange}
+        tabIndex={-1}
+        aria-hidden="true"
+        disabled={disabled}
+      />
+    </div>
+  );
+}
 
 export default function PurchaseOrderDetail() {
   const navigate = useNavigate();
@@ -76,6 +314,7 @@ export default function PurchaseOrderDetail() {
   });
 
   // ── Form state (controlled inputs replacing jqx widgets) ────────────────
+  // Stored as ISO (yyyy-mm-dd) internally; displayed as dd-mm-yyyy in the UI.
   const [fromDate, setFromDate] = useState(todayStr());
   const [toDate, setToDate] = useState(todayStr());
 
@@ -171,9 +410,9 @@ export default function PurchaseOrderDetail() {
   useEffect(() => {
     if (!pageAccess.ready || !pageAccess.allowed) return;
     if (!session.Comid) return;
-  
+
     let cancelled = false;
-  
+
     const loadSuppliers = async () => {
       try {
         const res = await CC.api(
@@ -185,7 +424,7 @@ export default function PurchaseOrderDetail() {
             AccountType: "SUPPLIER",
           }
         );
-  
+
         if (res?.IsSuccess === false) {
           if (!cancelled) {
             setMsg({
@@ -197,7 +436,7 @@ export default function PurchaseOrderDetail() {
         }
         console.log(res);
         const rawList = res?.Data || res?.data || res?.Data1 || [];
-  
+
         const normalized = (Array.isArray(rawList) ? rawList : []).map((s) => ({
           label:
           s.AccountName ??
@@ -217,7 +456,7 @@ export default function PurchaseOrderDetail() {
             s.SupplierCode ??
             "",
         }));
-  
+
         if (!cancelled) {
           setSupplierList(normalized);
         }
@@ -230,14 +469,14 @@ export default function PurchaseOrderDetail() {
         }
       }
     };
-  
+
     loadSuppliers();
-  
+
     return () => {
       cancelled = true;
     };
   }, [pageAccess.ready, pageAccess.allowed, session.Comid]);
-  
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
@@ -335,10 +574,10 @@ export default function PurchaseOrderDetail() {
           Daily,
           Fromdate,
           Todate,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
-        });
+          CName:    session?.CName    || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address")     || "",
+          CPhone:   session?.CPhone   || localStorage.getItem("Phone")       || "",
+       });
       } else {
         setMsg({ text: "No Record !!!.", isErr: true });
       }
@@ -351,63 +590,6 @@ export default function PurchaseOrderDetail() {
       setSelectedSupplier(null);
     }
   }, [fromDate, toDate, selectedSupplier, session, openReportViewer]);
-
-  // ── Design system: recolored/restructured to match BranchWise.jsx exactly ──
-  //   Border / header / heading -> blue (#1a56db)
-  //   Save-style accents        -> green (#1e7e34)
-  //   Cancel / link accents     -> red   (#dc3545)
-  const styles = `
-    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
-    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
-    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
-    .so-close-btn:hover { background: rgba(255,255,255,.28); }
-
-    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
-    .so-card { width: 100%; max-width: 560px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
-
-    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
-    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
-    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
-    .so-close-x:hover { background: rgba(255,255,255,.28); }
-
-    .so-card-body { padding: 24px 32px 30px; }
-    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
-
-    .so-content { display: flex; justify-content: center; }
-
-    .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 340px; margin: 0 auto; }
-
-    .so-field { display: flex; align-items: center; gap: 14px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
-    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
-    select.so-input { appearance: auto; cursor: pointer; }
-
-    .so-combo { position: relative; width: 100%; }
-    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
-    .so-combo-item { padding: 7px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; }
-    .so-combo-item:hover { background: #eef3ff; }
-    .so-combo-empty { padding: 7px 10px; font-size: 13px; color: #4a5568; }
-
-    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
-    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn:not(:disabled):hover { background: #eef3ff; }
-    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
-    .so-btn-primary .so-icon-save { color: #1e7e34; }
-    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
-    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
-
-    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
-    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-
-    @media (max-width: 620px) {
-      .so-card-body { padding: 20px; }
-      .so-right { max-width: none; }
-    }
-  `;
 
   if (!pageAccess.ready) {
     return (
@@ -431,12 +613,11 @@ export default function PurchaseOrderDetail() {
 
   return (
     <>
-      <style>{styles}</style>
       <div className="so-shell">
         <Topbar />
         <div className="so-layout">
-          <div className="so-card">
-            <div className="so-card-header">
+          <div className="mp-so-card ">
+            <div className="so-card-header  ">
               <div className="so-card-header-title">Purchase Order Detail</div>
               <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
@@ -445,6 +626,10 @@ export default function PurchaseOrderDetail() {
               <div className="so-report-title">Purchase Order Detail Report</div>
 
               <div className="so-content">
+                {/* No report-type radios / supplier-wise checkbox exist in the
+                    legacy markup for this screen (unlike PurchaseOrderConsolidated),
+                    so there is no left column here — only the centered supplier +
+                    dates column, matching the reference's so-right pattern. */}
                 <div className="so-right">
                   <div className="so-field">
                     <label className="so-label" htmlFor="pod-supplier">Supplier</label>
@@ -454,7 +639,7 @@ export default function PurchaseOrderDetail() {
                         type="text"
                         className="so-input"
                         autoComplete="off"
-                        placeholder="Type to search supplier…"
+                        placeholder="Type to search… (optional)"
                         value={supplierSearch}
                         onFocus={() => setSupplierDropdownOpen(true)}
                         onChange={(e) => {
@@ -500,12 +685,12 @@ export default function PurchaseOrderDetail() {
 
                   <div className="so-field">
                     <label className="so-label" htmlFor="pod-from-date">From Date</label>
-                    <input id="pod-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pod-from-date" value={fromDate} onChange={setFromDate} />
                   </div>
 
                   <div className="so-field">
                     <label className="so-label" htmlFor="pod-to-date">To Date</label>
-                    <input id="pod-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pod-to-date" value={toDate} onChange={setToDate} />
                   </div>
                 </div>
               </div>

@@ -20,8 +20,8 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
-//export const BASE_URL = "https://billing.kassapos.co.in";
-export const BASE_URL = "http://localhost:64215";
+export const BASE_URL = "https://billing.kassapos.co.in";
+//export const BASE_URL = "http://localhost:64215";
 //export const BASE_URL = "https://billing.kassapos.co.in";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
@@ -1025,8 +1025,8 @@ export const BRANCH_List= "/api/CompanyApp/SelectCompany";
 
 export const SelectBranchAll= "/api/StockReportApp/SelectBranchAll";
 
-// BatchWise master lists
-export const BW_Brand  = "/api/BrandApp/SelectBrandAll";
+// BatchWise master lists /api/BrandApp/SelectBrand
+export const BW_Brand  = "/api/BrandApp/SelectBrand";
 export const BW_Model  = "/api/ModelApp/SelectModelAll";
 export const BW_Color  = "/api/ColorApp/SelectColorAll";
 export const BW_Size   = "/api/SizeApp/SelectSizeAll";

@@ -1,0 +1,177 @@
+.so-shell { min-height: 100vh; background: var(--clr-bg-page); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+.so-topbar { background: linear-gradient(135deg, var(--clr-primary), var(--clr-primary-dark)); color: var(--clr-text-white); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px var(--clr-shadow-toast); flex-shrink: 0; }
+.so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+.so-close-btn { background: var(--clr-ps-close-bg); border: none; color: var(--clr-text-white); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+.so-close-btn:hover { background: var(--clr-ps-close-hover-bg); }
+
+.so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+.so-card { width: 100%; max-width: 740px; background: var(--clr-bg-white); border: 2px solid var(--clr-primary); border-radius: 10px; box-shadow: 0 4px 16px var(--clr-focus-ring); overflow: hidden; }
+.mp-so-card { width: 100%; max-width: 500px; background: var(--clr-bg-white); border: 2px solid var(--clr-primary); border-radius: 10px; box-shadow: 0 4px 16px var(--clr-focus-ring); overflow: hidden; }
+.so-card-header { background: linear-gradient(135deg, var(--clr-primary), var(--clr-primary-dark)); border-bottom: 1px solid var(--clr-primary-dark); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+.so-card-header-title { font-size: 14px; font-weight: 700; color: var(--clr-text-white); letter-spacing: .2px; }
+.so-close-x { background: var(--clr-ps-close-bg); border: none; font-size: 14px; color: var(--clr-text-white); cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
+.so-close-x:hover { background: var(--clr-ps-close-hover-bg); }
+
+.so-card-body { padding: 24px 32px 30px; }
+.so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: var(--clr-primary-dark); margin: 0 0 26px; }
+
+.so-content { display: flex; gap: 32px; }
+
+.so-left { flex: 0 0 190px; display: flex; flex-direction: column; gap: 14px; }
+.so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 320px; }
+
+.so-radio-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: var(--clr-text-primary); font-weight: 500; }
+.so-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: var(--clr-primary); cursor: pointer; flex-shrink: 0; }
+
+.so-basis-row { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--clr-border-table); }
+
+.so-checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: var(--clr-text-primary); font-weight: 500; }
+.so-checkbox input { position: absolute; opacity: 0; width: 0; height: 0; }
+.so-checkbox-box { width: 16px; height: 16px; flex-shrink: 0; border: 1px solid var(--clr-border-default); border-radius: 4px; background: var(--clr-bg-white); display: flex; align-items: center; justify-content: center; transition: border-color .15s, background .15s, box-shadow .15s; }
+.so-checkbox input:checked ~ .so-checkbox-box { background: var(--clr-primary); border-color: var(--clr-primary); }
+.so-checkbox input:focus-visible ~ .so-checkbox-box { box-shadow: 0 0 0 3px var(--clr-focus-ring); }
+.so-checkbox-box svg { width: 10px; height: 10px; opacity: 0; transform: scale(.6); transition: opacity .12s, transform .12s; }
+.so-checkbox input:checked ~ .so-checkbox-box svg { opacity: 1; transform: scale(1); }
+
+.so-field { display: flex; align-items: center; gap: 14px; }
+.so-label { font-size: 13px; font-weight: 600; color: var(--clr-text-primary); width: 96px; flex-shrink: 0; }
+.so-input { height: 34px; border: 1px solid var(--clr-border-default); border-radius: 4px; padding: 0 10px; font-size: 13px; color: var(--clr-text-primary); background: var(--clr-bg-white); width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
+.so-input:focus { border-color: var(--clr-primary); box-shadow: 0 0 0 3px var(--clr-focus-ring-picker); }
+select.so-input { appearance: auto; cursor: pointer; }
+
+/* Custom DD-MM-YYYY date input — three real segment inputs (DD / MM /
+   YYYY) instead of relying on native <input type="date"> text-editing,
+   whose typing order/cursor behaviour follows the browser/OS locale and
+   can't be forced into DD-MM-YYYY with CSS alone. The calendar icon
+   button opens a visually-hidden native date input for the picker UI;
+   typing is handled entirely by the segment inputs below. */
+.so-date-wrap {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  border: 1px solid var(--clr-border-default);
+  border-radius: 4px;
+  background: var(--clr-bg-white);
+  padding: 0 10px;
+  box-sizing: border-box;
+  width: 100%;
+  transition: border-color .15s, box-shadow .15s;
+}
+.so-date-wrap:focus-within {
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3px var(--clr-focus-ring-picker);
+}
+.so-date-wrap-disabled {
+  background: var(--clr-bg-soft);
+  opacity: .7;
+}
+.so-date-segments { display: flex; align-items: center; flex: 1; min-width: 0; }
+.so-date-seg {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--clr-text-primary);
+  text-align: center;
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+}
+.so-date-seg::placeholder { color: var(--clr-ps-placeholder); }
+.so-date-seg:disabled { color: var(--clr-text-inactive); cursor: not-allowed; }
+.so-date-seg-dd, .so-date-seg-mm { width: 18px; }
+.so-date-seg-yyyy { width: 34px; }
+.so-date-sep { color: var(--clr-text-muted); font-size: 13px; padding: 0 2px; user-select: none; }
+.so-date-icon-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-left: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color .15s;
+}
+.so-date-icon-btn:hover:not(:disabled) { color: var(--clr-primary); }
+.so-date-icon-btn:disabled { cursor: not-allowed; opacity: .6; }
+.so-date-native-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  padding: 0;
+  margin: -1px;
+}
+
+.so-combo { position: relative; width: 100%; }
+.so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 200px; overflow-y: auto; background: var(--clr-bg-white); border: 1px solid var(--clr-border-default); border-radius: 6px; box-shadow: 0 6px 20px var(--clr-shadow-toast); }
+.so-combo-item { padding: 7px 10px; font-size: 13px; color: var(--clr-text-primary); border-radius: 4px; cursor: pointer; }
+.so-combo-item:hover { background: var(--clr-bg-row-hover); }
+.so-combo-empty { padding: 7px 10px; font-size: 13px; color: var(--clr-text-mid); }
+
+.so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid var(--clr-border-table); }
+.so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid var(--clr-primary); font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: var(--clr-bg-white); color: var(--clr-primary); }
+.so-btn:disabled { opacity: .5; cursor: not-allowed; }
+.so-btn:not(:disabled):hover { background: var(--clr-bg-row-hover); }
+.so-btn-primary { border-color: var(--clr-green); color: var(--clr-green); }
+.so-btn-primary .so-icon-save { color: var(--clr-green); }
+.so-btn-secondary { border-color: var(--clr-danger); color: var(--clr-danger); }
+.so-btn-secondary .so-icon-cancel { color: var(--clr-danger); }
+
+.so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
+.so-msg.err { background: var(--clr-danger-bg); color: var(--clr-danger-text); border: 1px solid var(--clr-danger-border); }
+.so-msg.ok  { background: var(--clr-success-bg); color: var(--clr-success-text); border: 1px solid var(--clr-success-border); }
+
+@media (max-width: 620px) {
+  .so-card-body { padding: 20px; }
+  .so-content { flex-direction: column; gap: 22px; }
+  .so-left { flex: none; }
+  .so-right { max-width: none; }
+}
+
+/* ── PurItemwise layout ──────────────────────────────────────────────────
+   This screen's two-column "Group By" (7 radios + combos) / "Filters"
+   layout is wider than the single-column so-left/so-right form used by
+   PurchaseDet/PurConsolidated, so it needs its own geometry. Rather than
+   changing the shared so-card/so-content rules above (which the narrower
+   screens depend on), these are added as modifier classes applied
+   alongside so-card/so-content, plus a few new page-only classes. Every
+   color still comes from the same --clr-* tokens used everywhere else. */
+.so-card-wide { max-width: 900px; }
+.so-content-groupby { gap: 40px; align-items: flex-start; flex-wrap: wrap; }
+
+.so-groupby-col { flex: 1.4; min-width: 340px; }
+.so-filters-col { flex: 1; min-width: 260px; padding-left: 32px; border-left: 1px solid var(--clr-border-table); display: flex; flex-direction: column; }
+.so-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--clr-text-muted); margin-bottom: 16px; }
+
+.so-groupby-grid { display: grid; grid-template-columns: 128px 1fr; gap: 14px 16px; align-items: center; }
+.so-filters-grid { display: grid; grid-template-columns: 96px 1fr; gap: 14px 16px; align-items: center; }
+/* so-label's fixed 96px width (set above) is meant for the flex so-field
+   layout; inside these CSS-grid rows the column tracks already size the
+   label, so the fixed width is unset here to avoid squeezing the text. */
+.so-groupby-grid .so-label,
+.so-filters-grid .so-label { width: auto; }
+
+.so-input:disabled { background: var(--clr-bg-soft); color: var(--clr-text-inactive); cursor: not-allowed; }
+
+.so-toggle-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.so-toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--clr-primary); cursor: pointer; flex-shrink: 0; }
+.so-toggle-row span { font-size: 13px; color: var(--clr-text-primary); }
+
+/* This screen's actions sit left-aligned under the narrower Filters
+   column, rather than centered under the full card like PurchaseDet's. */
+.so-filters-col .so-actions { justify-content: flex-start; }
+
+@media (max-width: 900px) {
+  .so-content-groupby { flex-direction: column; }
+  .so-filters-col { padding-left: 0; border-left: none; border-top: 1px solid var(--clr-border-table); padding-top: 22px; margin-top: 4px; }
+}
+@media (max-width: 620px) {
+  .so-groupby-grid { grid-template-columns: 100px 1fr; }
+  .so-filters-grid { grid-template-columns: 90px 1fr; }
+}
