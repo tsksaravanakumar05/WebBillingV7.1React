@@ -24,7 +24,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../Master/MasterPage.css";
 import "../TransactionStyle/PurchasesMaster.css";
 import Topbar from "../components/Topbar";
@@ -406,7 +406,9 @@ const exceedsDecimalLimit = (value, decimals) => {
 };
 // ─── PurchasesMaster ──────────────────────────────────────────────────────────
 export default function Purchase() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const externalOpenRef = useRef("");
 
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast,   toasts    } = MSG.useToast();
@@ -1580,7 +1582,7 @@ if (colKey === "MfgDate") {
       let row = {
   ...prev[idx],
   Id:              p.PDId          || 0,
-  ProductRefId:    p.ProductRefId,
+  ProductRefId:    p.ProductRefId||p.Id,
   ProductCode:     p.ProductCode || p.Prod_Code || "",
   ProductName:     p.ProductName || p.PName     || "",
   HSNCode:         p.HSNCode     || "",
@@ -1925,23 +1927,29 @@ const handleF5View = useCallback(async (objlist = {}) => {
   // ─────────────────────────────────────────────────────────────────────────
   //  EDIT
   // ─────────────────────────────────────────────────────────────────────────
-  const handleEdit = useCallback(async (pid, pno) => {
-    if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; }
+  const handleEdit = useCallback(async (pid, pno, options = {}) => {
+    const canOpenFromView = options.allowView === true;
+    if (canOpenFromView ? !perm.View : !perm.Edit) {
+      toast(`❌ Page ${canOpenFromView ? "View" : "Edit"} Permission Denied !!!.`, true);
+      return;
+    }
     setLoading(true);
  
+    const activeMode = options.mode || purchaseMode;
+
      let Patty = 0;
     let SPatty = 0;
     let ptype = 0;
     if (pattyFeatureEnabled ) {
       Patty = 1;
     } 
-    if (purchaseMode === "PATTY") {
+    if (activeMode === "PATTY") {
       ptype = 2;
-    }  else if (purchaseMode === "ARRIVAL") {
+    }  else if (activeMode === "ARRIVAL") {
       ptype = 1;
     }
 
-   if (purchaseMode === "SALESPATTY") {
+   if (activeMode === "SALESPATTY") {
       SPatty = 1;
     }
     const res = await CC.api(CC.EditPurchase, null, {patty: Patty, SalesPatty: SPatty,ptype: ptype}, { Id: pid, PNo: pno, Comid: sess.Comid, BatchwiseSizeStock: 0 });
@@ -2133,7 +2141,23 @@ if (savedArrivalType) {
     } else {
       toast(`❌ ${res.message || "Edit load failed !!!."}`, true);
     }
-  }, [perm, sess, taxMode, supplierList, handleSupplierChange, toast, redirectIfDualLogin, nextFocusForm]);
+  }, [perm, sess, taxMode, supplierList, handleSupplierChange, toast, redirectIfDualLogin, nextFocusForm, purchaseMode, pattyFeatureEnabled]);
+
+  useEffect(() => {
+    const req = location.state?.pattyPurchaseOpen;
+    if (!req?.id || !req?.requestKey) return;
+    if (externalOpenRef.current === req.requestKey) return;
+
+    externalOpenRef.current = req.requestKey;
+    const nextMode = req.mode || "ARRIVAL";
+    setPurchaseMode(nextMode);
+
+    setTimeout(() => {
+      handleEdit(req.id, req.pno || 0, { mode: nextMode, allowView: true });
+    }, 0);
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate, handleEdit]);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  DELETE
@@ -2538,14 +2562,16 @@ if (savedArrivalType) {
       VehicleNo: pattyMode ? pattyVehicleNo : "",
       Person:    pattyMode ? pattyPerson    : "",
     }];
+    console.log("Saving PurchaseMaster:", purchaseMaster, "with StockDetails:", stockDetails, "and SerialNoDetails:", serialNoList);
     const res = await CC.insertapi(CC.InsertPurchase, purchaseMaster, {
-      Comid: String(sess.Comid), MirrorTable: String(sess.MirrorTable), IdComList: String(sess.IdComList),
+      Comid: String(sess.Comid), MirrorTable: String(sess.MirrorTable), IdComList: String(sess.IdComList),BranchWise: String(sess.BranchWiseStock ?? false),
       batchstockstatus: (() => {
         const ms = JSON.parse(localStorage.getItem("Mainsetting") || "[{}]");
         return (ms?.[0]?.BatchWiseStock === true || ms?.[0]?.TextilesSerialNowiseBilling === true) ? "1" : "0";
       })(),
       ItemMasterRateEditUpdate: String(sess.ItemMasterRateUpdate ?? false),
       CommonCompany: String(sess.Commoncompany ?? false),
+      
       CommonCompanyDiffStock: String(sess.CommoncompanyDiffStock ?? false),
       SupplierMulitipleAllow: String(sess.SupplierMulitipleAllow ?? false),
       MulipleMRP: String(sess.MulipleMRP ?? false),

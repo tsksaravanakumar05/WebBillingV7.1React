@@ -147,6 +147,8 @@ export const BillUnHoldUrl       = "/api/SaleApp/BillUnHold";
 export const BillHoldDeleteUrl   = "/api/SaleApp/BillHoldDelete";
 export const SelectCardMasterUrl = "/api/SaleApp/SelectSaleType";
 export const A4PrintUrl          = "/Sale/A4Print";
+export const BillPrintAllUrl     = "/api/SaleApp/BillPrintAll";
+export const SelectBillViewUrl   = "/api/SaleApp/SelectBillView";
 
 export const SB_COLUMNS = [
   { key: "SalesManCode",    label: "SM Code",       width: 140, hidden: true,  type: "smcode" },

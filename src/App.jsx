@@ -45,6 +45,7 @@ import CustomerReceipt from "./Transaction/Customerreceipt";
 import PurchaseReturn from "./Transaction/Purchasereturn";
 import Supplierpayment from "./Transaction/Supplierpayment";
 import StockInward from "./Transaction/Stockinward";
+import PattyPurchaseView from "./Transaction/PattyPurchaseView";
 
 
 
@@ -217,6 +218,7 @@ function App() {
         <Route path="/PurchaseReturn" element={<PurchaseReturn />} />
         <Route path="/Supplierpayment" element={<Supplierpayment />} />
         <Route path="/StockInward" element={<StockInward />} />
+        <Route path="/PattyPurchaseView" element={<PattyPurchaseView />} />
         <Route path="/Cash" element={<Cashvoucher />} />
         <Route path="/Bank" element={<Bankvoucher />} />
         <Route path="/Quotation" element={<Qutation />} />
