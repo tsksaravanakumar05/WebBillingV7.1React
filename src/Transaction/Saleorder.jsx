@@ -443,6 +443,7 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos,isTamil }) 
           onChange={e => setQ(e.target.value)}
           placeholder="Type code or name…"
           className="sb-ps-input"
+          
           onKeyDown={e => {
             if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
             if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
