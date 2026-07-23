@@ -326,6 +326,7 @@ export default function CustomerMaster() {
   const [pagecountnew, setPagecountnew] = useState(0);
   const [curPage,      setCurPage     ] = useState(1);
   const [pageLen,      setPageLen     ] = useState(1);
+  const [pageInput,    setPageInput   ] = useState("1");
   const [filterSearch, setFilterSearch] = useState("");
   const [filterColumn, setFilterColumn] = useState(grdSupplierName);
 
@@ -1368,11 +1369,22 @@ if (e.keyCode === 118) { // F7
 
   // ── Pagination ─────────────────────────────────────────────────────────────
 const handlePageClick = useCallback((page) => {
-  if (page === curPage) return;
+  if (page < 1 || page > pageLen || page === curPage) return;
   setCurPage(page);
   // page1 → 0, page2 → 20, page3 → 40
   loadCounter((page - 1) * sess.pagecount, sess.pagecount, "", "", 0);
-}, [sess.pagecount, curPage, loadCounter]);
+}, [sess.pagecount, curPage, pageLen, loadCounter]);
+useEffect(() => {
+  setPageInput(String(curPage));
+}, [curPage]);
+const submitPageInput = useCallback(() => {
+  const nextPage = Number(pageInput);
+  if (!Number.isFinite(nextPage)) {
+    setPageInput(String(curPage));
+    return;
+  }
+  handlePageClick(Math.min(pageLen, Math.max(1, nextPage)));
+}, [pageInput, curPage, pageLen, handlePageClick]);
 
   // ── Display grid (active filter) ───────────────────────────────────────────
   const displayGrid = grid.filter(row => {
@@ -1556,7 +1568,32 @@ const handlePageClick = useCallback((page) => {
   display: "flex", alignItems: "center",
   gap: 6, padding: "6px 10px", flexWrap: "wrap",
 }}>
-
+  <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+    <button className="mp-pgbtn" onClick={() => handlePageClick(curPage - 1)} disabled={curPage <= 1}>{"<"}</button>
+    <button className={`mp-pgbtn${curPage===1?" on":""}`} onClick={() => handlePageClick(1)}>1</button>
+    {pageLen >= 2 && (
+      <button className={`mp-pgbtn${curPage===2?" on":""}`} onClick={() => handlePageClick(2)}>2</button>
+    )}
+    {pageLen > 2 && (
+      <>
+        <input
+          className="mp-cell-input"
+          style={{ width: 52, height: 26, textAlign: "center", padding: "0 6px" }}
+          value={pageInput}
+          onChange={e => setPageInput(e.target.value.replace(/[^\d]/g, ""))}
+          onBlur={submitPageInput}
+          onKeyDown={e => {
+            if (e.key === "Enter") submitPageInput();
+          }}
+        />
+        <button className={`mp-pgbtn${curPage===pageLen?" on":""}`} onClick={() => handlePageClick(pageLen)}>{pageLen}</button>
+      </>
+    )}
+    <button className="mp-pgbtn" onClick={() => handlePageClick(curPage + 1)} disabled={curPage >= pageLen}>{">"}</button>
+    <span style={{ fontSize:11, color:"#64748b", marginLeft:6, fontWeight:600 }}>
+      Record {pagecountnew}
+    </span>
+  </div>
 
   <div style={{ width: 1, height: 22, background: "#d1d5db", margin: "0 4px" }} />
 
@@ -1795,40 +1832,11 @@ const handlePageClick = useCallback((page) => {
     🔄 Refresh
   </button>
 {/* Pagination — bottom toolbar-ல் add பண்ணுங்க */}
-<div style={{ display:"flex", alignItems:"center", gap:4, marginLeft:8 }}>
-  {Array.from({ length: pageLen }, (_, i) => i + 1).map(p => (
-    <button key={p}
-      onClick={() => handlePageClick(p)}
-      className="mp-btn"
-      style={{
-        padding:"3px 9px", fontSize:12, minWidth:28,
-        background: p === curPage ? "#1a2e4a" : "#fff",
-        color:      p === curPage ? "#fff"    : "#1a2e4a",
-        border: "1px solid #1a2e4a",
-      }}>
-      {p}
-    </button>
-  ))}
-  <span style={{ fontSize:11, color:"#64748b", marginLeft:6, fontWeight:600 }}>
-    Record {pagecountnew}
-  </span>
-</div>
   <button className="mp-btn dl" onClick={handleEsc} style={{ marginLeft: "auto" }}>
     ✕ Esc Cancel
   </button>
 </div>
         {/* ── Pagination ── */}
-        {pageLen > 1 && (
-          <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
-            {Array.from({ length: pageLen }, (_, i) => i + 1).map(page => (
-              <button key={page} onClick={() => handlePageClick(page)}
-                className={`mp-page-btn${curPage === page ? " active" : ""}`}>
-                {page}
-              </button>
-            ))}
-            <span className="mp-rec-count">Records: {pagecountnew}</span>
-          </div>
-        )}
 
     
       </div>

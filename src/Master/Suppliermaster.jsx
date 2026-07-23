@@ -118,6 +118,7 @@ export default function SupplierMaster() {
 const [pageCountTotal, setPageCountTotal] = useState(0); // total record count (data.Count)
 const [pageLen, setPageLen]               = useState(1); // total pages
 const [curPage, setCurPage]               = useState(1); // current page (1-based)
+const [pageInput, setPageInput]           = useState("1");
 const PAGE_SIZE = 20;
   // ── Shared hooks from Common.jsx ─────────────────────────────────────────
   const { confirm, ConfirmUI } = CC.useConfirm();
@@ -531,6 +532,17 @@ const goToPage = useCallback((page) => {
   if (page < 1 || page > pageLen || page === curPage) return;
   doLoadData(salesmanRef.current, "", "", page);
 }, [pageLen, curPage]);
+useEffect(() => {
+  setPageInput(String(curPage));
+}, [curPage]);
+const submitPageInput = useCallback(() => {
+  const nextPage = Number(pageInput);
+  if (!Number.isFinite(nextPage)) {
+    setPageInput(String(curPage));
+    return;
+  }
+  goToPage(Math.min(pageLen, Math.max(1, nextPage)));
+}, [pageInput, curPage, pageLen, goToPage]);
   // Store doLoadData in ref so handleSave can call it without being a dep
 loadDataRef.current = () => doLoadData(salesmanRef.current, "", "", curPage);
 
@@ -1111,6 +1123,32 @@ function PwModal({ title, comid, onOk, onClose }) {
     display: "flex", alignItems: "center",
     gap: 6, padding: "6px 10px", flexWrap: "wrap",
   }}>
+    <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+      <button className="mp-pgbtn" onClick={() => goToPage(curPage - 1)} disabled={curPage <= 1}>{"<"}</button>
+      <button className={`mp-pgbtn${curPage===1?" on":""}`} onClick={() => goToPage(1)}>1</button>
+      {pageLen >= 2 && (
+        <button className={`mp-pgbtn${curPage===2?" on":""}`} onClick={() => goToPage(2)}>2</button>
+      )}
+      {pageLen > 2 && (
+        <>
+          <input
+            className="mp-cell-input"
+            style={{ width:52, height:26, textAlign:"center", padding:"0 6px" }}
+            value={pageInput}
+            onChange={e => setPageInput(e.target.value.replace(/[^\d]/g, ""))}
+            onBlur={submitPageInput}
+            onKeyDown={e => {
+              if (e.key === "Enter") submitPageInput();
+            }}
+          />
+          <button className={`mp-pgbtn${curPage===pageLen?" on":""}`} onClick={() => goToPage(pageLen)}>{pageLen}</button>
+        </>
+      )}
+      <button className="mp-pgbtn" onClick={() => goToPage(curPage + 1)} disabled={curPage >= pageLen}>{">"}</button>
+      <span style={{ fontSize:11, color:"#64748b", marginLeft:6, fontWeight:600 }}>
+        Record {pageCountTotal}
+      </span>
+    </div>
     <div style={{ width:1, height:22, background:"#d1d5db", margin:"0 4px" }} />
     <div className="mp-toolbar-title">Supplier Master</div>
 
@@ -1246,24 +1284,6 @@ function PwModal({ title, comid, onOk, onClose }) {
       style={{ background:"#059669", color:"#fff", borderColor:"#059669" }}>
       🔄 Refresh
     </button>
-     <div style={{ display:"flex", alignItems:"center", gap:4, marginLeft:8 }}>
-  {Array.from({ length: pageLen }, (_, i) => i + 1).map(p => (
-    <button key={p}
-      onClick={() => goToPage(p)}
-      className="mp-btn"
-      style={{
-        padding:"3px 9px", fontSize:12, minWidth:28,
-        background: p === curPage ? "#1a2e4a" : "#fff",
-        color:      p === curPage ? "#fff"    : "#1a2e4a",
-        border: "1px solid #1a2e4a",
-      }}>
-      {p}
-    </button>
-  ))}
-  <span style={{ fontSize:11, color:"#64748b", marginLeft:6, fontWeight:600 }}>
-    Record {pageCountTotal}
-  </span>
-</div>
     {salesmanLoading && (
       <span style={{ fontSize:11, color:"#94a3b8", marginLeft:8 }}>Loading salesman…</span>
     )}

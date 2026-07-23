@@ -1999,9 +1999,10 @@ if (!isAuthorized) return null;
         {/* ── TOP Toolbar ── */}
        
 
+
         {/* Pagination + status */}
-        <div className="mp-toolbar" style={{justifyContent:"space-between"}}>
-          <div style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap"}}>
+        <div className="mp-toolbar" style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+          <div style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap",minWidth:0,paddingRight:140}}>
             {pageNums.map((n,idx)=>{
               const prev=pageNums[idx-1];
               return (
@@ -2012,7 +2013,8 @@ if (!isAuthorized) return null;
               );
             })}
           </div>
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <div className="mp-toolbar-title" style={{position:"absolute",left:"50%",transform:"translateX(-50%)",textAlign:"center",pointerEvents:"none",whiteSpace:"nowrap"}}>Item Master</div>
+          <div style={{display:"flex",gap:8,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap",marginLeft:"auto",paddingLeft:140}}>
             <span className="mp-badge">Rows: {rows.length}{totCnt>rows.length?` / ${totCnt}`:""}</span>
             {(entryRow._dirty||rows.some(r=>r._dirty))&&<span className="mp-badge-warn">✏️ {rows.filter(r=>r._dirty).length+(entryRow._dirty?1:0)} unsaved</span>}
             {vErr&&<span className="mp-verr">{vErr}</span>}
