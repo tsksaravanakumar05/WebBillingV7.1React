@@ -20,10 +20,10 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, Calendar as CalendarIcon } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
-
+import "../Reportstyles.css";
 const BASE_URL = "http://localhost:64215";
 
 // API endpoint used by this screen (kept exactly as the legacy jQuery file had it —
@@ -49,6 +49,226 @@ const toMMDDYYYY = (isoDate) => {
   const [y, m, d] = isoDate.split("-");
   return `${m}/${d}/${y}`;
 };
+
+// ── DD-MM-YYYY segmented date input ─────────────────────────────────────────
+// Replaces reliance on native <input type="date"> text-editing (whose typing
+// order/cursor behaviour follows the browser/OS locale — e.g. MM-DD-YYYY —
+// and can't be overridden with CSS). Three real segment inputs (DD / MM /
+// YYYY) give full control over typing, auto-advance, backspace and arrow-key
+// navigation, always in DD-MM-YYYY order regardless of browser locale.
+//
+// The calendar icon still opens the browser's native date picker (via a
+// visually-hidden <input type="date"> synced to the same value) so users get
+// the familiar picker UI — only manual typing is now custom.
+//
+// IMPORTANT: this component's public value/onChange contract is still plain
+// ISO "YYYY-MM-DD" text, identical to the native input it replaces. Callers
+// (fromDate/toDate state, toMMDDYYYY, the API payload, validation) are
+// completely unchanged.
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const parseIsoDate = (iso) => {
+  if (!iso) return { d: "", m: "", y: "" };
+  const [y, m, d] = iso.split("-");
+  return { d: d || "", m: m || "", y: y || "" };
+};
+
+// Real calendar validity check (rejects e.g. 31-04-2026, 29-02-2027).
+const isValidDMY = (d, m, y) => {
+  if (!d || !m || y.length !== 4) return false;
+  const dd = parseInt(d, 10);
+  const mm = parseInt(m, 10);
+  const yy = parseInt(y, 10);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return false;
+  const dt = new Date(yy, mm - 1, dd);
+  return dt.getFullYear() === yy && dt.getMonth() === mm - 1 && dt.getDate() === dd;
+};
+
+function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
+  const initial = parseIsoDate(value);
+  const [day, setDay] = useState(initial.d);
+  const [month, setMonth] = useState(initial.m);
+  const [year, setYear] = useState(initial.y);
+
+  const dayRef = useRef(null);
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
+  const nativeRef = useRef(null);
+
+  // Stay in sync when the value changes from outside this component —
+  // e.g. the native calendar-picker icon, or a programmatic reset.
+  useEffect(() => {
+    const p = parseIsoDate(value);
+    setDay(p.d);
+    setMonth(p.m);
+    setYear(p.y);
+  }, [value]);
+
+  const commitIfValid = useCallback(
+    (d, m, y) => {
+      if (isValidDMY(d, m, y)) {
+        onChange(`${y}-${pad2(parseInt(m, 10))}-${pad2(parseInt(d, 10))}`);
+      }
+    },
+    [onChange]
+  );
+
+  const handleDayChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setDay(v);
+    // Auto-advance to Month once 2 digits are entered, or immediately if a
+    // single digit can only be a one-digit day (4-9, since 40-99 is invalid).
+    if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 3)) {
+      const padded = v.padStart(2, "0");
+      setDay(padded);
+      commitIfValid(padded, month, year);
+      monthRef.current?.focus();
+      monthRef.current?.select();
+    } else {
+      commitIfValid(v, month, year);
+    }
+  };
+
+  const handleMonthChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setMonth(v);
+    if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 1)) {
+      const padded = v.padStart(2, "0");
+      setMonth(padded);
+      commitIfValid(day, padded, year);
+      yearRef.current?.focus();
+      yearRef.current?.select();
+    } else {
+      commitIfValid(day, v, year);
+    }
+  };
+
+  const handleYearChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setYear(v);
+    commitIfValid(day, month, v);
+  };
+
+  const handleSegmentKeyDown = (segment) => (e) => {
+    const el = e.target;
+    const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
+    const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+
+    if (e.key === "Backspace" && atStart) {
+      if (segment === "month") { dayRef.current?.focus(); dayRef.current?.select(); }
+      if (segment === "year") { monthRef.current?.focus(); monthRef.current?.select(); }
+    } else if (e.key === "ArrowLeft" && atStart) {
+      if (segment === "month") dayRef.current?.focus();
+      if (segment === "year") monthRef.current?.focus();
+    } else if (e.key === "ArrowRight" && atEnd) {
+      if (segment === "day") monthRef.current?.focus();
+      if (segment === "month") yearRef.current?.focus();
+    }
+  };
+
+  // Picker selection (native <input type="date">) updates all three
+  // segments and commits the value exactly like typing does.
+  const handleNativePickerChange = (e) => {
+    const iso = e.target.value;
+    if (!iso) return;
+    const p = parseIsoDate(iso);
+    setDay(p.d);
+    setMonth(p.m);
+    setYear(p.y);
+    onChange(iso);
+  };
+
+  const openPicker = () => {
+    const el = nativeRef.current;
+    if (!el || disabled) return;
+    if (typeof el.showPicker === "function") {
+      try {
+        el.showPicker();
+        return;
+      } catch {
+        // fall through to focus-based fallback below
+      }
+    }
+    el.focus();
+  };
+
+  return (
+    <div className={`so-date-wrap${disabled ? " so-date-wrap-disabled" : ""}`}>
+      <div className="so-date-segments">
+        <input
+          id={id}
+          ref={dayRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="DD"
+          maxLength={2}
+          className="so-date-seg so-date-seg-dd"
+          value={day}
+          disabled={disabled}
+          onChange={handleDayChange}
+          onKeyDown={handleSegmentKeyDown("day")}
+          onFocus={(e) => e.target.select()}
+        />
+        <span className="so-date-sep">-</span>
+        <input
+          ref={monthRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="MM"
+          maxLength={2}
+          className="so-date-seg so-date-seg-mm"
+          value={month}
+          disabled={disabled}
+          onChange={handleMonthChange}
+          onKeyDown={handleSegmentKeyDown("month")}
+          onFocus={(e) => e.target.select()}
+        />
+        <span className="so-date-sep">-</span>
+        <input
+          ref={yearRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="YYYY"
+          maxLength={4}
+          className="so-date-seg so-date-seg-yyyy"
+          value={year}
+          disabled={disabled}
+          onChange={handleYearChange}
+          onKeyDown={handleSegmentKeyDown("year")}
+          onFocus={(e) => e.target.select()}
+        />
+      </div>
+
+      <button
+        type="button"
+        className="so-date-icon-btn"
+        onClick={openPicker}
+        disabled={disabled}
+        tabIndex={-1}
+        aria-label="Open calendar picker"
+      >
+        <CalendarIcon size={15} />
+      </button>
+
+      {/* Native date input kept only for the calendar picker UI — visually
+          hidden, never used for typing, always mirrors the ISO value above. */}
+      <input
+        ref={nativeRef}
+        type="date"
+        className="so-date-native-hidden"
+        value={value || ""}
+        onChange={handleNativePickerChange}
+        tabIndex={-1}
+        aria-hidden="true"
+        disabled={disabled}
+      />
+    </div>
+  );
+}
 
 export default function PurchaseDet() {
   const navigate = useNavigate();
@@ -304,9 +524,9 @@ export default function PurchaseDet() {
           Daily,
           Fromdate,
           Todate,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          CName:    session?.CName    || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address")     || "",
+          CPhone:   session?.CPhone   || localStorage.getItem("Phone")       || "",
         });
       } else {
         setMsg({ text: "No Record !!!.", isErr: true });
@@ -321,78 +541,11 @@ export default function PurchaseDet() {
     }
   }, [fromDate, toDate, reportType, supplierWise, daily, selectedSupplier, session, openReportViewer]);
 
-  // ── Design system: recolored/restructured to match BranchWise.jsx exactly ──
-  //   Border / header / heading -> blue (#1a56db)
-  //   Save-style accents        -> green (#1e7e34)
-  //   Cancel / link accents     -> red   (#dc3545)
-  const styles = `
-    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
-    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
-    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
-    .so-close-btn:hover { background: rgba(255,255,255,.28); }
+  // ── Design system: colors sourced from global --clr-* variables (MasterPage.css) ──
+  //   Border / header / heading -> var(--clr-primary) / var(--clr-primary-dark)
+  //   Save-style accents        -> var(--clr-green)
+  //   Cancel / link accents     -> var(--clr-danger)
 
-    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
-    .so-card { width: 100%; max-width: 740px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
-
-    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
-    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
-    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
-    .so-close-x:hover { background: rgba(255,255,255,.28); }
-
-    .so-card-body { padding: 24px 32px 30px; }
-    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
-
-    .so-content { display: flex; gap: 32px; }
-
-    .so-left { flex: 0 0 190px; display: flex; flex-direction: column; gap: 14px; }
-    .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 320px; }
-
-    .so-radio-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
-    .so-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
-
-    .so-basis-row { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; padding-top: 10px; border-top: 1px solid #ececec; }
-
-    .so-checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
-    .so-checkbox input { position: absolute; opacity: 0; width: 0; height: 0; }
-    .so-checkbox-box { width: 16px; height: 16px; flex-shrink: 0; border: 1px solid #c7cdd6; border-radius: 4px; background: #fff; display: flex; align-items: center; justify-content: center; transition: border-color .15s, background .15s, box-shadow .15s; }
-    .so-checkbox input:checked ~ .so-checkbox-box { background: #1a56db; border-color: #1a56db; }
-    .so-checkbox input:focus-visible ~ .so-checkbox-box { box-shadow: 0 0 0 3px rgba(26,86,219,.2); }
-    .so-checkbox-box svg { width: 10px; height: 10px; opacity: 0; transform: scale(.6); transition: opacity .12s, transform .12s; }
-    .so-checkbox input:checked ~ .so-checkbox-box svg { opacity: 1; transform: scale(1); }
-
-    .so-field { display: flex; align-items: center; gap: 14px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
-    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
-    select.so-input { appearance: auto; cursor: pointer; }
-
-    .so-combo { position: relative; width: 100%; }
-    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
-    .so-combo-item { padding: 7px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; }
-    .so-combo-item:hover { background: #eef3ff; }
-    .so-combo-empty { padding: 7px 10px; font-size: 13px; color: #4a5568; }
-
-    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
-    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn:not(:disabled):hover { background: #eef3ff; }
-    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
-    .so-btn-primary .so-icon-save { color: #1e7e34; }
-    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
-    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
-
-    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
-    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-
-    @media (max-width: 620px) {
-      .so-card-body { padding: 20px; }
-      .so-content { flex-direction: column; gap: 22px; }
-      .so-left { flex: none; }
-      .so-right { max-width: none; }
-    }
-  `;
 
   if (!pageAccess.ready) {
     return (
@@ -416,7 +569,6 @@ export default function PurchaseDet() {
 
   return (
     <>
-      <style>{styles}</style>
       <div className="so-shell">
         <Topbar />
         <div className="so-layout">
@@ -468,7 +620,7 @@ export default function PurchaseDet() {
                         onChange={(e) => setSupplierWise(e.target.checked)}
                       />
                       <span className="so-checkbox-box">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--clr-text-white)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       </span>
@@ -481,7 +633,7 @@ export default function PurchaseDet() {
                         onChange={(e) => setDaily(e.target.checked)}
                       />
                       <span className="so-checkbox-box">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--clr-text-white)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       </span>
@@ -546,12 +698,12 @@ export default function PurchaseDet() {
 
                   <div className="so-field">
                     <label className="so-label" htmlFor="pd-from-date">From Date</label>
-                    <input id="pd-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pd-from-date" value={fromDate} onChange={setFromDate} />
                   </div>
 
                   <div className="so-field">
                     <label className="so-label" htmlFor="pd-to-date">To Date</label>
-                    <input id="pd-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pd-to-date" value={toDate} onChange={setToDate} />
                   </div>
                 </div>
               </div>

@@ -70,7 +70,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, XCircle } from "lucide-react";
+import { Save, XCircle, Calendar as CalendarIcon } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
 
@@ -104,6 +104,225 @@ const toMMDDYYYY = (isoDate) => {
   const [y, m, d] = isoDate.split("-");
   return `${m}/${d}/${y}`;
 };
+
+// ── DD-MM-YYYY segmented date input ─────────────────────────────────────────
+// Same component as PurReturnConsolidated.jsx — replaces reliance on native
+// <input type="date"> text-editing (whose typing order/cursor behaviour
+// follows the browser/OS locale) with three real segment inputs (DD / MM /
+// YYYY), always in DD-MM-YYYY order regardless of browser locale.
+//
+// The calendar icon still opens the browser's native date picker (via a
+// visually-hidden <input type="date"> synced to the same value) so users get
+// the familiar picker UI — only manual typing is now custom.
+//
+// IMPORTANT: this component's public value/onChange contract is still plain
+// ISO "YYYY-MM-DD" text, identical to the native input it replaces. Callers
+// (fromDate/toDate state, toMMDDYYYY, the API payload, validation) are
+// completely unchanged.
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const parseIsoDate = (iso) => {
+  if (!iso) return { d: "", m: "", y: "" };
+  const [y, m, d] = iso.split("-");
+  return { d: d || "", m: m || "", y: y || "" };
+};
+
+// Real calendar validity check (rejects e.g. 31-04-2026, 29-02-2027).
+const isValidDMY = (d, m, y) => {
+  if (!d || !m || y.length !== 4) return false;
+  const dd = parseInt(d, 10);
+  const mm = parseInt(m, 10);
+  const yy = parseInt(y, 10);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return false;
+  const dt = new Date(yy, mm - 1, dd);
+  return dt.getFullYear() === yy && dt.getMonth() === mm - 1 && dt.getDate() === dd;
+};
+
+function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
+  const initial = parseIsoDate(value);
+  const [day, setDay] = useState(initial.d);
+  const [month, setMonth] = useState(initial.m);
+  const [year, setYear] = useState(initial.y);
+
+  const dayRef = useRef(null);
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
+  const nativeRef = useRef(null);
+
+  // Stay in sync when the value changes from outside this component —
+  // e.g. the native calendar-picker icon, or a programmatic reset.
+  useEffect(() => {
+    const p = parseIsoDate(value);
+    setDay(p.d);
+    setMonth(p.m);
+    setYear(p.y);
+  }, [value]);
+
+  const commitIfValid = useCallback(
+    (d, m, y) => {
+      if (isValidDMY(d, m, y)) {
+        onChange(`${y}-${pad2(parseInt(m, 10))}-${pad2(parseInt(d, 10))}`);
+      }
+    },
+    [onChange]
+  );
+
+  const handleDayChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setDay(v);
+    // Auto-advance to Month once 2 digits are entered, or immediately if a
+    // single digit can only be a one-digit day (4-9, since 40-99 is invalid).
+    if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 3)) {
+      const padded = v.padStart(2, "0");
+      setDay(padded);
+      commitIfValid(padded, month, year);
+      monthRef.current?.focus();
+      monthRef.current?.select();
+    } else {
+      commitIfValid(v, month, year);
+    }
+  };
+
+  const handleMonthChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setMonth(v);
+    if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 1)) {
+      const padded = v.padStart(2, "0");
+      setMonth(padded);
+      commitIfValid(day, padded, year);
+      yearRef.current?.focus();
+      yearRef.current?.select();
+    } else {
+      commitIfValid(day, v, year);
+    }
+  };
+
+  const handleYearChange = (e) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setYear(v);
+    commitIfValid(day, month, v);
+  };
+
+  const handleSegmentKeyDown = (segment) => (e) => {
+    const el = e.target;
+    const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
+    const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+
+    if (e.key === "Backspace" && atStart) {
+      if (segment === "month") { dayRef.current?.focus(); dayRef.current?.select(); }
+      if (segment === "year") { monthRef.current?.focus(); monthRef.current?.select(); }
+    } else if (e.key === "ArrowLeft" && atStart) {
+      if (segment === "month") dayRef.current?.focus();
+      if (segment === "year") monthRef.current?.focus();
+    } else if (e.key === "ArrowRight" && atEnd) {
+      if (segment === "day") monthRef.current?.focus();
+      if (segment === "month") yearRef.current?.focus();
+    }
+  };
+
+  // Picker selection (native <input type="date">) updates all three
+  // segments and commits the value exactly like typing does.
+  const handleNativePickerChange = (e) => {
+    const iso = e.target.value;
+    if (!iso) return;
+    const p = parseIsoDate(iso);
+    setDay(p.d);
+    setMonth(p.m);
+    setYear(p.y);
+    onChange(iso);
+  };
+
+  const openPicker = () => {
+    const el = nativeRef.current;
+    if (!el || disabled) return;
+    if (typeof el.showPicker === "function") {
+      try {
+        el.showPicker();
+        return;
+      } catch {
+        // fall through to focus-based fallback below
+      }
+    }
+    el.focus();
+  };
+
+  return (
+    <div className={`so-date-wrap${disabled ? " so-date-wrap-disabled" : ""}`}>
+      <div className="so-date-segments">
+        <input
+          id={id}
+          ref={dayRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="DD"
+          maxLength={2}
+          className="so-date-seg so-date-seg-dd"
+          value={day}
+          disabled={disabled}
+          onChange={handleDayChange}
+          onKeyDown={handleSegmentKeyDown("day")}
+          onFocus={(e) => e.target.select()}
+        />
+        <span className="so-date-sep">-</span>
+        <input
+          ref={monthRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="MM"
+          maxLength={2}
+          className="so-date-seg so-date-seg-mm"
+          value={month}
+          disabled={disabled}
+          onChange={handleMonthChange}
+          onKeyDown={handleSegmentKeyDown("month")}
+          onFocus={(e) => e.target.select()}
+        />
+        <span className="so-date-sep">-</span>
+        <input
+          ref={yearRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="YYYY"
+          maxLength={4}
+          className="so-date-seg so-date-seg-yyyy"
+          value={year}
+          disabled={disabled}
+          onChange={handleYearChange}
+          onKeyDown={handleSegmentKeyDown("year")}
+          onFocus={(e) => e.target.select()}
+        />
+      </div>
+
+      <button
+        type="button"
+        className="so-date-icon-btn"
+        onClick={openPicker}
+        disabled={disabled}
+        tabIndex={-1}
+        aria-label="Open calendar picker"
+      >
+        <CalendarIcon size={15} />
+      </button>
+
+      {/* Native date input kept only for the calendar picker UI — visually
+          hidden, never used for typing, always mirrors the ISO value above. */}
+      <input
+        ref={nativeRef}
+        type="date"
+        className="so-date-native-hidden"
+        value={value || ""}
+        onChange={handleNativePickerChange}
+        tabIndex={-1}
+        aria-hidden="true"
+        disabled={disabled}
+      />
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  SearchableSelect
@@ -166,7 +385,7 @@ function SearchableSelect({ id, options, labelKey = "label", value, onChange, di
   };
 
   return (
-    <div className="so-combo-wrap" ref={wrapRef}>
+    <div className="so-combo" ref={wrapRef}>
       <input
         id={id}
         className="so-input"
@@ -188,18 +407,18 @@ function SearchableSelect({ id, options, labelKey = "label", value, onChange, di
         }}
       />
       {open && !disabled && (
-        <div className="so-combo-list" role="listbox">
-          <div
+        <ul className="so-combo-list" role="listbox">
+          <li
             className="so-combo-item so-combo-item-clear"
             onMouseDown={(e) => { e.preventDefault(); handleClear(); }}
           >
             {placeholder}
-          </div>
+          </li>
           {filtered.length === 0 ? (
-            <div className="so-combo-empty">No matches found</div>
+            <li className="so-combo-empty">No matches found</li>
           ) : (
             filtered.map((opt) => (
-              <div
+              <li
                 key={opt.value}
                 className={`so-combo-item${String(opt.value) === String(value ?? "") ? " active" : ""}`}
                 role="option"
@@ -207,10 +426,10 @@ function SearchableSelect({ id, options, labelKey = "label", value, onChange, di
                 onMouseDown={(e) => { e.preventDefault(); handleSelect(opt); }}
               >
                 {getLabel(opt)}
-              </div>
+              </li>
             ))
           )}
-        </div>
+        </ul>
       )}
     </div>
   );
@@ -416,9 +635,9 @@ export default function PurchaseReturnDetailed() {
           Daily,
           Fromdate,
           Todate,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          CName:    session?.CName    || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address")     || "",
+          CPhone:   session?.CPhone   || localStorage.getItem("Phone")       || "",
         });
       } else {
         setMsg({ text: "No Record !!!.", isErr: true });
@@ -432,87 +651,11 @@ export default function PurchaseReturnDetailed() {
     }
   }, [reportType, fromDate, toDate, supplierWise, daily, selectedSupplier, session, openReportViewer]);
 
-  // ── Shared "so-" design system — identical to PurchaseDet.jsx /
-  //   PurReturnConsolidated.jsx ──
-  //   Border / header / heading : blue  #1a56db
-  //   Save accent                : green #1e7e34
-  //   Cancel / link accent       : red   #dc3545
-  const styles = `
-    .so-shell { min-height: 100vh; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-    .so-topbar { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex-shrink: 0; }
-    .so-topbar-title { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
-    .so-close-btn { background: rgba(255,255,255,.15); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
-    .so-close-btn:hover { background: rgba(255,255,255,.28); }
-
-    .so-layout { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
-    .so-card { width: 100%; max-width: 740px; background: #fff; border: 2px solid #1a56db; border-radius: 10px; box-shadow: 0 4px 16px rgba(26,86,219,.18); overflow: hidden; }
-
-    .so-card-header { background: linear-gradient(135deg, #3b6fe0, #1a4fd1); border-bottom: 1px solid #1a4fd1; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
-    .so-card-header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .2px; }
-    .so-close-x { background: rgba(255,255,255,.15); border: none; font-size: 14px; color: #fff; cursor: pointer; line-height: 1; padding: 6px 8px; border-radius: 6px; transition: background .15s; }
-    .so-close-x:hover { background: rgba(255,255,255,.28); }
-
-    .so-card-body { padding: 24px 32px 30px; }
-    .so-report-title { text-align: center; font-size: 22px; font-weight: 800; color: #1a3fd6; margin: 0 0 26px; }
-
-    .so-content { display: flex; gap: 32px; }
-
-    .so-left { flex: 0 0 190px; display: flex; flex-direction: column; gap: 14px; }
-    .so-right { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 320px; }
-
-    .so-radio-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; color: #2b2b2b; font-weight: 500; }
-    .so-radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: #1a56db; cursor: pointer; flex-shrink: 0; }
-
-    .so-field { display: flex; align-items: center; gap: 14px; }
-    .so-label { font-size: 13px; font-weight: 600; color: #1e293b; width: 96px; flex-shrink: 0; }
-    .so-input { height: 34px; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 10px; font-size: 13px; color: #1e2d3d; background: #fff; width: 100%; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; outline: none; }
-    .so-input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
-    select.so-input { appearance: auto; cursor: pointer; }
-
-    /* ── Searchable lookup dropdown (Supplier / Customer / Brand / Category ...) ── */
-    .so-combo-wrap { position: relative; width: 100%; }
-    .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; background: #fff; border: 1px solid #c7cdd6; border-radius: 6px; box-shadow: 0 8px 24px rgba(26,86,219,.15); z-index: 20; padding: 4px; box-sizing: border-box; }
-    .so-combo-item { padding: 8px 10px; font-size: 13px; color: #1e2d3d; border-radius: 4px; cursor: pointer; line-height: 1.3; }
-    .so-combo-item:hover, .so-combo-item.active { background: #eef3ff; color: #1a56db; }
-    .so-combo-item-clear { color: #8a94a6; font-style: italic; border-bottom: 1px solid #ececec; margin-bottom: 2px; border-radius: 0; }
-    .so-combo-empty { padding: 10px; font-size: 12px; color: #9aa5b1; text-align: center; }
-
-    .so-toggle-row { display: flex; align-items: center; gap: 10px; height: 34px; background: #f7f9fc; border: 1px solid #c7cdd6; border-radius: 4px; padding: 0 12px; cursor: pointer; font-size: 13px; color: #1e293b; font-weight: 500; user-select: none; transition: border-color .15s; }
-    .so-toggle-row:hover { border-color: #1a56db; }
-    .so-toggle-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #1a56db; cursor: pointer; }
-
-    .so-actions { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e8ecf0; }
-    .so-btn { height: 38px; padding: 0 30px; border-radius: 6px; border: 1px solid #1a56db; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .15s, box-shadow .15s, background .15s; display: flex; align-items: center; gap: 8px; background: #fff; color: #1a56db; }
-    .so-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .so-btn:not(:disabled):hover { background: #eef3ff; }
-    .so-btn-primary { border-color: #1e7e34; color: #1e7e34; }
-    .so-btn-primary .so-icon-save { color: #1e7e34; }
-    .so-btn-secondary { border-color: #dc3545; color: #dc3545; }
-    .so-btn-secondary .so-icon-cancel { color: #dc3545; }
-
-    .so-msg { margin-top: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
-    .so-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .so-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-
-    .mp-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f0f2f5; }
-    .mp-body { padding: 24px; }
-    .mp-msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-align: center; }
-    .mp-msg.err { background: #fff0f0; color: #c53030; border: 1px solid #fed7d7; }
-    .mp-msg.ok  { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
-
-    .mp-loader-ov { position: fixed; inset: 0; background: rgba(15,23,42,.35); display: flex; align-items: center; justify-content: center; z-index: 999; }
-    .mp-ldr-box { background: #fff; padding: 22px 30px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.25); }
-    .mp-spin { width: 30px; height: 30px; border: 3px solid #dbe4f5; border-top-color: #1a56db; border-radius: 50%; animation: mp-spin-anim .8s linear infinite; }
-    .mp-ldr-msg { font-size: 13px; color: #334155; font-weight: 600; }
-    @keyframes mp-spin-anim { to { transform: rotate(360deg); } }
-
-    @media (max-width: 620px) {
-      .so-card-body { padding: 20px; }
-      .so-content { flex-direction: column; gap: 22px; }
-      .so-left { flex: none; }
-      .so-right { max-width: none; }
-    }
-  `;
+  // ── Design system: colors sourced from global --clr-* variables (MasterPage.css),
+  //   same convention as PurReturnConsolidated.jsx —
+  //   Border / header / heading -> var(--clr-primary) / var(--clr-primary-dark)
+  //   Save-style accents        -> var(--clr-green)
+  //   Cancel / link accents     -> var(--clr-danger)
 
   const navItems = [
     { value: REPORT_TYPES.CASH,   label: "Cash" },
@@ -523,7 +666,6 @@ export default function PurchaseReturnDetailed() {
   if (!pageAccess.ready) {
     return (
       <div className="mp-wrap">
-        <style>{styles}</style>
         <div className="mp-body">
           {msg && <div className={`mp-msg ${msg.isErr ? "err" : "ok"}`}>{msg.text}</div>}
         </div>
@@ -534,7 +676,6 @@ export default function PurchaseReturnDetailed() {
   if (!pageAccess.allowed) {
     return (
       <div className="mp-wrap">
-        <style>{styles}</style>
         <div className="mp-body">
           <div className="mp-msg err">Page Access Permission Denied !!!.</div>
         </div>
@@ -544,41 +685,69 @@ export default function PurchaseReturnDetailed() {
 
   return (
     <>
-      <style>{styles}</style>
       <div className="so-shell">
         <Topbar />
         <div className="so-layout">
           <div className="so-card">
             <div className="so-card-header">
-              <div className="so-card-header-title">Purchase Return Detailed</div>
+              <div className="so-card-header-title">Purchase Detailed</div>
               <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
             </div>
 
             <div className="so-card-body">
-              <div className="so-report-title">Purchase Return Detailed - Report</div>
+              <div className="so-report-title">Purchase Detailed - Report</div>
 
               <div className="so-content">
-                {/* ── Left: report type (Cash / Credit / Both) ── */}
+                {/* ── Left: report type + options (design only, same reportType/supplierWise/daily state) ── */}
                 <div className="so-left">
                   {navItems.map((item) => (
                     <label key={item.value} className="so-radio-row">
                       <input
                         type="radio"
-                        name="prd-report-type"
+                        name="pd-report-type"
                         checked={reportType === item.value}
                         onChange={() => handleReportTypeChange(item.value)}
                       />
                       {item.label}
                     </label>
                   ))}
+
+                  <div className="so-basis-row">
+                    <label className="so-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={supplierWise}
+                        onChange={(e) => setSupplierWise(e.target.checked)}
+                      />
+                      <span className="so-checkbox-box">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--clr-text-white)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </span>
+                      Supplier Wise
+                    </label>
+                    <label className="so-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={daily}
+                        onChange={(e) => setDaily(e.target.checked)}
+                      />
+                      <span className="so-checkbox-box">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--clr-text-white)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </span>
+                      Daily
+                    </label>
+                  </div>
                 </div>
 
-                {/* ── Right: supplier + dates + toggles ── */}
+                {/* ── Right: supplier combo + dates ── */}
                 <div className="so-right">
                   <div className="so-field">
-                    <label className="so-label" htmlFor="prd-supplier">Supplier</label>
+                    <label className="so-label" htmlFor="pd-supplier">Supplier</label>
                     <SearchableSelect
-                      id="prd-supplier"
+                      id="pd-supplier"
                       options={supplierOptions}
                       labelKey="label"
                       value={selectedSupplier}
@@ -588,24 +757,14 @@ export default function PurchaseReturnDetailed() {
                   </div>
 
                   <div className="so-field">
-                    <label className="so-label" htmlFor="prd-from-date">From Date</label>
-                    <input id="prd-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <label className="so-label" htmlFor="pd-from-date">From Date</label>
+                    <DateFieldDDMMYYYY id="pd-from-date" value={fromDate} onChange={setFromDate} />
                   </div>
 
                   <div className="so-field">
-                    <label className="so-label" htmlFor="prd-to-date">To Date</label>
-                    <input id="prd-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <label className="so-label" htmlFor="pd-to-date">To Date</label>
+                    <DateFieldDDMMYYYY id="pd-to-date" value={toDate} onChange={setToDate} />
                   </div>
-
-                  <label className="so-toggle-row">
-                    <input type="checkbox" checked={supplierWise} onChange={(e) => setSupplierWise(e.target.checked)} />
-                    Supplier Wise
-                  </label>
-
-                  <label className="so-toggle-row">
-                    <input type="checkbox" checked={daily} onChange={(e) => setDaily(e.target.checked)} />
-                    Daily
-                  </label>
                 </div>
               </div>
 
