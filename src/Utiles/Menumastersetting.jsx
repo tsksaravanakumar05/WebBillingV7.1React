@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import Topbar from "../components/Topbar";
 import { Eye, RefreshCw, XCircle } from "lucide-react";
-import '../Utilesstyle/Menumastersetting.css';
+import '../Menumastersetting.css';
 import { useToast, useConfirm, ToastList, SelectMenuMaster, UpdateMenuMaster, api, insertapi } from "../components/Common";
 
 // ── Constants ──────────────────────────────────────────────────────────────

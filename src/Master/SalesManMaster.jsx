@@ -40,7 +40,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, Plus, XCircle, Pencil, Trash2 } from "lucide-react";
 import "./MasterPage.css";
-import "../MasterStyle/Salesman.css";
 
 import Topbar from "../components/Topbar";
 import * as CC  from "../components/Common";

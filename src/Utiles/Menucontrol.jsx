@@ -9,7 +9,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle, Check } from "lucide-react";
 import "../Master/MasterPage.css";
-import "../Utilesstyle/Menucontrolreport.css";
+import "../Menucontrolreport.css";
 
 import Topbar from "../components/Topbar";
 
