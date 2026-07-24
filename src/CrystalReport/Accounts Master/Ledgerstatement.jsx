@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 const BASE_URL = "http://localhost:64215";
 ///AccountGroup/SelectAccountGroupCash
@@ -314,9 +315,10 @@ export default function LedgerStatment() {
           GroupBy,
           Fromdate,
           Todate,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          CName: session?.CName || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+          CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+
         });
       } else {
         setMsg({ text: "No Record !!!.", isErr: true });
@@ -484,12 +486,12 @@ export default function LedgerStatment() {
 
                   <div className="so-field">
                     <label className="so-label" htmlFor="ls-from-date">From Date</label>
-                    <input id="ls-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
                   </div>
 
                   <div className="so-field">
                     <label className="so-label" htmlFor="ls-to-date">To Date</label>
-                    <input id="ls-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pri-to-date" value={toDate} onChange={setToDate} />
                   </div>
                 </div>
               </div>

@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../Master/MasterPage.css";
-import "../Itemmaster.css";
+// import "../Itemmaster.css";
 import * as CC from "../Master/Common";
 import * as CC1 from "../components/Common";
 import Topbar from "./Topbar";

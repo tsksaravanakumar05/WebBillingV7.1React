@@ -26,6 +26,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 const BASE_URL = "http://localhost:64215";
 
@@ -347,9 +348,10 @@ export default function CustomerBalance() {
           GroupBy,
           GroupByText,
           Fromdate,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          CName: session?.CName || localStorage.getItem("CompanyName") || "",
+            CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+            CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+
           BillFormatName: session.BillFormatName,
         });
       } else {
@@ -783,14 +785,8 @@ export default function CustomerBalance() {
               </div>
 
               <div className="cb-field">
-                <label className="cb-label" htmlFor="cb-from-date">From Date</label>
-                <input
-                  id="cb-from-date"
-                  type="date"
-                  className="cb-input"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
+                <label className="cb-label" htmlFor="cb-from-date">Till Date</label>
+                <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
               </div>
 
               <div className="cb-actions">

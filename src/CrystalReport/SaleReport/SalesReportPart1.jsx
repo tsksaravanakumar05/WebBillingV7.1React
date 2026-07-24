@@ -23,6 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 const BASE_URL = "http://localhost:64215";
 
@@ -876,6 +877,11 @@ export default function SaleReportPart1() {
     const MComid = parseInt(session.MComid, 10);
     const CName = session.CName, CAddress = session.CAddress, CPhone = session.CPhone;
 
+    CName= session?.CName || localStorage.getItem("CompanyName") || "",
+    CAddress=session?.CAddress || localStorage.getItem("Address") || "",
+    CPhone= session?.CPhone || localStorage.getItem("Phone") || "",
+
+
     setLoading(true);
     setMsg(null);
 
@@ -909,9 +915,10 @@ export default function SaleReportPart1() {
             Fromdate,
             Todate,
             ReportTitle,
-            CName,
-            CAddress,
-            CPhone
+            CName: session?.CName || localStorage.getItem("CompanyName") || "",
+            CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+            CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+
           });
         } else {
           setMsg({ text: "No Record !!!.", isErr: true });
@@ -939,9 +946,10 @@ else if (reportType === REPORT_TYPES.SALE_BILL_CONSOLIDATE) {
         txtBillnoFrm,
         txtBillnoTo,
         ReportTitle,        // ✅ இது missing-ஆ இருந்துச்சு — சேர்த்தேன்
-        CName,
-        CAddress,
-        CPhone
+        CName: session?.CName || localStorage.getItem("CompanyName") || "",
+        CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+        CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+
     });
   } else {
     setMsg({ text: "No Record !!!.", isErr: true });
@@ -989,9 +997,10 @@ else if (reportType === REPORT_TYPES.SALE_BILL_CONSOLIDATE) {
             Todate,
             ReportType: ReportTypenew,
             ReportTitle,
-            CName,
-            CAddress,
-            CPhone
+            CName: session?.CName || localStorage.getItem("CompanyName") || "",
+            CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+            CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+
           });
       
         } else {
@@ -1631,11 +1640,10 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
             <div className="sr-section">
               <div className="sr-form-grid">
                 <label className="sr-label" htmlFor="sr-from-date">From Date</label>
-                <input id="sr-from-date" type="date" className="sr-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
 
                 <label className="sr-label" htmlFor="sr-to-date">To Date</label>
-                <input id="sr-to-date" type="date" className="sr-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-
+                <DateFieldDDMMYYYY id="pri-to-date" value={toDate} onChange={setToDate} />
                 {uiConfig.showDaily && (
                   <>
                     <label className="sr-label">Daily</label>

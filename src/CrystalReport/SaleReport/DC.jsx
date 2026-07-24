@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common"
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 // Report-type identifiers (mirrors the 3 jqxRadioButtons in the original markup)
 const REPORT_TYPES = {
@@ -233,9 +234,10 @@ export default function DC() {
             Todate,
             ReportType  : ReportTypenew,
             ReportTitle,
-            CName       : session.CName,
-            CAddress    : session.CAddress,
-            CPhone      : session.CPhone,
+            CName: session?.CName || localStorage.getItem("CompanyName") || "",
+            CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+            CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+
           });
         } else {
           setMsg({ text: "No Record !!!.", isErr: true });
@@ -260,9 +262,9 @@ export default function DC() {
             ReportType: ReportTypenew,
             ReportTitle,
             taxinclusivedontshow: session.taxInclusiveDontShow,
-            CName: session.CName,
-            CAddress: session.CAddress,
-            CPhone: session.CPhone,
+            CName: session?.CName || localStorage.getItem("CompanyName") || "",
+            CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+            CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
           });
         } else {
           setMsg({ text: "No Record !!!.", isErr: true });
@@ -294,9 +296,9 @@ export default function DC() {
             TaxSuppressId,
             ReportType: ReportTypenew,
             ReportTitle,
-            CName: session.CName,
-            CAddress: session.CAddress,
-            CPhone: session.CPhone,
+            CName: session?.CName || localStorage.getItem("CompanyName") || "",
+            CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+            CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
           });
         } else {
           setMsg({ text: "No Record !!!.", isErr: true });
@@ -476,12 +478,12 @@ export default function DC() {
                 <div className="dc-right">
                   <div className="dc-field">
                     <label className="dc-label" htmlFor="dc-from-date">From Date</label>
-                    <input id="dc-from-date" type="date" className="dc-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
                   </div>
 
                   <div className="dc-field">
                     <label className="dc-label" htmlFor="dc-to-date">To Date</label>
-                    <input id="dc-to-date" type="date" className="dc-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pri-to-date" value={toDate} onChange={setToDate} />
                   </div>
 
                   <div className="dc-field">

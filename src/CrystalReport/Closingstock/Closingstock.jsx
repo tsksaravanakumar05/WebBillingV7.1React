@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 const BASE_URL = "http://localhost:64215";
 
@@ -440,9 +441,9 @@ export default function ClosingStock() {
             BatchNoText: session.BatchNoText,
             RiceSetting: session.RiceUOMSetting,
             RateType: rateType,
-            CName: session.CName,
-            CAddress: session.CAddress,
-            CPhone: session.CPhone,
+            CName: session?.CName || localStorage.getItem("CompanyName") || "",
+            CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+            CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
           });
         } else if (batch === 1) {
           openReportViewer({
@@ -835,14 +836,16 @@ export default function ClosingStock() {
                     )}
 
                     <div className="so-field">
-                      <label className="so-label" htmlFor="cs-from-date">From Date</label>
-                      <input
+                      <label className="so-label" htmlFor="cs-from-date">Till Date</label>
+                      <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
+                      {/* <input
+                      
                         id="cs-from-date"
                         type="date"
                         className="so-input"
                         value={fromDate}
                         onChange={(e) => setFromDate(e.target.value)}
-                      />
+                      /> */}
                     </div>
                   </div>
 

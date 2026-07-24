@@ -16,6 +16,7 @@ import "../TransactionStyle/Purchasereturn.css";
 import Topbar from "../components/Topbar";
 import * as CC  from "../components/Common";
 import * as MSG from "../components/Messages";
+import   DateFieldDDMMYYYY from "../Commondatetime";
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 const valNum   = (v)  => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
@@ -2279,7 +2280,8 @@ const res = await CC.insertapi(
           {/* Return Date */}
           <div className="field-group">
             <label>Return Date<span className="req">*</span></label>
-            <input
+            {/* <DateFieldDDMMYYYY id="pri-from-date" value={purchaseDate}  onChange={setPurchaseDate}     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("dtppurchasedate"); } }}/>     */}
+            {/* <input
               ref={purchaseDateRef}
               type="date"
               className="form-ctrl"
@@ -2287,7 +2289,27 @@ const res = await CC.insertapi(
               onChange={(e) => setPurchaseDate(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("dtppurchasedate"); } }}
               style={{ minWidth: 130 }}
-            />
+            /> */}
+
+
+         <div
+          ref={purchaseDateRef}
+            onKeyDown={(e) => {
+         if (e.key === "Enter") { e.preventDefault();
+          nextFocusForm("dtppurchasedate");
+    }
+ 
+ }}
+>
+  <DateFieldDDMMYYYY
+    id="dtppurchasedate"
+    value={purchaseDate}
+    onChange={setPurchaseDate}
+    disabled={false}
+  />
+</div>
+
+
           </div>
           {/* Return Type */}
           <div className="field-group">

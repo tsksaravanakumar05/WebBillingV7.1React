@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 const BASE_URL = "http://localhost:64215";
 
@@ -183,9 +184,10 @@ export default function SupplierAgingReport() {
           CacheKey: cacheKey,
           GroupByText,
           Fromdate,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          CName: session?.CName || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+          CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+
         });
       } else {
         setMsg({ text: "No Record !!!.", isErr: true });

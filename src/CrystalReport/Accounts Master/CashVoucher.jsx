@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common"
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 // Report-type identifiers (mirrors the 3 jqxRadioButtons in the original markup)
 const REPORT_TYPES = {
@@ -244,9 +245,9 @@ export default function CashVoucherReport() {
           chkdate: chkDate,
           Fromdate,
           Todate,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          CName: session?.CName || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+          CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
         });
       } else {
         setMsg({ text: "No Record !!!.", isErr: true });
@@ -534,10 +535,10 @@ export default function CashVoucherReport() {
               />
 
               <label className="so-label" htmlFor="cv-from-date">From Date</label>
-              <input id="cv-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
 
               <label className="so-label" htmlFor="cv-to-date">To Date</label>
-              <input id="cv-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              <DateFieldDDMMYYYY id="pri-to-date" value={toDate} onChange={setToDate} />
 
               <label className="so-label">Date Wise</label>
               <label className="so-toggle-row">

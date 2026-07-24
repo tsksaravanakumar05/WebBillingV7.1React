@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 const BASE_URL = "http://localhost:64215";
 
@@ -368,9 +369,10 @@ export default function CRMCustomer() {
               CustName,
               CRMNo,
               CacheKey: cacheKey,
-              CName,
-              CAddress,
-              CPhone,
+              CName: session?.CName || localStorage.getItem("CompanyName") || "",
+              CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+              CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+  
             },
             "CRM Statement Report"
           );
@@ -808,11 +810,11 @@ export default function CRMCustomer() {
                   <>
                     <div className="so-field">
                       <label className="so-label" htmlFor="cc-from-date">From Date</label>
-                      <input id="cc-from-date" type="date" className="so-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                      <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
                     </div>
                     <div className="so-field">
                       <label className="so-label" htmlFor="cc-to-date">To Date</label>
-                      <input id="cc-to-date" type="date" className="so-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                      <DateFieldDDMMYYYY id="pri-to-date" value={toDate} onChange={setToDate} />
                     </div>
                   </>
                 )}

@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 // Report-type identifiers (mirrors the 3 jqxRadioButtons in the original markup:
 // rdbSalesRetunConsolidate / rdbSalesReturnDetails / rdbSalerReturnItemwise)
@@ -264,9 +265,10 @@ export default function Quotation() {
               Todate,
               ReportType: ReportTypenew,
               ReportTitle,
-              CName: session.CName,
-              CAddress: session.CAddress,
-              CPhone: session.CPhone,
+              CName: session?.CName || localStorage.getItem("CompanyName") || "",
+              CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+              CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+  
             },
             "Quotation Consolidate"
           );
@@ -314,9 +316,9 @@ else if (reportType === REPORT_TYPES.DETAILS) {
           ReportType: ReportTypenew,
           ReportTitle,
           taxinclusivedontshow: TaxSuppressId,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          CName: session?.CName || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+          CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
         },
         "Quotation Details-Report"
       );
@@ -366,9 +368,9 @@ else if (reportType === REPORT_TYPES.ITEMWISE) {
           TaxSuppressId,
           ReportType: ReportTypenew,
           ReportTitle,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          CName: session?.CName || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+          CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
         },
         "Quotation ItemWise-Report"
       );
@@ -557,24 +559,12 @@ else if (reportType === REPORT_TYPES.ITEMWISE) {
                 <div className="qt-right">
                   <div className="qt-field">
                     <label className="qt-label" htmlFor="qt-from-date">From Date</label>
-                    <input
-                      id="qt-from-date"
-                      type="date"
-                      className="qt-input"
-                      value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
-                    />
+                    <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
                   </div>
 
                   <div className="qt-field">
                     <label className="qt-label" htmlFor="qt-to-date">To Date</label>
-                    <input
-                      id="qt-to-date"
-                      type="date"
-                      className="qt-input"
-                      value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
-                    />
+                    <DateFieldDDMMYYYY id="pri-to-date" value={toDate} onChange={setToDate} />
                   </div>
 
                   <div className="qt-field">

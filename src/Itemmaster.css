@@ -2,6 +2,8 @@
    MISSING CLASSES — append to Itemmaster.css
    All mp-* classes used in ItemMaster.jsx but not in Itemmaster.css
    Full-width table fix included
+   (Rewritten to use existing global CSS variables from index.css —
+   no new colors or font sizes declared.)
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Full width table fix ─────────────────────────────────────── */
@@ -35,7 +37,7 @@
 .mp-ov {
   position: fixed;
   inset: 0;
-  background: rgba(10, 20, 40, 0.50);
+  background: var(--overlay-loader);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -44,11 +46,11 @@
 
 /* ── Modal box ────────────────────────────────────────────────── */
 .mp-modal-box {
-  background: #fff;
+  background: var(--white);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 16px 48px var(--shadow-box);
   overflow: hidden;
   animation: mpPopIn 0.14s ease;
 }
@@ -58,10 +60,10 @@
 }
 
 .mp-modal-hdr {
-  background: #1f65de;
-  color: #fff;
+  background: var(--blue);
+  color: var(--white);
   padding: 10px 16px;
-  font-size: 13px;
+  font-size: var(--font-size-13);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -71,7 +73,7 @@
 .mp-modal-hdr button {
   background: none;
   border: none;
-  color: #fff;
+  color: var(--white);
   font-size: 17px;
   cursor: pointer;
   line-height: 1;
@@ -90,15 +92,15 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border);
   flex-shrink: 0;
-  background: #f9fafb;
+  background: var(--bg-form);
 }
 
 /* ── Status badges ────────────────────────────────────────────── */
 .mp-badge {
-  background: #1f65de;
-  color: #fff;
+  background: var(--blue);
+  color: var(--white);
   font-size: 11px;
   font-weight: 600;
   padding: 2px 10px;
@@ -111,9 +113,9 @@
   margin: 0 !important;
 }
 .mp-badge-warn {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fbbf24;
+  background: var(--badge-warn-bg);
+  color: var(--badge-warn-text);
+  border: 1px solid var(--badge-warn-text);
   font-size: 10px;
   font-weight: 600;
   padding: 2px 9px;
@@ -121,12 +123,12 @@
 }
 
 .mp-verr {
-  background: #fff0f0;
-  border: 1px solid #f5c2c7;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   border-radius: 4px;
   padding: 3px 10px;
   font-size: 11px;
-  color: #991b1b;
+  color: var(--danger-text);
   font-weight: 600;
 }
 
@@ -134,17 +136,17 @@
 .mp-pgbtn {
   width: 26px;
   height: 24px;
-  border: 1px solid #c5d8f8;
-  background: #fff;
+  border: 1px solid var(--border-default);
+  background: var(--white);
   border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
-  color: #1f65de;
+  color: var(--blue);
   font-weight: 600;
   transition: all 0.1s;
 }
-.mp-pgbtn:hover { background: #deeafb; border-color: #1f65de; }
-.mp-pgbtn.on    { background: #1f65de; color: #fff; border-color: #1f65de; }
+.mp-pgbtn:hover { background: var(--bg-row-hover); border-color: var(--blue); }
+.mp-pgbtn.on    { background: var(--blue); color: var(--white); border-color: var(--blue); }
 
 /* ── Grid scroll wrapper ──────────────────────────────────────── */
 .mp-gscroll {
@@ -165,9 +167,9 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  background: #eef3fb !important;
+  background: var(--bg-page) !important;
   border: none !important;
-  border-bottom: 1px solid #c5d8f8 !important;
+  border-bottom: 1px solid var(--border-default) !important;
   padding: 3px !important;
   height: 28px;
   box-sizing: border-box;
@@ -178,63 +180,62 @@
   font-size: 0;
   border-top: none;
   border-bottom: none;
-  background: #eef3fb !important;
+  background: var(--bg-page) !important;
 }
 /* Column header row sits below filter row */
 tfoot tr td {
-  background: #93C5FD !important;
-  
+  background: var(--blue-select) !important;
 }
 
 /* Edit mode row — blue tint highlight */
 .mp-tbl tbody tr.editing {
-  background: #dbeafe !important;
+  background: var(--bg-row-hover) !important;
 }
 .mp-tbl tbody tr.editing td {
-  background: #dbeafe !important;
+  background: var(--bg-row-hover) !important;
 }
 .mp-filter-row th:not(:has(input)) {
   padding: 0 !important;
   border: none !important;
-  background: #eef3fb !important;
+  background: var(--bg-page) !important;
 }
 /* Column filter input inside filter row */
 .mp-col-filter {
   width: 100%;
   height: 22px;
-  border: 1px solid #a8c8f5;
+  border: 1px solid var(--blue-select);
   border-radius: 3px;
   padding: 1px 5px;
   font-size: 10px;
-  color: #1a2e4a;
-  background: #fff;
+  color: var(--clr-text-primary);
+  background: var(--white);
   outline: none;
   box-sizing: border-box;
   font-family: inherit;
   display: block;
 }
 .mp-col-filter:focus {
-  border-color: #1f65de;
-  box-shadow: 0 0 0 2px rgba(31,101,222,0.18);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px var(--clr-focus-ring);
 }
 .mp-col-filter::placeholder {
-  color: #b0bbd4;
+  color: var(--text-soft);
   font-size: 9.5px;
   font-style: italic;
 }
 
 /* ── Entry row (tfoot) ────────────────────────────────────────── */
 tfoot tr {
-  background: #f0f6ff;
+  background: var(--entry-row-bg);
 }
 
 .mp-entry-sno {
   text-align: center;
   font-size: 10px;
   font-weight: 700;
-  color: #1f65de;
-  background: #deeafb;
-  border: 1px solid #c5d8f8;
+  color: var(--blue);
+  background: var(--bg-row-hover);
+  border: 1px solid var(--border-default);
   padding: 3px 5px;
   white-space: nowrap;
 }
@@ -242,14 +243,14 @@ tfoot tr {
 .mp-entry-actions {
   text-align: center;
   padding: 2px 4px;
-  border: 1px solid #c5d8f8;
+  border: 1px solid var(--border-default);
 }
 
 .mp-entry-save {
   width: 26px;
   height: 24px;
-  background: #22c55e;
-  color: #fff;
+  background: var(--green);
+  color: var(--white);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -259,13 +260,13 @@ tfoot tr {
   justify-content: center;
   transition: background 0.12s;
 }
-.mp-entry-save:hover { background: #16a34a; }
+.mp-entry-save:hover { background: var(--green); opacity: 0.85; }
 
 .mp-entry-clear {
   width: 26px;
   height: 24px;
-  background: #f87171;
-  color: #fff;
+  background: var(--danger);
+  color: var(--white);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -275,12 +276,12 @@ tfoot tr {
   justify-content: center;
   transition: background 0.12s;
 }
-.mp-entry-clear:hover { background: #dc2626; }
+.mp-entry-clear:hover { background: var(--danger-dark); }
 
 .mp-entry-hint {
   font-size: 10px;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--text-soft);
   letter-spacing: 0.3px;
 }
 
@@ -288,7 +289,7 @@ tfoot tr {
 .mp-dd-empty {
   padding: 18px 14px;
   text-align: center;
-  color: #b0bbd4;
+  color: var(--text-soft);
   font-size: 11px;
 }
 
@@ -296,28 +297,28 @@ tfoot tr {
   padding: 6px 14px;
   font-size: 12px;
   cursor: pointer;
-  border-bottom: 1px solid #f0f2f8;
-  color: #1a2e4a;
+  border-bottom: 1px solid var(--border-table);
+  color: var(--clr-text-primary);
   transition: background 0.07s;
 }
 .mp-dd-item:hover,
 .mp-dd-item.hi {
-  background: #deeafb;
-  color: #1f65de;
+  background: var(--bg-row-hover);
+  color: var(--blue);
   font-weight: 600;
 }
 
 .mp-dd-create {
   padding: 8px 14px;
   font-size: 11px;
-  color: #1f65de;
+  color: var(--blue);
   cursor: pointer;
-  border-top: 2px solid #deeafb;
+  border-top: 2px solid var(--bg-row-hover);
   font-weight: 700;
-  background: #f5f9ff;
+  background: var(--clr-bg-soft);
   transition: background 0.1s;
 }
-.mp-dd-create:hover { background: #deeafb; }
+.mp-dd-create:hover { background: var(--bg-row-hover); }
 
 /* ── Universal table inside modals (mp-utbl) ──────────────────── */
 .mp-utbl {
@@ -326,20 +327,20 @@ tfoot tr {
   font-size: 12px;
 }
 .mp-utbl th {
-  background: #1f65de;
-  color: #fff;
+  background: var(--blue);
+  color: var(--white);
   padding: 5px 8px;
   font-size: 11px;
   font-weight: 600;
   text-align: left;
 }
 .mp-utbl td {
-  border: 1px solid #eaecf4;
+  border: 1px solid var(--border-table);
   padding: 3px 5px;
 }
 .mp-utbl input,
 .mp-utbl select {
-  border: 1px solid #c5d8f8;
+  border: 1px solid var(--border-default);
   border-radius: 3px;
   padding: 2px 6px;
   font-size: 11px;
@@ -348,23 +349,24 @@ tfoot tr {
   outline: none;
 }
 .mp-utbl input:focus,
-.mp-utbl select:focus { border-color: #1f65de; }
-/* ── FIX 1: Modified row highlight — blue left border + yellow background ── */
+.mp-utbl select:focus { border-color: var(--blue); }
+
+/* ── FIX 1: Modified row highlight — left border + warn background ──────── */
 .gtbl tbody tr.mod {
-  background: #fffbeb !important;
+  background: var(--badge-warn-bg) !important;
 }
 .gtbl tbody tr.mod td {
-  border-bottom: 1px solid #fde68a !important;
+  border-bottom: 1px solid var(--badge-warn-bg) !important;
 }
 .gtbl tbody tr.mod td:first-child {
-  border-left: 3px solid #1f65de !important;
+  border-left: 3px solid var(--blue) !important;
 }
 
 /* ── FIX 2: Filter row — visible borders and background ─────────────────── */
 .gtbl thead tr:first-child th {
-  background: #eef3fb !important;
-  border: 1px solid #c5d8f8 !important;
-  border-bottom: 2px solid #1f65de !important;
+  background: var(--bg-page) !important;
+  border: 1px solid var(--border-default) !important;
+  border-bottom: 2px solid var(--blue) !important;
   padding: 4px 3px !important;
 }
 
@@ -372,19 +374,19 @@ tfoot tr {
 .grid-col-filter {
   width: 100%;
   height: 24px;
-  border: 1px solid #a8c8f5 !important;
+  border: 1px solid var(--blue-select) !important;
   border-radius: 4px !important;
   padding: 2px 6px !important;
   font-size: 11px;
-  color: #1a2e4a;
-  background: #fff !important;
+  color: var(--clr-text-primary);
+  background: var(--white) !important;
   outline: none;
   box-sizing: border-box;
 }
 .mp-col-filter:focus,
 .grid-col-filter:focus {
-  border-color: #1f65de !important;
-  box-shadow: 0 0 0 2px rgba(31,101,222,.18) !important;
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 0 2px var(--clr-focus-ring) !important;
 }
 
 /* ── FIX 3: Increase row height and font size ───────────────────────────── */
@@ -394,40 +396,40 @@ tfoot tr {
 .gtbl td {
   height: 34px !important;
   padding: 4px 8px !important;
-  font-size: 13px !important;
+  font-size: var(--font-size-13) !important;
   font-weight: 600 !important;
   vertical-align: middle !important;
-  border: 1px solid #dde6f5 !important;
+  border: 1px solid var(--clr-divider) !important;
 }
 .gtbl td input,
 .gtbl td select {
   height: 28px !important;
-  font-size: 13px !important;
+  font-size: var(--font-size-13) !important;
   font-weight: 600 !important;
   padding: 3px 6px !important;
-  color: #1a2e4a !important;
+  color: var(--clr-text-primary) !important;
 }
 
 /* ── FIX 4: Column header row — clear separation from filter row ────────── */
 .gtbl thead tr:last-child th {
-  background: #1f65de !important;
-  color: #fff !important;
-  border: 1px solid #1750b0 !important;
+  background: var(--blue) !important;
+  color: var(--white) !important;
+  border: 1px solid var(--blue-hover) !important;
   padding: 7px 8px !important;
-  font-size: 12px !important;
+  font-size: var(--font-size-12) !important;
   font-weight: 700 !important;
   height: 34px !important;
 }
 
 /* ── FIX 5: Selected row — strong blue highlight ────────────────────────── */
 .gtbl tbody tr.sel td {
-  background: #deeafb !important;
+  background: var(--bg-row-hover) !important;
 }
 
 /* ── FIX 6: Hover row ───────────────────────────────────────────────────── */
 .gtbl tbody tr:hover td {
-  background: #f0f6ff !important;
+  background: var(--entry-row-bg) !important;
 }
 .gtbl tbody tr.sel:hover td {
-  background: #deeafb !important;
+  background: var(--bg-row-hover) !important;
 }

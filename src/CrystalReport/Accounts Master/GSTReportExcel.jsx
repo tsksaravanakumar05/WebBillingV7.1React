@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle, X } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 // API endpoint used by this screen.
 // NOTE: the legacy jQuery file (GSTReportExcel.js) posted to the MVC action
@@ -313,23 +314,10 @@ export default function GSTReportExcel() {
 
             <div className="so-form-grid">
               <label className="so-label" htmlFor="gst-from-date">From Date</label>
-              <input
-                id="gst-from-date"
-                ref={fromDateRef}
-                type="date"
-                className="so-input"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
+              <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
 
               <label className="so-label" htmlFor="gst-to-date">To Date</label>
-              <input
-                id="gst-to-date"
-                type="date"
-                className="so-input"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
+              <DateFieldDDMMYYYY id="pri-to-date" value={toDate} onChange={setToDate} />
 
               <span className="so-label">Report Type</span>
               <fieldset className="so-fieldset">

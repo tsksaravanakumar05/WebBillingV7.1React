@@ -47,6 +47,7 @@ import React, {
 import { useNavigate } from "react-router-dom";
 import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";
+import   DateFieldDDMMYYYY from "../Commondatetime";
 // import "./PurchaseOrder.css";
 
 // ─── API ENDPOINTS ────────────────────────────────────────────────────────────
@@ -1768,11 +1769,12 @@ export default function PurchaseOrder() {
               </label>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <label style={{ ...fieldLabel, minWidth: 78 }}>Order Date</label>
-              <input type="date" style={{ ...fieldInput, flex: 1 }} value={purchaseDate}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}> 
+              <label style={{ ...fieldLabel, minWidth: 78 }}>Order Date</label>          
+              <DateFieldDDMMYYYY id="pri-from-date" value={purchaseDate}  onChange={setPurchaseDate} onKeyDown={e => e.key === "Enter" && document.getElementById("po-type")?.focus()}/>    
+              {/* <input type="date" style={{ ...fieldInput, flex: 1 }} value={purchaseDate}
                 onChange={e => setPurchaseDate(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && document.getElementById("po-type")?.focus()} />
+                onKeyDown={e => e.key === "Enter" && document.getElementById("po-type")?.focus()} /> */}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>

@@ -19,7 +19,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, Plus, XCircle, Pencil, Trash2 } from "lucide-react";
-import "./MasterPage.css";
+
 
 import Topbar from "../components/Topbar";
 

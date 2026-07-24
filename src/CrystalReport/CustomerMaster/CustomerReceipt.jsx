@@ -34,6 +34,7 @@ import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
 import * as CC from "../../components/Common";
 import Topbar from "../../components/Topbar";
+import   DateFieldDDMMYYYY from "../../Commondatetime";
 
 const BASE_URL = "http://localhost:64215";
 
@@ -254,9 +255,10 @@ Salesmanwise: Salesmanwise ? "true" : "false",
           Narration,
           Fromdate,
           Todate,
-          CName: session.CName,
-          CAddress: session.CAddress,
-          CPhone: session.CPhone,
+          CName: session?.CName || localStorage.getItem("CompanyName") || "",
+          CAddress: session?.CAddress || localStorage.getItem("Address") || "",
+          CPhone: session?.CPhone || localStorage.getItem("Phone") || "",
+
         });
       } else {
         setMsg({ text: "No Record !!!.", isErr: true });
@@ -661,12 +663,12 @@ Salesmanwise: Salesmanwise ? "true" : "false",
 
                   <div className="cr-field">
                     <label className="cr-label" htmlFor="cr-from-date">From Date</label>
-                    <input id="cr-from-date" type="date" className="cr-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pri-from-date" value={fromDate} onChange={setFromDate} />
                   </div>
 
                   <div className="cr-field">
                     <label className="cr-label" htmlFor="cr-to-date">To Date</label>
-                    <input id="cr-to-date" type="date" className="cr-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <DateFieldDDMMYYYY id="pri-to-date" value={toDate} onChange={setToDate} />
                   </div>
                 </div>
               </div>
