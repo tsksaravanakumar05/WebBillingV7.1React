@@ -6,7 +6,7 @@
 //           + Orange Item Count + Fixed GST Split Layout + Fixed Grid Height
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "../TransactionStyle/SaleBill.css";
 import "../Master/MasterPage.css";
@@ -1080,228 +1080,6 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
 }
 
 // ─── BILL HOLD MODAL ──────────────────────────────────────────────────────────
-function CtrlBBillViewModal({
-  rows, customers, salesmen, areas, initialFilters, onSearch, onOpen, onDelete, onPrint, onClose,
-}) {
-  const [filters, setFilters] = useState(initialFilters);
-  const [selectedIds, setSelectedIds] = useState({});
-
-  useEffect(() => {
-    setFilters(initialFilters);
-  }, [initialFilters]);
-
-  useEffect(() => {
-    const next = {};
-    rows.forEach(r => {
-      const id = String(r.Id ?? r.BillNo ?? Math.random());
-      next[id] = selectedIds[id] ?? false;
-    });
-    setSelectedIds(next);
-  // eslint-disable-next-line
-  }, [rows]);
-
-  const getAreaId = useCallback((item) => String(
-    item?.AreaMasterRefId ??
-    item?.AreaRefid ??
-    item?.AreaRefId ??
-    item?.AreaId ??
-    item?.areaid ??
-    0
-  ), []);
-
-  const areaCustomers = useMemo(() => {
-    if (String(filters.areaId || "0") === "0") return customers;
-    return customers.filter(c => getAreaId(c) === String(filters.areaId));
-  }, [customers, filters.areaId, getAreaId]);
-
-  const getRowAmount = useCallback((row) => (
-    CC.vn(
-      row?.Amount ??
-      row?.NetAmt ??
-      row?.NetAmount ??
-      row?.BillAmount ??
-      row?.TotalAmount ??
-      row?.GrandTotal ??
-      0
-    )
-  ), []);
-
-  const totalAmt = rows.reduce((sum, row) => sum + getRowAmount(row), 0);
-  const setField = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
-  const allSelected = rows.length > 0 && rows.every(r => selectedIds[String(r.Id ?? r.BillNo)] === true);
-  const selectedRows = rows.filter(r => selectedIds[String(r.Id ?? r.BillNo)] === true);
-
-  const toggleRow = (rowId) => {
-    setSelectedIds(prev => ({ ...prev, [rowId]: !prev[rowId] }));
-  };
-
-  const toggleAll = (checked) => {
-    const next = {};
-    rows.forEach(r => {
-      next[String(r.Id ?? r.BillNo)] = checked;
-    });
-    setSelectedIds(next);
-  };
-
-  return (
-    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box sb-f5-modal" style={{ width: 1040, maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
-        <div className="mp-modal-hdr">
-          <span>Bill Print View</span>
-          <button onClick={onClose}>X</button>
-        </div>
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          padding: "10px 12px",
-          background: "#f5f9ff",
-          borderBottom: "1px solid #dde6f5",
-          flexShrink: 0,
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#4a5568" }}>Select Date Wise</div>
-          <div style={{ border: "1px solid #dde6f5", borderRadius: 6, padding: 10, background: "#fff" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 250px", gap: 14 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "40px 100px 24px 100px 70px 1fr", gap: 8, alignItems: "center" }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568" }}>From</label>
-                  <input type="date" value={filters.fromDate} onChange={e => setField("fromDate", e.target.value)}
-                    style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-                  <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568", textAlign: "center" }}>To</label>
-                  <input type="date" value={filters.toDate} onChange={e => setField("toDate", e.target.value)}
-                    style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-                  <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568" }}>Customer</label>
-                  <ComboBox
-                    options={[
-                      { value: "0", label: "" },
-                      ...areaCustomers.map(c => ({
-                        value: String(c.Id),
-                        label: c.SupplierName || c.CustomerName || c.AccountName || c.Name || "",
-                      })),
-                    ]}
-                    value={filters.customerId}
-                    onChange={val => setField("customerId", val)}
-                    placeholder=""
-                    style={{ minWidth: 0 }}
-                  />
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "60px 160px 50px 1fr auto auto", gap: 8, alignItems: "center" }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568" }}>SalesMan</label>
-                  <ComboBox
-                    options={[
-                      { value: "0", label: "" },
-                      ...salesmen.map(s => ({
-                        value: String(s.Id),
-                        label: s.Name || s.SalesManName || s.SupplierName || "",
-                      })),
-                    ]}
-                    value={filters.salesmanId}
-                    onChange={val => setField("salesmanId", val)}
-                    placeholder=""
-                    style={{ minWidth: 0 }}
-                  />
-                  <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568", textAlign: "right" }}>Area</label>
-                  <ComboBox
-                    options={[
-                      { value: "0", label: "" },
-                      ...areas.map(a => ({
-                        value: String(a.Id),
-                        label: a.AreaName || a.Name || a.Area || "",
-                      })),
-                    ]}
-                    value={filters.areaId}
-                    onChange={nextAreaId => {
-                      setFilters(prev => ({
-                        ...prev,
-                        areaId: nextAreaId,
-                        customerId: nextAreaId === "0" ? prev.customerId : "0",
-                      }));
-                    }}
-                    placeholder=""
-                    style={{ minWidth: 140, maxWidth: 140 }}
-                  />
-                  <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#334155" }}>
-                    <input type="checkbox" checked={!!filters.creditBill} onChange={e => setField("creditBill", e.target.checked)} />
-                    Credit Bill
-                  </label>
-                  <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#334155" }}>
-                    <input type="checkbox" checked={allSelected} onChange={e => toggleAll(e.target.checked)} />
-                    Select All
-                  </label>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, alignContent: "start" }}>
-                <button className="mp-btn sv" style={{ height: 32, fontSize: 12, fontWeight: 700 }} onClick={() => onSearch(filters)}>OK</button>
-                <button className="mp-btn" style={{ height: 32, fontSize: 12, fontWeight: 700 }} onClick={() => onPrint(selectedRows)}>Print</button>
-                <button className="mp-btn" style={{ height: 32, fontSize: 12, fontWeight: 700 }}>Update Paid</button>
-                <button className="mp-btn" style={{ gridColumn: "1 / span 2", height: 32, fontSize: 12, fontWeight: 700 }}>WhatsApp</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="mp-modal-body" style={{ flex: 1, overflowY: "auto", padding: "10px 12px 12px" }}>
-          <div style={{ minHeight: 308, maxHeight: 308, overflowY: "auto", border: "1px solid #dde6f5", borderRadius: 4, background: "#fff" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: "#1a2e4a", color: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
-                <th style={{ padding: "6px 8px", textAlign: "left", width: 50 }}>Print</th>
-                <th style={{ padding: "6px 8px", textAlign: "left", width: 90 }}>BillNo</th>
-                <th style={{ padding: "6px 8px", textAlign: "left", width: 100 }}>BillDate</th>
-                <th style={{ padding: "6px 8px", textAlign: "left", width: 100 }}>BillType</th>
-                <th style={{ padding: "6px 8px", textAlign: "left" }}>CustomerName</th>
-                <th style={{ padding: "6px 8px", textAlign: "right", width: 100 }}>Amount</th>
-                <th style={{ padding: "6px 8px", textAlign: "left", width: 120 }}>WhatsAppNo</th>
-                <th style={{ padding: "6px 8px", textAlign: "center", width: 110 }}>Open</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={8} style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>No records found.</td>
-                </tr>
-              )}
-              {rows.map((r, i) => (
-                <tr key={`${r.Id}_${i}`} style={{ background: i % 2 === 0 ? "#fff" : "#fafbff", borderBottom: "1px solid #eaecf4" }}>
-                  <td style={{ textAlign: "center" }}>
-                    <input
-                      type="checkbox"
-                      checked={!!selectedIds[String(r.Id ?? r.BillNo)]}
-                      onChange={() => toggleRow(String(r.Id ?? r.BillNo))}
-                    />
-                  </td>
-                  <td style={{ padding: "5px 8px", color: "#1f65de", fontWeight: 700 }}>{r.BillNoDisplay || r.BillNo}</td>
-                  <td style={{ padding: "5px 8px" }}>{String(r.BillDate || r.datenew || "").slice(0, 10)}</td>
-                  <td style={{ padding: "5px 8px" }}>{r.saletype1 || r.SaleType || ""}</td>
-                  <td style={{ padding: "5px 8px" }}>{r.CustomerName1 || r.CustomerName || ""}</td>
-                  <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700, color: "#16a34a" }}>
-                    {CC.f2(getRowAmount(r)).toFixed(2)}
-                  </td>
-                  <td style={{ padding: "5px 8px" }}>{r.WhatsAppNo || r.MobileNo || ""}</td>
-                  <td style={{ padding: "5px 8px", textAlign: "center" }}>
-                    <button onClick={() => onOpen(r)} style={{
-                      marginRight: 6, padding: "3px 10px", fontSize: 11, borderRadius: 4,
-                      border: "1px solid #c5d8f8", background: "#e8f0fe", color: "#1f65de", fontWeight: 600, cursor: "pointer",
-                    }}>Open</button>
-                    <button onClick={() => onDelete(r.Id, r.BillNoDisplay || r.BillNo)} style={{
-                      padding: "3px 8px", fontSize: 11, borderRadius: 4, border: "1px solid #fecaca",
-                      background: "#fee2e2", color: "#dc2626", fontWeight: 600, cursor: "pointer",
-                    }}>Del</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </div>
-        <div className="mp-modal-ftr">
-          <span style={{ marginRight: "auto", fontWeight: 700, color: "#16a34a" }}>Total Amt : {CC.f2(totalAmt).toFixed(2)}</span>
-          <button className="mp-btn" onClick={onClose}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function BillHoldModal({ holds, onLoad, onDelete, onClose }) {
   const [sel, setSel] = useState(null);
   return (
@@ -1455,9 +1233,6 @@ export default function SaleBill() {
   const focusColsRef                          = useRef([]);
   const focusConfiguredRef  = useRef(false);
   const [f5Details, setF5Details]             = useState([]);
-  const [areas, setAreas]                     = useState([]);
-  const [billViewOpen, setBillViewOpen]       = useState(false);
-  const [billViewRows, setBillViewRows]       = useState([]);
   const pendingRateInputRef                   = useRef({});
 
   // ── Column Settings ────────────────────────────────────────────────────────
@@ -1524,7 +1299,6 @@ export default function SaleBill() {
         MulipleMRP:   !!com0.MultiMRP,
         SaleSubMaster: !!main0.SaleSubMaster,
         Herbalife:    !!main0.Herbalife,
-        CMBTBill:     !!main0.CMBTBill,
         CMBTPatty:    !!main0.CMBTPatty,
         BatchWiseStock: !!main0.BatchWiseStock,
         TextilesSerialNowiseBilling: !!main0.TextilesSerialNowiseBilling,
@@ -1564,7 +1338,7 @@ export default function SaleBill() {
         Comid: "1", MComid: "1", IdComList: "1",
         CashId: "0", CashierId: "0",
         BillNoType: "Daily Reset On Company", BillNoPrefix: "", BillNoDigit: 0,
-        SaleSubMaster: false, Herbalife: false, CMBTBill: false, CMBTPatty: false, BatchWiseStock: false, TextilesSerialNowiseBilling: false, DayClose: false, TaxName: "Exclusive",
+        SaleSubMaster: false, Herbalife: false, CMBTPatty: false, BatchWiseStock: false, TextilesSerialNowiseBilling: false, DayClose: false, TaxName: "Exclusive",
         BillFormatName: "Default", CompanyName: "", PrintA4: false, PrintSmall: false,
       };
     }
@@ -1637,14 +1411,6 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   const [billNo,     setBillNo]     = useState("");
   const [billDate,   setBillDate]   = useState(CC.today());
-  const [billViewFilters, setBillViewFilters] = useState(() => ({
-    fromDate: CC.today(),
-    toDate: CC.today(),
-    customerId: "0",
-    areaId: "0",
-    salesmanId: "0",
-    creditBill: false,
-  }));
   const [custId,     setCustId]     = useState("");
   const [custMobile, setCustMobile] = useState("");
   const [smId,       setSmId]       = useState("");
@@ -2087,17 +1853,15 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   const loadDropdowns = useCallback(async () => {
     const comidParam = sess.CommonCompany ? sess.MComid : sess.Comid;
-    const [custRes, smRes, areaRes, cardRes] = await Promise.all([
+    const [custRes, smRes, cardRes] = await Promise.all([
       CC.api(CC.SO_GetCustomerUrl, null, {}, { Comid: comidParam, AccountType: "CUSTOMER" }),
       CC.api(CC.SO_SalesManSelectUrl, null, {}, { Comid: comidParam }),
-      CC.api(CC.AreaSelect, null, {}, { Comid: comidParam }),
       CC.api(CC.SelectCardMasterUrl, null, {}, { Comid: sess.Comid }),
     ]);
     if (redirectIfDualLogin(custRes)) return;
     const pick = r => r.data || r.Data1 || r || [];
     setCustomers(Array.isArray(pick(custRes)) ? pick(custRes) : []);
     setSalesmen(Array.isArray(pick(smRes))   ? pick(smRes)   : []);
-    setAreas(Array.isArray(pick(areaRes))    ? pick(areaRes) : []);
     const cardList = Array.isArray(pick(cardRes)) ? pick(cardRes) : [];
     if (cardList.length > 0) {
       setPayRows(cardList.map(c => ({
@@ -2149,14 +1913,6 @@ const loadFocusCols = useCallback(async (mcomid) => {
   }, []);
 
   useEffect(() => { recalcTotals(rows, otherPlus, otherMinus); }, [rows, otherPlus, otherMinus, recalcTotals]);
-
-  useEffect(() => {
-    setBillViewFilters(prev => {
-      if (prev.fromDate !== prev.toDate) return prev;
-      if (prev.fromDate === billDate && prev.toDate === billDate) return prev;
-      return { ...prev, fromDate: billDate, toDate: billDate };
-    });
-  }, [billDate]);
 
   const payTotals = (() => {
     const recvd = payRows.reduce((s, r) => s + CC.vn(r.Amount), 0);
@@ -2494,6 +2250,7 @@ const getRowEnabledCols = useCallback((rid) => {
     return true;
   }, [fillItemIntoRow, redirectIfDualLogin]);
 
+  
   // ── Fetch product by code ──────────────────────────────────────────────────
   const fetchProductByCode = useCallback(async (rid, code) => {
     if (!code.trim()) return;
@@ -2919,7 +2676,7 @@ const getRowEnabledCols = useCallback((rid) => {
     };
 
     try {
-      const res = await fetch(CC.A4PrintUrl, {
+      const res = await fetch(`${CC.BASE_URL}${CC.A4PrintUrl}`, {
        
         method: "POST",
         headers: {
@@ -2975,70 +2732,6 @@ const openReportViewer = useCallback((
       `width=${screen.width},height=${screen.height - 100},toolbar=0`);
   }
 }, [buildPrintDetails]);
-
-const openBillPrintReport = useCallback(async (rowsToPrint = [], autoPrint = false) => {
-  const inputRows = Array.isArray(rowsToPrint) ? rowsToPrint.filter(Boolean) : rowsToPrint ? [rowsToPrint] : [];
-  const idList = inputRows
-    .map(r => ({ Id: Number(r?.Id || 0) }))
-    .filter(r => r.Id > 0);
-
-  if (idList.length === 0) {
-    toast("No bill selected", true);
-    return false;
-  }
-
-  setLoading(true);
-  setLdMsg(autoPrint ? "Preparing print..." : "Opening report...");
-  try {
-    const data = await CC.insertapi(CC.BillPrintAllUrl, idList, {
-      Tamil: tamilMode ? "true" : "false",
-      CustomerTamil: sess.Tamil ? "true" : "false",
-      Comid: String(sess.Comid),
-      React: "1",
-      AmountDetails: "0",
-      Reprint: "0",
-    });
-    if (redirectIfDualLogin(data)) return false;
-    if (!(data?.ok ?? data?.IsSuccess)) {
-      toast(data?.message || data?.Message || "Bill print load failed", true);
-      return false;
-    }
-
-    const cacheKey = data?.Data15 || data?.cacheKey || "";
-    if (!cacheKey) {
-      toast("CacheKey missing for bill print", true);
-      return false;
-    }
-
-    if (autoPrint) {
-      const noOfBills = parseInt(sess.No_Of_Bills, 10) || 1;
-      for (let i = 0; i < noOfBills; i++) {
-        const copy = i === 0 ? "Original" : i === 1 ? "Duplicate Copy" : "Triplicate Copy";
-        openReportViewer(true, copy, cacheKey);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    } else {
-      openReportViewer(false, "Original", cacheKey);
-    }
-
-    return true;
-  } catch (err) {
-    console.error("BillPrintAll error:", err);
-    toast("Bill print load failed", true);
-    return false;
-  } finally {
-    setLoading(false);
-  }
-}, [toast, tamilMode, sess, redirectIfDualLogin, openReportViewer]);
-
-const printBillViewRows = useCallback(async (selectedRows = []) => {
-  if (!Array.isArray(selectedRows) || selectedRows.length === 0) {
-    toast("Select at least one bill to print", true);
-    return;
-  }
-
-  await openBillPrintReport(selectedRows, true);
-}, [toast, openBillPrintReport]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
 // ── Save ──────────────────────────────────────────────────────────────────
@@ -3434,56 +3127,8 @@ const payload = [{
     setF5AmtDetails(amtDetails);
     setF5Open(true);
   }, [sess, billDate, perm, redirectIfDualLogin]);
-  const openBillView = useCallback(async (nextFilters = null) => {
-    if (!perm.Edit) { toast("âŒ Edit Permission Denied", true); return; }
-
-    const filters = nextFilters || billViewFilters;
-    setBillViewFilters(filters);
-    setLoading(true); setLdMsg("Loading bill view...");
-    const res = await CC.api(
-      CC.SelectBillViewUrl,
-      null,
-      {
-        smid: String(filters.salesmanId || 0),
-        CreditBill: filters.creditBill ? "1" : "0",
-        CMBTBill: sess.CMBTBill ? "1" : "0",
-        Estimate: "0",
-      },
-      {
-        Comid: sess.Comid,
-        Id: Number(filters.customerId || 0),
-        Fromdate: filters.fromDate,
-        Todate: filters.toDate,
-      }
-    );
-    setLoading(false);
-    if (redirectIfDualLogin(res)) return;
-
-    const customerAreaMap = new Map(
-      customers.map(c => [
-        String(c.Id),
-        String(c.AreaMasterRefId ?? c.AreaRefid ?? c.AreaRefId ?? c.AreaId ?? c.areaid ?? 0),
-      ])
-    );
-
-    let list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.Data1) ? res.Data1 : [];
-    if (String(filters.areaId || "0") !== "0") {
-      list = list.filter(r => {
-        const cid = String(r.CustomerRefId ?? r.Id ?? r.CustomerId ?? 0);
-        return customerAreaMap.get(cid) === String(filters.areaId);
-      });
-    }
-
-    if (!["Default-A4Half-Format10", "Default-A4Half-Format10A"].includes(String(sess.BillFormatName || ""))) {
-      list = [...list].sort((a, b) => String(a.CustomerName1 || a.CustomerName || "").localeCompare(String(b.CustomerName1 || b.CustomerName || "")));
-    }
-
-    setBillViewRows(list);
-    setBillViewOpen(true);
-  }, [perm, toast, billViewFilters, sess, redirectIfDualLogin, customers]);
   const doEditBill = useCallback(async (id) => {
     setF5Open(false);
-    setBillViewOpen(false);
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading bill...");
     const res = await CC.api(CC.SaleEditUrl, null, {}, {
@@ -3558,7 +3203,6 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
   }, [sess, billDate, perm, customers, tamilMode]);
   const handleF5EditRequest = useCallback((id) => {
     setF5Open(false);
-    setBillViewOpen(false);
     pwOkRef.current = () => doEditBill(id);
     setPw({ title: "Edit Bill Password" });
   }, [doEditBill]);
@@ -3592,19 +3236,15 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       if (redirectIfDualLogin(res)) return;
       if (res.ok ?? res.IsSuccess) {
         toast("✅ Bill Deleted Successfully");
-        if (billViewOpen) {
-          await openBillView(billViewFilters);
-        } else {
-          const from = f5Rows[0] ? String(f5Rows[0].BillDate).slice(0, 10) : billDate;
-          const to   = f5Rows[f5Rows.length-1] ? String(f5Rows[f5Rows.length-1].BillDate).slice(0, 10) : billDate;
-          await openF5(from, to);
-        }
+        const from = f5Rows[0] ? String(f5Rows[0].BillDate).slice(0, 10) : billDate;
+        const to   = f5Rows[f5Rows.length-1] ? String(f5Rows[f5Rows.length-1].BillDate).slice(0, 10) : billDate;
+        await openF5(from, to);
       } else {
         toast("❌ " + (res.message || res.Message || "Delete Failed"), true);
       }
     };
     setPw({ title: "Delete Password" });
-  }, [sess, billDate, confirm, toast, redirectIfDualLogin, f5Rows, openF5, openBillView, billViewOpen, billViewFilters, buildStockRestoreDetails]);
+  }, [sess, billDate, confirm, toast, redirectIfDualLogin, f5Rows, openF5, buildStockRestoreDetails]);
 
   // ── Bill hold ─────────────────────────────────────────────────────────────
   const doBillHold = useCallback(async () => {
@@ -3677,14 +3317,8 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
         return;
       }
 
-      if (prodPopup || holdOpen || f5Open || billViewOpen || pw || f12Open || custPopup || ctrlGOpen
+      if (prodPopup || holdOpen || f5Open || pw || f12Open || custPopup || ctrlGOpen
           || batchPopup || expiryListPopup) return;
-
-      if (e.ctrlKey && e.key.toLowerCase() === "b") {
-        e.preventDefault();
-        openBillView();
-        return;
-      }
 
       if (e.key === "F1")  { e.preventDefault(); doSave(true); }
       if (e.key === "F2")  { e.preventDefault(); doSave(false); }
@@ -3701,8 +3335,8 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   // eslint-disable-next-line
-  }, [prodPopup, holdOpen, f5Open, billViewOpen, pw, f12Open, custPopup, ctrlGOpen,
-      doSave, doCreditSave, doBillHold, openF5, openBillView, doDeleteBill, clearForm, editId, toggleTamilPrint]);
+  }, [prodPopup, holdOpen, f5Open, pw, f12Open, custPopup, ctrlGOpen,
+      doSave, doCreditSave, doBillHold, openF5, doDeleteBill, clearForm, editId, toggleTamilPrint]);
 
   if (!isAuthorized) return null;
 
@@ -4291,21 +3925,6 @@ onView={() => {
           fromDate={billDate}
           toDate={billDate}
           onSearch={openF5}
-        />
-      )}
-
-      {billViewOpen && (
-        <CtrlBBillViewModal
-          rows={billViewRows}
-          customers={customers}
-          salesmen={salesmen}
-          areas={areas}
-          initialFilters={billViewFilters}
-          onSearch={openBillView}
-          onOpen={openBillPrintReport}
-          onDelete={handleF5Delete}
-          onPrint={printBillViewRows}
-          onClose={() => setBillViewOpen(false)}
         />
       )}
 
