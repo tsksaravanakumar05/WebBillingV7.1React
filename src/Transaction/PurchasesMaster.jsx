@@ -429,21 +429,33 @@ export default function Purchase() {
   useEffect(() => {
     const menuStr = localStorage.getItem("menulist");
     if (!menuStr) { alert("Session Close Please Login !!!."); navigate("/"); return; }
+
+    const fromPattyPurchaseView = !!location.state?.pattyPurchaseOpen;
     const menulist = JSON.parse(menuStr);
     const menudata = menulist.filter(obj => obj.PageName === "Purchase");
-    if (!menudata || menudata.length === 0) {
+
+    if ((!menudata || menudata.length === 0) && !fromPattyPurchaseView) {
       alert("Page Access Permission Denied !!!.");
       setTimeout(() => navigate("/Home"), 3000);
       return;
     }
-    if (menudata[0].View === 0) {
+
+    if (!fromPattyPurchaseView && menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
       setTimeout(() => navigate("/Home"), 3000);
       return;
     }
+
+    if (fromPattyPurchaseView) {
+      // Temporary full access only for the current Patty Purchase View handoff.
+      setPerm({ View: 1, Add: 1, Edit: 1, Delete: 1 });
+      setIsAuthorized(true);
+      return;
+    }
+
     setPerm({ View: menudata[0].View, Add: menudata[0].Add, Edit: menudata[0].Edit, Delete: menudata[0].Delete });
     setIsAuthorized(true);
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   // ── Session ────────────────────────────────────────────────────────────────
   const [sess] = useState(() => {
