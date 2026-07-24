@@ -1079,6 +1079,215 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
   );
 }
 
+function BillPrintViewModal({
+  filters,
+  setFilters,
+  rows,
+  customers,
+  salesmen,
+  areas,
+  eInvoice,
+  setEInvoice,
+  loading,
+  actionLoading,
+  onClose,
+  onLoad,
+  onToggleAll,
+  onToggleRow,
+  onPrint,
+  onWhatsApp,
+  onUpdatePaidAmt,
+  onSaveEInvoice,
+}) {
+  const customerOptions = [{ value: "", label: "ALL CUSTOMERS" }].concat(
+    (customers || []).map(c => ({
+      value: String(c.Id),
+      label: c.AccountName || c.SupplierName || c.SupplierList || c.CustomerName || `CUSTOMER ${c.Id}`,
+    }))
+  );
+  const salesmanOptions = [{ value: "", label: "ALL SALESMAN" }].concat(
+    (salesmen || []).map(s => ({
+      value: String(s.Id),
+      label: s.SalesManName || s.AccountName || `SALESMAN ${s.Id}`,
+    }))
+  );
+  const areaOptions = [{ value: "", label: "ALL AREAS" }].concat(
+    (areas || []).map(a => ({
+      value: String(a.Id),
+      label: a.AreaName || a.Name || `AREA ${a.Id}`,
+    }))
+  );
+
+  const selectedCount = rows.filter(r => r._checked).length;
+  const totalAmount = rows.reduce((sum, row) => sum + CC.vn(row.NetAmt || row.Amount), 0);
+
+  return (
+    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="mp-modal-box" style={{ width: "min(1180px, 96vw)", maxHeight: "92vh", display: "flex", flexDirection: "column", padding: 0 }}>
+        <div className="mp-modal-hdr" style={{ background: "linear-gradient(180deg, #0d66d0, #0a49a1)" }}>
+          <span>Bill Print View</span>
+          <button onClick={onClose}>X</button>
+        </div>
+
+        <div style={{ padding: 14, borderBottom: "1px solid #d8e2f0", background: "#f7fbff" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "84px 120px 34px 120px 90px minmax(220px, 1fr) 92px minmax(180px, 1fr)", gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <label style={bpLabel}>From</label>
+            <input type="date" value={filters.from} onChange={e => setFilters(prev => ({ ...prev, from: e.target.value }))} style={bpInput} />
+            <label style={{ ...bpLabel, textAlign: "center" }}>To</label>
+            <input type="date" value={filters.to} onChange={e => setFilters(prev => ({ ...prev, to: e.target.value }))} style={bpInput} />
+            <label style={bpLabel}>Customer</label>
+            <ComboBox options={customerOptions} value={filters.customerId} onChange={value => setFilters(prev => ({ ...prev, customerId: value }))} placeholder="ALL CUSTOMERS" />
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="mp-btn sv" onClick={onLoad} disabled={loading || actionLoading} style={{ minWidth: 72 }}>
+                {loading ? "..." : "OK"}
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="mp-btn" onClick={onPrint} disabled={actionLoading || selectedCount === 0} style={{ minWidth: 90 }}>Print</button>
+              <button className="mp-btn" onClick={onUpdatePaidAmt} disabled={actionLoading} style={{ minWidth: 118 }}>Update Paid Amt</button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "84px 120px 92px 100px 64px minmax(180px, 1fr) auto auto auto auto", gap: 8, alignItems: "center" }}>
+            <label style={bpLabel}>SalesMan</label>
+            <ComboBox options={salesmanOptions} value={filters.salesmanId} onChange={value => setFilters(prev => ({ ...prev, salesmanId: value }))} placeholder="ALL SALESMAN" />
+            <label style={bpLabel}>Vehicle No</label>
+            <input value={filters.vehicleNo} onChange={e => setFilters(prev => ({ ...prev, vehicleNo: e.target.value.toUpperCase() }))} style={bpInput} />
+            <label style={bpLabel}>Area</label>
+            <ComboBox options={areaOptions} value={filters.areaId} onChange={value => setFilters(prev => ({ ...prev, areaId: value }))} placeholder="ALL AREAS" />
+            <label style={bpCheckWrap}>
+              <input type="checkbox" checked={filters.creditBill} onChange={e => setFilters(prev => ({ ...prev, creditBill: e.target.checked }))} />
+              Credit Bill
+            </label>
+            <label style={bpCheckWrap}>
+              <input type="checkbox" checked={filters.selectAll} onChange={onToggleAll} />
+              Select All
+            </label>
+            <button className="mp-btn" onClick={onWhatsApp} disabled={actionLoading || selectedCount === 0} style={{ minWidth: 132 }}>
+              Send WhatsApp
+            </button>
+            <div style={{ justifySelf: "end", fontSize: 12, fontWeight: 700, color: "#1f4f9f" }}>
+              Selected: {selectedCount} / {rows.length}
+            </div>
+          </div>
+        </div>
+
+        <div className="mp-modal-body" style={{ flex: 1, overflow: "auto", padding: 0 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ position: "sticky", top: 0, zIndex: 1, background: "#0f56c5", color: "#fff" }}>
+                {["Print", "BillNo", "BillDate", "BillType", "CustomerName", "Amount", "WhatsAppNo", "GSTINO", "IRN"].map((head, idx) => (
+                  <th
+                    key={head}
+                    style={{
+                      padding: "7px 8px",
+                      textAlign: idx === 0 ? "center" : idx === 5 ? "right" : "left",
+                      borderRight: "1px solid rgba(255,255,255,.22)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {head}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={9} style={{ padding: 24, textAlign: "center", color: "#8aa0bf" }}>
+                    {loading ? "Loading bills..." : "No bills found."}
+                  </td>
+                </tr>
+              )}
+              {rows.map((row, index) => (
+                <tr key={`${row.Id}_${index}`} style={{ background: row._checked ? "#e7f0ff" : index % 2 === 0 ? "#fff" : "#f8fbff", borderBottom: "1px solid #e1e8f2" }}>
+                  <td style={{ textAlign: "center", padding: "6px 8px" }}>
+                    <input type="checkbox" checked={!!row._checked} onChange={() => onToggleRow(row.Id)} />
+                  </td>
+                  <td style={bpCellStrong}>{row.BillNoDisplay || row.BillNo}</td>
+                  <td style={bpCell}>{String(row.BillDate || "").slice(0, 10)}</td>
+                  <td style={bpCell}>{row.SaleType || row.BillType || ""}</td>
+                  <td style={bpCell}>{row.CustomerName || ""}</td>
+                  <td style={{ ...bpCell, textAlign: "right", fontWeight: 700 }}>₹ {CC.f2(CC.vn(row.NetAmt || row.Amount)).toFixed(2)}</td>
+                  <td style={bpCell}>{row.MobileNo || row.WhatsAppNo || ""}</td>
+                  <td style={bpCell}>{row.GSTNo || row.GSTINO || ""}</td>
+                  <td style={bpCell}>{row.Irn || row.IRN || ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ borderTop: "1px solid #d8e2f0", padding: "16px 18px 18px", background: "#fff" }}>
+          <div style={{ width: "min(680px, 100%)", margin: "0 auto", border: "1px solid #cfd8e6", padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1f3b67", marginBottom: 12 }}>E-Invoice Configuration</div>
+            <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10, alignItems: "center" }}>
+              <label style={bpLabel}>ClientId</label>
+              <input value={eInvoice.ClientId} onChange={e => setEInvoice(prev => ({ ...prev, ClientId: e.target.value }))} style={bpInput} />
+              <label style={bpLabel}>ClientSecret</label>
+              <input value={eInvoice.ClientSecret} onChange={e => setEInvoice(prev => ({ ...prev, ClientSecret: e.target.value }))} style={bpInput} />
+              <label style={bpLabel}>Username</label>
+              <input value={eInvoice.UserName} onChange={e => setEInvoice(prev => ({ ...prev, UserName: e.target.value }))} style={bpInput} />
+              <label style={bpLabel}>Password</label>
+              <input type="password" value={eInvoice.PassWord} onChange={e => setEInvoice(prev => ({ ...prev, PassWord: e.target.value }))} style={bpInput} />
+              <label style={bpLabel}>GSTinNo</label>
+              <input value={eInvoice.GstinNo} onChange={e => setEInvoice(prev => ({ ...prev, GstinNo: e.target.value.toUpperCase() }))} style={bpInput} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
+              <button className="mp-btn sv" onClick={onSaveEInvoice} disabled={actionLoading} style={{ minWidth: 90 }}>Save</button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, fontSize: 12 }}>
+            <span style={{ color: "#1f4f9f", fontWeight: 700 }}>Total Amount: ₹ {CC.f2(totalAmount).toFixed(2)}</span>
+            <span style={{ color: "#6b7c93" }}>Ctrl+B closes with X or outside click.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const bpLabel = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: "#3b506f",
+  whiteSpace: "nowrap",
+};
+
+const bpInput = {
+  width: "100%",
+  height: 30,
+  border: "1px solid #c5d8f8",
+  borderRadius: 4,
+  padding: "0 8px",
+  fontSize: 12,
+  color: "#1a2e4a",
+  background: "#fff",
+};
+
+const bpCheckWrap = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  fontSize: 12,
+  color: "#1a2e4a",
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
+
+const bpCell = {
+  padding: "6px 8px",
+  color: "#1a2e4a",
+  whiteSpace: "nowrap",
+};
+
+const bpCellStrong = {
+  ...bpCell,
+  color: "#0f56c5",
+  fontWeight: 700,
+};
+
 // ─── BILL HOLD MODAL ──────────────────────────────────────────────────────────
 function BillHoldModal({ holds, onLoad, onDelete, onClose }) {
   const [sel, setSel] = useState(null);
@@ -1307,6 +1516,8 @@ export default function SaleBill() {
         BillPrintClosingBalance: !!main0.BillPrintClosingBalance,
         CRMValueSingle: CC.vn(com0.CRMPointValue) || 0,
         ItemwiseCRMPoint: !!main0.ItemwiseCRMPoint,
+        CustomerNameTamil: !!main0.CustomerNameTamil,
+        WhatsAppURL: main0.WhatsAppURL || "",
         // ── Print settings from Companysetting ──────────────────────────────
         BillFormatName: com0.SaleBillFormat || "Default",
         CompanyName:    com0.Companyname    || "",
@@ -1339,7 +1550,7 @@ export default function SaleBill() {
         CashId: "0", CashierId: "0",
         BillNoType: "Daily Reset On Company", BillNoPrefix: "", BillNoDigit: 0,
         SaleSubMaster: false, Herbalife: false, CMBTPatty: false, BatchWiseStock: false, TextilesSerialNowiseBilling: false, DayClose: false, TaxName: "Exclusive",
-        BillFormatName: "Default", CompanyName: "", PrintA4: false, PrintSmall: false,
+        BillFormatName: "Default", CompanyName: "", PrintA4: false, PrintSmall: false, CustomerNameTamil: false, WhatsAppURL: "",
       };
     }
   });
@@ -1407,6 +1618,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   const [customers,  setCustomers]  = useState([]);
   const [salesmen,   setSalesmen]   = useState([]);
+  const [areas,      setAreas]      = useState([]);
   const [cardTypes,  setCardTypes]  = useState([]);
 
   const [billNo,     setBillNo]     = useState("");
@@ -1452,6 +1664,30 @@ const loadFocusCols = useCallback(async (mcomid) => {
   const [custPopup,  setCustPopup]  = useState(false);
   const [f5Open,     setF5Open]     = useState(false);
   const [f5Rows,     setF5Rows]     = useState([]);
+  const [billPrintOpen, setBillPrintOpen] = useState(false);
+  const [billPrintRows, setBillPrintRows] = useState([]);
+  const [billPrintLoading, setBillPrintLoading] = useState(false);
+  const [billPrintActionLoading, setBillPrintActionLoading] = useState(false);
+  const [billPrintFilters, setBillPrintFilters] = useState(() => ({
+    from: CC.today(),
+    to: CC.today(),
+    customerId: "",
+    salesmanId: "",
+    areaId: "",
+    vehicleNo: "",
+    creditBill: false,
+    selectAll: false,
+  }));
+  const [billPrintEInvoice, setBillPrintEInvoice] = useState(() => {
+    const saved = CC.getLocal("saleBillPrintEInvoice");
+    return {
+      ClientId: saved?.ClientId || "",
+      ClientSecret: saved?.ClientSecret || "",
+      UserName: saved?.UserName || "",
+      PassWord: saved?.PassWord || "",
+      GstinNo: saved?.GstinNo || "",
+    };
+  });
   const [holdOpen,   setHoldOpen]   = useState(false);
   const [holdRows,   setHoldRows]   = useState([]);
   const [billHoldName, setBillHoldName] = useState("");
@@ -1853,15 +2089,17 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   const loadDropdowns = useCallback(async () => {
     const comidParam = sess.CommonCompany ? sess.MComid : sess.Comid;
-    const [custRes, smRes, cardRes] = await Promise.all([
+    const [custRes, smRes, cardRes, areaRes] = await Promise.all([
       CC.api(CC.SO_GetCustomerUrl, null, {}, { Comid: comidParam, AccountType: "CUSTOMER" }),
       CC.api(CC.SO_SalesManSelectUrl, null, {}, { Comid: comidParam }),
       CC.api(CC.SelectCardMasterUrl, null, {}, { Comid: sess.Comid }),
+      CC.api(CC.AreaSelect, null, {}, { Comid: comidParam }),
     ]);
     if (redirectIfDualLogin(custRes)) return;
     const pick = r => r.data || r.Data1 || r || [];
     setCustomers(Array.isArray(pick(custRes)) ? pick(custRes) : []);
     setSalesmen(Array.isArray(pick(smRes))   ? pick(smRes)   : []);
+    setAreas(Array.isArray(pick(areaRes))    ? pick(areaRes) : []);
     const cardList = Array.isArray(pick(cardRes)) ? pick(cardRes) : [];
     if (cardList.length > 0) {
       setPayRows(cardList.map(c => ({
@@ -2735,6 +2973,211 @@ const openReportViewer = useCallback((
 
   // ── Save ──────────────────────────────────────────────────────────────────
 // ── Save ──────────────────────────────────────────────────────────────────
+  const buildBillPrintHeaderDetails = useCallback((whatsAppApi = 0) => ({
+    BillFormatName: sess.BillFormatName,
+    CompanyName: sess.CompanyName,
+    Address1: sess.Address1,
+    Address2: sess.Address2,
+    City: sess.City,
+    Pincode: sess.Pincode,
+    MobileNo: sess.Phone,
+    GSTNO: sess.GSTNo,
+    Email: sess.Email,
+    StateCode: sess.StateCode,
+    StateName: "",
+    SaleCon1: sess.POSLine1,
+    SaleCon2: sess.POSLine2,
+    SaleCon3: sess.POSLine3,
+    SaleCon4: sess.POSLine4,
+    SaleCon5: sess.POSLine5,
+    NoofBills: sess.No_Of_Bills,
+    Bank1: sess.BankLine1,
+    Bank2: sess.BankLine2,
+    Bank3: sess.BankLine3,
+    Bank4: sess.BankLine4,
+    Bank5: sess.BankLine5,
+    FromEmailId: "keykassapos@gmail.com",
+    FromEmailPwd: "rlreahjhtwhpkelf",
+    Comid: parseInt(sess.Comid, 10) || 1,
+    WhatsAppApi: whatsAppApi,
+    WhatsAppURL: sess.WhatsAppURL || "",
+  }), [sess]);
+
+  const loadBillPrintRows = useCallback(async (override = null) => {
+    const active = override || billPrintFilters;
+    setBillPrintLoading(true);
+    const res = await CC.api(
+      CC.SelectBillViewUrl,
+      null,
+      {
+        smid: active.salesmanId || "0",
+        CreditBill: active.creditBill ? "1" : "0",
+        CMBTBill: "0",
+        Estimate: "0",
+      },
+      {
+        Comid: sess.Comid,
+        Id: active.customerId || "0",
+        Fromdate: active.from,
+        Todate: active.to,
+      }
+    );
+    setBillPrintLoading(false);
+    if (redirectIfDualLogin(res)) return;
+    if (!(res.ok ?? res.IsSuccess)) {
+      toast("❌ " + (res.message || res.Message || "Failed to load bill print view"), true);
+      return;
+    }
+
+    let list = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+
+    if (active.customerId) {
+      list = list.filter(row => String(row.CustId ?? row.CustomerRefId ?? "") === String(active.customerId));
+    }
+
+    if (active.areaId) {
+      const areaCustomerIds = new Set(
+        customers
+          .filter(c => String(c.AreaMasterRefId ?? c.AreaRefId ?? "") === String(active.areaId))
+          .map(c => String(c.Id))
+      );
+      list = list.filter(row => areaCustomerIds.has(String(row.CustId ?? row.CustomerRefId ?? "")));
+    }
+
+    if (active.vehicleNo.trim()) {
+      const needle = active.vehicleNo.trim().toUpperCase();
+      list = list.filter(row => String(row.VehicleNo || "").toUpperCase().includes(needle));
+    }
+
+    list = list.map(row => ({ ...row, _checked: false }));
+    setBillPrintRows(list);
+    setBillPrintFilters(prev => ({ ...prev, ...active, selectAll: false }));
+  }, [billPrintFilters, customers, redirectIfDualLogin, sess.Comid, toast]);
+
+  const openBillPrintPopup = useCallback(async () => {
+    const nextFilters = {
+      ...billPrintFilters,
+      from: billDate || CC.today(),
+      to: billDate || CC.today(),
+      selectAll: false,
+    };
+    setBillPrintOpen(true);
+    setBillPrintFilters(nextFilters);
+    await loadBillPrintRows(nextFilters);
+  }, [billDate, billPrintFilters, loadBillPrintRows]);
+
+  const toggleBillPrintRow = useCallback((id) => {
+    setBillPrintRows(prev => {
+      const next = prev.map(row => String(row.Id) === String(id) ? { ...row, _checked: !row._checked } : row);
+      const allChecked = next.length > 0 && next.every(row => row._checked);
+      setBillPrintFilters(filters => ({ ...filters, selectAll: allChecked }));
+      return next;
+    });
+  }, []);
+
+  const toggleBillPrintAll = useCallback(() => {
+    setBillPrintFilters(prev => {
+      const nextSelectAll = !prev.selectAll;
+      setBillPrintRows(rows => rows.map(row => ({ ...row, _checked: nextSelectAll })));
+      return { ...prev, selectAll: nextSelectAll };
+    });
+  }, []);
+
+  const runBillPrintAction = useCallback(async (whatsAppApi = 0) => {
+    const selectedRows = billPrintRows.filter(row => row._checked);
+    if (selectedRows.length === 0) {
+      toast("❌ Select at least one bill", true);
+      return null;
+    }
+
+    setBillPrintActionLoading(true);
+    const res = await CC.api(
+      CC.BillPrintAllUrl,
+      selectedRows.map(row => ({ Id: row.Id })),
+      {
+        Comid: String(sess.Comid),
+        Tamil: tamilMode ? "true" : "false",
+        CustomerTamil: sess.CustomerNameTamil ? "true" : "false",
+        PrintDetails: JSON.stringify(buildBillPrintHeaderDetails(whatsAppApi)),
+        React: "1",
+      },
+      null
+    );
+    setBillPrintActionLoading(false);
+    if (redirectIfDualLogin(res)) return null;
+    if (!(res.ok ?? res.IsSuccess)) {
+      toast("❌ " + (res.message || res.Message || "Bill print action failed"), true);
+      return null;
+    }
+    return res;
+  }, [billPrintRows, buildBillPrintHeaderDetails, redirectIfDualLogin, sess.Comid, sess.CustomerNameTamil, tamilMode, toast]);
+
+  const handleBillPrint = useCallback(async () => {
+    const res = await runBillPrintAction(0);
+    if (!res) return;
+    const cacheKey = res.Data15 || res.CacheKey || res.data15 || "";
+    if (!cacheKey) {
+      toast("❌ CacheKey not returned for print", true);
+      return;
+    }
+    const noOfBills = parseInt(sess.No_Of_Bills, 10) || 1;
+    for (let i = 0; i < noOfBills; i += 1) {
+      const copy = i === 0 ? "Original" : i === 1 ? "Duplicate Copy" : "Triplicate Copy";
+      openReportViewer(true, copy, cacheKey);
+      await new Promise(resolve => setTimeout(resolve, 450));
+    }
+  }, [openReportViewer, runBillPrintAction, sess.No_Of_Bills, toast]);
+
+  const handleBillWhatsApp = useCallback(async () => {
+    const res = await runBillPrintAction(1);
+    if (!res) return;
+    toast("✅ WhatsApp request sent");
+  }, [runBillPrintAction, toast]);
+
+  const handleBillUpdatePaidAmount = useCallback(async () => {
+    setBillPrintActionLoading(true);
+    const res = await CC.api(
+      CC.UpdatePaidAmountUrl,
+      null,
+      { LastDate: billPrintFilters.to },
+      {
+        Comid: sess.Comid,
+        Fromdate: billPrintFilters.from,
+        Todate: billPrintFilters.to,
+        Patty: 1,
+      }
+    );
+    setBillPrintActionLoading(false);
+    if (redirectIfDualLogin(res)) return;
+    if (res.ok ?? res.IsSuccess) toast("✅ Paid amount updated");
+    else toast("❌ " + (res.message || res.Message || "Update paid amount failed"), true);
+  }, [billPrintFilters.from, billPrintFilters.to, redirectIfDualLogin, sess.Comid, toast]);
+
+  const handleBillPrintEInvoiceSave = useCallback(async () => {
+    setBillPrintActionLoading(true);
+    const res = await CC.api(
+      CC.InsertEwayAuthenticateUrl,
+      null,
+      {},
+      {
+        Comid: sess.Comid,
+        ClientId: billPrintEInvoice.ClientId,
+        ClientSecret: billPrintEInvoice.ClientSecret,
+        UserName: billPrintEInvoice.UserName,
+        PassWord: billPrintEInvoice.PassWord,
+        GstinNo: billPrintEInvoice.GstinNo,
+      }
+    );
+    setBillPrintActionLoading(false);
+    if (redirectIfDualLogin(res)) return;
+    if (res.ok ?? res.IsSuccess) {
+      localStorage.setItem("saleBillPrintEInvoice", JSON.stringify(billPrintEInvoice));
+      toast("✅ E-Invoice configuration saved");
+    } else {
+      toast("❌ " + (res.message || res.Message || "E-Invoice save failed"), true);
+    }
+  }, [billPrintEInvoice, redirectIfDualLogin, sess.Comid, toast]);
+
 const doSave = useCallback(async (isCashBill = false, overridePayRows = null) => {
   if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
   const validRows = rows.filter(r => r.ProductRefId && CC.vn(r.ItemQty) > 0);
@@ -3318,6 +3761,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       }
 
       if (prodPopup || holdOpen || f5Open || pw || f12Open || custPopup || ctrlGOpen
+          || billPrintOpen
           || batchPopup || expiryListPopup) return;
 
       if (e.key === "F1")  { e.preventDefault(); doSave(true); }
@@ -3330,13 +3774,14 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       if (e.key === "F10") { e.preventDefault(); confirm("Do You Want To Clear?").then(ok => ok && clearForm()); }
       if (e.key === "F12") { e.preventDefault(); setF12Open(true); }
       if (e.key === "Escape") { e.preventDefault(); confirm("Do You Want To Quit?").then(ok => ok && navigate(-1)); }
+      if (e.ctrlKey && e.key.toLowerCase() === "b") { e.preventDefault(); openBillPrintPopup(); }
       if (e.ctrlKey && e.key === "g") { e.preventDefault(); setCtrlGOpen(true); }
     };
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   // eslint-disable-next-line
-  }, [prodPopup, holdOpen, f5Open, pw, f12Open, custPopup, ctrlGOpen,
-      doSave, doCreditSave, doBillHold, openF5, doDeleteBill, clearForm, editId, toggleTamilPrint]);
+  }, [prodPopup, holdOpen, f5Open, pw, f12Open, custPopup, ctrlGOpen, billPrintOpen,
+      doSave, doCreditSave, doBillHold, openF5, doDeleteBill, clearForm, editId, toggleTamilPrint, openBillPrintPopup]);
 
   if (!isAuthorized) return null;
 
@@ -3894,6 +4339,29 @@ onView={() => {
           toast={toast}
           onSaved={() => loadFocusCols(sess.MComid)}
           onClose={() => setCtrlGOpen(false)}
+        />
+      )}
+
+      {billPrintOpen && (
+        <BillPrintViewModal
+          filters={billPrintFilters}
+          setFilters={setBillPrintFilters}
+          rows={billPrintRows}
+          customers={customers}
+          salesmen={salesmen}
+          areas={areas}
+          eInvoice={billPrintEInvoice}
+          setEInvoice={setBillPrintEInvoice}
+          loading={billPrintLoading}
+          actionLoading={billPrintActionLoading}
+          onClose={() => setBillPrintOpen(false)}
+          onLoad={() => loadBillPrintRows()}
+          onToggleAll={toggleBillPrintAll}
+          onToggleRow={toggleBillPrintRow}
+          onPrint={handleBillPrint}
+          onWhatsApp={handleBillWhatsApp}
+          onUpdatePaidAmt={handleBillUpdatePaidAmount}
+          onSaveEInvoice={handleBillPrintEInvoiceSave}
         />
       )}
 
