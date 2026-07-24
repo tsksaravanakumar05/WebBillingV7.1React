@@ -15,7 +15,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle, Pencil, Lock } from "lucide-react";
-import "../Utilesstyle/TransactionPassword.css";
+import "../TransactionPassword.css";
 import Topbar from "../components/Topbar";
 
 import * as CC from "../components/Common";

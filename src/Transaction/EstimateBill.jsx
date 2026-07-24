@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef,useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import "../TransactionStyle/SaleBill.css";
+
 import "../Master/MasterPage.css";
 
 import * as CC from "../components/Common";

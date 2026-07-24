@@ -16,7 +16,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, XCircle } from "lucide-react";
-import "../Utilesstyle/Menumastersetting.css"; // BrandMaster-matching bm-* design system
+import "../Menumastersetting.css"; // BrandMaster-matching bm-* design system
 
 import Topbar from "../components/Topbar";
 import * as CC  from "../components/Common";
