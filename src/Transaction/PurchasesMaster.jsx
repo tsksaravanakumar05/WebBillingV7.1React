@@ -409,6 +409,7 @@ export default function Purchase() {
   const location = useLocation();
   const navigate = useNavigate();
   const externalOpenRef = useRef("");
+  const fromPattyPurchaseView = !!location.state?.pattyPurchaseOpen;
 
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast,   toasts    } = MSG.useToast();
@@ -430,26 +431,22 @@ export default function Purchase() {
     const menuStr = localStorage.getItem("menulist");
     if (!menuStr) { alert("Session Close Please Login !!!."); navigate("/"); return; }
 
-    const fromPattyPurchaseView = !!location.state?.pattyPurchaseOpen;
     const menulist = JSON.parse(menuStr);
     const menudata = menulist.filter(obj => obj.PageName === "Purchase");
 
-    if ((!menudata || menudata.length === 0) && !fromPattyPurchaseView) {
-      alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
-      return;
-    }
-
-    if (!fromPattyPurchaseView && menudata[0].View === 0) {
-      alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
-      return;
-    }
+    console.log("Location State:", location);
+    console.log("Menu:", menulist);
 
     if (fromPattyPurchaseView) {
       // Temporary full access only for the current Patty Purchase View handoff.
       setPerm({ View: 1, Add: 1, Edit: 1, Delete: 1 });
       setIsAuthorized(true);
+      return;
+    }
+
+    if ((!menudata || menudata.length === 0) || menudata[0].View === 0) {
+      alert("Page Access Permission Denied !!!.");
+      setTimeout(() => navigate("/Home"), 3000);
       return;
     }
 
@@ -498,6 +495,7 @@ export default function Purchase() {
   // 100% unchanged. Switching mode only adds behaviour on top; nothing about the
   // PURCHASE-mode path is altered.
   const [purchaseMode, setPurchaseMode] = useState("PURCHASE"); // PURCHASE | PATTY | SALESPATTY | ARRIVAL
+  const isPurchaseMode = purchaseMode === "PURCHASE";
   // Derived flag — true whenever the Patty side-panel + deduction math should engage
   // (mirrors "PattyStatus == 2" i.e. rdbpatti or rdbsalespatty checked in the .cs).
   const pattyMode = purchaseMode === "PATTY" || purchaseMode === "SALESPATTY";
@@ -963,6 +961,16 @@ useEffect(() => {
   const finalNetAmt = pattyMode
     ? fmt2(roundOff(valNum(totals.netAmt) - valNum(pattyTotal)))
     : totals.netAmt;
+
+  const effectiveInvoiceNo = String(isPurchaseMode ? (invoiceNo ?? "") : (purchaseNo ?? ""));
+  const effectiveInvoiceAmt = isPurchaseMode ? invoiceAmt : finalNetAmt;
+
+  useEffect(() => {
+    if (!isPurchaseMode) {
+      setInvoiceNo(purchaseNo || "");
+      setInvoiceAmt(finalNetAmt || "0.00");
+    }
+  }, [isPurchaseMode, purchaseNo, finalNetAmt]);
 
   // Credit days → DueDate auto-update
   useEffect(() => {
@@ -1756,7 +1764,7 @@ if (colKey === "MfgDate") {
   //   } finally { setLoading(false); }
   // }, [perm.Edit, purchaseDate, searchNo, sess.Comid, redirectIfDualLogin, toast]);
 const handleF5View = useCallback(async (objlist = {}) => {
-  if (!perm.Edit) {
+  if (!perm.Edit && !fromPattyPurchaseView) {
     toast("❌ Page Edit Permission Denied !!!.", true);
     return;
   }
@@ -1854,6 +1862,7 @@ const handleF5View = useCallback(async (objlist = {}) => {
   sess.Comid,
   redirectIfDualLogin,
   toast,
+  fromPattyPurchaseView,
 ]);
   const getDetailsForMaster = useCallback((masterId) =>
     f5DetailList.filter((d) => String(d.PurchaseRefId) === String(masterId)),
@@ -1940,8 +1949,8 @@ const handleF5View = useCallback(async (objlist = {}) => {
   //  EDIT
   // ─────────────────────────────────────────────────────────────────────────
   const handleEdit = useCallback(async (pid, pno, options = {}) => {
-    const canOpenFromView = options.allowView === true;
-    if (canOpenFromView ? !perm.View : !perm.Edit) {
+    const canOpenFromView = options.allowView === true || fromPattyPurchaseView;
+    if (!options.allowView && (canOpenFromView ? !perm.View : !perm.Edit)) {
       toast(`❌ Page ${canOpenFromView ? "View" : "Edit"} Permission Denied !!!.`, true);
       return;
     }
@@ -2153,7 +2162,7 @@ if (savedArrivalType) {
     } else {
       toast(`❌ ${res.message || "Edit load failed !!!."}`, true);
     }
-  }, [perm, sess, taxMode, supplierList, handleSupplierChange, toast, redirectIfDualLogin, nextFocusForm, purchaseMode, pattyFeatureEnabled]);
+  }, [perm, sess, taxMode, supplierList, handleSupplierChange, toast, redirectIfDualLogin, nextFocusForm, purchaseMode, pattyFeatureEnabled, fromPattyPurchaseView]);
 
   useEffect(() => {
     const req = location.state?.pattyPurchaseOpen;
@@ -2487,9 +2496,9 @@ if (savedArrivalType) {
   const handleSave = useCallback(async () => {
     if (!perm.Add) { toast("❌ Page Add Permission Denied !!!.", true); return; }
     if (!supplierId) { toast("❌ Select Valid Supplier !!!.", true); supplierRef.current?.focus(); return; }
-    if (!invoiceNo.trim()) { toast("❌ Enter Supplier Invoice Number !!!.", true); invoiceNoRef.current?.focus(); return; }
+    if (!effectiveInvoiceNo.trim()) { toast("❌ Enter Supplier Invoice Number !!!.", true); invoiceNoRef.current?.focus(); return; }
     if (valNum(finalNetAmt) <= 0) { toast("❌ Net Total must not be Negative !!!.", true); return; }
-    if (valNum(invoiceAmt) !== valNum(finalNetAmt)) {
+    if (valNum(effectiveInvoiceAmt) !== valNum(finalNetAmt)) {
       toast("❌ Invoice Amount Not Equal To Net Total Amount !!!.", true); invoiceAmtRef.current?.focus(); return;
     }
     const mainSet        = JSON.parse(localStorage.getItem("Mainsetting") || "[{}]");
@@ -2553,7 +2562,7 @@ if (savedArrivalType) {
       PurchaseNo: purchaseNo, CompanyRefId: parseInt(sess.Comid, 10) || 0,
       PurchaseDate: purchaseDate, PurchaseType: effectivePurchaseType, IGSTBill: igstStatus,
       taxamount: valNum(totals.gstAmt), CTAmount: valNum(totals.cgstAmt), STAmount: valNum(totals.sgstAmt),
-      SupplierInvoiceNo: invoiceNo, SupplierInvoiceDate: invoiceDate,
+      SupplierInvoiceNo: effectiveInvoiceNo, SupplierInvoiceDate: invoiceDate,
       NetAmt: valNum(finalNetAmt), discamount: valNum(totals.discAmt),
       cdamount: valNum(totals.cdAmt), Others_A: valNum(otherPlus), Others_D: valNum(otherSub),
       DueDate: effectiveDueDate, DisplayAmount: valNum(finalNetAmt),
@@ -2608,6 +2617,7 @@ if (savedArrivalType) {
     purchaseDate, invoiceDate, dueDate, igstStatus,
     otherPlus, otherSub, remarks, supplierList, serialNoList,
     confirm, toast, redirectIfDualLogin, handleClear, sanitizeDetailRow,
+    effectiveInvoiceNo, effectiveInvoiceAmt,
   ]);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3170,21 +3180,25 @@ if (savedArrivalType) {
             )}
           </div>
 
-          <div className="field-group"><label>Invoice No <span className="req">*</span></label>
-            <input ref={invoiceNoRef} className="form-ctrl" value={invoiceNo || ""}
-              onChange={(e) => setInvoiceNo(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("txtinvoiceno"); } }} />
-          </div>
+          {isPurchaseMode && (
+            <div className="field-group"><label>Invoice No <span className="req">*</span></label>
+              <input ref={invoiceNoRef} className="form-ctrl" value={invoiceNo || ""}
+                onChange={(e) => setInvoiceNo(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("txtinvoiceno"); } }} />
+            </div>
+          )}
           <div className="field-group"><label>Invoice Date</label><input ref={invoiceDateRef} type="date" className="form-ctrl" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("dtpinvoicedate"); } }} /></div>
-          <div className="field-group">
-            <label>Invoice Amount <span className="req">*</span></label>
-            <input ref={invoiceAmtRef} className="form-ctrl right" value={invoiceAmt}
-              onChange={(e) => setInvoiceAmt(e.target.value)} onFocus={(e) => e.target.select()}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("txtinvoiceamt"); } }} />
-          </div>
+          {isPurchaseMode && (
+            <div className="field-group">
+              <label>Invoice Amount <span className="req">*</span></label>
+              <input ref={invoiceAmtRef} className="form-ctrl right" value={invoiceAmt}
+                onChange={(e) => setInvoiceAmt(e.target.value)} onFocus={(e) => e.target.select()}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("txtinvoiceamt"); } }} />
+            </div>
+          )}
           <div className="field-group">
             <label>Bill Amount</label>
-            <div className={"bill-amt-display" + (valNum(finalNetAmt) > 0 && valNum(invoiceAmt) === valNum(finalNetAmt) ? " bill-amt-match" : valNum(finalNetAmt) > 0 ? " bill-amt-mismatch" : "")}>
+            <div className={"bill-amt-display" + (valNum(finalNetAmt) > 0 && valNum(effectiveInvoiceAmt) === valNum(finalNetAmt) ? " bill-amt-match" : valNum(finalNetAmt) > 0 ? " bill-amt-mismatch" : "")}>
               ₹ {finalNetAmt}
             </div>
           </div>

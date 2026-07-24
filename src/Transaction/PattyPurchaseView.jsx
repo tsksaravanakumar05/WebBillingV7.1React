@@ -11,6 +11,23 @@ const asDate = (value) => {
   if (typeof value === "string") return value.split("T")[0];
   try { return new Date(value).toISOString().split("T")[0]; } catch { return ""; }
 };
+const pickRowId = (item) => String(
+  item?.Id ??
+  item?.AccountRefId ??
+  item?.SupplierRefId ??
+  item?.CustomerRefId ??
+  item?.LedgerRefId ??
+  item?.AccountId ??
+  0
+);
+const pickLabel = (item) => String(
+  item?.AccountName ??
+  item?.SupplierName ??
+  item?.CustomerName ??
+  item?.SalesManName ??
+  item?.Name ??
+  ""
+);
 
 export default function PattyPurchaseView() {
   const navigate = useNavigate();
@@ -19,6 +36,12 @@ export default function PattyPurchaseView() {
   const [salesmen, setSalesmen] = useState([]);
   const [customerId, setCustomerId] = useState("0");
   const [salesmanId, setSalesmanId] = useState("0");
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [salesmanQuery, setSalesmanQuery] = useState("");
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [salesmanOpen, setSalesmanOpen] = useState(false);
+  const [customerHi, setCustomerHi] = useState(0);
+  const [salesmanHi, setSalesmanHi] = useState(0);
   const [fromDate, setFromDate] = useState(today());
   const [toDate, setToDate] = useState(today());
   const [pendingAll, setPendingAll] = useState(false);
@@ -29,6 +52,8 @@ export default function PattyPurchaseView() {
   const [err, setErr] = useState("");
   const [highlightId, setHighlightId] = useState(null);
   const gridWrapRef = useRef(null);
+  const customerWrapRef = useRef(null);
+  const salesmanWrapRef = useRef(null);
 
   const [sess] = useState(() => {
     const main0 = (CC.getLocal("Mainsetting") || [{}])[0] || {};
@@ -44,6 +69,23 @@ export default function PattyPurchaseView() {
   });
 
   const allSelected = rows.length > 0 && rows.every(r => selectedIds[String(r.Id)] === true);
+  const customerDropdown = useMemo(() => {
+    const q = customerQuery.trim().toLowerCase();
+    const list = customers.filter(c => {
+      const label = pickLabel(c);
+      return q === "" || label.toLowerCase().includes(q);
+    });
+    return list.slice(0, 100);
+  }, [customers, customerQuery]);
+
+  const salesmanDropdown = useMemo(() => {
+    const q = salesmanQuery.trim().toLowerCase();
+    const list = salesmen.filter(s => {
+      const label = pickLabel(s);
+      return q === "" || label.toLowerCase().includes(q);
+    });
+    return list.slice(0, 100);
+  }, [salesmen, salesmanQuery]);
 
   const mode = useMemo(() => {
     if (salesPatty) return "SALESPATTY";
@@ -53,13 +95,15 @@ export default function PattyPurchaseView() {
 
   const loadDropdowns = useCallback(async () => {
     const [custRes, smRes] = await Promise.all([
-      CC.api(CC.SO_GetCustomerUrl, null, {}, { Comid: sess.MComid, AccountType: "CUSTOMER" }),
+      CC.api(CC.SO_GetCustomerUrl, null, {}, { Comid: sess.MComid, AccountType: "SUPPLIER" }),
       CC.api(CC.SO_SalesManSelectUrl, null, {}, { Comid: sess.MComid }),
     ]);
 
     const pick = (res) => res?.data || res?.Data1 || [];
-    setCustomers(Array.isArray(pick(custRes)) ? pick(custRes) : []);
-    setSalesmen(Array.isArray(pick(smRes)) ? pick(smRes) : []);
+    const nextCustomers = Array.isArray(pick(custRes)) ? pick(custRes) : [];
+    const nextSalesmen = Array.isArray(pick(smRes)) ? pick(smRes) : [];
+    setCustomers(nextCustomers);
+    setSalesmen(nextSalesmen);
   }, [sess]);
 
   const loadRows = useCallback(async () => {
@@ -97,6 +141,17 @@ export default function PattyPurchaseView() {
 
   useEffect(() => { loadDropdowns(); }, [loadDropdowns]);
   useEffect(() => { loadRows(); }, [loadRows]);
+  useEffect(() => {
+    const selectedCustomer = customers.find(c => pickRowId(c) === String(customerId));
+    if (String(customerId) === "0") setCustomerQuery("");
+    else if (selectedCustomer) setCustomerQuery(pickLabel(selectedCustomer));
+  }, [customers, customerId]);
+
+  useEffect(() => {
+    const selectedSalesman = salesmen.find(s => pickRowId(s) === String(salesmanId));
+    if (String(salesmanId) === "0") setSalesmanQuery("");
+    else if (selectedSalesman) setSalesmanQuery(pickLabel(selectedSalesman));
+  }, [salesmen, salesmanId]);
 
   const toggleSelectAll = useCallback((checked) => {
     const next = {};
@@ -107,6 +162,46 @@ export default function PattyPurchaseView() {
   const toggleSelected = useCallback((id) => {
     setSelectedIds(prev => ({ ...prev, [String(id)]: !prev[String(id)] }));
   }, []);
+
+  const selectCustomer = useCallback((item) => {
+    setCustomerId(pickRowId(item));
+    setCustomerQuery(item ? pickLabel(item) : "");
+    setCustomerOpen(false);
+  }, []);
+
+  const selectSalesman = useCallback((item) => {
+    setSalesmanId(pickRowId(item));
+    setSalesmanQuery(item ? pickLabel(item) : "");
+    setSalesmanOpen(false);
+  }, []);
+
+  const commitSupplierFilter = useCallback(() => {
+    const exact = customers.find(c => pickLabel(c).toLowerCase() === customerQuery.trim().toLowerCase());
+    if (exact) {
+      selectCustomer(exact);
+      return true;
+    }
+    if (!customerQuery.trim()) {
+      setCustomerId("0");
+      setCustomerOpen(false);
+      return true;
+    }
+    return false;
+  }, [customers, customerQuery, selectCustomer]);
+
+  const commitSalesmanFilter = useCallback(() => {
+    const exact = salesmen.find(s => pickLabel(s).toLowerCase() === salesmanQuery.trim().toLowerCase());
+    if (exact) {
+      selectSalesman(exact);
+      return true;
+    }
+    if (!salesmanQuery.trim()) {
+      setSalesmanId("0");
+      setSalesmanOpen(false);
+      return true;
+    }
+    return false;
+  }, [salesmen, salesmanQuery, selectSalesman]);
 
   const openRow = useCallback((row) => {
     if (!row?.Id) return;
@@ -173,24 +268,135 @@ export default function PattyPurchaseView() {
                 <input type="date" className="bm-cell-input" value={toDate} onChange={e => setToDate(e.target.value)} disabled={pendingAll} />
               </div>
 
-              <div className="ppv-field ppv-field-wide">
-                <label>Customer Name</label>
-                <select className="bm-cell-input" value={customerId} onChange={e => setCustomerId(e.target.value)}>
-                  <option value="0">All Customers</option>
-                  {customers.map(c => (
-                    <option key={c.Id} value={String(c.Id)}>{c.AccountName || c.SupplierName || c.CustomerName}</option>
-                  ))}
-                </select>
+              <div className="ppv-field ppv-field-wide" ref={customerWrapRef} style={{ position: "relative" }}>
+                <label>Supplier Name</label>
+                <input
+                  className="bm-cell-input"
+                  value={customerQuery}
+                  onChange={e => {
+                    setCustomerQuery(e.target.value);
+                    setCustomerId("0");
+                    setCustomerOpen(true);
+                    setCustomerHi(0);
+                  }}
+                  onFocus={() => setCustomerOpen(true)}
+                  onClick={() => setCustomerOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setCustomerOpen(true);
+                      setCustomerHi(i => Math.min(i + 1, Math.max(customerDropdown.length - 1, 0)));
+                    }
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setCustomerOpen(true);
+                      setCustomerHi(i => Math.max(i - 1, 0));
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (customerOpen && customerDropdown.length > 0) selectCustomer(customerDropdown[customerHi] ?? customerDropdown[0]);
+                      else commitSupplierFilter();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setCustomerOpen(false);
+                    }
+                  }}
+                  onBlur={() => setTimeout(() => {
+                    setCustomerOpen(false);
+                    commitSupplierFilter();
+                  }, 180)}
+                  placeholder="Type or click to browse suppliers..."
+                  autoComplete="off"
+                />
+                {customerOpen && (
+                  <div style={{ position: "absolute", zIndex: 9000, top: "100%", left: 0, right: 0, background: "var(--clr-bg-white)", border: "1px solid var(--clr-border-default)", borderRadius: "0 0 6px 6px", boxShadow: "0 4px 16px var(--clr-shadow-toast)", maxHeight: 220, overflowY: "auto" }}>
+                    <div
+                      onMouseDown={() => {
+                        setCustomerId("0");
+                        setCustomerQuery("");
+                        setCustomerOpen(false);
+                      }}
+                      style={{ padding: "6px 10px", cursor: "pointer", fontSize: 13, background: customerQuery.trim() === "" && customerId === "0" ? "var(--clr-bg-row-hover)" : "var(--clr-bg-white)", borderBottom: "1px solid var(--clr-bg-soft)", fontWeight: 600 }}
+                    >
+                      All Suppliers
+                    </div>
+                    {customerDropdown.map((c, i) => (
+                      <div
+                        key={c.Id}
+                        onMouseDown={() => selectCustomer(c)}
+                        style={{ padding: "6px 10px", cursor: "pointer", fontSize: 13, background: i === customerHi ? "var(--clr-bg-row-hover)" : "var(--clr-bg-white)", borderBottom: "1px solid var(--clr-bg-soft)", fontWeight: i === customerHi ? 600 : 400 }}
+                      >
+                        {pickLabel(c)}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="ppv-field ppv-field-wide">
+              <div className="ppv-field ppv-field-wide" ref={salesmanWrapRef} style={{ position: "relative" }}>
                 <label>SalesMan</label>
-                <select className="bm-cell-input" value={salesmanId} onChange={e => setSalesmanId(e.target.value)}>
-                  <option value="0">All SalesMan</option>
-                  {salesmen.map(s => (
-                    <option key={s.Id} value={String(s.Id)}>{s.SalesManName || s.Name || s.SupplierName}</option>
-                  ))}
-                </select>
+                <input
+                  className="bm-cell-input"
+                  value={salesmanQuery}
+                  onChange={e => {
+                    setSalesmanQuery(e.target.value);
+                    setSalesmanId("0");
+                    setSalesmanOpen(true);
+                    setSalesmanHi(0);
+                  }}
+                  onFocus={() => setSalesmanOpen(true)}
+                  onClick={() => setSalesmanOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSalesmanOpen(true);
+                      setSalesmanHi(i => Math.min(i + 1, Math.max(salesmanDropdown.length - 1, 0)));
+                    }
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setSalesmanHi(i => Math.max(i - 1, 0));
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (salesmanOpen && salesmanDropdown.length > 0) selectSalesman(salesmanDropdown[salesmanHi] ?? salesmanDropdown[0]);
+                      else commitSalesmanFilter();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setSalesmanOpen(false);
+                    }
+                  }}
+                  onBlur={() => setTimeout(() => {
+                    setSalesmanOpen(false);
+                    commitSalesmanFilter();
+                  }, 180)}
+                  placeholder="Type or click to browse salesmen..."
+                  autoComplete="off"
+                />
+                {salesmanOpen && (
+                  <div style={{ position: "absolute", zIndex: 9000, top: "100%", left: 0, right: 0, background: "var(--clr-bg-white)", border: "1px solid var(--clr-border-default)", borderRadius: "0 0 6px 6px", boxShadow: "0 4px 16px var(--clr-shadow-toast)", maxHeight: 220, overflowY: "auto" }}>
+                    <div
+                      onMouseDown={() => {
+                        setSalesmanId("0");
+                        setSalesmanQuery("");
+                        setSalesmanOpen(false);
+                      }}
+                      style={{ padding: "6px 10px", cursor: "pointer", fontSize: 13, background: salesmanQuery.trim() === "" && salesmanId === "0" ? "var(--clr-bg-row-hover)" : "var(--clr-bg-white)", borderBottom: "1px solid var(--clr-bg-soft)", fontWeight: 600 }}
+                    >
+                      All SalesMan
+                    </div>
+                    {salesmanDropdown.map((s, i) => (
+                      <div
+                        key={s.Id}
+                        onMouseDown={() => selectSalesman(s)}
+                        style={{ padding: "6px 10px", cursor: "pointer", fontSize: 13, background: i === salesmanHi ? "var(--clr-bg-row-hover)" : "var(--clr-bg-white)", borderBottom: "1px solid var(--clr-bg-soft)", fontWeight: i === salesmanHi ? 600 : 400 }}
+                      >
+                        {pickLabel(s)}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
