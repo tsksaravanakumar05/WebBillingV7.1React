@@ -951,94 +951,73 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
 
   return (
     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box sb-f5-modal" style={{ width: 980, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+      <div className="mp-modal-box sb-f5-modal f5-modal-box">
         <div className="mp-modal-hdr">
           <span>📋 Sale Bill View (F5)</span>
           <button onClick={onClose}>✕</button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px",
-          background: "#f5f9ff", borderBottom: "1px solid #dde6f5", flexShrink: 0, flexWrap: "wrap" }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568" }}>From</label>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-            style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-          <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568" }}>To</label>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)}
-            style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-          <button className="mp-btn sv" style={{ height: 28, padding: "0 14px", fontSize: 11 }}
-            onClick={() => onSearch(from, to)}>🔍 Search</button>
-          <span style={{ marginLeft: "auto", fontWeight: 700, fontSize: 15, color: "#16a34a" }}>
-            Total Amt : {CC.f2(totalAmt).toFixed(2)}
-          </span>
+        <div className="f5-filter-bar">
+          <label className="f5-filter-label">From</label>
+          <input type="date" className="f5-filter-date" value={from} onChange={e => setFrom(e.target.value)} />
+          <label className="f5-filter-label">To</label>
+          <input type="date" className="f5-filter-date" value={to} onChange={e => setTo(e.target.value)} />
+          <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
+          <span className="f5-total">Total Amt : {CC.f2(totalAmt).toFixed(2)}</span>
         </div>
-        <div className="mp-modal-body" style={{ flex: 1, overflowY: "auto", padding: 0 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <div className="mp-modal-body f5-modal-body">
+          <table className="f5-table">
             <thead>
-              <tr style={{ background: "#1a2e4a", color: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
-                <th style={{ width: 32 }} />
-                <th style={{ padding: "6px 10px", textAlign: "left" }}>Bill No</th>
-                <th style={{ padding: "6px 10px", textAlign: "left" }}>Bill Date</th>
-                <th style={{ padding: "6px 10px", textAlign: "left" }}>Customer</th>
-                <th style={{ padding: "6px 10px", textAlign: "right" }}>Net Amt</th>
-                <th style={{ padding: "6px 10px", textAlign: "left" }}>Type</th>
-                <th style={{ padding: "6px 10px", textAlign: "center" }}>Actions</th>
+              <tr className="f5-header-row">
+                <th className="f5-th-toggle" />
+                <th className="f5-th">Bill No</th>
+                <th className="f5-th">Bill Date</th>
+                <th className="f5-th">Customer</th>
+                <th className="f5-th f5-th-amount">Net Amt</th>
+                <th className="f5-th">Type</th>
+                <th className="f5-th f5-th-center">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>No records found.</td></tr>
+                <tr><td colSpan={7} className="f5-empty-row">No records found.</td></tr>
               )}
               {rows.map((r, i) => {
                 const isExp  = expandedId === r.Id;
                 const rowDets = getDetails(r.Id);
                 return (
                   <React.Fragment key={r.Id}>
-                    <tr style={{ background: isExp ? "#deeafb" : i % 2 === 0 ? "#fff" : "#fafbff",
-                      borderBottom: "1px solid #eaecf4", cursor: "pointer" }}>
-                      <td style={{ textAlign: "center", width: 32, fontSize: 12, userSelect: "none" }}
-                        onClick={() => setExpandedId(isExp ? null : r.Id)}>
+                    <tr className={isExp ? "f5-row-expanded" : (i % 2 === 0 ? "f5-row-even" : "f5-row-odd")}>
+                      <td className="f5-toggle-cell" onClick={() => setExpandedId(isExp ? null : r.Id)}>
                         {isExp ? "▼" : "▶"}
                       </td>
-                      <td style={{ padding: "5px 10px", color: "#1f65de", fontWeight: 700 }}>
-                        {r.BillNoDisplay || r.BillNo}
+                      <td className="f5-td-billno">{r.BillNoDisplay || r.BillNo}</td>
+                      <td className="f5-td">{String(r.BillDate || "").slice(0, 10)}</td>
+                      <td className="f5-td">{r.CustomerName}</td>
+                      <td className="f5-td-amount">₹{CC.f2(CC.vn(r.NetAmt)).toFixed(2)}</td>
+                      <td className="f5-td">
+                        <span className={`f5-badge ${r.SaleType === "CASH" ? "f5-badge-cash" : "f5-badge-credit"}`}>
+                          {r.SaleType}
+                        </span>
                       </td>
-                      <td style={{ padding: "5px 10px" }}>{String(r.BillDate || "").slice(0, 10)}</td>
-                      <td style={{ padding: "5px 10px" }}>{r.CustomerName}</td>
-                      <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#16a34a" }}>
-                        ₹{CC.f2(CC.vn(r.NetAmt)).toFixed(2)}
-                      </td>
-                      <td style={{ padding: "5px 10px" }}>
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
-                          background: r.SaleType === "CASH" ? "#dcfce7" : "#dbeafe",
-                          color:      r.SaleType === "CASH" ? "#16a34a" : "#1d4ed8",
-                        }}>{r.SaleType}</span>
-                      </td>
-                      <td style={{ padding: "5px 10px", textAlign: "center" }}>
-                        <button onClick={() => onEdit(r.Id)} style={{
-                          marginRight: 6, padding: "3px 10px", fontSize: 11, borderRadius: 4,
-                          border: "1px solid #c5d8f8", background: "#e8f0fe",
-                          color: "#1f65de", fontWeight: 600, cursor: "pointer",
-                        }}>✏ Edit</button>
-                        <button onClick={() => onDelete(r.Id, r.BillNoDisplay || r.BillNo)} style={{
-                          padding: "3px 10px", fontSize: 11, borderRadius: 4,
-                          border: "1px solid #fecaca", background: "#fee2e2",
-                          color: "#dc2626", fontWeight: 600, cursor: "pointer",
-                        }}>🗑 Del</button>
+                      <td className="f5-td-actions">
+                        <button onClick={() => onEdit(r.Id)} className="f5-btn-edit">✏ Edit</button>
+                        <button onClick={() => onDelete(r.Id, r.BillNoDisplay || r.BillNo)} className="f5-btn-delete">🗑 Del</button>
                       </td>
                     </tr>
                     {isExp && (
                       <tr key={`det_${r.Id}`}>
-                        <td colSpan={7} style={{ padding: "6px 24px 10px 42px",
-                          background: "#f8fafc", borderBottom: "2px solid #bfdbfe" }}>
+                        <td colSpan={7} className="f5-detail-cell">
                           {rowDets.length === 0
-                            ? <span style={{ color: "#94a3b8", fontSize: 12 }}>No product details found.</span>
+                            ? <span className="f5-detail-empty">No product details found.</span>
                             : (
-                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                              <table className="f5-detail-table">
                                 <thead>
-                                  <tr style={{ background: "#2d4a9f", color: "#fff" }}>
+                                  <tr className="f5-detail-header-row">
                                     {["Code","Description","MRP","Sale Rate","Qty","GST%","GST Amt","Disc%","Disc Amt"].map(h => (
-                                      <th key={h} style={{ padding: "3px 8px",
-                                        textAlign: ["MRP","Sale Rate","Qty","GST%","GST Amt","Disc%","Disc Amt"].includes(h) ? "right" : "left" }}>
+                                      <th
+                                        key={h}
+                                        className={`f5-detail-th${["MRP","Sale Rate","Qty","GST%","GST Amt","Disc%","Disc Amt"].includes(h) ? " f5-detail-th-right" : ""}`}
+                                      >
                                         {h}
                                       </th>
                                     ))}
@@ -1046,16 +1025,16 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
                                 </thead>
                                 <tbody>
                                   {rowDets.map((d, di) => (
-                                    <tr key={di} style={{ background: di % 2 === 0 ? "#fff" : "#f5f9ff" }}>
-                                      <td style={{ padding: "3px 8px" }}>{d.ProductCode}</td>
-                                      <td style={{ padding: "3px 8px" }}>{d.ProductName}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.MRP)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.SaleRate)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.ItemQty)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.TaxPercent)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.TaxAmt)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.DiscountPercent)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{CC.f2(CC.vn(d.DiscountAmt)).toFixed(2)}</td>
+                                    <tr key={di} className={di % 2 === 0 ? "f5-detail-row-even" : "f5-detail-row-odd"}>
+                                      <td className="f5-detail-td">{d.ProductCode}</td>
+                                      <td className="f5-detail-td">{d.ProductName}</td>
+                                      <td className="f5-detail-td-right">{CC.f2(CC.vn(d.MRP)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{CC.f2(CC.vn(d.SaleRate)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{CC.f2(CC.vn(d.ItemQty)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{CC.f2(CC.vn(d.TaxPercent)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{CC.f2(CC.vn(d.TaxAmt)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{CC.f2(CC.vn(d.DiscountPercent)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{CC.f2(CC.vn(d.DiscountAmt)).toFixed(2)}</td>
                                     </tr>
                                   ))}
                                 </tbody>

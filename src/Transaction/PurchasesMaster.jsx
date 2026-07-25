@@ -32,6 +32,7 @@ import * as CC  from "../components/Common";
 import * as CC1 from "../components/Common";
 import * as MSG from "../components/Messages";
 
+
 // ── Grid Combo Popup ─────────────────────────────────────────────────────────
 function GridComboPopup({ state, setState, sess, setLoading, handleCellChange, setColorList, setSizeList, setModelList, setBrandList, moveToNextCell }) {
   const [q, setQ] = useState(state.query || "");
@@ -2981,7 +2982,7 @@ if (savedArrivalType) {
       )}
 
       {/* ── F5 List View ── */}
-      {listViewOpen && (
+      {/* {listViewOpen && (
         <div className="popup-overlay">
           <div className="popup-window f5-popup" style={{ width: 980, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
             <div className="popup-header">
@@ -3100,6 +3101,126 @@ if (savedArrivalType) {
             </div>
           </div>
         </div>
+      )} */}
+      {listViewOpen && (
+        <div className="popup-overlay">
+          <div className="popup-window f5-popup f5-modal-box">
+            <div className="popup-header">
+              <span>Purchase List View (F5)</span>
+              <button className="popup-close" onClick={() => { setListViewOpen(false); setF5MasterList([]); setF5DetailList([]); setF5SupplierId(""); setFromDate(today()); setToDate(today()); }}>✕</button>
+            </div>
+            <div className="f5-filter-panel">
+              <div className="f5-filter-grid">
+                <label>From Date</label>
+                <input type="date" className="form-ctrl" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                <label>To Date</label>
+                <input type="date" className="form-ctrl" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                <div className="f5-supplier-wrap">
+                  <input type="text" className="form-ctrl" placeholder="Select Supplier Name"
+                    value={f5SupplierOpen ? f5SupplierSearch : (supplierList.find(s => String(s.Id) === String(f5SupplierId))?.AccountName || "")}
+                    onChange={(e) => { setF5SupplierSearch(e.target.value); setF5SupplierOpen(true); setF5SupplierHi(0); if (e.target.value.trim() === "") setF5SupplierId(""); }}
+                    onFocus={() => { setF5SupplierSearch(""); setF5SupplierOpen(true); setF5SupplierHi(0); }}
+                    onBlur={() => setTimeout(() => setF5SupplierOpen(false), 200)}
+                    onKeyDown={(e) => {
+                      const filtered = supplierList.filter(s => !f5SupplierSearch || s.AccountName.toLowerCase().includes(f5SupplierSearch.trim().toLowerCase()));
+                      if (e.key === "ArrowDown") { e.preventDefault(); setF5SupplierHi(prev => Math.min(prev + 1, Math.max(0, filtered.length - 1))); }
+                      if (e.key === "ArrowUp")   { e.preventDefault(); setF5SupplierHi(prev => Math.max(prev - 1, 0)); }
+                      if (e.key === "Enter") { e.preventDefault(); if (filtered[f5SupplierHi]) { setF5SupplierId(String(filtered[f5SupplierHi].Id)); setF5SupplierSearch(filtered[f5SupplierHi].AccountName); setF5SupplierOpen(false); } }
+                      if (e.key === "Escape") setF5SupplierOpen(false);
+                    }}
+                  />
+                  {f5SupplierOpen && (
+                    <div className="f5-supplier-dropdown">
+                      {supplierList.filter(s => !f5SupplierSearch || s.AccountName.toLowerCase().includes(f5SupplierSearch.trim().toLowerCase())).map((s, idx) => (
+                        <div key={s.Id} className={`f5-supplier-option${idx === f5SupplierHi ? " hilite" : ""}`}
+                          onMouseEnter={() => setF5SupplierHi(idx)}
+                          onClick={() => { setF5SupplierId(String(s.Id)); setF5SupplierSearch(s.AccountName); setF5SupplierOpen(false); }}>
+                          {s.AccountName}
+                        </div>
+                      ))}
+                      {supplierList.filter(s => !f5SupplierSearch || s.AccountName.toLowerCase().includes(f5SupplierSearch.trim().toLowerCase())).length === 0 && (
+                        <div className="f5-supplier-empty">No suppliers found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="f5-filter-row">
+                <label className="f5-label-w90">Search No</label>
+                <input className="form-ctrl f5-input-w140" value={searchNo} onChange={(e) => setSearchNo(e.target.value)} />
+                <button className="tbtn tbtn-save" onClick={() => handleF5View({ fromdate: fromDate, todate: toDate, supplierid: f5SupplierId })}>View</button>
+                <div className="f5-total">Total Amt : {f5TotalAmt}</div>
+              </div>
+            </div>
+            <div className="popup-body f5-modal-body">
+              <table className="view-grid f5-table">
+                <thead>
+                  <tr><th className="f5-th-toggle" /><th>Purchase No</th><th>Date</th><th>Type</th><th>Supplier</th><th className="right">Net Amount</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {f5MasterList.length === 0 && (
+                    <tr><td colSpan={7} className="no-data f5-no-data">No records found. Enter a search term and press Search.</td></tr>
+                  )}
+                  {f5MasterList.map((m) => {
+                    const isExpanded = f5ExpandedRow === m.Id;
+                    const rowDetails = getDetailsForMaster(m.Id);
+                    return (
+                      <React.Fragment key={m.Id}>
+                        <tr className={`view-row f5-row${isExpanded ? " expanded" : ""}`}>
+                          <td className="f5-toggle-cell" onClick={() => toggleF5Row(m.Id)} title={isExpanded ? "Collapse" : "Expand"}>{isExpanded ? "▼" : "▶"}</td>
+                          <td>{m.PurNo}</td>
+                          <td>{jsonDate(m.PurchaseDate)}</td>
+                          <td><span className={`badge ${m.PurchaseType === "CA" ? "badge-cash" : "badge-credit"}`}>{m.PurchaseType === "CA" ? "Cash" : "Credit"}</span></td>
+                          <td>{m.SupName}</td>
+                          <td className="right">{fmt2(m.NetAmt)}</td>
+                          <td>
+                            <button className="tbtn-sm edit" onClick={() => { if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; } openEditPassword({ type: "EDIT", id: m.Id, pno: m.PurchaseNo }); }}>✏ Edit</button>
+                            <button className="tbtn-sm delete" onClick={() => { if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!.", true); return; } openEditPassword({ type: "DELETE", id: m.Id, updateId: m.UpdateId || "", pno: m.PurchaseNo }); }}>🗑 Del</button>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr key={`d_${m.Id}`}>
+                            <td colSpan={7} className="f5-detail-cell">
+                              {rowDetails.length === 0 ? (
+                                <span className="f5-detail-empty">No product details found.</span>
+                              ) : (
+                                <table className="view-grid nested-grid f5-detail-table">
+                                  <thead>
+                                    <tr className="f5-detail-header-row">
+                                      <th className="f5-detail-col-code">Code</th><th className="f5-detail-col-desc">Description</th>
+                                      <th className="right f5-detail-col-mrp">MRP</th><th className="right f5-detail-col-rate">Pur. Rate</th>
+                                      <th className="right f5-detail-col-qty">Qty</th><th className="right f5-detail-col-gst">GST(%)</th>
+                                      <th className="right f5-detail-col-gstamt">GST Amt</th><th className="right f5-detail-col-disc">Disc(%)</th>
+                                      <th className="right f5-detail-col-discamt">Disc Amt</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {rowDetails.map((d, idx) => (
+                                      <tr key={`${m.Id}_detail_${idx}`} className={`view-row f5-detail-row${idx % 2 !== 0 ? " odd" : ""}`}>
+                                        <td>{d.ProductCode}</td><td>{d.ProductName}</td>
+                                        <td className="right">{fmt2(d.MRP)}</td><td className="right">{fmt2(d.PurchaseRate)}</td>
+                                        <td className="right">{fmt2(d.ItemQty)}</td><td className="right">{fmt2(d.TaxPercent)}</td>
+                                        <td className="right">{fmt2(d.TaxAmt)}</td><td className="right">{fmt2(d.DiscountPercent)}</td>
+                                        <td className="right">{fmt2(d.DiscountAmt)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="popup-footer">
+              <button className="btn btn-secondary btn-sm" onClick={() => { setListViewOpen(false); setF5MasterList([]); setF5DetailList([]); setF5SupplierId(""); setFromDate(today()); setToDate(today()); }}>Close (Esc)</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Master Form ── */}
@@ -3149,7 +3270,11 @@ if (savedArrivalType) {
         <div className="master-row">
           <div className="field-group"><label>{modeLabels.no}</label><input className="form-ctrl disabled" value={purchaseNo} readOnly /></div>
           <div className="field-group"><label>{modeLabels.date} <span className="req">*</span></label><input ref={purchaseDateRef} type="date" className="form-ctrl" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("dtppurchasedate"); } }} /></div>
+
           <div className="field-group"><label>Due Date</label><input ref={dueDateRef} type="date" className="form-ctrl" value={dueDate} onChange={(e) => setDueDate(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("dtpduedate"); } }} /></div>
+
+
+ 
           <div className="field-group"><label>{modeLabels.type}</label><select ref={purchaseTypeRef} className="form-ctrl" value={purchaseType} onChange={(e) => setPurchaseType(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("cmbpurchaseType"); } }}><option value="CREDIT">CREDIT</option><option value="CASH">CASH</option></select></div>
 
           {/* Supplier autocomplete */}

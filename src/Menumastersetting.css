@@ -96,7 +96,7 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: var(--font-size-11-5);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
     transition: all 0.15s;
     letter-spacing: 0.2px;
   }
@@ -165,7 +165,7 @@
     cursor: pointer;
     transition: all 0.15s ease;
     font-size: var(--font-size-13);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
     color: var(--clr-text-mid);
     background: var(--clr-bg-soft);
     user-select: none;
@@ -349,7 +349,7 @@
     height: 220px;
     color: var(--clr-text-faint);
     font-size: var(--font-size-base);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
     letter-spacing: 0.2px;
     gap: 6px;
   }
@@ -506,7 +506,7 @@
   .mp-context-menu li {
     padding: 9px 18px;
     font-size: var(--font-size-13);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
     color: var(--clr-text-mid);
     cursor: pointer;
     transition: background 0.1s;
@@ -555,7 +555,7 @@
   .mp-ldr-msg {
     font-size: var(--font-size-12);
     color: var(--clr-text-mid);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
   }
   
   
@@ -598,7 +598,7 @@
   }
   .mp-modal p strong {
     color: var(--clr-text-primary);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
   }
   .mp-modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
   .mp-modal-btn {
@@ -652,7 +652,7 @@
     border-radius: 4px;
     padding: 0 10px;
     font-size: var(--font-size-lg);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
     outline: none;
     letter-spacing: 3px;
     color: var(--clr-text-primary);
@@ -714,7 +714,7 @@
      ═══════════════════════════════════════════════════ */
   .mp-msg {
     font-size: var(--font-size-sm);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
     padding: 4px 10px;
     border-radius: 4px;
     margin-left: 6px;
@@ -745,7 +745,7 @@
     border: 1px solid var(--clr-border-header);
     padding: 7px 10px;
     font-size: var(--font-size-sm);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
     text-align: left;
     white-space: nowrap;
     position: relative;
@@ -782,7 +782,7 @@
     color: var(--clr-primary);
     font-size: var(--font-size-sm);
     cursor: pointer;
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
   }
   .mp-page-btn.active {
     background: var(--clr-primary);
@@ -796,7 +796,7 @@
   .mp-rec-count {
     font-size: var(--font-size-sm);
     color: var(--clr-text-faint);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
     margin-left: 6px;
   }
   
@@ -810,7 +810,7 @@
     padding: 3px 7px;
     font-size: var(--font-size-12);
     width: 100%;
-    font-weight: 600;
+    font-weight:var( --font-weight-bold);
     height: 26px;
     outline: none;
     background: var(--clr-bg-white);
@@ -846,7 +846,7 @@
     cursor: pointer;
     font-size: var(--font-size-18);
     color: var(--clr-danger-dark);
-    font-weight: 600;
+    font-weight: var( --font-weight-bold);
     padding: 2px 5px;
     border-radius: 3px;
     transition: background 0.1s;

@@ -455,74 +455,53 @@ function F5ViewModal({ rows, onEdit, onDelete, onClose, fromDate, toDate, onSear
 
   return (
     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box sb-f5-modal" style={{ width: 980, height: "85vh", display: "flex", flexDirection: "column" }}>
+      <div className="mp-modal-box sb-f5-modal f5-modal-box">
         <div className="mp-modal-hdr">
           <span>📋 Sale Return View (F5)</span>
           <button onClick={onClose}>✕</button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px",
-          background: "#f5f9ff", borderBottom: "1px solid #dde6f5", flexShrink: 0, flexWrap: "wrap" }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568" }}>From</label>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-            style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-          <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568" }}>To</label>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)}
-            style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-          <button className="mp-btn sv" style={{ height: 28, padding: "0 14px", fontSize: 11 }}
-            onClick={() => onSearch(from, to)}>🔍 Search</button>
-          <span style={{ marginLeft: "auto", fontWeight: 700, fontSize: 15 }}>
-            Total Return : ₹{f2(totalAmt).toFixed(2)}
-          </span>
+        <div className="f5-filter-bar">
+          <label className="f5-filter-label">From</label>
+          <input type="date" className="f5-filter-date" value={from} onChange={e => setFrom(e.target.value)} />
+          <label className="f5-filter-label">To</label>
+          <input type="date" className="f5-filter-date" value={to} onChange={e => setTo(e.target.value)} />
+          <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
+          <span className="f5-total">Total Return : ₹{f2(totalAmt).toFixed(2)}</span>
         </div>
-        <div className="mp-modal-body" style={{ flex: 1, overflowY: "auto", padding: 0 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <div className="mp-modal-body f5-modal-body">
+          <table className="f5-table">
             <thead>
-              <tr style={{ color: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
-                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "left" }}>Return No</th>
-                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "left" }}>Return Date</th>
-                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "left" }}>Customer</th>
-                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "left" }}>Type</th>
-                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "right" }}>Net Amt</th>
-                <th style={{ background: "var(--clr-primary-dark)", padding: "6px 10px", textAlign: "center" }}>Actions</th>
+              <tr className="f5-header-row">
+                <th className="f5-th">Return No</th>
+                <th className="f5-th">Return Date</th>
+                <th className="f5-th">Customer</th>
+                <th className="f5-th">Type</th>
+                <th className="f5-th f5-th-amount">Net Amt</th>
+                <th className="f5-th f5-th-center">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>No records found.</td></tr>
+                <tr><td colSpan={6} className="f5-empty-row">No records found.</td></tr>
               )}
               {rows.map((r, i) => (
-                <tr key={r.Id || i} style={{
-                  background: i % 2 === 0 ? "#fff" : "#fafbff",
-                  borderBottom: "1px solid #eaecf4",
-                }}>
-                  <td style={{ padding: "5px 10px", fontWeight: 700 }}>
+                <tr key={r.Id || i} className={i % 2 === 0 ? "f5-row-even" : "f5-row-odd"}>
+                  <td className="f5-td-strong">
                     {r.SaleReturnNoDisplay || r.SaleReturnNo || r.SaleNo || r.BillNo || "—"}
                   </td>
-                  <td style={{ padding: "5px 10px" }}>{String(r.ReturnDate || r.BillDate || r.SaleDate || "").slice(0, 10)}</td>
-                  <td style={{ padding: "5px 10px" }}>{r.CustomerName || r.AccountName || ""}</td>
-                  <td style={{ padding: "5px 10px" }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
-                      background: (r.LorryNo === "CRN" || r.SaleType === "CRN") ? "#fef2f2" : "#fefce8",
-                      color:      (r.LorryNo === "CRN" || r.SaleType === "CRN") ? "#dc2626"  : "#ca8a04",
-                    }}>
+                  <td className="f5-td">{String(r.ReturnDate || r.BillDate || r.SaleDate || "").slice(0, 10)}</td>
+                  <td className="f5-td">{r.CustomerName || r.AccountName || ""}</td>
+                  <td className="f5-td">
+                    <span className={`f5-badge ${(r.LorryNo === "CRN" || r.SaleType === "CRN") ? "f5-badge-credit-note" : "f5-badge-debit-note"}`}>
                       {(r.LorryNo === "CRN" || r.SaleType === "CRN") ? "Credit Note" : "Debit Note"}
                     </span>
                   </td>
-                  <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700 }}>
+                  <td className="f5-td-amount">
                     ₹{f2(vn(r.NetAmt || r.NetAmount || r.Netamt)).toFixed(2)}
                   </td>
-                  <td style={{ padding: "5px 10px", textAlign: "center" }}>
-                    <button onClick={() => onEdit(r.Id)} style={{
-                      marginRight: 6, padding: "3px 10px", fontSize: 11, borderRadius: 4,
-                      border: "1px solid #c5d8f8", background: "#e8f0fe",
-                      color: "#1f65de", fontWeight: 600, cursor: "pointer",
-                    }}>✏ Edit</button>
-                    <button onClick={() => onDelete(r.Id, r.SaleReturnNoDisplay || r.BillNo)} style={{
-                      padding: "3px 10px", fontSize: 11, borderRadius: 4,
-                      border: "1px solid #fecaca", background: "#fee2e2",
-                      fontWeight: 600, cursor: "pointer",
-                    }}>🗑 Del</button>
+                  <td className="f5-td-actions">
+                    <button onClick={() => onEdit(r.Id)} className="f5-btn-edit">✏ Edit</button>
+                    <button onClick={() => onDelete(r.Id, r.SaleReturnNoDisplay || r.BillNo)} className="f5-btn-delete-plain">🗑 Del</button>
                   </td>
                 </tr>
               ))}
@@ -536,7 +515,6 @@ function F5ViewModal({ rows, onEdit, onDelete, onClose, fromDate, toDate, onSear
     </div>
   );
 }
-
 // ─── F12 COLUMN SETTINGS ─────────────────────────────────────────────────────
 function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
   const [local, setLocal] = useState(colSettings.map(s => ({ ...s })));

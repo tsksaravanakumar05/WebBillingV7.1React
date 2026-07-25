@@ -335,65 +335,64 @@ function F5ViewWindow({ comid, onClose, onPrintView, loading, setLoading }) {
   }, [selIdx, rows, onPrintView]);
 
   return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.5)",
-      zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center" }}>
-      <div style={{ background:"#fff",borderRadius:8,width:"82vw",maxHeight:"88vh",
-        display:"flex",flexDirection:"column",boxShadow:"0 16px 48px rgba(0,0,0,.3)" }}>
+    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="mp-modal-box sb-f5-modal f5-modal-box">
         {/* header */}
-        <div style={{ background:"#1a2e4a",color:"#fff",padding:"10px 16px",fontSize:13,
-          fontWeight:700,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
+        <div className="mp-modal-hdr">
           <span>📋 Bank Voucher — F5 View</span>
-          <button style={{ background:"none",border:"none",color:"#fff",fontSize:17,cursor:"pointer" }} onClick={onClose}>✕</button>
+          <button onClick={onClose}>✕</button>
         </div>
         {/* filter bar */}
-        <div style={{ padding:"8px 14px",display:"flex",gap:12,alignItems:"center",
-          flexWrap:"wrap",background:"#f8fafc",borderBottom:"1px solid #e5e7eb",flexShrink:0 }}>
-          <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>From</label>
-          <input type="date" className="mp-cell-input"
-            value={fromDate} onChange={e => setFromDate(e.target.value)}
-            style={{ height:28,width:140,border:"1px solid #93c5fd",borderRadius:4 }} />
-          <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>To</label>
-          <input type="date" className="mp-cell-input"
-            value={toDate} onChange={e => setToDate(e.target.value)}
-            style={{ height:28,width:140,border:"1px solid #93c5fd",borderRadius:4 }} />
-          <button id="btnview" className="mp-btn sv" onClick={doView} disabled={loading} style={{ marginLeft:4 }}>🔍 View</button>
-          <span style={{ marginLeft:"auto",fontSize:12,fontWeight:700,color:"#1a2e4a" }}>
-            Total: <span style={{ color:"#15803d" }}>{total}</span>
+        <div className="f5-filter-bar f5-filter-bar-quote">
+          <label className="f5-filter-label">From</label>
+          <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={fromDate} onChange={e => setFromDate(e.target.value)} />
+          <label className="f5-filter-label">To</label>
+          <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={toDate} onChange={e => setToDate(e.target.value)} />
+          <button id="btnview" className="mp-btn sv f5-search-btn" onClick={doView} disabled={loading}>🔍 Search</button>
+          <span className="f5-total">
+            Total: <span className="f5-total-amt">{total}</span>
           </span>
         </div>
         {/* grid */}
-        <div style={{ flex:1,overflowY:"auto" }}>
-          <table className="mp-tbl" style={{ tableLayout:"fixed",width:"100%" }}>
+        <div className="mp-modal-body f5-modal-body">
+          <table className="f5-table">
             <thead>
-              <tr>
-                <th style={{ width:44 }}>S.No</th>
-                <th>Account Name</th>
-                <th style={{ width:120,textAlign:"right" }}>Amount</th>
-                <th>Narration</th>
-                <th style={{ width:100 }}>Date</th>
-                <th style={{ width:120 }}>Type</th>
+              <tr className="f5-header-row">
+                <th className="f5-th f5-th-sno">S.No</th>
+                <th className="f5-th">Account Name</th>
+                <th className="f5-th f5-th-amount">Amount</th>
+                <th className="f5-th">Narration</th>
+                <th className="f5-th">Date</th>
+                <th className="f5-th">Type</th>
               </tr>
             </thead>
             <tbody>
+              {rows.length === 0 && !loading && (
+                <tr><td colSpan={6} className="f5-empty-row">No records found.</td></tr>
+              )}
               {rows.map((r, i) => (
-                <tr key={i} className={selIdx === i ? "sel" : ""} onClick={() => setSelIdx(i)}>
-                  <td className="sno">{i + 1}</td>
-                  <td>{r.AccountName}</td>
-                  <td style={{ textAlign:"right",fontWeight:600 }}>{fmt2(r.Amount)}</td>
-                  <td>{r.Narration}</td>
-                  <td>{r.Refdate ? String(r.Refdate).slice(0,10) : ""}</td>
-                  <td>{r.Type}</td>
+                <tr
+                  key={i}
+                  className={selIdx === i ? "f5-row-selected" : (i % 2 === 0 ? "f5-row-even" : "f5-row-odd-quote")}
+                  onClick={() => setSelIdx(i)}
+                >
+                  <td className="f5-td f5-td-sno">{i + 1}</td>
+                  <td className="f5-td">{r.AccountName}</td>
+                  <td className="f5-td-amount f5-td-strong">{fmt2(r.Amount)}</td>
+                  <td className="f5-td">{r.Narration}</td>
+                  <td className="f5-td">{r.Refdate ? String(r.Refdate).slice(0, 10) : ""}</td>
+                  <td className="f5-td">{r.Type}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {rows.length === 0 && !loading && <div className="mp-empty">No records found.</div>}
         </div>
         {/* footer */}
-        <div style={{ padding:"8px 14px",display:"flex",justifyContent:"space-between",
-          alignItems:"center",borderTop:"1px solid #e5e7eb",flexShrink:0 }}>
-          <span style={{ fontSize:11,color:"#94a3b8" }}>Ctrl+V on selected row → Print/View</span>
-          <button className="mp-btn dl" onClick={onClose}>Close</button>
+        <div className="mp-modal-ftr f5-footer-split">
+          <span className="f5-hint">Ctrl+V on selected row → Print/View</span>
+          <button className="mp-btn" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>

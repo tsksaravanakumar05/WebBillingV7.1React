@@ -320,3 +320,229 @@
 .sb-total-item { display: flex; align-items: center; justify-content: space-between; padding: 4px 10px; border-bottom: 1px solid #edf0f7; gap: 6px; }
 .sb-total-item > span:first-child { color: #4a5568; font-weight: 600; }
 .sb-total-val { font-weight: 700; color: #1a2e4a; min-width: 80px; text-align: right; }
+
+
+
+/* ---------------------------viewF5---------------------------- */
+.f5-modal-box {
+  width: 1000px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.f5-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--clr-bg-soft);
+  border-bottom: 1px solid var(--clr-si-border-soft);
+  flex-shrink: 0;
+}
+
+.f5-filter-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-mid);
+}
+
+.f5-filter-date {
+  height: 28px;
+  border: 1px solid var(--clr-si-input-border);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 12px;
+  background: var(--white);
+  color: var(--clr-text-primary);
+}
+
+.f5-search-btn {
+  height: 28px;
+  padding: 0 14px;
+  font-size: 11px;
+}
+
+.f5-total {
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--clr-text-primary);
+}
+
+.f5-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.f5-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.f5-th-toggle {
+  background: var(--clr-primary-dark);
+  color: var(--white);
+  padding: 6px 6px;
+  width: 28px;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.f5-th {
+  background: var(--clr-primary-dark);
+  color: var(--white);
+  padding: 6px 10px;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.f5-th-amount {
+  text-align: right;
+}
+
+.f5-empty-row {
+  text-align: center;
+  color: var(--text-soft);
+  padding: 20px;
+}
+
+.f5-row-even {
+  background: var(--white);
+  border-bottom: 1px solid var(--border-table);
+}
+
+.f5-row-odd {
+  background: var(--clr-ps-row-stripe);
+  border-bottom: 1px solid var(--border-table);
+}
+
+.f5-td-toggle {
+  padding: 5px 6px;
+  text-align: center;
+  width: 28px;
+}
+
+.f5-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--blue);
+  padding: 0;
+  line-height: 1;
+  display: inline-block;
+  transition: transform 0.15s;
+  transform: rotate(0deg);
+}
+
+.f5-toggle-btn.expanded {
+  transform: rotate(90deg);
+}
+
+.f5-td {
+  padding: 5px 10px;
+  color: var(--clr-text-primary);
+}
+
+.f5-td-strong {
+  padding: 5px 10px;
+  font-weight: 700;
+  color: var(--clr-text-primary);
+}
+
+.f5-td-amount {
+  padding: 5px 10px;
+  text-align: right;
+  font-weight: 700;
+  color: var(--clr-text-primary);
+}
+
+.f5-td-actions {
+  padding: 5px 10px;
+  text-align: center;
+}
+
+.f5-btn-edit {
+  margin-right: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--clr-si-input-border);
+  background: var(--clr-si-edit-btn-bg);
+  color: var(--blue);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.f5-btn-delete {
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--clr-si-danger-border-light);
+  background: var(--danger-bg);
+  color: var(--danger-dark);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.f5-detail-cell {
+  padding: 0;
+  background: var(--clr-si-header-bg);
+}
+
+.f5-detail-wrap {
+  margin: 10px;
+}
+
+.f5-detail-empty {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.f5-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.f5-detail-th {
+  background: var(--blue);
+  color: var(--white);
+  padding: 4px 8px;
+  font-weight: 600;
+  font-size: 11px;
+  text-align: left;
+}
+
+.f5-detail-th-right {
+  text-align: right;
+}
+
+.f5-detail-row-even {
+  background: var(--white);
+  border-bottom: 1px solid var(--border-table);
+}
+
+.f5-detail-row-odd {
+  background: var(--clr-ps-row-stripe);
+  border-bottom: 1px solid var(--border-table);
+}
+
+.f5-detail-td {
+  padding: 3px 8px;
+  color: var(--clr-text-primary);
+}
+
+.f5-detail-td-right {
+  padding: 3px 8px;
+  text-align: right;
+  color: var(--clr-text-primary);
+}

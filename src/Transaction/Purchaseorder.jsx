@@ -432,6 +432,145 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
 }
 
 // ─── F5 VIEW MODAL ────────────────────────────────────────────────────────────
+// function F5ViewModal({ rows, details, suppliers, onEdit, onDelete, onClose, fromDate, toDate, onSearch }) {
+//   const [from, setFrom]     = useState(fromDate);
+//   const [to, setTo]         = useState(toDate);
+//   const [suppId, setSuppId] = useState("0");
+//   const [expandedId, setExpandedId] = useState(null);
+//   const totalAmt = rows.reduce((s, r) => s + vn(r.NetAmt || r.NetAmount || r.Netamt || r.Amount), 0);
+
+//   const toggleExpand = id => setExpandedId(prev => prev === id ? null : id);
+//   const getRowDetails = id =>
+//     (details || []).filter(d =>
+//       String(d.PurchaseRefId || d.PurchaseId || d.PurchaseOrderRefId || "") === String(id)
+//     );
+
+//   return (
+//     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+//       <div className="mp-modal-box sb-f5-modal" style={{ width: 1050, height: "85vh", display: "flex", flexDirection: "column" }}>
+//         <div className="mp-modal-hdr">
+//           <span>📋 Purchase Order View (F5)</span>
+//           <button onClick={onClose}>✕</button>
+//         </div>
+//         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "#f5f9ff", borderBottom: "1px solid #dde6f5", flexShrink: 0 }}>
+//           <label style={{ fontSize: 11, fontWeight: 700 }}>From</label>
+//           <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+//             style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
+//           <label style={{ fontSize: 11, fontWeight: 700 }}>To</label>
+//           <input type="date" value={to} onChange={e => setTo(e.target.value)}
+//             style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
+//           <label style={{ fontSize: 11, fontWeight: 700 }}>Supplier</label>
+//           <select value={suppId} onChange={e => setSuppId(e.target.value)}
+//             style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12, minWidth: 140 }}>
+//             <option value="0">All Suppliers</option>
+//             {(suppliers || []).map(s => <option key={s.Id} value={s.Id}>{s.AccountName}</option>)}
+//           </select>
+//           <button className="mp-btn sv" style={{ height: 28, padding: "0 14px", fontSize: 11 }}
+//             onClick={() => onSearch(from, to, suppId)}>🔍 Search</button>
+//           <span style={{ marginLeft: "auto", fontWeight: 700, fontSize: 15 }}>Total: ₹{f2(totalAmt).toFixed(2)}</span>
+//         </div>
+//         <div className="mp-modal-body" style={{ flex: 1, overflowY: "auto", padding: 0 }}>
+//           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+//             <thead>
+//               <tr>
+//                 <th style={{ background: "#1a2e4a", color: "#fff", padding: "6px 6px", width: 28, textAlign: "center", position: "sticky", top: 0, zIndex: 2 }}></th>
+//                 {["Purchase No", "Purchase Date", "Purchase Type", "Supplier Name", "Amount", "Actions"].map(h => (
+//                   <th key={h} style={{ background: "#1a2e4a", color: "#fff", padding: "6px 10px", textAlign: h === "Amount" ? "right" : "left", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>
+//                 ))}
+//               </tr>
+//             </thead>
+//             <tbody>
+//               {rows.length === 0 && (
+//                 <tr><td colSpan={7} style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>No records found.</td></tr>
+//               )}
+//               {rows.map((r, i) => {
+//                 const rowId      = r.Id;
+//                 const isExpanded = expandedId === rowId;
+//                 const rowDetails = getRowDetails(rowId);
+//                 return (
+//                   <React.Fragment key={r.Id || i}>
+//                     <tr style={{ background: i % 2 === 0 ? "#fff" : "#fafbff", borderBottom: "1px solid #eaecf4" }}>
+//                       <td style={{ padding: "5px 6px", textAlign: "center", width: 28 }}>
+//                         <button onClick={() => toggleExpand(rowId)}
+//                           style={{
+//                             background: "none", border: "none", cursor: "pointer", fontSize: 13,
+//                             color: "#4f8cff", padding: 0,
+//                             transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+//                             transition: "transform 0.15s", display: "inline-block",
+//                           }}>▶</button>
+//                       </td>
+//                       <td style={{ padding: "5px 10px", fontWeight: 700 }}>{r.OrderNo || r.PurchaseNo || r.BillNo || "—"}</td>
+//                       <td style={{ padding: "5px 10px" }}>{r.Date || r.PurchaseDate || r.BillDate || ""}</td>
+//                       <td style={{ padding: "5px 10px" }}>{r.Type || r.PurchaseType || ""}</td>
+//                       <td style={{ padding: "5px 10px" }}>{r.SupName || r.SupplierName || r.AccountName || ""}</td>
+//                       <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700 }}>₹{f2(vn(r.NetAmt || r.NetAmount || r.Amount)).toFixed(2)}</td>
+//                       <td style={{ padding: "5px 10px", textAlign: "center" }}>
+//                         <button onClick={() => onEdit(r.Id)}
+//                           style={{ marginRight: 6, padding: "3px 10px", fontSize: 11, borderRadius: 4, border: "1px solid #c5d8f8", background: "#e8f0fe", color: "#1f65de", fontWeight: 600, cursor: "pointer" }}>✏ Edit</button>
+//                         <button onClick={() => onDelete(r.Id, r.OrderNo || r.PurchaseNo || r.BillNo)}
+//                           style={{ padding: "3px 10px", fontSize: 11, borderRadius: 4, border: "1px solid #fecaca", background: "#fee2e2", color: "#dc2626", fontWeight: 600, cursor: "pointer" }}>🗑 Del</button>
+//                       </td>
+//                     </tr>
+//                     {isExpanded && (
+//                       <tr>
+//                         <td colSpan={7} style={{ padding: 0, background: "#eaf2ff" }}>
+//                           <div style={{ margin: 10 }}>
+//                             {rowDetails.length === 0 ? (
+//                               <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8" }}>No product details available.</div>
+//                             ) : (
+//                               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+//                                 <thead>
+//                                   <tr>
+//                                     {[
+//                                       { label: "Code",       align: "left"  },
+//                                       { label: "Description",align: "left"  },
+//                                       { label: "MRP",        align: "right" },
+//                                       { label: "Pur.Rate",   align: "right" },
+//                                       { label: "Qty",        align: "right" },
+//                                       { label: "GST(%)",     align: "right" },
+//                                       { label: "GST Amt",    align: "right" },
+//                                       { label: "Disc(%)",    align: "right" },
+//                                       { label: "Amount",     align: "right" },
+//                                     ].map(h => (
+//                                       <th key={h.label} style={{ background: "#1f65de", color: "#fff", padding: "4px 8px", textAlign: h.align, fontWeight: 600, fontSize: 11 }}>{h.label}</th>
+//                                     ))}
+//                                   </tr>
+//                                 </thead>
+//                                 <tbody>
+//                                   {rowDetails.map((d, di) => (
+//                                     <tr key={di} style={{ background: di % 2 === 0 ? "#fff" : "#f7faff", borderBottom: "1px solid #e2e8f0" }}>
+//                                       <td style={{ padding: "3px 8px" }}>{d.ProductCode || ""}</td>
+//                                       <td style={{ padding: "3px 8px" }}>{d.ProductName || ""}</td>
+//                                       <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.MRP)).toFixed(2)}</td>
+//                                       <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.PurchaseRate)).toFixed(2)}</td>
+//                                       <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.ItemQty || d.Qty)).toFixed(2)}</td>
+//                                       <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.TaxPercent)).toFixed(2)}</td>
+//                                       <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.TaxAmt)).toFixed(2)}</td>
+//                                       <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.DiscountPercent)).toFixed(2)}</td>
+//                                       <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.Amount)).toFixed(2)}</td>
+//                                     </tr>
+//                                   ))}
+//                                 </tbody>
+//                               </table>
+//                             )}
+//                           </div>
+//                         </td>
+//                       </tr>
+//                     )}
+//                   </React.Fragment>
+//                 );
+//               })}
+//             </tbody>
+//           </table>
+//         </div>
+//         <div className="mp-modal-ftr"><button className="mp-btn" onClick={onClose}>Close</button></div>
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
 function F5ViewModal({ rows, details, suppliers, onEdit, onDelete, onClose, fromDate, toDate, onSearch }) {
   const [from, setFrom]     = useState(fromDate);
   const [to, setTo]         = useState(toDate);
@@ -447,41 +586,37 @@ function F5ViewModal({ rows, details, suppliers, onEdit, onDelete, onClose, from
 
   return (
     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box sb-f5-modal" style={{ width: 1050, height: "85vh", display: "flex", flexDirection: "column" }}>
+      <div className="mp-modal-box sb-f5-modal f5-modal-box">
         <div className="mp-modal-hdr">
           <span>📋 Purchase Order View (F5)</span>
           <button onClick={onClose}>✕</button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "#f5f9ff", borderBottom: "1px solid #dde6f5", flexShrink: 0 }}>
-          <label style={{ fontSize: 11, fontWeight: 700 }}>From</label>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-            style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-          <label style={{ fontSize: 11, fontWeight: 700 }}>To</label>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)}
-            style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-          <label style={{ fontSize: 11, fontWeight: 700 }}>Supplier</label>
-          <select value={suppId} onChange={e => setSuppId(e.target.value)}
-            style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12, minWidth: 140 }}>
+        <div className="f5-filter-bar">
+          <label className="f5-filter-label">From</label>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="f5-filter-date" />
+          <label className="f5-filter-label">To</label>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="f5-filter-date" />
+          <label className="f5-filter-label">Supplier</label>
+          <select value={suppId} onChange={e => setSuppId(e.target.value)} className="f5-filter-select">
             <option value="0">All Suppliers</option>
             {(suppliers || []).map(s => <option key={s.Id} value={s.Id}>{s.AccountName}</option>)}
           </select>
-          <button className="mp-btn sv" style={{ height: 28, padding: "0 14px", fontSize: 11 }}
-            onClick={() => onSearch(from, to, suppId)}>🔍 Search</button>
-          <span style={{ marginLeft: "auto", fontWeight: 700, fontSize: 15 }}>Total: ₹{f2(totalAmt).toFixed(2)}</span>
+          <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to, suppId)}>🔍 Search</button>
+          <span className="f5-total">Total: ₹{f2(totalAmt).toFixed(2)}</span>
         </div>
-        <div className="mp-modal-body" style={{ flex: 1, overflowY: "auto", padding: 0 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <div className="mp-modal-body f5-modal-body">
+          <table className="f5-table">
             <thead>
               <tr>
-                <th style={{ background: "#1a2e4a", color: "#fff", padding: "6px 6px", width: 28, textAlign: "center", position: "sticky", top: 0, zIndex: 2 }}></th>
+                <th className="f5-th-toggle"></th>
                 {["Purchase No", "Purchase Date", "Purchase Type", "Supplier Name", "Amount", "Actions"].map(h => (
-                  <th key={h} style={{ background: "#1a2e4a", color: "#fff", padding: "6px 10px", textAlign: h === "Amount" ? "right" : "left", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>
+                  <th key={h} className={`f5-th ${h === "Amount" ? "f5-th-amount" : ""}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>No records found.</td></tr>
+                <tr><td colSpan={7} className="f5-empty-row">No records found.</td></tr>
               )}
               {rows.map((r, i) => {
                 const rowId      = r.Id;
@@ -489,65 +624,63 @@ function F5ViewModal({ rows, details, suppliers, onEdit, onDelete, onClose, from
                 const rowDetails = getRowDetails(rowId);
                 return (
                   <React.Fragment key={r.Id || i}>
-                    <tr style={{ background: i % 2 === 0 ? "#fff" : "#fafbff", borderBottom: "1px solid #eaecf4" }}>
-                      <td style={{ padding: "5px 6px", textAlign: "center", width: 28 }}>
-                        <button onClick={() => toggleExpand(rowId)}
-                          style={{
-                            background: "none", border: "none", cursor: "pointer", fontSize: 13,
-                            color: "#4f8cff", padding: 0,
-                            transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-                            transition: "transform 0.15s", display: "inline-block",
-                          }}>▶</button>
+                    <tr className={i % 2 === 0 ? "f5-row-even" : "f5-row-odd"}>
+                      <td className="f5-td-toggle">
+                        <button
+                          onClick={() => toggleExpand(rowId)}
+                          className={`f5-toggle-btn ${isExpanded ? "expanded" : ""}`}
+                        >▶</button>
                       </td>
-                      <td style={{ padding: "5px 10px", fontWeight: 700 }}>{r.OrderNo || r.PurchaseNo || r.BillNo || "—"}</td>
-                      <td style={{ padding: "5px 10px" }}>{r.Date || r.PurchaseDate || r.BillDate || ""}</td>
-                      <td style={{ padding: "5px 10px" }}>{r.Type || r.PurchaseType || ""}</td>
-                      <td style={{ padding: "5px 10px" }}>{r.SupName || r.SupplierName || r.AccountName || ""}</td>
-                      <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700 }}>₹{f2(vn(r.NetAmt || r.NetAmount || r.Amount)).toFixed(2)}</td>
-                      <td style={{ padding: "5px 10px", textAlign: "center" }}>
-                        <button onClick={() => onEdit(r.Id)}
-                          style={{ marginRight: 6, padding: "3px 10px", fontSize: 11, borderRadius: 4, border: "1px solid #c5d8f8", background: "#e8f0fe", color: "#1f65de", fontWeight: 600, cursor: "pointer" }}>✏ Edit</button>
-                        <button onClick={() => onDelete(r.Id, r.OrderNo || r.PurchaseNo || r.BillNo)}
-                          style={{ padding: "3px 10px", fontSize: 11, borderRadius: 4, border: "1px solid #fecaca", background: "#fee2e2", color: "#dc2626", fontWeight: 600, cursor: "pointer" }}>🗑 Del</button>
+                      <td className="f5-td-strong">{r.OrderNo || r.PurchaseNo || r.BillNo || "—"}</td>
+                      <td className="f5-td">{r.Date || r.PurchaseDate || r.BillDate || ""}</td>
+                      <td className="f5-td">{r.Type || r.PurchaseType || ""}</td>
+                      <td className="f5-td">{r.SupName || r.SupplierName || r.AccountName || ""}</td>
+                      <td className="f5-td-amount">₹{f2(vn(r.NetAmt || r.NetAmount || r.Amount)).toFixed(2)}</td>
+                      <td className="f5-td-actions">
+                        <button onClick={() => onEdit(r.Id)} className="f5-btn-edit">✏ Edit</button>
+                        <button onClick={() => onDelete(r.Id, r.OrderNo || r.PurchaseNo || r.BillNo)} className="f5-btn-delete">🗑 Del</button>
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr>
-                        <td colSpan={7} style={{ padding: 0, background: "#eaf2ff" }}>
-                          <div style={{ margin: 10 }}>
+                        <td colSpan={7} className="f5-detail-cell">
+                          <div className="f5-detail-wrap">
                             {rowDetails.length === 0 ? (
-                              <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8" }}>No product details available.</div>
+                              <div className="f5-detail-empty">No product details available.</div>
                             ) : (
-                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                              <table className="f5-detail-table">
                                 <thead>
                                   <tr>
                                     {[
-                                      { label: "Code",       align: "left"  },
-                                      { label: "Description",align: "left"  },
-                                      { label: "MRP",        align: "right" },
-                                      { label: "Pur.Rate",   align: "right" },
-                                      { label: "Qty",        align: "right" },
-                                      { label: "GST(%)",     align: "right" },
-                                      { label: "GST Amt",    align: "right" },
-                                      { label: "Disc(%)",    align: "right" },
-                                      { label: "Amount",     align: "right" },
+                                      { label: "Code",        align: "left"  },
+                                      { label: "Description", align: "left"  },
+                                      { label: "MRP",         align: "right" },
+                                      { label: "Pur.Rate",    align: "right" },
+                                      { label: "Qty",         align: "right" },
+                                      { label: "GST(%)",      align: "right" },
+                                      { label: "GST Amt",     align: "right" },
+                                      { label: "Disc(%)",     align: "right" },
+                                      { label: "Amount",      align: "right" },
                                     ].map(h => (
-                                      <th key={h.label} style={{ background: "#1f65de", color: "#fff", padding: "4px 8px", textAlign: h.align, fontWeight: 600, fontSize: 11 }}>{h.label}</th>
+                                      <th
+                                        key={h.label}
+                                        className={`f5-detail-th ${h.align === "right" ? "f5-detail-th-right" : ""}`}
+                                      >{h.label}</th>
                                     ))}
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {rowDetails.map((d, di) => (
-                                    <tr key={di} style={{ background: di % 2 === 0 ? "#fff" : "#f7faff", borderBottom: "1px solid #e2e8f0" }}>
-                                      <td style={{ padding: "3px 8px" }}>{d.ProductCode || ""}</td>
-                                      <td style={{ padding: "3px 8px" }}>{d.ProductName || ""}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.MRP)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.PurchaseRate)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.ItemQty || d.Qty)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.TaxPercent)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.TaxAmt)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.DiscountPercent)).toFixed(2)}</td>
-                                      <td style={{ padding: "3px 8px", textAlign: "right" }}>{f2(vn(d.Amount)).toFixed(2)}</td>
+                                    <tr key={di} className={di % 2 === 0 ? "f5-detail-row-even" : "f5-detail-row-odd"}>
+                                      <td className="f5-detail-td">{d.ProductCode || ""}</td>
+                                      <td className="f5-detail-td">{d.ProductName || ""}</td>
+                                      <td className="f5-detail-td-right">{f2(vn(d.MRP)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{f2(vn(d.PurchaseRate)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{f2(vn(d.ItemQty || d.Qty)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{f2(vn(d.TaxPercent)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{f2(vn(d.TaxAmt)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{f2(vn(d.DiscountPercent)).toFixed(2)}</td>
+                                      <td className="f5-detail-td-right">{f2(vn(d.Amount)).toFixed(2)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -568,6 +701,7 @@ function F5ViewModal({ rows, details, suppliers, onEdit, onDelete, onClose, from
     </div>
   );
 }
+
 
 // ─── F12 COLUMN SETTINGS ─────────────────────────────────────────────────────
 function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
