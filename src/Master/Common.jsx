@@ -11,9 +11,9 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 //export const BASE_URL = "http://localhost:64215";
-export const BASE_URL = "https://billing.kassapos.co.in";
+//export const BASE_URL = "https://billing.kassapos.co.in";
 //https://billing.kassapos.co.in
-//export const BASE_URL = "http://localhost:64215";
+export const BASE_URL = "http://localhost:64215";
 //<<<<<<< HEAD
 //https://billing.kassapos.co.in
 //=======

@@ -503,9 +503,9 @@ function F5ViewModal({ rows, mode, onEdit, onDelete, onClose, fromDate, toDate, 
   const modeLabel = mode === "inward" ? "Inward" : mode === "outward" ? "Outward" : "Transfer";
 
   return (
-    <div className="si-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="si-modal" style={{ width: 1000, height: "85vh", display: "flex", flexDirection: "column" }}>
-        <div className="si-modal-hdr">
+    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="mp-modal-box sb-f5-modal si-f5-popup">
+        <div className="mp-modal-hdr">
           <span>📋 Stock {modeLabel} View (F5)</span>
           <button onClick={onClose}>✕</button>
         </div>
@@ -522,12 +522,12 @@ function F5ViewModal({ rows, mode, onEdit, onDelete, onClose, fromDate, toDate, 
             Total : ₹{f2(total).toFixed(2)}
           </span>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: 0 }}>
+        <div className="mp-modal-body" style={{ flex: 1, overflowY: "auto", padding: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr>
+              <tr style={{ background: "#1a2e4a", color: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
                 {["Stock No", "Stock Date", mode === "transfer" ? "Branch" : mode === "outward" ? "Customer" : "Supplier", "Amount", "Remarks", "Actions"].map(h => (
-                  <th key={h} style={{ background: "#1b3a8f", color: "#fff", padding: "7px 10px", textAlign: h === "Amount" ? "right" : "left", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>
+                  <th key={h} style={{ padding: "7px 10px", textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -549,7 +549,7 @@ function F5ViewModal({ rows, mode, onEdit, onDelete, onClose, fromDate, toDate, 
             </tbody>
           </table>
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px 14px", borderTop: "1px solid #eaecf4", background: "#f8faff" }}>
+        <div className="mp-modal-ftr">
           <button className="si-btn" onClick={onClose}>Close</button>
         </div>
       </div>

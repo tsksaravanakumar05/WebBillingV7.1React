@@ -1099,6 +1099,20 @@ function BillPrintViewModal({
   onUpdatePaidAmt,
   onSaveEInvoice,
 }) {
+  const [showEInvoice, setShowEInvoice] = useState(false);
+
+  useEffect(() => {
+    setShowEInvoice(false);
+    const handleKeyDown = e => {
+      if (e.ctrlKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        setShowEInvoice(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, []);
+
   const customerOptions = [{ value: "", label: "ALL CUSTOMERS" }].concat(
     (customers || []).map(c => ({
       value: String(c.Id),
@@ -1123,7 +1137,7 @@ function BillPrintViewModal({
 
   return (
     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box" style={{ width: "min(1180px, 96vw)", maxHeight: "92vh", display: "flex", flexDirection: "column", padding: 0 }}>
+      <div className="mp-modal-box" style={{ width: "min(1180px, 96vw)", height: "88vh", maxHeight: "88vh", display: "flex", flexDirection: "column", padding: 0 }}>
         <div className="mp-modal-hdr" style={{ background: "linear-gradient(180deg, #0d66d0, #0a49a1)" }}>
           <span>Bill Print View</span>
           <button onClick={onClose}>X</button>
@@ -1219,24 +1233,30 @@ function BillPrintViewModal({
         </div>
 
         <div style={{ borderTop: "1px solid #d8e2f0", padding: "16px 18px 18px", background: "#fff" }}>
-          <div style={{ width: "min(680px, 100%)", margin: "0 auto", border: "1px solid #cfd8e6", padding: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#1f3b67", marginBottom: 12 }}>E-Invoice Configuration</div>
-            <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10, alignItems: "center" }}>
-              <label style={bpLabel}>ClientId</label>
-              <input value={eInvoice.ClientId} onChange={e => setEInvoice(prev => ({ ...prev, ClientId: e.target.value }))} style={bpInput} />
-              <label style={bpLabel}>ClientSecret</label>
-              <input value={eInvoice.ClientSecret} onChange={e => setEInvoice(prev => ({ ...prev, ClientSecret: e.target.value }))} style={bpInput} />
-              <label style={bpLabel}>Username</label>
-              <input value={eInvoice.UserName} onChange={e => setEInvoice(prev => ({ ...prev, UserName: e.target.value }))} style={bpInput} />
-              <label style={bpLabel}>Password</label>
-              <input type="password" value={eInvoice.PassWord} onChange={e => setEInvoice(prev => ({ ...prev, PassWord: e.target.value }))} style={bpInput} />
-              <label style={bpLabel}>GSTinNo</label>
-              <input value={eInvoice.GstinNo} onChange={e => setEInvoice(prev => ({ ...prev, GstinNo: e.target.value.toUpperCase() }))} style={bpInput} />
+          {showEInvoice ? (
+            <div style={{ width: "min(680px, 100%)", margin: "0 auto", border: "1px solid #cfd8e6", padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1f3b67", marginBottom: 12 }}>E-Invoice Configuration</div>
+              <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10, alignItems: "center" }}>
+                <label style={bpLabel}>ClientId</label>
+                <input value={eInvoice.ClientId} onChange={e => setEInvoice(prev => ({ ...prev, ClientId: e.target.value }))} style={bpInput} />
+                <label style={bpLabel}>ClientSecret</label>
+                <input value={eInvoice.ClientSecret} onChange={e => setEInvoice(prev => ({ ...prev, ClientSecret: e.target.value }))} style={bpInput} />
+                <label style={bpLabel}>Username</label>
+                <input value={eInvoice.UserName} onChange={e => setEInvoice(prev => ({ ...prev, UserName: e.target.value }))} style={bpInput} />
+                <label style={bpLabel}>Password</label>
+                <input type="password" value={eInvoice.PassWord} onChange={e => setEInvoice(prev => ({ ...prev, PassWord: e.target.value }))} style={bpInput} />
+                <label style={bpLabel}>GSTinNo</label>
+                <input value={eInvoice.GstinNo} onChange={e => setEInvoice(prev => ({ ...prev, GstinNo: e.target.value.toUpperCase() }))} style={bpInput} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
+                <button className="mp-btn sv" onClick={onSaveEInvoice} disabled={actionLoading} style={{ minWidth: 90 }}>Save</button>
+              </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
-              <button className="mp-btn sv" onClick={onSaveEInvoice} disabled={actionLoading} style={{ minWidth: 90 }}>Save</button>
+          ) : (
+            <div style={{ textAlign: "center", color: "#6b7c93", fontSize: 12, fontWeight: 600 }}>
+              Press Ctrl+S to view E-Invoice Configuration
             </div>
-          </div>
+          )}
 
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, fontSize: 12 }}>
             <span style={{ color: "#1f4f9f", fontWeight: 700 }}>Total Amount: ₹ {CC.f2(totalAmount).toFixed(2)}</span>
@@ -2925,7 +2945,7 @@ const getRowEnabledCols = useCallback((rid) => {
         body: JSON.stringify(saleData),
       });
       const data = await res.json();
-         
+
       return data?.ok === true;
     } catch (err) {
       console.error("A4Print API error:", err);
@@ -3096,9 +3116,11 @@ const openReportViewer = useCallback((
       selectedRows.map(row => ({ Id: row.Id })),
       {
         Comid: String(sess.Comid),
+        Reprint: "1",
+        AmountDetails: "0",
         Tamil: tamilMode ? "true" : "false",
         CustomerTamil: sess.CustomerNameTamil ? "true" : "false",
-        PrintDetails: JSON.stringify(buildBillPrintHeaderDetails(whatsAppApi)),
+        Printdetails: JSON.stringify(buildBillPrintHeaderDetails(whatsAppApi)),
         React: "1",
       },
       null

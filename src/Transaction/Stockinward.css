@@ -436,6 +436,14 @@ tbody tr:hover td {
   flex-direction: column;
 }
 
+.si-f5-popup {
+  width: 980px;
+  height: 85vh;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
 .si-modal-toolbar {
   display: flex;
   align-items: center;
