@@ -492,81 +492,80 @@ function F5ViewWindow({ customers, comid, mcomid, onClose, onPrintView, loading:
   }, [selIdx, rows, onPrintView]);
 
   return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.45)",
-      zIndex:8800,display:"flex",alignItems:"center",justifyContent:"center" }}>
-      <div style={{ background:"#fff",borderRadius:8,width:700,maxHeight:"85vh",
-        display:"flex",flexDirection:"column",boxShadow:"0 8px 32px rgba(0,0,0,0.22)" }}>
+    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="mp-modal-box sb-f5-modal f5-modal-box">
         {/* header */}
-        <div style={{ padding:"9px 14px",background:"#1a2e4a",color:"#fff",fontWeight:700,
-          fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
-          <span>F5 — Customer Receipt View</span>
-          <button onClick={onClose} style={{ background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:17 }}>✕</button>
+        <div className="mp-modal-hdr">
+          <span>📋 F5 — Customer Receipt View</span>
+          <button onClick={onClose}>✕</button>
         </div>
         {/* filter bar */}
-        <div style={{ padding:"10px 14px",background:"#f8fafc",borderBottom:"1px solid #e2e8f0",
-          display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",flexShrink:0 }}>
-          <label style={lbl}>From</label>
-          <input type="date" className="mp-cell-input" style={{ height:26,width:130,border:"1px solid #93c5fd",borderRadius:4 }}
-            value={fromDate} onChange={e=>setFromDate(e.target.value)} />
-          <label style={lbl}>To</label>
-          <input type="date" className="mp-cell-input" style={{ height:26,width:130,border:"1px solid #93c5fd",borderRadius:4 }}
-            value={toDate} onChange={e=>setToDate(e.target.value)} />
+        <div className="f5-filter-bar f5-filter-bar-quote">
+          <label className="f5-filter-label">From</label>
+          <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={fromDate} onChange={e => setFromDate(e.target.value)} />
+          <label className="f5-filter-label">To</label>
+          <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={toDate} onChange={e => setToDate(e.target.value)} />
           {/* customer combo */}
-          <input readOnly className="mp-cell-input"
-            style={{ height:26,width:160,cursor:"pointer",border:"1px solid #93c5fd",borderRadius:4,background:"#f8fafc" }}
+          <input readOnly className="f5-filter-date f5-filter-date-quote f5-supplier-input"
             placeholder="Select Customer…" value={custName}
-            onClick={()=>setShowCustPop(true)} />
+            onClick={() => setShowCustPop(true)} />
           {custName && (
-            <button className="mp-del-btn" style={{ fontSize:11,padding:"2px 7px" }}
-              onClick={()=>{ setCustId(0); setCustName(""); }}>✕</button>
+            <button className="f5-supplier-clear"
+              onClick={() => { setCustId(0); setCustName(""); }}>✕</button>
           )}
-          <button className="mp-btn sv" style={{ height:28 }} onClick={doView}>🔍 View</button>
+          <button className="mp-btn sv f5-search-btn" onClick={doView}>🔍 Search</button>
         </div>
         {/* grid */}
-        <div style={{ overflowY:"auto",flex:1 }}>
-          <table className="mp-tbl" style={{ tableLayout:"fixed",width:"100%" }}>
+        <div className="mp-modal-body f5-modal-body">
+          <table className="f5-table">
             <thead>
-              <tr>
-                <th style={{ width:40 }}>S.No</th>
-                <th style={{ width:90 }}>Date</th>
-                <th style={{ width:200 }}>Customer Name</th>
-                <th style={{ width:90 }}>Cash</th>
-                <th style={{ width:80 }}>RTGS</th>
-                <th style={{ width:90 }}>Cheque</th>
-                <th style={{ width:80 }}>Discount</th>
-                <th style={{ width:90 }}>Amount</th>
+              <tr className="f5-header-row">
+                <th className="f5-th f5-th-sno">S.No</th>
+                <th className="f5-th">Date</th>
+                <th className="f5-th">Customer Name</th>
+                <th className="f5-th f5-th-amount">Cash</th>
+                <th className="f5-th f5-th-amount">RTGS</th>
+                <th className="f5-th f5-th-amount">Cheque</th>
+                <th className="f5-th f5-th-amount">Discount</th>
+                <th className="f5-th f5-th-amount">Amount</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r,i)=>(
-                <tr key={i} className={selIdx===i?"sel":""} onClick={()=>setSelIdx(i)}>
-                  <td className="sno">{i+1}</td>
-                  <td>{r.PaymentDate ? String(r.PaymentDate).slice(0,10) : ""}</td>
-                  <td>{r.SupplierName}</td>
-                  <td style={{ textAlign:"right" }}>{fmt2(r.CashAmount)}</td>
-                  <td style={{ textAlign:"right" }}>{fmt2(r.RTGSAmt)}</td>
-                  <td style={{ textAlign:"right" }}>{fmt2(r.ChequeAmount)}</td>
-                  <td style={{ textAlign:"right" }}>{fmt2(r.DiscountAmount)}</td>
-                  <td style={{ textAlign:"right",fontWeight:600 }}>{fmt2(r.Amount)}</td>
+              {rows.length === 0 && (
+                <tr><td colSpan={8} className="f5-empty-row">No records found.</td></tr>
+              )}
+              {rows.map((r, i) => (
+                <tr
+                  key={i}
+                  className={selIdx === i ? "f5-row-selected" : (i % 2 === 0 ? "f5-row-even" : "f5-row-odd-quote")}
+                  onClick={() => setSelIdx(i)}
+                >
+                  <td className="f5-td f5-td-sno">{i + 1}</td>
+                  <td className="f5-td">{r.PaymentDate ? String(r.PaymentDate).slice(0, 10) : ""}</td>
+                  <td className="f5-td">{r.SupplierName}</td>
+                  <td className="f5-td-amount">{fmt2(r.CashAmount)}</td>
+                  <td className="f5-td-amount">{fmt2(r.RTGSAmt)}</td>
+                  <td className="f5-td-amount">{fmt2(r.ChequeAmount)}</td>
+                  <td className="f5-td-amount">{fmt2(r.DiscountAmount)}</td>
+                  <td className="f5-td-amount f5-td-strong">{fmt2(r.Amount)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {rows.length===0 && <div className="mp-empty">No records found.</div>}
         </div>
-        <div style={{ padding:"8px 14px",display:"flex",justifyContent:"space-between",
-          alignItems:"center",borderTop:"1px solid #e5e7eb",flexShrink:0 }}>
-          <span style={{ fontSize:12,fontWeight:600,color:"#1f65de" }}>Total: {total}</span>
-          <span style={{ fontSize:11,color:"#94a3b8" }}>Ctrl+V on selected row → Print/View</span>
-          <button className="mp-btn dl" onClick={onClose}>Close</button>
+        <div className="mp-modal-ftr f5-footer-split">
+          <span className="f5-total">Total: {total}</span>
+          <button className="mp-btn" onClick={onClose}>Close</button>
         </div>
       </div>
       {/* customer popup inside F5 window */}
       {showCustPop && (
-        <PopupWindow title="Select Customer" onClose={()=>setShowCustPop(false)} width={340}>
+        <PopupWindow title="Select Customer" onClose={() => setShowCustPop(false)} width={340}>
           <SearchableList items={customers} labelField="AccountName" placeholder="Search…"
-            onChange={(item)=>{ setCustId(item.Id??0); setCustName(item.AccountName||""); setShowCustPop(false); }}
-            onClose={()=>setShowCustPop(false)} />
+            onChange={(item) => { setCustId(item.Id ?? 0); setCustName(item.AccountName || ""); setShowCustPop(false); }}
+            onClose={() => setShowCustPop(false)} />
         </PopupWindow>
       )}
     </div>

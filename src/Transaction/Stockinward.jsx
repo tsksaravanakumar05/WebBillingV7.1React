@@ -24,7 +24,7 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import * as CC from "../components/Common";
-import "../TransactionStyle/SaleBill.css";
+// import "../TransactionStyle/SaleBill.css";
 import Topbar from "../components/Topbar";
 import   DateFieldDDMMYYYY from "../Commondatetime";
 
@@ -119,43 +119,25 @@ function BatchPopup({ batches, onSelect, onClose }) {
   }, [hilite, batches, onSelect, onClose]);
  
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(10,20,40,.45)",
-      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9800,
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 10, width: 620, maxHeight: 460,
-        display: "flex", flexDirection: "column", overflow: "hidden",
-        boxShadow: "0 16px 48px rgba(31,101,222,.22)", border: "1px solid #d0ddf5",
-      }}>
+    <div className="si-popup-overlay">
+      <div className="si-popup-panel" style={{ width: 620, maxHeight: 460 }}>
         {/* Header */}
-        <div style={{
-          background: "linear-gradient(135deg,#1b3a8f 0%,#1f65de 100%)",
-          padding: "10px 14px", display: "flex", alignItems: "center", gap: 8,
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", flex: 1 }}>
+        <div className="si-popup-header" style={{ padding: "10px 14px" }}>
+          <span className="si-popup-header-title" style={{ fontSize: 13, flex: 1 }}>
             📦 Select Batch
           </span>
-          <span style={{
-            fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,.65)",
-            background: "rgba(255,255,255,.15)", borderRadius: 10, padding: "2px 8px",
-          }}>
+          <span className="si-popup-header-badge" style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px" }}>
             {batches.length} batches
           </span>
-          <button onClick={onClose} style={{
-            background: "rgba(255,255,255,.15)", border: "none", color: "#fff",
-            width: 22, height: 22, borderRadius: "50%", cursor: "pointer", fontSize: 11,
-          }}>✕</button>
+          <button onClick={onClose} className="si-popup-header-close" style={{ width: 22, height: 22, fontSize: 11 }}>✕</button>
         </div>
  
         {/* Column headers */}
-        <div style={{
-          display: "grid",
+        <div className="si-popup-colhdr" style={{
           gridTemplateColumns: "130px 1fr 90px 90px 90px 100px",
-          padding: "4px 10px", background: "#f0f4fc",
-          borderBottom: "1px solid #dde6f5",
-          fontSize: 9.5, fontWeight: 700, color: "#6b7a99",
-          letterSpacing: ".4px", textTransform: "uppercase",
+          padding: "4px 10px",
+          fontSize: 9.5, fontWeight: 700,
+          letterSpacing: ".4px",
         }}>
           <span>Batch No</span>
           <span>Product</span>
@@ -168,7 +150,7 @@ function BatchPopup({ batches, onSelect, onClose }) {
         {/* Rows */}
         <div ref={listRef} style={{ overflowY: "auto", flex: 1 }}>
           {batches.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", padding: 20, fontSize: 12 }}>
+            <div className="si-popup-empty" style={{ padding: 20, fontSize: 12 }}>
               No batches found
             </div>
           ) : batches.map((b, idx) => (
@@ -177,35 +159,32 @@ function BatchPopup({ batches, onSelect, onClose }) {
               data-idx={idx}
               onClick={() => onSelect(b)}
               onMouseEnter={() => setHilite(idx)}
+              className={`si-popup-row ${idx === hilite ? "hilite" : idx % 2 === 0 ? "even" : "odd"}`}
               style={{
-                display: "grid",
                 gridTemplateColumns: "130px 1fr 90px 90px 90px 100px",
-                padding: "6px 10px", cursor: "pointer",
-                borderBottom: "1px solid #f3f5fb",
-                background: idx === hilite ? "#deeafb" : idx % 2 === 0 ? "#fff" : "#fafbff",
-                borderLeft: idx === hilite ? "3px solid #1f65de" : "3px solid transparent",
-                fontSize: 11.5, alignItems: "center",
+                padding: "6px 10px",
+                fontSize: 11.5,
               }}
             >
-              <span style={{ color: "#1f65de", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span className="si-cell-code">
                 {b.BatchNo || b.Bat_No || "—"}
               </span>
-              <span style={{ color: "#1a2e4a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span className="si-cell-primary">
                 {b.ProductName || ""}
               </span>
-              <span style={{ textAlign: "right", color: "#475569" }}>
+              <span className="si-cell-mid" style={{ textAlign: "right" }}>
                 ₹{parseFloat(b.MRP || 0).toFixed(2)}
               </span>
-              <span style={{ textAlign: "right", color: "#16a34a", fontWeight: 600 }}>
+              <span className="si-cell-rate" style={{ textAlign: "right" }}>
                 ₹{parseFloat(b.PurchaseRate || b.PurRate || 0).toFixed(2)}
               </span>
-              <span style={{
-                textAlign: "right", fontWeight: 700,
-                color: parseFloat(b.Stock || 0) <= 0 ? "#dc2626" : "#1a2e4a",
-              }}>
+              <span
+                className={parseFloat(b.Stock || 0) <= 0 ? "si-cell-stock-low" : "si-cell-stock-ok"}
+                style={{ textAlign: "right", fontWeight: 700 }}
+              >
                 {parseFloat(b.Stock || 0).toFixed(0)}
               </span>
-              <span style={{ color: "#8b5cf6", fontSize: 10.5 }}>
+              <span className="si-cell-expiry" style={{ fontSize: 10.5 }}>
                 {b.ExpiryDate || b.ExpDate ? String(b.ExpiryDate || b.ExpDate).slice(0, 10) : "—"}
               </span>
             </div>
@@ -213,16 +192,10 @@ function BatchPopup({ batches, onSelect, onClose }) {
         </div>
  
         {/* Footer hints */}
-        <div style={{
-          display: "flex", gap: 14, padding: "5px 12px",
-          background: "#f8faff", borderTop: "1px solid #eaecf4",
-        }}>
+        <div className="si-popup-footer" style={{ gap: 14, padding: "5px 12px" }}>
           {[["↑↓", "Navigate"], ["Enter", "Select"], ["Esc", "Close"]].map(([k, l]) => (
-            <span key={k} style={{ fontSize: 9.5, color: "#8b99b5", display: "flex", alignItems: "center", gap: 3 }}>
-              <kbd style={{
-                background: "#1f65de", color: "#fff", fontSize: 8.5,
-                fontWeight: 700, padding: "1px 4px", borderRadius: 2,
-              }}>{k}</kbd>
+            <span key={k} className="si-popup-hint" style={{ fontSize: 9.5, gap: 3 }}>
+              <kbd className="si-kbd" style={{ fontSize: 8.5, padding: "1px 4px" }}>{k}</kbd>
               {l}
             </span>
           ))}
@@ -322,7 +295,9 @@ function ComboBox({ options = [], value, onChange, onEnterKey, placeholder, styl
 
   return (
     <div ref={wrapRef} style={{ position: "relative", flex: 1, minWidth: 0, ...style }}>
-      <input ref={ref} className="si-select"
+      <input
+        ref={ref}
+        className="si-select si-combo-input"
         value={open ? q : selectedLabel}
         placeholder={placeholder} autoComplete="off" disabled={disabled}
         onFocus={() => { setQ(selectedLabel); setOpen(true); setHilite(0); }}
@@ -336,21 +311,18 @@ function ComboBox({ options = [], value, onChange, onEnterKey, placeholder, styl
         style={{ width: "100%", cursor: disabled ? "not-allowed" : "text" }}
       />
       {open && !disabled && filtered.length > 0 && (
-        <div ref={listRef} style={{
+        <div ref={listRef} className="si-combo-dropdown" style={{
           position: "absolute", top: "100%", left: 0, right: 0,
-          background: "#fff", border: "1px solid #c5d8f8",
           borderRadius: 4, zIndex: 9999, maxHeight: 220, overflowY: "auto",
-          boxShadow: "0 8px 24px rgba(31,101,222,.15)",
         }}>
           {filtered.map((opt, idx) => (
             <div key={opt.value} data-idx={idx}
               onMouseDown={() => pick(opt)}
               onMouseEnter={() => setHilite(idx)}
+              className={`si-combo-option ${idx === hilite ? "hilite" : idx % 2 === 0 ? "even" : "odd"}`}
               style={{
-                padding: "5px 10px", fontSize: 12, cursor: "pointer",
-                background: idx === hilite ? "#deeafb" : idx % 2 === 0 ? "#fff" : "#fafbff",
-                borderLeft: idx === hilite ? "3px solid #1f65de" : "3px solid transparent",
-                color: "#1a2e4a", fontWeight: idx === hilite ? 600 : 400,
+                padding: "5px 10px", fontSize: 12,
+                fontWeight: idx === hilite ? 600 : 400,
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               }}>
               {opt.label}
@@ -372,11 +344,8 @@ function GridSelect({ options, value, onChange, onKeyDown, cellId, onFocus }) {
       onChange={e => onChange(e.target.value)}
       onKeyDown={onKeyDown}
       onFocus={onFocus}
-      style={{
-        width: "100%", height: 24, border: "1px solid #c5d8f8",
-        borderRadius: 3, fontSize: 11, outline: "none",
-        background: "transparent", color: "#1a2e4a",
-      }}
+      className="si-grid-select"
+      style={{ width: "100%", height: 24, borderRadius: 3, fontSize: 11, outline: "none" }}
     >
       <option value="">--</option>
       {options.map(o => (
@@ -398,11 +367,12 @@ function PwModal({ title, comid, onOk, onClose }) {
   return (
     <div className="si-overlay" style={{ zIndex: 99999 }}>
       <div className="si-modal" style={{ width: 300, padding: "22px 26px" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#1f65de" }}>🔐 {title}</div>
+        <div className="si-pwmodal-title" style={{ fontSize: 14, marginBottom: 12 }}>🔐 {title}</div>
         <input type="password" autoFocus value={val} placeholder="Enter password…"
           onChange={e => setVal(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") verify(); if (e.key === "Escape") onClose(); }}
-          style={{ width: "100%", padding: "7px 10px", border: "1px solid #c5d8f8", borderRadius: 4, fontSize: 13, marginBottom: 14, outline: "none" }}
+          className="si-pwmodal-input"
+          style={{ width: "100%", padding: "7px 10px", borderRadius: 4, fontSize: 13, marginBottom: 14, outline: "none" }}
         />
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button className="si-btn" onClick={onClose}>Cancel</button>
@@ -432,27 +402,23 @@ function ProductSearchPopup({ products, onSelect, onClose }) {
   }, [hilite]);
 
   return (
-    <div style={{
+    <div className="si-prodsearch-panel" style={{
       position: "fixed", top: 120, left: 80, zIndex: 9800,
-      background: "#fff", border: "1px solid #c5d8f8", borderRadius: 8,
-      width: 820, height: "80vh", display: "flex", flexDirection: "column",
-      boxShadow: "0 16px 48px rgba(31,101,222,.2)",
+      borderRadius: 8, width: 820, height: "80vh", display: "flex", flexDirection: "column",
     }}>
-      <div style={{
-        background: "linear-gradient(135deg,#1b3a8f,#1f65de)", padding: "8px 14px",
-        borderRadius: "8px 8px 0 0", display: "flex", alignItems: "center", gap: 10,
-      }}>
-        <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, flex: 1 }}>🔍 Product Search</span>
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,.65)", background: "rgba(255,255,255,.15)", padding: "2px 8px", borderRadius: 10 }}>
+      <div className="si-popup-header" style={{ padding: "8px 14px", borderRadius: "8px 8px 0 0" }}>
+        <span className="si-popup-header-title" style={{ fontSize: 13, flex: 1 }}>🔍 Product Search</span>
+        <span className="si-popup-header-badge" style={{ fontSize: 10, padding: "2px 8px" }}>
           {filtered.length} items
         </span>
-        <button onClick={onClose} style={{ background: "rgba(255,255,255,.15)", border: "none", color: "#fff", width: 22, height: 22, borderRadius: "50%", cursor: "pointer", fontSize: 11 }}>✕</button>
+        <button onClick={onClose} className="si-popup-header-close" style={{ width: 22, height: 22, fontSize: 11 }}>✕</button>
       </div>
-      <div style={{ padding: "6px 10px", borderBottom: "1px solid #edf0f7", display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ color: "#7895c8", fontSize: 16 }}>⌕</span>
+      <div className="si-prodsearch-searchbar" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+        <span className="si-prodsearch-icon" style={{ fontSize: 16 }}>⌕</span>
         <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
           placeholder="Type code or product name…"
-          style={{ flex: 1, border: "none", outline: "none", fontSize: 12, color: "#1a2e4a" }}
+          className="si-prodsearch-input"
+          style={{ flex: 1, border: "none", outline: "none", fontSize: 12 }}
           onKeyDown={e => {
             if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
             if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
@@ -461,35 +427,33 @@ function ProductSearchPopup({ products, onSelect, onClose }) {
           }}
         />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 90px 80px 80px", background: "#f0f4fc", padding: "4px 10px", fontSize: 10.5, fontWeight: 700, color: "#4a5568", borderBottom: "1px solid #dde6f5" }}>
+      <div className="si-popup-colhdr" style={{ gridTemplateColumns: "110px 1fr 90px 80px 80px", padding: "4px 10px", fontSize: 10.5, fontWeight: 700 }}>
         <span>Code</span><span>Name</span><span style={{ textAlign: "right" }}>Pur.Rate</span>
         <span style={{ textAlign: "right" }}>Sale Rate</span><span style={{ textAlign: "right" }}>Stock</span>
       </div>
       <div ref={listRef} style={{ flex: 1, overflowY: "auto" }}>
         {filtered.length === 0
-          ? <div style={{ textAlign: "center", color: "#94a3b8", padding: 20, fontSize: 12 }}>No products found</div>
+          ? <div className="si-popup-empty" style={{ padding: 20, fontSize: 12 }}>No products found</div>
           : filtered.map((p, idx) => (
             <div key={p.Id} data-idx={idx} onClick={() => onSelect(p)} onMouseEnter={() => setHilite(idx)}
+              className={`si-popup-row ${idx === hilite ? "hilite" : idx % 2 === 0 ? "even" : "odd"}`}
               style={{
-                display: "grid", gridTemplateColumns: "110px 1fr 90px 80px 80px",
-                padding: "5px 10px", fontSize: 12, cursor: "pointer",
-                background: idx === hilite ? "#deeafb" : idx % 2 === 0 ? "#fff" : "#fafbff",
-                borderLeft: idx === hilite ? "3px solid #1f65de" : "3px solid transparent",
-                borderBottom: "1px solid #f3f5fb",
+                gridTemplateColumns: "110px 1fr 90px 80px 80px",
+                padding: "5px 10px", fontSize: 12,
               }}>
-              <span style={{ fontWeight: 600, color: "#4a5568", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.ProductCode || p.Prod_Code}</span>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#1a2e4a" }}>{p.ProductName || p.PName}</span>
-              <span style={{ textAlign: "right", color: "#1a2e4a" }}>₹{f2(vn(p.PurchaseRate)).toFixed(2)}</span>
-              <span style={{ textAlign: "right", color: "#1a2e4a" }}>₹{f2(vn(p.SalesRate || p.SaleRate)).toFixed(2)}</span>
-              <span style={{ textAlign: "right", color: vn(p.Stock) < 0 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>{vn(p.Stock).toFixed(0)}</span>
+              <span className="si-cell-code" style={{ fontWeight: 600 }}>{p.ProductCode || p.Prod_Code}</span>
+              <span className="si-cell-primary">{p.ProductName || p.PName}</span>
+              <span className="si-cell-primary" style={{ textAlign: "right" }}>₹{f2(vn(p.PurchaseRate)).toFixed(2)}</span>
+              <span className="si-cell-primary" style={{ textAlign: "right" }}>₹{f2(vn(p.SalesRate || p.SaleRate)).toFixed(2)}</span>
+              <span className={vn(p.Stock) < 0 ? "si-cell-stock-low" : "si-cell-rate"} style={{ textAlign: "right" }}>{vn(p.Stock).toFixed(0)}</span>
             </div>
           ))
         }
       </div>
-      <div style={{ background: "#f8faff", borderTop: "1px solid #edf0f7", padding: "5px 12px", display: "flex", gap: 14, fontSize: 10.5, color: "#6b7a99" }}>
-        <span><kbd style={{ background: "#1f65de", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 9.5 }}>↑↓</kbd> Navigate</span>
-        <span><kbd style={{ background: "#1f65de", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 9.5 }}>Enter</kbd> Select</span>
-        <span><kbd style={{ background: "#1f65de", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 9.5 }}>Esc</kbd> Close</span>
+      <div className="si-popup-footer si-prodsearch-footer" style={{ padding: "5px 12px", gap: 14, fontSize: 10.5 }}>
+        <span><kbd className="si-kbd" style={{ padding: "1px 5px", fontSize: 9.5 }}>↑↓</kbd> Navigate</span>
+        <span><kbd className="si-kbd" style={{ padding: "1px 5px", fontSize: 9.5 }}>Enter</kbd> Select</span>
+        <span><kbd className="si-kbd" style={{ padding: "1px 5px", fontSize: 9.5 }}>Esc</kbd> Close</span>
       </div>
     </div>
   );
@@ -504,45 +468,42 @@ function F5ViewModal({ rows, mode, onEdit, onDelete, onClose, fromDate, toDate, 
 
   return (
     <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="mp-modal-box sb-f5-modal si-f5-popup">
+      <div className="mp-modal-box sb-f5-modal f5-modal-box">
         <div className="mp-modal-hdr">
           <span>📋 Stock {modeLabel} View (F5)</span>
           <button onClick={onClose}>✕</button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f5f9ff", borderBottom: "1px solid #dde6f5", flexWrap: "wrap" }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568" }}>From</label>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-            style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-          <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568" }}>To</label>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)}
-            style={{ height: 28, border: "1px solid #c5d8f8", borderRadius: 4, padding: "0 6px", fontSize: 12 }} />
-          <button className="si-btn sv" style={{ height: 28, padding: "0 14px", fontSize: 11 }}
-            onClick={() => onSearch(from, to)}>🔍 Search</button>
-          <span style={{ marginLeft: "auto", fontWeight: 700, fontSize: 14 }}>
-            Total : ₹{f2(total).toFixed(2)}
-          </span>
+        <div className="f5-filter-bar f5-filter-bar-quote">
+          <label className="f5-filter-label">From</label>
+          <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={from} onChange={e => setFrom(e.target.value)} />
+          <label className="f5-filter-label">To</label>
+          <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={to} onChange={e => setTo(e.target.value)} />
+          <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
+          <span className="f5-total">Total : ₹{f2(total).toFixed(2)}</span>
         </div>
-        <div className="mp-modal-body" style={{ flex: 1, overflowY: "auto", padding: 0 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <div className="mp-modal-body f5-modal-body">
+          <table className="f5-table">
             <thead>
-              <tr style={{ background: "#1a2e4a", color: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
+              <tr className="f5-header-row">
                 {["Stock No", "Stock Date", mode === "transfer" ? "Branch" : mode === "outward" ? "Customer" : "Supplier", "Amount", "Remarks", "Actions"].map(h => (
-                  <th key={h} style={{ padding: "7px 10px", textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
+                  <th key={h} className={`f5-th${h === "Amount" ? " f5-th-amount" : ""}${h === "Actions" ? " f5-th-center" : ""}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>No records found.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={6} className="f5-empty-row">No records found.</td></tr>}
               {rows.map((r, i) => (
-                <tr key={r.Id || i} style={{ background: i % 2 === 0 ? "#fff" : "#fafbff", borderBottom: "1px solid #eaecf4" }}>
-                  <td style={{ padding: "5px 10px", fontWeight: 700 }}>{r.PurchaseNo || r.StockNo || "—"}</td>
-                  <td style={{ padding: "5px 10px" }}>{String(r.PurchaseDate || r.StockDate || "").slice(0, 10)}</td>
-                  <td style={{ padding: "5px 10px" }}>{r.SupplierName || r.CustomerName || r.BranchName || ""}</td>
-                  <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700 }}>₹{f2(vn(r.NetAmt || r.NetAmount)).toFixed(2)}</td>
-                  <td style={{ padding: "5px 10px", color: "#6b7a99" }}>{r.PurchaseType || r.Remarks || ""}</td>
-                  <td style={{ padding: "5px 10px", textAlign: "center" }}>
-                    <button onClick={() => onEdit(r.Id)} style={{ marginRight: 6, padding: "3px 10px", fontSize: 11, borderRadius: 4, border: "1px solid #c5d8f8", background: "#e8f0fe", color: "#1f65de", fontWeight: 600, cursor: "pointer" }}>✏ Edit</button>
-                    <button onClick={() => onDelete(r.Id, r.PurchaseNo)} style={{ padding: "3px 10px", fontSize: 11, borderRadius: 4, border: "1px solid #fecaca", background: "#fee2e2", fontWeight: 600, cursor: "pointer" }}>🗑 Del</button>
+                <tr key={r.Id || i} className={i % 2 === 0 ? "f5-row-even" : "f5-row-odd-quote"}>
+                  <td className="f5-td-strong">{r.PurchaseNo || r.StockNo || "—"}</td>
+                  <td className="f5-td">{String(r.PurchaseDate || r.StockDate || "").slice(0, 10)}</td>
+                  <td className="f5-td">{r.SupplierName || r.CustomerName || r.BranchName || ""}</td>
+                  <td className="f5-td-amount">₹{f2(vn(r.NetAmt || r.NetAmount)).toFixed(2)}</td>
+                  <td className="f5-td f5-td-muted">{r.PurchaseType || r.Remarks || ""}</td>
+                  <td className="f5-td-actions">
+                    <button onClick={() => onEdit(r.Id)} className="f5-btn-edit-quote">✏ Edit</button>
+                    <button onClick={() => onDelete(r.Id, r.PurchaseNo)} className="f5-btn-delete-plain">🗑 Del</button>
                   </td>
                 </tr>
               ))}
@@ -550,7 +511,7 @@ function F5ViewModal({ rows, mode, onEdit, onDelete, onClose, fromDate, toDate, 
           </table>
         </div>
         <div className="mp-modal-ftr">
-          <button className="si-btn" onClick={onClose}>Close</button>
+          <button className="mp-btn" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
@@ -592,7 +553,7 @@ function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
             <thead>
               <tr>
                 {["Column", "Visible", "Width (px)"].map(h => (
-                  <th key={h} style={{ background: "#1b3a8f", color: "#fff", padding: "6px 10px", textAlign: "left", position: "sticky", top: 0 }}>{h}</th>
+                  <th key={h} className="si-th-dark" style={{ padding: "6px 10px", textAlign: "left", position: "sticky", top: 0 }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -600,19 +561,20 @@ function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
               {displayCols.map((c, i) => {
                 const base = GRID_COLUMNS.find(g => g.key === c.key);
                 return (
-                  <tr key={c.key} style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}>
-                    <td style={{ padding: "5px 10px", borderBottom: "1px solid #eaecf4" }}>
+                  <tr key={c.key} className={`si-table-row-f12 ${i % 2 === 0 ? "even" : "odd"}`}>
+                    <td className="si-td-bordered" style={{ padding: "5px 10px" }}>
                       {c.label}
                       {base?.batchOnly && (
-                        <span style={{ marginLeft: 6, fontSize: 9.5, background: "#fef3c7", color: "#92400e", padding: "1px 5px", borderRadius: 8 }}>BatchWise</span>
+                        <span className="si-badge-warn" style={{ marginLeft: 6, fontSize: 9.5, padding: "1px 5px", borderRadius: 8 }}>BatchWise</span>
                       )}
                     </td>
-                    <td style={{ padding: "5px 10px", textAlign: "center", borderBottom: "1px solid #eaecf4" }}>
+                    <td className="si-td-bordered" style={{ padding: "5px 10px", textAlign: "center" }}>
                       <input type="checkbox" checked={!!c.visible} onChange={() => toggle(c.key)} />
                     </td>
-                    <td style={{ padding: "5px 10px", borderBottom: "1px solid #eaecf4" }}>
+                    <td className="si-td-bordered" style={{ padding: "5px 10px" }}>
                       <input type="number" min={40} max={600} value={c.width}
-                        style={{ width: 70, border: "1px solid #d4dbe8", borderRadius: 3, padding: "2px 6px", fontSize: 12, textAlign: "right" }}
+                        className="si-f12-widthinput"
+                        style={{ width: 70, borderRadius: 3, padding: "2px 6px", fontSize: 12, textAlign: "right" }}
                         onChange={e => setWid(c.key, e.target.value)} />
                     </td>
                   </tr>
@@ -621,7 +583,7 @@ function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
             </tbody>
           </table>
         </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "10px 14px", borderTop: "1px solid #eaecf4", background: "#f8faff" }}>
+        <div className="si-f5-footer" style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "10px 14px" }}>
           <button className="si-btn sv" onClick={handleSave}>💾 Save</button>
           <button className="si-btn" onClick={onClose}>Cancel</button>
         </div>
@@ -1623,11 +1585,13 @@ const selectedPartyInfo = useMemo(() => {
   const getDeliveryLabel = () => "Item Qty";
   const getServiceLabel  = () =>"TotalAmt";
 
+  // Layout-only (non-color) style constants. Color styling for these lives in
+  // MasterPage.css under .si-lbl / .si-inp / .si-panel / .si-ptitle.
   const fl    = { display: "flex", alignItems: "center", gap: 6 };
-  const lbl   = { fontSize: 11, fontWeight: 700, color: "#4a5568", minWidth: 80, flexShrink: 0 };
-  const inp   = { height: 24, border: "1px solid #b8ccee", borderRadius: 3, padding: "0 6px", fontSize: 12, outline: "none", background: "#fff", color: "#1a2e4a" };
-  const panel = { border: "1px solid #c8d8ee", borderRadius: 5, background: "#fff", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 };
-  const ptitle= { fontSize: 11, fontWeight: 700, color: "#4a5568", borderBottom: "1px solid #e2e8f0", paddingBottom: 3, marginBottom: 2 };
+  const lbl   = { fontSize: 11, fontWeight: 700, minWidth: 80, flexShrink: 0 };
+  const inp   = { height: 24, borderRadius: 3, padding: "0 6px", fontSize: 12, outline: "none" };
+  const panel = { borderRadius: 5, padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 };
+  const ptitle= { fontSize: 11, fontWeight: 700, paddingBottom: 3, marginBottom: 2 };
 
   // ── Render BatchWise cell ─────────────────────────────────────────────────
   // Mirrors jQuery columntype:'combobox' columns: BrandCombo, ModelCombo, etc.
@@ -1683,15 +1647,15 @@ const selectedPartyInfo = useMemo(() => {
   //  RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height: "100vh", width: "100vw", display: "flex", flexDirection: "column", background: "#eef3fb", overflow: "hidden", fontFamily: "'Inter', sans-serif", fontSize: 12 }}>
+    <div className="si-page" style={{ height: "100vh", width: "100vw", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "'Inter', sans-serif", fontSize: 12 }}>
       {ConfirmUI}
       <Topbar />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* ── MODE SELECTOR ── */}
-        <div style={{ background: "#1b3a8f", padding: "0 12px", display: "flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, marginRight: 20, whiteSpace: "nowrap" }}>
+        <div className="si-modebar" style={{ padding: "0 12px", display: "flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
+          <span className="si-modebar-title" style={{ fontWeight: 700, fontSize: 13, marginRight: 20, whiteSpace: "nowrap" }}>
             📦 Stock Inward / Outward / Transfer
           </span>
           {[
@@ -1700,11 +1664,9 @@ const selectedPartyInfo = useMemo(() => {
             { val: "transfer", label: "🔄 Transfer"  },
           ].map(opt => (
             <button key={opt.val} onClick={() => handleModeChange(opt.val)}
+              className={`si-mode-tab ${mode === opt.val ? "active" : ""}`}
               style={{
                 padding: "8px 20px", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
-                background: mode === opt.val ? "#fff" : "transparent",
-                color: mode === opt.val ? "#1b3a8f" : "rgba(255,255,255,.75)",
-                borderBottom: mode === opt.val ? "3px solid #1f65de" : "3px solid transparent",
                 transition: "all .15s",
               }}>
               {opt.label}
@@ -1712,40 +1674,40 @@ const selectedPartyInfo = useMemo(() => {
           ))}
           {/* BatchWise indicator badge */}
           {sess.BatchWiseStock && (
-            <span style={{ marginLeft: 12, background: "#f59e0b", color: "#1a2e4a", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 10 }}>
+            <span className="si-badge-amber" style={{ marginLeft: 12, fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 10 }}>
               🏷 BatchWise ON
             </span>
           )}
           {editId > 0 && (
-            <span style={{ marginLeft: 14, background: "#f59e0b", color: "#1a2e4a", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 10 }}>
+            <span className="si-badge-amber" style={{ marginLeft: 14, fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 10 }}>
               ✏️ EDIT MODE — #{stockNo}
             </span>
           )}
         </div>
 
         {/* ── HEADER PANELS ── */}
-        <div style={{ display: "flex", gap: 8, padding: "8px 10px", background: "#f5f8fd", borderBottom: "1px solid #d0ddf5", alignItems: "stretch", flexShrink: 0 }}>
+        <div className="si-headerpanels" style={{ display: "flex", gap: 8, padding: "8px 10px", alignItems: "stretch", flexShrink: 0 }}>
 
           {/* LEFT: Stock Details */}
-          <div style={{ ...panel, minWidth: 230, flexShrink: 0 }}>
-            <div style={ptitle}>Stock Details</div>
+          <div className="si-panel" style={{ ...panel, minWidth: 230, flexShrink: 0 }}>
+            <div className="si-ptitle" style={ptitle}>Stock Details</div>
             <div style={fl}>
-              <label style={lbl}>Stock No</label>
-              <input style={{ ...inp, flex: 1 }} value={stockNo} readOnly onChange={() => {}} />
+              <label className="si-lbl" style={lbl}>Stock No</label>
+              <input className="si-inp" style={{ ...inp, flex: 1 }} value={stockNo} readOnly onChange={() => {}} />
             </div>
             <div style={fl}>
-              <label style={lbl}>Stock Date</label>
-              <input type="date" style={{ ...inp, flex: 1 }} value={stockDate} onChange={e => setStockDate(e.target.value)} />
+              <label className="si-lbl" style={lbl}>Stock Date</label>
+              <input type="date" className="si-inp" style={{ ...inp, flex: 1 }} value={stockDate} onChange={e => setStockDate(e.target.value)} />
             </div>
            
           </div>
 
           {/* MIDDLE: Supplier/Customer/Branch */}
-          <div style={{ ...panel, flex: 1 }}>
-            <div style={ptitle}>{supplierLabel} Details</div>
+          <div className="si-panel" style={{ ...panel, flex: 1 }}>
+            <div className="si-ptitle" style={ptitle}>{supplierLabel} Details</div>
             
            <div style={fl}>
-  <label style={lbl}>{supplierLabel}</label>
+  <label className="si-lbl" style={lbl}>{supplierLabel}</label>
   <ComboBox inputRef={suppRef} options={supplierOptions} value={supplierId}
     onChange={setSupplierId}
     onEnterKey={() => { const fr = rowsRef.current[0]; if (fr) cellRefs.current[fr._rid]?.["ProductCode"]?.focus(); }}
@@ -1753,20 +1715,20 @@ const selectedPartyInfo = useMemo(() => {
   />
 </div>
 {selectedPartyInfo && (
-  <div style={{
+  <div className="si-partyinfo" style={{
     display: "flex", gap: 14, padding: "3px 6px",
-    background: "#f0f7ff", borderRadius: 4, border: "1px solid #dde9f8",
+    borderRadius: 4,
     flexWrap: "wrap",
   }}>
     {(selectedPartyInfo.Address1 || selectedPartyInfo.Address || selectedPartyInfo.BranchAddress) && (
-      <span style={{ fontSize: 10.5, color: "#4a5568", display: "flex", alignItems: "center", gap: 3 }}>
+      <span className="si-partyinfo-addr" style={{ fontSize: 10.5, display: "flex", alignItems: "center", gap: 3 }}>
         📍 {selectedPartyInfo.Address1 || selectedPartyInfo.Address || selectedPartyInfo.BranchAddress}
         {(selectedPartyInfo.Address2 || selectedPartyInfo.City) &&
           `, ${selectedPartyInfo.Address2 || selectedPartyInfo.City}`}
       </span>
     )}
     {(selectedPartyInfo.Phone || selectedPartyInfo.Mobile || selectedPartyInfo.MobileNo) && (
-      <span style={{ fontSize: 10.5, color: "#1f65de", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+      <span className="si-partyinfo-phone" style={{ fontSize: 10.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
         📞 {selectedPartyInfo.Phone || selectedPartyInfo.Mobile || selectedPartyInfo.MobileNo}
       </span>
     )}
@@ -1775,7 +1737,7 @@ const selectedPartyInfo = useMemo(() => {
             {sess.Ecotech && mode === "outward" && (
               <div style={{ display: "flex", gap: 8 }}>
                 <div style={{ ...fl, flex: 1 }}>
-                  <label style={{ ...lbl, minWidth: 40 }}>User</label>
+                  <label className="si-lbl" style={{ ...lbl, minWidth: 40 }}>User</label>
                   <ComboBox options={[{ value: "", label: "" }, ...userList.map(u => ({ value: String(u.Id), label: u.UserName || u.Name }))]}
                     value={poUserId} onChange={setPoUserId} placeholder="User 1" />
                 </div>
@@ -1787,33 +1749,33 @@ const selectedPartyInfo = useMemo(() => {
             )}
             {sess.Ecotech && mode === "outward" && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11 }}>
-                <label style={{ ...lbl, minWidth: 60 }}>P-Date</label>
-                <input type="date" style={{ ...inp, width: 120 }} value={ecoPDate.from} onChange={e => setEcoPDate(p => ({ ...p, from: e.target.value }))} />
-                <span style={{ color: "#6b7a99" }}>~</span>
-                <input type="date" style={{ ...inp, width: 120 }} value={ecoPDate.to} onChange={e => setEcoPDate(p => ({ ...p, to: e.target.value }))} />
+                <label className="si-lbl" style={{ ...lbl, minWidth: 60 }}>P-Date</label>
+                <input type="date" className="si-inp" style={{ ...inp, width: 120 }} value={ecoPDate.from} onChange={e => setEcoPDate(p => ({ ...p, from: e.target.value }))} />
+                <span className="si-cell-muted">~</span>
+                <input type="date" className="si-inp" style={{ ...inp, width: 120 }} value={ecoPDate.to} onChange={e => setEcoPDate(p => ({ ...p, to: e.target.value }))} />
               </div>
             )}
           </div>
 
           {/* RIGHT: Totals + extra fields */}
           {/* RIGHT: Amount + Tax only */}
-<div style={{ ...panel, minWidth: 200, flexShrink: 0, justifyContent: "center" }}>
-  <div style={{ textAlign: "center", fontSize: 24, fontWeight: 800, color: "#16a34a", paddingBottom: 6 }}>
+<div className="si-panel" style={{ ...panel, minWidth: 200, flexShrink: 0, justifyContent: "center" }}>
+  <div className="si-total-amt" style={{ textAlign: "center", fontSize: 24, fontWeight: 800, paddingBottom: 6 }}>
   Rs.{(totalAmt + vn(ftax)).toFixed(2)}
 </div>
-  <div style={{ display: "flex", justifyContent: "center", gap: 16, paddingBottom: 6, borderBottom: "1px solid #e2e8f0", marginBottom: 4 }}>
-    <span style={{ fontSize: 11, color: "#4a5568", fontWeight: 600 }}>
-      Items: <strong style={{ color: "#1b3a8f" }}>{totalItems}</strong>
+  <div className="si-total-divider" style={{ display: "flex", justifyContent: "center", gap: 16, paddingBottom: 6, marginBottom: 4 }}>
+    <span className="si-cell-muted" style={{ fontSize: 11, fontWeight: 600 }}>
+      Items: <strong className="si-strong-navy">{totalItems}</strong>
     </span>
-    <span style={{ fontSize: 11, color: "#4a5568", fontWeight: 600 }}>
-      Qty: <strong style={{ color: "#1b3a8f" }}>
+    <span className="si-cell-muted" style={{ fontSize: 11, fontWeight: 600 }}>
+      Qty: <strong className="si-strong-navy">
         {totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3)}
       </strong>
     </span>
   </div>
   <div style={fl}>
-    <label style={{ ...lbl, minWidth: 70 }}>Tax/Others</label>
-    <input style={{ ...inp, flex: 1 }} value={ftax} onChange={e => {
+    <label className="si-lbl" style={{ ...lbl, minWidth: 70 }}>Tax/Others</label>
+    <input className="si-inp" style={{ ...inp, flex: 1 }} value={ftax} onChange={e => {
       setFtax(e.target.value);
       if (sess.Ecotech) setTotAmtDisplay(f2(totalAmt + vn(e.target.value)).toFixed(2));
     }} type="number" step="0.01" />
@@ -1822,37 +1784,33 @@ const selectedPartyInfo = useMemo(() => {
         </div>
 
         {/* ── GRID ── */}
-        <div style={{ flex: 1, overflow: "auto", background: "#fff" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", tableLayout: "fixed", minWidth: 800, fontSize: 12 }}>
+        <div className="si-grid-wrap">
+          <table className="si-grid-table">
             <thead>
               <tr>
-                <th style={{ width: 44, background: "#1b3a8f", color: "#fff", padding: "6px 4px", position: "sticky", top: 0, zIndex: 3, fontSize: 11, textAlign: "center" }}>S.No</th>
+                <th className="si-th-dark si-th-sno">S.No</th>
                 {visCols.map(c => {
                   const base = GRID_COLUMNS.find(g => g.key === c.key);
                   return (
-                    <th key={c.key} style={{
-                      width: c.width, minWidth: c.width,
-                      background: base?.batchOnly ? "#1e4d8c" : "#1b3a8f",
-                      color: "#fff", padding: "6px 8px",
-                      position: "sticky", top: 0, zIndex: 3,
-                      fontSize: 11, fontWeight: 600,
-                      textAlign: RIGHT_KEYS.has(c.key) ? "right" : "left",
-                      whiteSpace: "nowrap",
-                    }}>
+                    <th
+                      key={c.key}
+                      className={`si-th-dark si-th-col ${base?.batchOnly ? "batch" : ""} ${RIGHT_KEYS.has(c.key) ? "si-th-right" : "si-th-left"}`}
+                      style={{ width: c.width, minWidth: c.width }}
+                    >
                       {c.label}
-                      {base?.batchOnly && <span style={{ fontSize: 8, display: "block", opacity: 0.7 }}>batch</span>}
+                      {base?.batchOnly && <span className="si-th-batch-label">batch</span>}
                     </th>
                   );
                 })}
-                <th style={{ width: 38, background: "#1b3a8f", color: "#fff", padding: "6px 4px", position: "sticky", top: 0, zIndex: 3 }} />
+                <th className="si-th-dark si-th-action" />
               </tr>
             </thead>
             <tbody>
               {rows.map((row, idx) => (
                 <tr key={row._rid}
                   onClick={() => setSelRid(row._rid)}
-                  style={{ background: selRid === row._rid ? "#a8c8f5" : idx % 2 === 0 ? "#fff" : "#fafbff", cursor: "pointer", borderBottom: "1px solid #eaecf4" }}>
-                  <td style={{ textAlign: "center", color: "#8b99b5", fontSize: 11, padding: "2px 4px" }}>{idx + 1}</td>
+                  className={`si-table-row ${selRid === row._rid ? "selected" : idx % 2 === 0 ? "even" : "odd"}`}>
+                  <td className="si-cell-sno">{idx + 1}</td>
 
                   {visCols.map(col => {
                     const m     = GRID_COLUMNS.find(c => c.key === col.key) || {};
@@ -1860,22 +1818,23 @@ const selectedPartyInfo = useMemo(() => {
                     const isRO  = !!m.readOnly;
                     const isNum = m.type === "float" || m.type === "int";
                     const isAmt = col.key === "Amount";
-                    const align = RIGHT_KEYS.has(col.key) ? "right" : "left";
+                    const align = RIGHT_KEYS.has(col.key) ? "si-td-right" : "si-td-left";
                     const cellId= `cell_${row._rid}_${col.key}`;
+                    const batchInvalid = col.key === "Bat_No" && row.BatchStatus === 1 && !row.Bat_No?.trim();
 
                     // ── BatchWise combo columns ──────────────────────────────
                     if (m.type === "combo" && m.batchOnly) {
                       return (
-                        <td key={col.key} style={{ padding: "1px 2px" }}>
+                        <td key={col.key} className="si-td">
                           {renderBatchCell(row, col, cellId)}
                         </td>
                       );
                     }
 
                     return (
-                      <td key={col.key} style={{ padding: "1px 2px", textAlign: align }}>
+                      <td key={col.key} className={`si-td ${align}`}>
                         {isRO ? (
-                          <span className="sb-cell-calc" style={{ display: "block", padding: "0 4px", color: isAmt ? "#1f65de" : undefined, fontWeight: isAmt ? 700 : undefined }}>
+                          <span className={`sb-cell-calc ${isAmt ? "si-cell-amt" : ""}`}>
                             {isNum && val ? f2(val).toFixed(2) : ns(val)}
                           </span>
                         ) : col.key === "ProductCode" ? (
@@ -1888,7 +1847,7 @@ const selectedPartyInfo = useMemo(() => {
                             onKeyDown={e => handleCellKeyDown(e, row._rid, col.key)}
                             onFocus={() => setSelRid(row._rid)}
                             placeholder="Code / Barcode"
-                            style={{ width: "100%", border: "1px solid #c5d8f8", borderRadius: 3, padding: "3px 6px", fontSize: 12, outline: "none", background: "transparent" }}
+                            className="si-grid-input"
                           />
                         ) : isNum ? (
                           <input
@@ -1901,15 +1860,7 @@ const selectedPartyInfo = useMemo(() => {
                             onKeyDown={e => handleCellKeyDown(e, row._rid, col.key)}
                             onFocus={() => setSelRid(row._rid)}
                             placeholder="0"
-                            style={{
-                              width: "100%", border: "1px solid #c5d8f8", borderRadius: 3,
-                              padding: "3px 6px", fontSize: 12, outline: "none",
-                              background: "transparent", textAlign: "right",
-                              // BatchStatus indicator: highlight Bat_No when needed
-                              ...(col.key === "Bat_No" && row.BatchStatus === 1 && !row.Bat_No?.trim()
-                                ? { borderColor: "#ef4444", background: "#fff7f7" }
-                                : {}),
-                            }}
+                            className={`si-grid-input si-grid-input-num ${batchInvalid ? "invalid" : ""}`}
                           />
                         ) : (
                           <input
@@ -1920,23 +1871,18 @@ const selectedPartyInfo = useMemo(() => {
                             onKeyDown={e => handleCellKeyDown(e, row._rid, col.key)}
                             onFocus={() => setSelRid(row._rid)}
                             placeholder={col.label}
-                            style={{
-                              width: "100%", border: "1px solid #c5d8f8", borderRadius: 3,
-                              padding: "3px 6px", fontSize: 12, outline: "none", background: "transparent",
-                              // Batch No required indicator
-                              ...(col.key === "Bat_No" && row.BatchStatus === 1 && !row.Bat_No?.trim()
-                                ? { borderColor: "#ef4444", background: "#fff7f7" }
-                                : {}),
-                            }}
+                            className={`si-grid-input ${batchInvalid ? "invalid" : ""}`}
                           />
                         )}
                       </td>
                     );
                   })}
 
-                  <td style={{ textAlign: "center", padding: "1px 2px" }}>
-                    <button onClick={e => { e.stopPropagation(); doDeleteRow(row._rid); }}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: 15, padding: "2px 4px", borderRadius: 3 }}>🗑</button>
+                  <td className="si-td-action">
+                    <button
+                      onClick={e => { e.stopPropagation(); doDeleteRow(row._rid); }}
+                      className="si-row-delete-btn"
+                    >🗑</button>
                   </td>
                 </tr>
               ))}
@@ -1944,43 +1890,44 @@ const selectedPartyInfo = useMemo(() => {
           </table>
         </div>
 
-        {/* ── BOTTOM TOTAL BAR ── */}
+
     {/* ── BOTTOM TOTAL BAR ── */}
-<div style={{ display: "flex", alignItems: "center", gap: 12, padding: "5px 14px", background: "#f0f7ff", borderTop: "1px solid #d0ddf5", flexShrink: 0, flexWrap: "wrap" }}>
+<div className="si-totalbar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "5px 14px", flexShrink: 0, flexWrap: "wrap" }}>
   {/* Remarks input */}
   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-    <label style={{ fontSize: 11, fontWeight: 700, color: "#4a5568", whiteSpace: "nowrap" }}>Remarks</label>
+    <label className="si-lbl" style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>Remarks</label>
     <input
-      style={{ height: 24, border: "1px solid #b8ccee", borderRadius: 3, padding: "0 6px", fontSize: 12, outline: "none", background: "#fff", color: "#1a2e4a", width: 200 }}
+      className="si-inp"
+      style={{ height: 24, borderRadius: 3, padding: "0 6px", fontSize: 12, outline: "none", width: 200 }}
       value={remarks}
       onChange={e => setRemarks(e.target.value.toUpperCase())}
       placeholder="Remarks..."
     />
   </div>
-  <div style={{ width: 1, height: 20, background: "#c8d8ee" }} />
-  <span style={{ fontSize: 11, color: "#4a5568", fontWeight: 600 }}>
-    Items: <strong style={{ color: "#1a2e4a" }}>{totalItems}</strong>
+  <div className="si-vdivider" style={{ width: 1, height: 20 }} />
+  <span className="si-cell-muted" style={{ fontSize: 11, fontWeight: 600 }}>
+    Items: <strong className="si-strong-primary">{totalItems}</strong>
   </span>
-  <span style={{ fontSize: 11, color: "#4a5568", fontWeight: 600 }}>
-    Total Qty: <strong style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3)}</strong>
+  <span className="si-cell-muted" style={{ fontSize: 11, fontWeight: 600 }}>
+    Total Qty: <strong className="si-strong-primary">{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3)}</strong>
   </span>
-  <span style={{ fontSize: 11, color: "#4a5568", fontWeight: 600 }}>
-    Total Amt: <strong style={{ fontSize: 14, color: "#16a34a" }}>₹{totalAmt.toFixed(2)}</strong>
+  <span className="si-cell-muted" style={{ fontSize: 11, fontWeight: 600 }}>
+    Total Amt: <strong className="si-strong-green" style={{ fontSize: 14 }}>₹{totalAmt.toFixed(2)}</strong>
   </span>
   {sess.Ecotech && (
-    <span style={{ fontSize: 11, color: "#4a5568", fontWeight: 600 }}>
-      Net Total: <strong style={{ fontSize: 14, color: "#1f65de" }}>₹{totAmtDisplay}</strong>
+    <span className="si-cell-muted" style={{ fontSize: 11, fontWeight: 600 }}>
+      Net Total: <strong className="si-strong-blue" style={{ fontSize: 14 }}>₹{totAmtDisplay}</strong>
     </span>
   )}
   {sess.BatchWiseStock && (
-    <span style={{ fontSize: 11, color: "#92400e", fontWeight: 600, background: "#fef3c7", padding: "2px 8px", borderRadius: 8 }}>
+    <span className="si-badge-warn" style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8 }}>
       🏷 Batch/Size active
     </span>
   )}
 </div>
 
         {/* ── TOOLBAR ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", background: "#fff", borderTop: "1px solid #d0ddf5", borderLeft: "4px solid #1f65de", flexShrink: 0, flexWrap: "wrap" }}>
+        <div className="si-toolbar" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", flexShrink: 0, flexWrap: "wrap" }}>
           <button className="si-btn sv" onClick={doSave} disabled={loading}>💾 F1 - Save</button>
           {mode === "inward" && sess.Ecotech && (
             <button className="si-btn" onClick={() => { const v = prompt("Enter PO No", ""); if (v) doPOEdit(0, v); }}>📋 F2 - PO Load</button>
@@ -1995,22 +1942,22 @@ const selectedPartyInfo = useMemo(() => {
             </button>
           )}
           <button className="si-btn dl" onClick={() => navigate(-1)}>✕ ESC - Exit</button>
-          {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
-          <span style={{ marginLeft: "auto", display: "flex", gap: 10, fontSize: 10.5, color: "#6b7a99" }}>
-            <span><kbd style={{ background: "#1f65de", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F1</kbd> Save</span>
-            <span><kbd style={{ background: "#1f65de", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F3</kbd> Edit</span>
-            <span><kbd style={{ background: "#1f65de", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F5</kbd> View</span>
-            <span><kbd style={{ background: "#6b7a99", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>Space</kbd> Product List</span>
+          {loading && <span className="si-cell-muted" style={{ fontSize: 11 }}>⏳ {ldMsg}</span>}
+          <span className="si-cell-muted" style={{ marginLeft: "auto", display: "flex", gap: 10, fontSize: 10.5 }}>
+            <span><kbd className="si-kbd" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F1</kbd> Save</span>
+            <span><kbd className="si-kbd" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F3</kbd> Edit</span>
+            <span><kbd className="si-kbd" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F5</kbd> View</span>
+            <span><kbd className="si-kbd muted" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>Space</kbd> Product List</span>
           </span>
         </div>
       </div>
 
       {/* ── LOADING OVERLAY ── */}
       {loading && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(10,20,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9000 }}>
-          <div style={{ background: "#fff", borderRadius: 8, padding: "22px 32px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, boxShadow: "0 16px 48px rgba(0,0,0,.25)" }}>
-            <div style={{ width: 32, height: 32, border: "4px solid #deeafb", borderTopColor: "#1f65de", borderRadius: "50%", animation: "si-spin .55s linear infinite" }} />
-            <div style={{ fontSize: 12, color: "#4a5568", fontWeight: 600 }}>{ldMsg}</div>
+        <div className="si-loading-overlay" style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9000 }}>
+          <div className="si-loading-box" style={{ borderRadius: 8, padding: "22px 32px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <div className="si-spinner" style={{ width: 32, height: 32, borderRadius: "50%", animation: "si-spin .55s linear infinite" }} />
+            <div className="si-loading-text" style={{ fontSize: 12, fontWeight: 600 }}>{ldMsg}</div>
           </div>
         </div>
       )}
@@ -2087,8 +2034,6 @@ const selectedPartyInfo = useMemo(() => {
       )}
 
       <CC.ToastList toasts={toasts} />
-
-      {/* ── GLOBAL STYLES ── */}
     </div>
   );
 }

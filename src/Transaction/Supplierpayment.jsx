@@ -432,78 +432,69 @@ function F5ViewWindow({ suppliers, comid, mcomid, onClose, onPrintView, loading,
   useEffect(() => { doView(); }, []); // eslint-disable-line
 
   return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.5)",
-      zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center" }}>
-      <div style={{ background:"#fff",borderRadius:8,width:"88vw",maxHeight:"88vh",
-        display:"flex",flexDirection:"column",boxShadow:"0 16px 48px rgba(0,0,0,.3)" }}>
-        {/* header */}
-        <div style={{ background:"#1a2e4a",color:"#fff",padding:"10px 16px",fontSize:13,
-          fontWeight:700,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
+    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="mp-modal-box sb-f5-modal f5-modal-box">
+        <div className="mp-modal-hdr">
           <span>📋 Supplier Payment — F5 View</span>
-          <button style={{ background:"none",border:"none",color:"#fff",fontSize:17,cursor:"pointer" }} onClick={onClose}>✕</button>
+          <button onClick={onClose}>✕</button>
         </div>
-        {/* filter bar */}
-        <div style={{ padding:"8px 14px",display:"flex",gap:12,alignItems:"center",
-          flexWrap:"wrap",background:"#f8fafc",borderBottom:"1px solid #e5e7eb",flexShrink:0 }}>
-          <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>From</label>
-          <input type="date" className="mp-cell-input"
-            value={fromDate} onChange={e => setFromDate(e.target.value)}
-            style={{ height:28,width:140,border:"1px solid #93c5fd",borderRadius:4 }} />
-          <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>To</label>
-          <input type="date" className="mp-cell-input"
-            value={toDate} onChange={e => setToDate(e.target.value)}
-            style={{ height:28,width:140,border:"1px solid #93c5fd",borderRadius:4 }} />
-          <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>Supplier</label>
-          <input readOnly className="mp-cell-input"
+        <div className="f5-filter-bar f5-filter-bar-quote">
+          <label className="f5-filter-label">From</label>
+          <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={fromDate} onChange={e => setFromDate(e.target.value)} />
+          <label className="f5-filter-label">To</label>
+          <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={toDate} onChange={e => setToDate(e.target.value)} />
+          <label className="f5-filter-label">Supplier</label>
+          <input readOnly className="f5-filter-date f5-filter-date-quote f5-supplier-input"
             value={suppName} placeholder="All Suppliers"
-            onClick={() => setShowSuppPop(true)}
-            style={{ height:28,width:180,cursor:"pointer",border:"1px solid #93c5fd",borderRadius:4,background:"#f8fafc" }} />
+            onClick={() => setShowSuppPop(true)} />
           {suppName && (
-            <button className="mp-del-btn" style={{ fontSize:11,padding:"2px 7px" }}
+            <button className="f5-supplier-clear"
               onClick={() => { setSuppId(0); setSuppName(""); }}>✕</button>
           )}
-          <button className="mp-btn sv" onClick={doView} disabled={loading} style={{ marginLeft:4 }}>🔍 View</button>
-          <span style={{ marginLeft:"auto",fontSize:12,fontWeight:700,color:"#1a2e4a" }}>
-            Total: <span style={{ color:"#15803d" }}>{total}</span>
-          </span>
+          <button className="mp-btn sv f5-search-btn" onClick={doView} disabled={loading}>🔍 Search</button>
+          <span className="f5-total">Total : ₹{total}</span>
         </div>
-        {/* grid */}
-        <div style={{ flex:1,overflowY:"auto" }}>
-          <table className="mp-tbl" style={{ tableLayout:"fixed",width:"100%" }}>
+        <div className="mp-modal-body f5-modal-body">
+          <table className="f5-table">
             <thead>
-              <tr>
-                <th style={{ width:44 }}>S.No</th>
-                <th style={{ width:80 }}>Date</th>
-                <th>Supplier Name</th>
-                <th style={{ width:90,textAlign:"right" }}>Cash</th>
-                <th style={{ width:90,textAlign:"right" }}>RTGS</th>
-                <th style={{ width:90,textAlign:"right" }}>Cheque</th>
-                <th style={{ width:90,textAlign:"right" }}>Discount</th>
-                <th style={{ width:100,textAlign:"right" }}>Amount</th>
+              <tr className="f5-header-row">
+                <th className="f5-th f5-th-sno">S.No</th>
+                <th className="f5-th">Date</th>
+                <th className="f5-th">Supplier Name</th>
+                <th className="f5-th f5-th-amount">Cash</th>
+                <th className="f5-th f5-th-amount">RTGS</th>
+                <th className="f5-th f5-th-amount">Cheque</th>
+                <th className="f5-th f5-th-amount">Discount</th>
+                <th className="f5-th f5-th-amount">Amount</th>
               </tr>
             </thead>
             <tbody>
+              {rows.length === 0 && !loading && (
+                <tr><td colSpan={8} className="f5-empty-row">No records found.</td></tr>
+              )}
               {rows.map((r, i) => (
-                <tr key={i} className={selIdx === i ? "sel" : ""} onClick={() => setSelIdx(i)}>
-                  <td className="sno">{i + 1}</td>
-                  <td>{r.PaymentDate ? String(r.PaymentDate).slice(0,10) : ""}</td>
-                  <td>{r.SupplierName}</td>
-                  <td style={{ textAlign:"right" }}>{fmt2(r.CashAmount)}</td>
-                  <td style={{ textAlign:"right" }}>{fmt2(r.RTGSAmt)}</td>
-                  <td style={{ textAlign:"right" }}>{fmt2(r.ChequeAmount)}</td>
-                  <td style={{ textAlign:"right" }}>{fmt2(r.DiscountAmount)}</td>
-                  <td style={{ textAlign:"right",fontWeight:600 }}>{fmt2(r.Amount)}</td>
+                <tr
+                  key={i}
+                  className={selIdx === i ? "f5-row-selected" : (i % 2 === 0 ? "f5-row-even" : "f5-row-odd-quote")}
+                  onClick={() => setSelIdx(i)}
+                >
+                  <td className="f5-td f5-td-sno">{i + 1}</td>
+                  <td className="f5-td">{r.PaymentDate ? String(r.PaymentDate).slice(0, 10) : ""}</td>
+                  <td className="f5-td">{r.SupplierName}</td>
+                  <td className="f5-td-amount">{fmt2(r.CashAmount)}</td>
+                  <td className="f5-td-amount">{fmt2(r.RTGSAmt)}</td>
+                  <td className="f5-td-amount">{fmt2(r.ChequeAmount)}</td>
+                  <td className="f5-td-amount">{fmt2(r.DiscountAmount)}</td>
+                  <td className="f5-td-amount f5-td-strong">{fmt2(r.Amount)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {rows.length === 0 && !loading && <div className="mp-empty">No records found.</div>}
         </div>
-        {/* footer */}
-        <div style={{ padding:"8px 14px",display:"flex",justifyContent:"space-between",
-          alignItems:"center",borderTop:"1px solid #e5e7eb",flexShrink:0 }}>
-          <span style={{ fontSize:11,color:"#94a3b8" }}>Ctrl+V on selected row → Print/View</span>
-          <button className="mp-btn dl" onClick={onClose}>Close</button>
+        <div className="mp-modal-ftr">
+          <button className="mp-btn" onClick={onClose}>Close</button>
         </div>
       </div>
       {/* Supplier popup inside F5 window */}

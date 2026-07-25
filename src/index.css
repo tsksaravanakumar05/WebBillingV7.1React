@@ -122,7 +122,7 @@
   /* ── Brand blues ── */
   --blue:        #1f65de;
   --blue-dark:   #1b3a8f;   /* was #14fc0c (green) — fixed, this now matches the gradient's dark stop */
-  --blue-light:  #4d8eff;
+  --blue-light:  #3b6fe0;
   --blue-pale:   #eaf0fd;
   --blue-glow:   rgba(31, 101, 222, 0.18);
   --blue-hover:  #1750b0;   /* primary button/link hover */
@@ -198,6 +198,32 @@
   --font-family:     'DM Sans', sans-serif;   /* body / UI text */
   --font-heading:    'Playfair Display', serif; /* headings only */
 
+  /* ── Stock Inward module — supplemental colors ──
+       These extend (not replace) the existing palette above; needed because
+       Stockinward.jsx used a handful of one-off colors not previously
+       captured as variables. ── */
+  --clr-si-border-soft:         #d0ddf5;
+  --clr-si-input-border:        #b8ccee;
+  --clr-si-input-border-light:  #d4dbe8;
+  --clr-si-border-mid:          #c8d8ee;
+  --clr-si-border-light:        #e2e8f0;
+  --clr-si-divider-soft:        #edf0f7;
+  --clr-si-invalid-bg:          #fff7f7;
+  --clr-si-invalid-border:      #ef4444;
+  --clr-si-warn-bg2:            #fef3c7;
+  --clr-si-amber:               #f59e0b;
+  --clr-si-amber-text:          #92400e;
+  --clr-si-danger-border-light: #fecaca;
+  --clr-si-row-stripe-alt:      #f8fafc;
+  --clr-si-header-bg:           #f5f8fd;
+  --clr-si-edit-btn-bg:         #e8f0fe;
+  --clr-si-info-border:         #dde9f8;
+  --clr-si-purple:              #8b5cf6;
+  --clr-si-th-batch-bg:         #1e4d8c;
+  --clr-si-shadow-blue-strong:  rgba(31, 101, 222, 0.22);
+  --clr-si-shadow-blue-md:      rgba(31, 101, 222, 0.20);
+  --clr-si-white-75:            rgba(255, 255, 255, 0.75);
+
   /* Marketing / login scale */
   --font-size-base:  1.4rem;   /* 14px — default body/paragraph/input */
   --font-size-sm:    1.1rem;   /* 11px — small text, sub-labels */
@@ -206,6 +232,7 @@
   --font-size-xl:    2rem;     /* 20px — icons, report titles */
   --font-size-xxl:   2.8rem;   /* 28px — large headings */
   --font-size-xxxl:  3rem;     /* 30px — hero-level headings */
+  --font-weight-bold: 600;
 
   /* Dense admin-UI scale (extra steps not covered above) */
   --font-size-9-5:   0.95rem;  /* 9.5px — kbd tags */
@@ -217,6 +244,7 @@
   --font-size-13-5:  1.35rem;  /* 13.5px — bm- cell inputs, buttons */
   --font-size-16:    1.6rem;   /* 16px — mp-icon, picker close */
   --font-size-18:    1.8rem;   /* 18px — toolbar title */
+  
 }
 
 html {

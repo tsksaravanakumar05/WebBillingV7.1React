@@ -577,7 +577,7 @@
    .view-grid { width: 100%; border-collapse: collapse; font-size: 12px; }
    .view-grid thead tr   { position: sticky; top: 0; z-index: 5; }
    .view-grid thead th {
-     background: var(--pr-blue-navy) !important;
+     background: var(--blue-light) !important;
      color: #fff;
      font-weight: 700;
      font-size: 11px;

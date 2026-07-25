@@ -57,7 +57,7 @@ import PattyPurchaseView from "./Transaction/PattyPurchaseView";
 
 
 
-// import PhysicalStock from "./Transaction/PhysicalStock";
+import PhysicalStock from "./Transaction/PhysicalStock";
 import Cashvoucher from "./Transaction/Cashvoucher";
 import Bankvoucher from "./Transaction/Bankvoucher";
 import Qutation from "./Transaction/Qutation.jsx";
@@ -225,7 +225,7 @@ function App() {
         <Route path="/Bank" element={<Bankvoucher />} />
         <Route path="/Quotation" element={<Qutation />} />
         <Route path="/SaleOrder" element={<SaleOrder />} />
-        
+        <Route path="/PhysicalStock" element={<PhysicalStock />} />
         <Route path="/Purchaseorder" element={<Purchaseorder />} />
         <Route path="/StockAdjustment" element={<StockAdjustment />} />
         {/* Reports */}
