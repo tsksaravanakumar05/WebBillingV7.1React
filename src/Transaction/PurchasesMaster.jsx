@@ -501,7 +501,7 @@ export default function Purchase() {
   // (mirrors "PattyStatus == 2" i.e. rdbpatti or rdbsalespatty checked in the .cs).
   const pattyMode = purchaseMode === "PATTY" || purchaseMode === "SALESPATTY";
   const modeLabels = MODE_LABELS[purchaseMode];
-const [pattyFeatureEnabled, setPattyFeatureEnabled] = useState(true);
+const [pattyFeatureEnabled, setPattyFeatureEnabled] = useState(false);
   // Arrival-only fields (mirror txtdays / dtpdispatchedDate in the .cs)
   const [arrivalDays,    setArrivalDays   ] = useState(0);
   const [dispatchedDate, setDispatchedDate] = useState(today());
@@ -794,7 +794,7 @@ useEffect(() => {
   const mainSet = JSON.parse(localStorage.getItem("Mainsetting") || "[{}]");
   const val = mainSet?.[0]?.PattyStatus;
   const enabled = val === true || val === "true" || val === 1 || val === "1";
-  setPattyFeatureEnabled("true");
+  setPattyFeatureEnabled(enabled);
   if (!enabled) setPurchaseMode("PURCHASE");
 }, [isAuthorized]);
   // ─────────────────────────────────────────────────────────────────────────

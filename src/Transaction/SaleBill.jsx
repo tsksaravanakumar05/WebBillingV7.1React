@@ -3113,10 +3113,183 @@ const openReportViewer = useCallback((
     return res;
   }, [billPrintRows, buildBillPrintHeaderDetails, redirectIfDualLogin, sess.Comid, sess.CustomerNameTamil, tamilMode, toast]);
 
+  const buildBillPrintCachePayload = useCallback((source, whatsAppApi = 0) => {
+    const sourceRows =
+      (Array.isArray(source?.Data1) && source.Data1) ||
+      (Array.isArray(source?.data) && source.data) ||
+      [];
+
+    if (sourceRows.length === 0) return null;
+
+    const allDetails = sourceRows.flatMap(row => Array.isArray(row?.SaleDetails) ? row.SaleDetails : []);
+    const firstBill = sourceRows[0] || {};
+    const firstMaster = firstBill?.SaleMaster1 || {};
+    const printDetails = buildBillPrintHeaderDetails(whatsAppApi);
+    const selectedIds = billPrintRows
+      .filter(row => row._checked)
+      .map(row => ({ Id: row.Id }));
+
+    const gstSummary = [];
+    const taxMap = new Map();
+    allDetails.forEach(detail => {
+      const rate = Number(detail?.TaxPercent || 0);
+      const key = String(rate);
+      const current = taxMap.get(key) || { rate, assValue: 0, sgst: 0, cgst: 0 };
+      current.assValue += Number(detail?.ItemQty || 0) * Number(detail?.Landingcost || 0);
+      current.sgst += Number(detail?.STAmount || 0);
+      current.cgst += Number(detail?.CTAmount || 0);
+      taxMap.set(key, current);
+    });
+    Array.from(taxMap.values())
+      .sort((a, b) => a.rate - b.rate)
+      .forEach(item => {
+        const gst = `${item.rate}%`;
+        gstSummary.push({ GST: gst, Desription: "Ass.Value", GSTvalue: item.assValue });
+        gstSummary.push({ GST: gst, Desription: "SGST", GSTvalue: item.sgst });
+        gstSummary.push({ GST: gst, Desription: "CGST", GSTvalue: item.cgst });
+      });
+
+    const reportData = sourceRows.flatMap(bill => {
+      const master = bill?.SaleMaster1 || {};
+      const details = Array.isArray(bill?.SaleDetails) ? bill.SaleDetails : [];
+      if (details.length === 0) {
+        return [{
+          Id: bill?.Id || 0,
+          SaleNoDisplay: bill?.SaleNoDisplay || "",
+          SaleDate: bill?.SaleDate || "",
+          SupplyDate: bill?.SupplyDate || bill?.SaleDate || "",
+          CustomerName: bill?.CustomerName || "",
+          CustomerNameTamil: bill?.CustomerNameTamil || "",
+          Address1: bill?.Address1 || "",
+          Address2: bill?.Address2 || "",
+          City: bill?.City || "",
+          PhoneNo: bill?.PhoneNo || "",
+          MobileNo: bill?.MobileNo || "",
+          TinNo: bill?.TinNo || "",
+          IGSTBill: bill?.IGSTBill || "GST",
+          CashierName: bill?.CashierName || "",
+          SaleType: bill?.SaleType || "",
+          Grossamt: Number(bill?.Grossamt || 0),
+          discamount: Number(bill?.discamount || 0),
+          taxamount: Number(bill?.taxamount || 0),
+          NetAmount: Number(bill?.NetAmount || 0),
+          coinage: Number(bill?.coinage || 0),
+          Remarks: bill?.Remarks || "",
+          OpeningBalance: Number(master?.OpeningBalance || 0),
+          BillAmount: Number(master?.BillAmount || 0),
+          PaidAmount: Number(master?.PaidAmount || 0),
+          ClosingBalance: Number(master?.ClosingBalance || 0),
+        }];
+      }
+
+      return details.map(detail => ({
+        Id: bill?.Id || 0,
+        SaleNoDisplay: bill?.SaleNoDisplay || "",
+        SaleDate: bill?.SaleDate || "",
+        SupplyDate: bill?.SupplyDate || bill?.SaleDate || "",
+        CustomerName: bill?.CustomerName || "",
+        CustomerNameTamil: bill?.CustomerNameTamil || "",
+        Address1: bill?.Address1 || "",
+        Address2: bill?.Address2 || "",
+        City: bill?.City || "",
+        PhoneNo: bill?.PhoneNo || "",
+        MobileNo: bill?.MobileNo || "",
+        TinNo: bill?.TinNo || "",
+        IGSTBill: bill?.IGSTBill || "GST",
+        CashierName: bill?.CashierName || "",
+        SaleType: bill?.SaleType || "",
+        Grossamt: Number(bill?.Grossamt || 0),
+        discamount: Number(bill?.discamount || 0),
+        taxamount: Number(bill?.taxamount || 0),
+        NetAmount: Number(bill?.NetAmount || 0),
+        NetAmt: Number(bill?.NetAmount || 0),
+        Amt: Number(bill?.NetAmount || 0),
+        coinage: Number(bill?.coinage || 0),
+        Remarks: bill?.Remarks || "",
+        OpeningBalance: Number(master?.OpeningBalance || 0),
+        BillAmount: Number(master?.BillAmount || 0),
+        PaidAmount: Number(master?.PaidAmount || 0),
+        ClosingBalance: Number(master?.ClosingBalance || 0),
+        ProductCode: detail?.ProductCode || "",
+        ProductName: detail?.ProductName || "",
+        HSNcode: detail?.HSNcode || "",
+        UOM: detail?.UOM || "",
+        Bat_No: detail?.Bat_No || "",
+        ItemQty: Number(detail?.ItemQty || 0),
+        FreeQty: Number(detail?.FreeQty || 0),
+        SaleRate: Number(detail?.SaleRate || 0),
+        MRP: Number(detail?.MRP || 0),
+        Landingcost: Number(detail?.Landingcost || 0),
+        DiscountPercent: Number(detail?.DiscountPercent || 0),
+        DiscountAmt: Number(detail?.DiscountAmt || 0),
+        TaxPercent: Number(detail?.TaxPercent || 0),
+        TaxAmt: Number(detail?.TaxAmt || 0),
+        CTAmount: Number(detail?.CTAmount || 0),
+        STAmount: Number(detail?.STAmount || 0),
+        CESSPer: Number(detail?.CESSPer || 0),
+        CESSAmount: Number(detail?.CESSAmount || 0),
+        SPLCESS: Number(detail?.SPLCESS || 0),
+        SPLCESSAmount: Number(detail?.SPLCESSAmount || 0),
+        IGSTAmt: Number(detail?.IGSTAmt || 0),
+        Pcs: Number(detail?.Pcs || 0),
+        RemarksDetail: detail?.Remarks || "",
+      }));
+    });
+
+    return {
+      Params: {
+        IdList: selectedIds,
+        Reprint: 1,
+        AmountDetails: 0,
+        Tamil: !!tamilMode,
+        CustomerTamil: !!sess.CustomerNameTamil,
+        Comid: parseInt(sess.Comid, 10) || 0,
+      },
+      ReportData: reportData,
+      ReportSubData: gstSummary,
+      IGSTBill: String(firstBill?.IGSTBill || "").toUpperCase() === "IGST" ? 1 : 0,
+      IGSTBillNew: String(firstBill?.IGSTBill || "").toUpperCase() === "IGST" ? 1 : 0,
+      NetAmtWord: "",
+      TaxAmtWord: "",
+      BillNo: sourceRows.map(row => row?.SaleNoDisplay || row?.SaleNo || "").filter(Boolean).join(","),
+      TransportHSN: firstMaster?.TransportHSN || "",
+      TransportAmt: Number(firstMaster?.TransportAmount || 0),
+      BillFormat: printDetails?.BillFormatName || sess.BillFormatName || "",
+      PrintDetails: printDetails,
+    };
+  }, [billPrintRows, buildBillPrintHeaderDetails, sess.BillFormatName, sess.Comid, sess.CustomerNameTamil, tamilMode]);
+
+  const storeBillPrintCache = useCallback(async (source, whatsAppApi = 0) => {
+    const cachePayload = buildBillPrintCachePayload(source, whatsAppApi);
+    if (!cachePayload) {
+      toast("❌ Bill print data arrange failed", true);
+      return null;
+    }
+
+    const res = await CC.insertapi(
+      CC.SalePrintCacheUrl,
+      cachePayload,
+      { Comid: String(sess.Comid) }
+    );
+    if (redirectIfDualLogin(res)) return null;
+    if (!(res.ok ?? res.IsSuccess)) {
+      toast("❌ " + (res.message || res.Message || "Cache store failed"), true);
+      return null;
+    }
+    return res;
+  }, [buildBillPrintCachePayload, redirectIfDualLogin, sess.Comid, toast]);
+
   const handleBillPrint = useCallback(async () => {
     const res = await runBillPrintAction(0);
     if (!res) return;
-    const cacheKey = res.Data15 || res.CacheKey || res.data15 || "";
+
+    const cacheRes = await storeBillPrintCache(res, 0);
+    if (!cacheRes) {
+      toast("❌ CacheKey not returned for print", true);
+      return;
+    }
+
+    const cacheKey = cacheRes.Data15 || cacheRes.CacheKey || cacheRes.data15 || "";
     if (!cacheKey) {
       toast("❌ CacheKey not returned for print", true);
       return;
@@ -3127,7 +3300,7 @@ const openReportViewer = useCallback((
       openReportViewer(true, copy, cacheKey);
       await new Promise(resolve => setTimeout(resolve, 450));
     }
-  }, [openReportViewer, runBillPrintAction, sess.No_Of_Bills, toast]);
+  }, [openReportViewer, runBillPrintAction, sess.No_Of_Bills, storeBillPrintCache, toast]);
 
   const handleBillWhatsApp = useCallback(async () => {
     const res = await runBillPrintAction(1);
