@@ -464,7 +464,7 @@
    .gst-table tbody td {
      padding: 2px 8px;
      border-bottom: 1px solid var(--pr-border);
-     font-family: var();
+     font-family: var(--pr-font);
      font-size: 11px;
      text-align: right;
      font-weight: 600;
