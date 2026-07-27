@@ -668,7 +668,7 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
         <div className="mp-modal-hdr"><span>⚙ Sale Order Grid Column Settings (F12)</span><button onClick={onClose}>✕</button></div>
         <div className="mp-modal-body" style={{ overflowY: "auto" }}>
           <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
-            <thead><tr>{["Column", "Visible", "Width (px)"].map(h => <th key={h} style={{ color: "#fff", padding: "6px 10px", background: "#1a2e4a", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Column", "Visible", "Width (px)"].map(h => <th key={h} style={{ color: "#fff", padding: "6px 10px",  background: "var(--pr-blue-navy)", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>)}</tr></thead>
             <tbody>
               {local.map((c, i) => (
                 <tr key={c.key} style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}>

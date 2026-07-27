@@ -12,7 +12,7 @@ import "../TransactionStyle/SaleBill.css";
 import "../Master/MasterPage.css";
 import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";
-
+import   DateFieldDDMMYYYY from "../Commondatetime";
 // ─── EXTRACTED GLOBALS FROM Common.jsx ───────────────────────────────────────
 // (Aliases removed - using CC.* directly)
 
@@ -688,7 +688,7 @@ const handleSave = async () => {
               <tr>
                 {["Column", "Visible", "Width (px)"].map(h => (
                   <th key={h} style={{
-                    background: "#1a2e4a", color: "#fff",
+                    background: "var(--pr-blue-navy)", color: "#fff",
                     padding: "6px 10px", textAlign: "left", fontWeight: 600,
                     position: "sticky", top: 0, zIndex: 2,
                   }}>{h}</th>
@@ -957,10 +957,27 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
           <button onClick={onClose}>✕</button>
         </div>
         <div className="f5-filter-bar">
-          <label className="f5-filter-label">From</label>
+          {/* <label className="f5-filter-label">From</label>
           <input type="date" className="f5-filter-date" value={from} onChange={e => setFrom(e.target.value)} />
           <label className="f5-filter-label">To</label>
-          <input type="date" className="f5-filter-date" value={to} onChange={e => setTo(e.target.value)} />
+          <input type="date" className="f5-filter-date" value={to} onChange={e => setTo(e.target.value)} /> */}
+
+<label className="f5-filter-label">From</label>
+<DateFieldDDMMYYYY
+  id="f5from"
+  className="f5-filter-date"
+  value={from}
+  onChange={setFrom}
+  disabled={false}
+/>
+<label className="f5-filter-label">To</label>
+<DateFieldDDMMYYYY
+  id="f5to"
+  className="f5-filter-date"
+  value={to}
+  onChange={setTo}
+  disabled={false}
+/>
           <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
           <span className="f5-total">Total Amt : {CC.f2(totalAmt).toFixed(2)}</span>
         </div>
@@ -3924,7 +3941,12 @@ onView={() => {
             <div className="sb-bill-row"><label>Bill No</label><span>{billNo || "—"}</span></div>
             <div className="sb-bill-row">
               <label>Bill Date</label>
-              <input type="date" className="sb-date-input" value={billDate} onChange={e => setBillDate(e.target.value)} />
+              <DateFieldDDMMYYYY
+    id="billDate"
+    value={billDate}
+    onChange={setBillDate}
+    disabled={false}
+  />
             </div>
             {editId > 0 && <div style={{ fontSize: 10, color: "#16a34a", fontWeight: 700 }}>✏️ EDIT MODE</div>}
           </div>

@@ -31,6 +31,7 @@ import Topbar from "../components/Topbar";
 import * as CC  from "../components/Common";
 import * as CC1 from "../components/Common";
 import * as MSG from "../components/Messages";
+import   DateFieldDDMMYYYY from "../Commondatetime";
 
 
 // ── Grid Combo Popup ─────────────────────────────────────────────────────────
@@ -357,8 +358,8 @@ const BATCH_ID_KEYS = new Set(["BrandId", "ModelId", "ColorId", "SizeId"]);
 // useCallback dependency arrays that referenced it indirectly via loadFocusFormColumns.
 const FORM_COLUMNS = [
   { column: "dtppurchasedate", text: "PurchaseDate" },
-  { column: "cmbpurchaseType", text: "PurchaseType" },
   { column: "dtpduedate",      text: "DueDate"      },
+  { column: "cmbpurchaseType", text: "PurchaseType" },
   { column: "cmbsupplier",     text: "Supplier"     },
   { column: "txtinvoiceno",    text: "InvoiceNo"    },
   { column: "dtpinvoicedate",  text: "InvoiceDate"  },
@@ -794,8 +795,8 @@ useEffect(() => {
   const mainSet = JSON.parse(localStorage.getItem("Mainsetting") || "[{}]");
   const val = mainSet?.[0]?.PattyStatus;
   const enabled = val === true || val === "true" || val === 1 || val === "1";
-  setPattyFeatureEnabled("true");
-  if (!enabled) setPurchaseMode("PURCHASE");
+  setPattyFeatureEnabled("false");
+  if (!!enabled) setPurchaseMode("PURCHASE");
 }, [isAuthorized]);
   // ─────────────────────────────────────────────────────────────────────────
   //  GST SPLIT + TOTALS
@@ -994,6 +995,8 @@ useEffect(() => {
       Focus:    true,
       Comid:    sess.MComid,
     }));
+    console.log("🔵 [loadFocusFormColumns] default draft:", draft.map(d => `${d.column}(Focus:${d.Focus})`));
+  
     try {
       const url = CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=PurchaseFormFocus`;
       const res = await fetch(url, {
@@ -1003,6 +1006,7 @@ useEffect(() => {
       });
       if (res.ok) {
         const saved = await res.json();
+        console.log("🟡 [loadFocusFormColumns] backend saved data:", saved);
         if (Array.isArray(saved) && saved.length > 0) {
           saved.forEach((s) => {
             const idx = draft.findIndex((d) => d.column === s.column);
@@ -1013,8 +1017,13 @@ useEffect(() => {
           });
           draft.sort((a, b) => a.Index - b.Index);
         }
+      } else {
+        console.log("🔴 [loadFocusFormColumns] fetch not ok, status:", res.status);
       }
-    } catch { /* first use — keep defaults */ }
+    } catch (err) {
+      console.log("🔴 [loadFocusFormColumns] fetch failed / first use:", err);
+    }
+    console.log("🟢 [loadFocusFormColumns] FINAL draft after merge:", draft.map(d => `${d.column}(Focus:${d.Focus}, Index:${d.Index})`));
     setFocusFormColDraft(draft);
   }, [sess.MComid, sess.Comid]);
   // FIX 2: correct useCallback deps — was wrongly copy-pasted from useEffect
@@ -1067,9 +1076,12 @@ useEffect(() => {
   }, []);
 
   // Runtime focus-enabled form columns (mirrors jQuery focusformcolumns[])
-  const focusformcolumns = focusFormColDraft
-    .filter((d) => d.Focus)
-    .map((d) => ({ column: d.column, focus: 1 }));
+  const focusformcolumns = FORM_COLUMNS
+  .filter((c) => {
+    const d = focusFormColDraft.find((x) => x.column === c.column);
+    return d ? d.Focus : true;   // backend/draft-ல off பண்ணி இருந்தா மட்டும் skip
+  })
+  .map((c) => ({ column: c.column, focus: 1 }));
 
   const orderedGridColumns = React.useMemo(() => {
     if (!focusColDraft || focusColDraft.length === 0) return BASE_COLUMNS;
@@ -1096,38 +1108,52 @@ useEffect(() => {
         }, 50);
       }
     };
-
-    let next;
+  
+    const isFocusEnabled = (col) => {
+      const d = focusFormColDraft.find((x) => x.column === col);
+      return d ? d.Focus : true;
+    };
+  
+    let startIdx;
     if (!currentColumn) {
-      if (focusformcolumns.length === 0) return;
-      next = focusformcolumns[0];
+      startIdx = -1; // start from the beginning
     } else {
-      const idx = focusformcolumns.findIndex((f) => f.column === currentColumn);
-      if (idx === -1) return;
-      if (idx === focusformcolumns.length - 1) {
-        jumpToGrid();
-        return;
-      }
-      next = focusformcolumns[idx + 1];
+      // Look up currentColumn's position in the FULL FORM_COLUMNS list,
+      // not the Focus-filtered one — the current field's own Focus flag
+      // must not block us from finding what comes after it.
+      startIdx = FORM_COLUMNS.findIndex((c) => c.column === currentColumn);
+      if (startIdx === -1) return; // truly doesn't exist
     }
-
-    if (!next) return;
-
+  
+    // Walk forward through FORM_COLUMNS and find the next Focus-enabled column
+    let nextCol = null;
+    for (let i = startIdx + 1; i < FORM_COLUMNS.length; i++) {
+      if (isFocusEnabled(FORM_COLUMNS[i].column)) {
+        nextCol = FORM_COLUMNS[i].column;
+        break;
+      }
+    }
+  
+    if (!nextCol) {
+      jumpToGrid();
+      return;
+    }
+  
     const focusMap = {
-      dtppurchasedate: () => purchaseDateRef.current?.focus(),
+      dtppurchasedate: () => document.getElementById("dtppurchasedate")?.focus(),
       cmbpurchaseType: () => purchaseTypeRef.current?.focus(),
-      dtpduedate:      () => dueDateRef.current?.focus(),
+      dtpduedate:      () => document.getElementById("dtpduedate")?.focus(),
       cmbsupplier:     () => supplierRef.current?.focus(),
       txtinvoiceno:    () => invoiceNoRef.current?.focus(),
-      dtpinvoicedate:  () => invoiceDateRef.current?.focus(),
+      dtpinvoicedate:  () => document.getElementById("dtpinvoicedate")?.focus(),  // if you convert invoice date too
       txtinvoiceamt:   () => invoiceAmtRef.current?.focus(),
       gridpurchase:    jumpToGrid,
       txtotherplus:    () => otherPlusRef.current?.focus(),
       txtothersub:     () => otherSubRef.current?.focus(),
       txtremarks:      () => remarksRef.current?.focus(),
     };
-    focusMap[next.column]?.();
-  }, [focusformcolumns, gridRows, orderedGridColumns]);
+    focusMap[nextCol]?.();
+  }, [focusFormColDraft, gridRows, orderedGridColumns]);
 
   useEffect(() => {
     if (!initialFocusDone.current && focusformcolumns.length > 0) {
@@ -2982,126 +3008,7 @@ if (savedArrivalType) {
       )}
 
       {/* ── F5 List View ── */}
-      {/* {listViewOpen && (
-        <div className="popup-overlay">
-          <div className="popup-window f5-popup" style={{ width: 980, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
-            <div className="popup-header">
-              <span>Purchase List View (F5)</span>
-              <button className="popup-close" onClick={() => { setListViewOpen(false); setF5MasterList([]); setF5DetailList([]); setF5SupplierId(""); setFromDate(today()); setToDate(today()); }}>✕</button>
-            </div>
-            <div style={{ padding: "12px", borderBottom: "1px solid var(--clr-border-default)", background: "var(--clr-bg-soft)" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "90px 140px 80px 140px 180px", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
-                <label>From Date</label>
-                <input type="date" className="form-ctrl" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                <label>To Date</label>
-                <input type="date" className="form-ctrl" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-                <div style={{ position: "relative", width: "100%" }}>
-                  <input type="text" className="form-ctrl" placeholder="Select Supplier Name"
-                    value={f5SupplierOpen ? f5SupplierSearch : (supplierList.find(s => String(s.Id) === String(f5SupplierId))?.AccountName || "")}
-                    onChange={(e) => { setF5SupplierSearch(e.target.value); setF5SupplierOpen(true); setF5SupplierHi(0); if (e.target.value.trim() === "") setF5SupplierId(""); }}
-                    onFocus={() => { setF5SupplierSearch(""); setF5SupplierOpen(true); setF5SupplierHi(0); }}
-                    onBlur={() => setTimeout(() => setF5SupplierOpen(false), 200)}
-                    onKeyDown={(e) => {
-                      const filtered = supplierList.filter(s => !f5SupplierSearch || s.AccountName.toLowerCase().includes(f5SupplierSearch.trim().toLowerCase()));
-                      if (e.key === "ArrowDown") { e.preventDefault(); setF5SupplierHi(prev => Math.min(prev + 1, Math.max(0, filtered.length - 1))); }
-                      if (e.key === "ArrowUp")   { e.preventDefault(); setF5SupplierHi(prev => Math.max(prev - 1, 0)); }
-                      if (e.key === "Enter") { e.preventDefault(); if (filtered[f5SupplierHi]) { setF5SupplierId(String(filtered[f5SupplierHi].Id)); setF5SupplierSearch(filtered[f5SupplierHi].AccountName); setF5SupplierOpen(false); } }
-                      if (e.key === "Escape") setF5SupplierOpen(false);
-                    }}
-                  />
-                  {f5SupplierOpen && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, width: "100%", maxHeight: 200, overflowY: "auto", background: "var(--clr-bg-white)", border: "1px solid var(--clr-border-default)", borderRadius: 3, zIndex: 9999, boxShadow: "0 4px 6px var(--clr-shadow-light)" }}>
-                      {supplierList.filter(s => !f5SupplierSearch || s.AccountName.toLowerCase().includes(f5SupplierSearch.trim().toLowerCase())).map((s, idx) => (
-                        <div key={s.Id} style={{ padding: "6px 8px", fontSize: 13, cursor: "pointer", background: idx === f5SupplierHi ? "var(--clr-bg-row-hover)" : "transparent", color: "var(--clr-text-primary)" }}
-                          onMouseEnter={() => setF5SupplierHi(idx)}
-                          onClick={() => { setF5SupplierId(String(s.Id)); setF5SupplierSearch(s.AccountName); setF5SupplierOpen(false); }}>
-                          {s.AccountName}
-                        </div>
-                      ))}
-                      {supplierList.filter(s => !f5SupplierSearch || s.AccountName.toLowerCase().includes(f5SupplierSearch.trim().toLowerCase())).length === 0 && (
-                        <div style={{ padding: "6px 8px", fontSize: 13, color: "var(--clr-text-faint)" }}>No suppliers found</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <label style={{ width: "90px" }}>Search No</label>
-                <input className="form-ctrl" style={{ width: "140px" }} value={searchNo} onChange={(e) => setSearchNo(e.target.value)} />
-                <button className="tbtn tbtn-save" onClick={() => handleF5View({ fromdate: fromDate, todate: toDate, supplierid: f5SupplierId })}>View</button>
-                <div style={{ marginLeft: "auto", color: "var(--clr-green)", fontWeight: "bold", fontSize: "20px" }}>Total Amt : {f5TotalAmt}</div>
-              </div>
-            </div>
-            <div className="popup-body" style={{ overflowY: "auto", flex: 1, padding: 0 }}>
-              <table className="view-grid" style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr><th style={{ width: 32 }} /><th>Purchase No</th><th>Date</th><th>Type</th><th>Supplier</th><th className="right">Net Amount</th><th>Actions</th></tr>
-                </thead>
-                <tbody>
-                  {f5MasterList.length === 0 && (
-                    <tr><td colSpan={7} className="no-data" style={{ textAlign: "center", padding: 18, color: "var(--clr-text-faint)" }}>No records found. Enter a search term and press Search.</td></tr>
-                  )}
-                  {f5MasterList.map((m) => {
-                    const isExpanded = f5ExpandedRow === m.Id;
-                    const rowDetails = getDetailsForMaster(m.Id);
-                    return (
-                      <React.Fragment key={m.Id}>
-                        <tr className="view-row" style={{ cursor: "pointer", background: isExpanded ? "var(--clr-bg-row-hover)" : undefined }}>
-                          <td style={{ textAlign: "center", width: 32, userSelect: "none", fontSize: 12 }} onClick={() => toggleF5Row(m.Id)} title={isExpanded ? "Collapse" : "Expand"}>{isExpanded ? "▼" : "▶"}</td>
-                          <td>{m.PurNo}</td>
-                          <td>{jsonDate(m.PurchaseDate)}</td>
-                          <td><span className={`badge ${m.PurchaseType === "CA" ? "badge-cash" : "badge-credit"}`}>{m.PurchaseType === "CA" ? "Cash" : "Credit"}</span></td>
-                          <td>{m.SupName}</td>
-                          <td className="right">{fmt2(m.NetAmt)}</td>
-                          <td>
-                            <button className="tbtn-sm edit" onClick={() => { if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; } openEditPassword({ type: "EDIT", id: m.Id, pno: m.PurchaseNo }); }}>✏ Edit</button>
-                            <button className="tbtn-sm delete" onClick={() => { if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!.", true); return; } openEditPassword({ type: "DELETE", id: m.Id, updateId: m.UpdateId || "", pno: m.PurchaseNo }); }}>🗑 Del</button>
-                          </td>
-                        </tr>
-                        {isExpanded && (
-                          <tr key={`d_${m.Id}`}>
-                            <td colSpan={7} style={{ padding: "6px 24px 10px 42px", background: "var(--clr-bg-soft)", borderBottom: "2px solid var(--clr-primary-light)" }}>
-                              {rowDetails.length === 0 ? (
-                                <span style={{ color: "var(--clr-text-faint)", fontSize: 12 }}>No product details found.</span>
-                              ) : (
-                                <table className="view-grid nested-grid" style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                                  <thead>
-                                    <tr style={{ background: "var(--clr-pay-hdr-secondary)", color: "var(--clr-text-white)" }}>
-                                      <th style={{ width: 100 }}>Code</th><th style={{ width: 220 }}>Description</th>
-                                      <th className="right" style={{ width: 80 }}>MRP</th><th className="right" style={{ width: 90 }}>Pur. Rate</th>
-                                      <th className="right" style={{ width: 70 }}>Qty</th><th className="right" style={{ width: 70 }}>GST(%)</th>
-                                      <th className="right" style={{ width: 80 }}>GST Amt</th><th className="right" style={{ width: 70 }}>Disc(%)</th>
-                                      <th className="right" style={{ width: 80 }}>Disc Amt</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {rowDetails.map((d, idx) => (
-                                      <tr key={`${m.Id}_detail_${idx}`} className="view-row" style={{ background: idx % 2 === 0 ? "var(--clr-bg-white)" : "var(--clr-bg-soft)" }}>
-                                        <td>{d.ProductCode}</td><td>{d.ProductName}</td>
-                                        <td className="right">{fmt2(d.MRP)}</td><td className="right">{fmt2(d.PurchaseRate)}</td>
-                                        <td className="right">{fmt2(d.ItemQty)}</td><td className="right">{fmt2(d.TaxPercent)}</td>
-                                        <td className="right">{fmt2(d.TaxAmt)}</td><td className="right">{fmt2(d.DiscountPercent)}</td>
-                                        <td className="right">{fmt2(d.DiscountAmt)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              )}
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="popup-footer">
-              <button className="btn btn-secondary btn-sm" onClick={() => { setListViewOpen(false); setF5MasterList([]); setF5DetailList([]); setF5SupplierId(""); setFromDate(today()); setToDate(today()); }}>Close (Esc)</button>
-            </div>
-          </div>
-        </div>
-      )} */}
+     
       {listViewOpen && (
         <div className="popup-overlay">
           <div className="popup-window f5-popup f5-modal-box">
@@ -3112,9 +3019,45 @@ if (savedArrivalType) {
             <div className="f5-filter-panel">
               <div className="f5-filter-grid">
                 <label>From Date</label>
-                <input type="date" className="form-ctrl" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                <label>To Date</label>
-                <input type="date" className="form-ctrl" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                {/* <input type="date" className="form-ctrl" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                 */}
+                 
+
+<div
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      nextFocusForm("fromdate");
+    }
+  }}
+>
+  <DateFieldDDMMYYYY
+    id="fromdate"
+    value={fromDate}
+    onChange={setFromDate}
+    disabled={false}
+  />
+</div>
+                {/* <label>To Date</label>
+                <input type="date" className="form-ctrl" value={toDate} onChange={(e) => setToDate(e.target.value)} /> */}
+   <label>To Date</label>
+
+<div
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      nextFocusForm("todate");
+    }
+  }}
+>
+  <DateFieldDDMMYYYY
+    id="todate"
+    value={toDate}
+    onChange={setToDate}
+    disabled={false}
+  />
+</div>           
+              
                 <div className="f5-supplier-wrap">
                   <input type="text" className="form-ctrl" placeholder="Select Supplier Name"
                     value={f5SupplierOpen ? f5SupplierSearch : (supplierList.find(s => String(s.Id) === String(f5SupplierId))?.AccountName || "")}
@@ -3245,10 +3188,16 @@ if (savedArrivalType) {
               <input className="form-ctrl right" value={arrivalDays}
                 onChange={(e) => setArrivalDays(parseInt(e.target.value, 10) || 0)} />
             </div>
-            <div className="field-group"><label>Dispatched Date</label>
-              <input type="date" className="form-ctrl" value={dispatchedDate}
-                onChange={(e) => setDispatchedDate(e.target.value)} />
-            </div>
+            <div className="field-group">
+  <label>Dispatched Date</label>
+  <DateFieldDDMMYYYY
+    id="dtpdispatcheddate"
+    value={dispatchedDate}
+    onChange={setDispatchedDate}
+    disabled={false}
+  />
+</div>
+           
           </div>
         )}
 
@@ -3261,17 +3210,82 @@ if (savedArrivalType) {
             <div className="field-group"><label>Person</label>
               <input className="form-ctrl" value={pattyPerson} onChange={(e) => setPattyPerson(e.target.value)} />
             </div>
-            <div className="field-group"><label>Patty Date</label>
+            {/* <div className="field-group"><label>Patty Date</label>
               <input type="date" className="form-ctrl" value={pattyDate} onChange={(e) => setPattyDate(e.target.value)} />
-            </div>
+            </div> */}
+            <div className="field-group">
+  <label>Patty Date</label>
+  <DateFieldDDMMYYYY
+    id="dtppattydate"
+    value={pattyDate}
+    onChange={setPattyDate}
+    disabled={false}
+  />
+</div>
           </div>
         )}
 
         <div className="master-row">
           <div className="field-group"><label>{modeLabels.no}</label><input className="form-ctrl disabled" value={purchaseNo} readOnly /></div>
-          <div className="field-group"><label>{modeLabels.date} <span className="req">*</span></label><input ref={purchaseDateRef} type="date" className="form-ctrl" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("dtppurchasedate"); } }} /></div>
+          {/* <div className="field-group"><label>{modeLabels.date}</label><input ref={purchaseDateRef} type="date" className="form-ctrl" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("dtppurchasedate"); } }} /></div> */}
 
-          <div className="field-group"><label>Due Date</label><input ref={dueDateRef} type="date" className="form-ctrl" value={dueDate} onChange={(e) => setDueDate(e.target.value)} onKeyDown={(e) => { if(e.key === "Enter") { e.preventDefault(); nextFocusForm("dtpduedate"); } }} /></div>
+          <div className="field-group">
+            <label>{modeLabels.date}<span className="req">*</span></label>
+       
+
+
+         <div
+          ref={purchaseDateRef}
+            onKeyDown={(e) => {
+         if (e.key === "Enter") { e.preventDefault();
+          nextFocusForm("dtppurchasedate");
+    }
+ 
+ }}
+>
+  <DateFieldDDMMYYYY
+    id="dtppurchasedate"
+    value={purchaseDate}
+    onChange={setPurchaseDate}
+    disabled={false}
+  />
+</div>
+
+
+          </div>
+
+
+
+
+          <div className="field-group">
+           
+       
+          <label>Due Date</label>
+
+         <div
+          ref={dueDateRef}
+            onKeyDown={(e) => {
+         if (e.key === "Enter") { e.preventDefault();
+          nextFocusForm("dtpduedate");
+    }
+ 
+ }}
+>
+  <DateFieldDDMMYYYY
+    id="dtpduedate"
+    value={dueDate}
+    onChange={setDueDate}
+    disabled={false}
+  />
+</div>
+
+
+          </div>
+
+
+
+
+
 
 
  
@@ -3312,7 +3326,34 @@ if (savedArrivalType) {
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("txtinvoiceno"); } }} />
             </div>
           )}
-          <div className="field-group"><label>Invoice Date</label><input ref={invoiceDateRef} type="date" className="form-ctrl" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("dtpinvoicedate"); } }} /></div>
+          {/* <div className="field-group"><label>Invoice Date</label><input ref={invoiceDateRef} type="date" className="form-ctrl" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); nextFocusForm("dtpinvoicedate"); } }} /></div> */}
+         
+          <div className="field-group">
+           
+       
+          <label>Invoice Date</label>
+ 
+          <div
+           ref={invoiceDateRef}
+             onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault();
+           nextFocusForm("dtpinvoicedate");
+     }
+  
+  }}
+ >
+   <DateFieldDDMMYYYY
+     id="dtpinvoicedate"
+     value={invoiceDate}
+     onChange={setInvoiceDate}
+     disabled={false}
+   />
+ </div>
+ 
+ 
+           </div>
+         
+         
           {isPurchaseMode && (
             <div className="field-group">
               <label>Invoice Amount <span className="req">*</span></label>

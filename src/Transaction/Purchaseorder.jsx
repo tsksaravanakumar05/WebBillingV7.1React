@@ -734,7 +734,7 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
           <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
             <thead>
               <tr>{["Column", "Visible", "Width (px)"].map(h =>
-                <th key={h} style={{ color: "#fff", padding: "6px 10px", background: "#1a2e4a", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>)}
+                <th key={h} style={{ color: "#fff", padding: "6px 10px",  background: "var(--pr-blue-navy)", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>)}
               </tr>
             </thead>
             <tbody>

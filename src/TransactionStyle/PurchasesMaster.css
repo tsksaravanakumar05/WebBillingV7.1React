@@ -377,7 +377,7 @@
      border: none;
      background: transparent;
      font-size: 13px;
-     font-weight: 600;
+     font-weight: var(--font-weight-bold);
      color: var(--pm-navy);
      outline: none;
    }

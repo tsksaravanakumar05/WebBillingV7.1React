@@ -686,7 +686,7 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
             <thead>
               <tr>
                 {["Column", "Visible", "Width (px)"].map(h => (
-                  <th key={h} style={{ color: "#fff", padding: "6px 10px", textAlign: "left", fontWeight: 600, position: "sticky", top: 0, zIndex: 2, background: "#075e40" }}>{h}</th>
+                  <th key={h} style={{ color: "#fff", padding: "6px 10px", textAlign: "left", fontWeight: 600, position: "sticky", top: 0, zIndex: 2,  background: "var(--pr-blue-navy)", }}>{h}</th>
                 ))}
               </tr>
             </thead>

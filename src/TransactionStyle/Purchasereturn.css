@@ -92,9 +92,9 @@
      letter-spacing: .5px;
    }
    .pr-bill-no {
-     font-size: 11px;
+     font-size: var(--font-size-12);
      color: var(--pr-blue);
-     font-family: var(--pr-mono);
+     font-family: var(--pr-font);
      margin-left: 6px;
      background: var(--pr-surface);
      padding: 1px 8px;
@@ -207,10 +207,10 @@
      background: var(--pr-surface);
      color: var(--pr-slate);
      cursor: default;
-     font-family: var(--pr-mono);
+     font-family: var(--pr-font);
      font-weight: 700;
    }
-   .form-ctrl.right    { text-align: right; font-family: var(--pr-mono); }
+   .form-ctrl.right    { text-align: right; font-family: var(--pr-font); }
    .form-ctrl.sm       { height: 24px; font-size: 12px; }
    select.form-ctrl    { cursor: pointer; }
    input[type="date"].form-ctrl { font-family: var(--pr-font); }
@@ -352,8 +352,8 @@
    }
    .grid-cell.readonly {
      padding: 0 7px;
-     font-family: var(--pr-mono);
-     font-size: 12px;
+     font-family: var(--pr-font);
+     font-size: var(--font-size-12);
      font-weight: 600;
      color: var(--pr-slate);
    }
@@ -375,12 +375,12 @@
      background: transparent;
      font-family: var(--pr-font);
      font-size: 12px;
-     font-weight: 600;
+     font-weight: var(--font-weight-bold);
      color: var(--pr-text);
      outline: none;
    }
    .cell-input[type="date"] { font-size: 11px; }
-   .cell-input.right { text-align: right; font-family: var(--pr-mono); }
+   .cell-input.right { text-align: right; font-family: var(--pr-font); }
    .cell-input:focus {
      background: var(--pr-white);
      border: 1px solid #93c5fd;
@@ -464,7 +464,7 @@
    .gst-table tbody td {
      padding: 2px 8px;
      border-bottom: 1px solid var(--pr-border);
-     font-family: var(--pr-mono);
+     font-family: var();
      font-size: 11px;
      text-align: right;
      font-weight: 600;
@@ -497,8 +497,8 @@
    }
    
    .qty-display {
-     font-family: var(--pr-mono);
-     font-size: 13px;
+     font-family: var(--pr-font);
+     font-size: var(--font-size-12);
      font-weight: 700;
      color: var(--pr-blue);
      background: var(--pr-surface);
@@ -523,9 +523,9 @@
      padding: 4px 8px; margin-top: 2px;
    }
    .total-label { font-size: 11px; color: var(--pr-slate); font-weight: 500; }
-   .total-value { font-family: var(--pr-mono); font-size: 11.5px; font-weight: 700; color: var(--pr-navy); }
-   .total-row.net .total-label  { color: #bfdbfe; font-size: 11px; font-weight: 700; }
-   .total-row.net .total-value  { color: #fde68a; font-size: 15px; font-weight: 700; letter-spacing: 0.4px; }
+   .total-value { font-family: var(--pr-font); font-size:var(--font-size-12); font-weight: 700; color: var(--pr-navy); }
+   .total-row.net .total-label  { color: #bfdbfe; font-size: var(--font-size-12); font-weight: 700; }
+   .total-row.net .total-value  { color: #fde68a; font-size: var(--font-size-12); font-weight: 700; letter-spacing: 0.4px; }
    
    .bill-summary-table {
      width: 100%;
@@ -550,7 +550,7 @@
      width: 12%;
      padding: 4px 10px 4px 4px;
      text-align: right;
-     font-family: var(--pr-mono);
+     font-family: var(--pr-font);
      font-size: 11.5px;
      color: var(--pr-navy);
      font-weight: 700;
@@ -592,7 +592,7 @@
    .view-grid tbody .view-row:nth-child(even) { background: var(--pr-surface); }
    .view-grid tbody .view-row:hover { background: var(--pr-blue-light); }
    .view-grid tbody td { padding: 4px 10px; font-size: 12px; color: var(--pr-navy); }
-   .view-grid tbody td.right { text-align: right; font-family: var(--pr-mono); font-weight: 600; }
+   .view-grid tbody td.right { text-align: right; font-family: var(--pr-font); font-weight: 600; }
    
    /* Nested detail rows (expand/collapse) */
    .nested-detail-row td { padding: 0; background: var(--pr-bg); }
@@ -612,7 +612,7 @@
      color: var(--pr-navy);
      font-size: 11.5px;
    }
-   .nested-grid-inner tbody td.right { text-align: right; font-family: var(--pr-mono); font-weight: 600; }
+   .nested-grid-inner tbody td.right { text-align: right; font-family: var(--pr-font); font-weight: 600; }
    
    /* Expand toggle button */
    .expand-btn {
@@ -652,7 +652,7 @@
      font-weight: 700;
      padding: 1px 4px;
      border-radius: 2px;
-     font-family: var(--pr-mono);
+     font-family: var(--pr-font);
    }
    
    /* ═══════════════════════════════════════════════════════════════════════════
@@ -803,7 +803,7 @@
    .popup-table tbody .popup-row:hover    { background: var(--pr-blue-light); }
    .popup-table tbody .popup-row.selected { background: var(--pr-blue-sel); }
    .popup-table tbody td { padding: 4px 8px; border: 1px solid var(--pr-border); color: var(--pr-navy); }
-   .popup-table tbody td.right { text-align: right; font-family: var(--pr-mono); font-weight: 600; }
+   .popup-table tbody td.right { text-align: right; font-family: var(--pr-font); font-weight: 600; }
    
    /* LoadPD popup grid */
    .loadpd-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -823,7 +823,7 @@
    .loadpd-table tbody tr:hover td { background: var(--pr-blue-light); }
    .loadpd-table tbody tr.active-pd td { background: var(--pr-blue-sel) !important; }
    .loadpd-table tbody td { padding: 3px 8px; color: var(--pr-navy); font-size: 12px; }
-   .loadpd-table tbody td.right { text-align: right; font-family: var(--pr-mono); font-weight: 600; }
+   .loadpd-table tbody td.right { text-align: right; font-family: var(--pr-font); font-weight: 600; }
    .loadpd-table .cell-input { font-size: 12px; }
    
    /* ═══════════════════════════════════════════════════════════════════════════
@@ -849,7 +849,7 @@
      padding: 0 5px;
      border: 1px solid var(--pr-border-mid);
      border-radius: var(--pr-radius);
-     font-family: var(--pr-mono);
+     font-family: var(--pr-font);
      font-size: 12px;
      font-weight: 600;
      color: var(--pr-navy);
@@ -1014,7 +1014,7 @@
      padding: 0 10px;
      border: 1px solid var(--pr-border-mid);
      border-radius: var(--pr-radius);
-     font-family: var(--pr-mono);
+     font-family: var(--pr-font);
      font-size: 13px;
      outline: none;
      width: 100%;

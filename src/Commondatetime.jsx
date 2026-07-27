@@ -1,7 +1,7 @@
 import { Save, XCircle, Calendar as CalendarIcon } from "lucide-react";
 import { useState,useRef,useEffect,useCallback } from "react";
 
-export default function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
+export default function DateFieldDDMMYYYY({ id, value, onChange, disabled,}) {
 
     const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -82,17 +82,23 @@ export default function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
       const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
       const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
   
-      if (e.key === "Backspace" && atStart) {
-        if (segment === "month") { dayRef.current?.focus(); dayRef.current?.select(); }
-        if (segment === "year") { monthRef.current?.focus(); monthRef.current?.select(); }
-      } else if (e.key === "ArrowLeft" && atStart) {
-        if (segment === "month") dayRef.current?.focus();
-        if (segment === "year") monthRef.current?.focus();
-      } else if (e.key === "ArrowRight" && atEnd) {
-        if (segment === "day") monthRef.current?.focus();
-        if (segment === "month") yearRef.current?.focus();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onEnter?.();
+        return;
       }
-    };
+
+       if (e.key === "Backspace" && atStart) {
+      if (segment === "month") { dayRef.current?.focus(); dayRef.current?.select(); }
+      if (segment === "year") { monthRef.current?.focus(); monthRef.current?.select(); }
+    } else if (e.key === "ArrowLeft" && atStart) {
+      if (segment === "month") dayRef.current?.focus();
+      if (segment === "year") monthRef.current?.focus();
+    } else if (e.key === "ArrowRight" && atEnd) {
+      if (segment === "day") monthRef.current?.focus();
+      if (segment === "month") yearRef.current?.focus();
+    }
+  };
     const isValidDMY = (d, m, y) => {
         if (!d || !m || y.length !== 4) return false;
         const dd = parseInt(d, 10);
@@ -169,7 +175,7 @@ export default function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
             inputMode="numeric"
             autoComplete="off"
             placeholder="YYYY"
-            maxLength={4}
+            maxLength={2}
             className="so-date-seg so-date-seg-yyyy"
             value={year}
             disabled={disabled}
