@@ -102,6 +102,9 @@ import PurchaseDet from "./CrystalReport/Purchase Master/PurchaseDet";
 import PurItemwise from "./CrystalReport/Purchase Master/PurItemwise";
 import PurchaseLotWise from "./CrystalReport/Purchase Master/PurchaseLotWise";
 import PurchaseSaleProfit from "./CrystalReport/Purchase Master/PurchaseSaleProfit";
+import PattyCommissionReport from "./CrystalReport/Purchase Master/PattyCommissionReport";
+import PurchaseSale from "./CrystalReport/Purchase Master/PurchaseSale";
+import PurchaseSaleLotDetails from "./CrystalReport/Purchase Master/PurchaseSaleLotDetails";
 //Iteam Master
 import Itemlist from "./CrystalReport/ItemMaster/Itemlist";
 import Reorder from "./CrystalReport/ItemMaster/Reorder";
@@ -261,6 +264,10 @@ function App() {
 <Route path="/Report/PurItemwise" element={<PurItemwise />} />
 <Route path="/Report/PurchaseLotWise" element={<PurchaseLotWise />} />
 <Route path="/Report/PurchaseSaleProfit" element={<PurchaseSaleProfit />} />
+<Route path="/Report/PattyCommissionReport" element={<PattyCommissionReport />} />
+<Route path="/Report/purchasesale" element={<PurchaseSale />} />
+<Route path="/Report/PurchaseSale" element={<PurchaseSale />} />
+<Route path="/Report/PurchaseSaleLotDetails" element={<PurchaseSaleLotDetails />} />
 {/* Itemmaster     */}
 <Route path="/Report/Itemlist" element={<Itemlist />} />
 {/* <Route path="/Report/Reorder" element={<Reorder />} /> */}
