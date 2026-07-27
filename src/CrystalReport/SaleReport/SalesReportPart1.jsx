@@ -875,11 +875,9 @@ export default function SaleReportPart1() {
 
     const Comid  = parseInt(session.Comid, 10);
     const MComid = parseInt(session.MComid, 10);
-    const CName = session.CName, CAddress = session.CAddress, CPhone = session.CPhone;
-
-    CName= session?.CName || localStorage.getItem("CompanyName") || "",
-    CAddress=session?.CAddress || localStorage.getItem("Address") || "",
-    CPhone= session?.CPhone || localStorage.getItem("Phone") || "",
+    const CName = session?.CName || localStorage.getItem("CompanyName") || "";
+    const CAddress = session?.CAddress || localStorage.getItem("Address") || "";
+    const CPhone = session?.CPhone || localStorage.getItem("Phone") || "";
 
 
     setLoading(true);
