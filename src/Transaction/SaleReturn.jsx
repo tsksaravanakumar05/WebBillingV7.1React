@@ -36,6 +36,7 @@ const BillNoCheckUrl         = "/api/SaleApp/BillNoCheck";
 const CRMBalanceUrl          = "/api/SalesReportApp/CRMBalanceReport";
 const CurrentBalanceUrl      = "/api/SupplierApp/CurrentBalance";
 const FocusColumnsUrl        = "/Login/FocusColumns";
+const CustomerPendingReportUrl = "/api/SalesReportApp/CustomerPendingReport";
 
 
 
@@ -163,6 +164,45 @@ const fmtRow = obj => ({
   Amount:          f2(vn(obj.Amount)),
   LandingCost:     f2(vn(obj.Landingcost || obj.LandingCost)),
 });
+
+const firstDefined = (obj, keys, fallback = "") => {
+  for (const key of keys) {
+    if (obj?.[key] !== undefined && obj?.[key] !== null && obj?.[key] !== "") {
+      return obj[key];
+    }
+  }
+  return fallback;
+};
+
+const firstNumeric = (obj, keys, fallback = 0) => {
+  for (const key of keys) {
+    const value = obj?.[key];
+    if (value === undefined || value === null || value === "") continue;
+    return vn(value);
+  }
+  return fallback;
+};
+
+const firstNumericNonZero = (obj, keys, fallback = 0) => {
+  for (const key of keys) {
+    const value = obj?.[key];
+    if (value === undefined || value === null || value === "") continue;
+    const num = vn(value);
+    if (num !== 0) return num;
+  }
+  return firstNumeric(obj, keys, fallback);
+};
+
+const getBillPopupRowKey = (item, index = 0) => {
+  const saleDetailId =
+    item?.SaleDetailRefId ??
+    item?.SDRefid ??
+    item?.PDRefid ??
+    item?.Id;
+  const batchId = item?.BatchRefid ?? item?.BatchRefId ?? item?.Batchid ?? 0;
+  const mrp = item?.MRP ?? item?.Mrp ?? item?.OldMRP ?? 0;
+  return `bill-${saleDetailId || "row"}-${batchId}-${mrp}-${index}`;
+};
 
 // ─── COMBOBOX ─────────────────────────────────────────────────────────────────
 function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, inputRef: extRef, disabled }) {
@@ -395,7 +435,7 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos,isTamil }) 
 // ─── BILL NO LOOKUP / LOAD SALE (mirrors LoadSDWindow + LoadSD in SaleReturn.js) ──
 function BillLoadPopup({ items, onConfirm, onClose, billNo }) {
   const [qtyMap, setQtyMap] = useState(() =>
-    Object.fromEntries(items.map(i => [i.Indexid1 || i.Id, ""]))
+    Object.fromEntries(items.map((i, index) => [getBillPopupRowKey(i, index), ""]))
   );
   const setQty = (key, v) => setQtyMap(prev => ({ ...prev, [key]: v }));
 
@@ -417,7 +457,7 @@ function BillLoadPopup({ items, onConfirm, onClose, billNo }) {
             </thead>
             <tbody>
               {items.map((it, i) => {
-                const key = it.Indexid1 || it.Id;
+                const key = getBillPopupRowKey(it, i);
                 return (
                   <tr key={key} style={{ background: i % 2 === 0 ? "#fff" : "#fafbff" }}>
                     <td style={{ padding: "4px 8px" }}>{it.Productcode}</td>
@@ -438,7 +478,7 @@ function BillLoadPopup({ items, onConfirm, onClose, billNo }) {
         </div>
         <div className="mp-modal-ftr">
           <button className="mp-btn sv"
-            onClick={() => onConfirm(items.map(it => ({ ...it, ReturnQty: qtyMap[it.Indexid1 || it.Id] })))}>
+            onClick={() => onConfirm(items.map((it, index) => ({ ...it, ReturnQty: qtyMap[getBillPopupRowKey(it, index)] })))}>
             ✅ Load Selected Qty
           </button>
           <button className="mp-btn" onClick={onClose}>Cancel</button>
@@ -448,6 +488,179 @@ function BillLoadPopup({ items, onConfirm, onClose, billNo }) {
   );
 }
 // ─── F5 VIEW MODAL ────────────────────────────────────────────────────────────
+function ReceiptBillPopup({ bills, customerName, netAmount, onConfirm, onClose }) {
+  const [rows, setRows] = useState(() => bills.map((b) => ({ ...b, EnterAmt: ns(b.EnterAmt) })));
+  const inputRefs = useRef({});
+
+  useEffect(() => {
+    setTimeout(() => inputRefs.current[0]?.focus(), 80);
+  }, []);
+
+  const updateEnter = useCallback((idx, value) => {
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, EnterAmt: value } : r)));
+  }, []);
+
+  const getEnterSum = useCallback((list) => list.reduce((sum, row) => sum + vn(row.EnterAmt), 0), []);
+  const totalAllocated = getEnterSum(rows);
+  const remainingAmount = f2(vn(netAmount) - totalAllocated);
+
+  const handleKeyDown = useCallback((e, idx) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      inputRefs.current[idx + 1]?.focus();
+      return;
+    }
+    if (e.key !== "Enter") return;
+
+    e.preventDefault();
+    const current = rows[idx] || {};
+    const entered = vn(current.EnterAmt);
+    const balance = vn(current.Balance);
+    const net = vn(netAmount);
+    const currentValuePresent = ns(current.EnterAmt).trim() !== "";
+    let nextRows = [...rows];
+
+    if (entered > balance) {
+      updateEnter(idx, "");
+      alert(`Enter Amount (${entered}) cannot exceed Bill Balance (${balance}) !!!`);
+      inputRefs.current[idx]?.focus();
+      return;
+    }
+
+    const remainingBeforeCurrent = rows.reduce((sum, row, rowIdx) => {
+      if (rowIdx === idx) return sum;
+      return sum + vn(row.EnterAmt);
+    }, 0);
+    const remaining = net - remainingBeforeCurrent;
+
+    if (entered > remaining + 0.001) {
+      updateEnter(idx, "");
+      alert(`Enter Amount (${entered}) exceeds remaining Sale Return amount (${remaining.toFixed(2)}) !!!`);
+      inputRefs.current[idx]?.focus();
+      return;
+    }
+
+    let didAutoFill = false;
+    if (!currentValuePresent || entered === 0) {
+      if (balance >= remaining) {
+        nextRows[idx] = { ...current, EnterAmt: remaining > 0 ? remaining.toFixed(2) : "0.00" };
+        didAutoFill = remaining > 0;
+      } else {
+        nextRows[idx] = { ...current, EnterAmt: "0.00" };
+      }
+      setRows(nextRows);
+    } else {
+      nextRows[idx] = { ...current, EnterAmt: entered.toFixed(2) };
+      setRows(nextRows);
+    }
+
+    const totalAfterEnter = getEnterSum(nextRows);
+    if (didAutoFill && Math.abs(totalAfterEnter - net) < 0.001) {
+      onConfirm(nextRows);
+      return;
+    }
+
+    if (idx === rows.length - 1) {
+      if (totalAfterEnter > net + 0.001) {
+        alert("Allocated amount cannot exceed the Sale Return amount.");
+        inputRefs.current[idx]?.focus();
+        return;
+      }
+      if (Math.abs(totalAfterEnter - net) > 0.001) {
+        alert(`Please allocate the complete Sale Return amount.\nRemaining amount: ${f2(net - totalAfterEnter).toFixed(2)}`);
+        inputRefs.current[idx]?.focus();
+        return;
+      }
+      onConfirm(nextRows);
+      return;
+    }
+
+    inputRefs.current[idx + 1]?.focus();
+  }, [rows, netAmount, onClose, onConfirm, updateEnter]);
+
+  return (
+    <div className="mp-ov" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="mp-modal-box" style={{ width: 720, maxHeight: "84vh" }}>
+        <div className="mp-modal-hdr">
+          <span>Receipt Bill Allocation - {customerName || "Customer"}</span>
+          <button onClick={onClose}>✕</button>
+        </div>
+        <div className="mp-modal-body" style={{ padding: 0 }}>
+          <div style={{
+            display: "flex",
+            gap: 18,
+            padding: "10px 14px",
+            background: "#f6f9ff",
+            borderBottom: "1px solid #d8e3f7",
+            fontSize: 12,
+            fontWeight: 600,
+          }}>
+            <span>Customer: {customerName || "-"}</span>
+            <span style={{ color: "#1f65de" }}>Sale Return Amount: {f2(netAmount).toFixed(2)}</span>
+            <span style={{ color: "#0f9d58" }}>Total Allocated: {f2(totalAllocated).toFixed(2)}</span>
+            <span style={{ color: remainingAmount === 0 ? "#0f9d58" : "#dc2626" }}>Remaining: {remainingAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ overflowY: "auto", maxHeight: 360 }}>
+            <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+              <thead>
+                <tr>
+                  {["Bill No", "Bill Date", "Bill Amount", "Pending", "Enter Amt", "Balance After"].map((head) => (
+                    <th
+                      key={head}
+                      style={{
+                        background: "#1a2e4a",
+                        color: "#fff",
+                        padding: "7px 8px",
+                        textAlign: head.includes("Amt") || head.includes("Amount") || head === "Balance" ? "right" : "left",
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 1,
+                      }}
+                    >
+                      {head}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, idx) => (
+                  <tr key={`${row.BillNo || "bill"}-${idx}`} style={{ background: idx % 2 === 0 ? "#fff" : "#f9fbff" }}>
+                    <td style={{ padding: "6px 8px" }}>{row.BillNo}</td>
+                    <td style={{ padding: "6px 8px" }}>{row.Date ? String(row.Date).slice(0, 10) : ""}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{f2(row.TotAmt).toFixed(2)}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: "#dc2626", fontWeight: 700 }}>{f2(row.Balance).toFixed(2)}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                      <input
+                        ref={(el) => { inputRefs.current[idx] = el; }}
+                        className="sb-cell-input right"
+                        style={{ width: 110, textAlign: "right" }}
+                        value={ns(row.EnterAmt)}
+                        onChange={(e) => updateEnter(idx, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, idx)}
+                      />
+                    </td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a2e4a", fontWeight: 600 }}>
+                      {f2(vn(row.Balance) - vn(row.EnterAmt)).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="mp-modal-ftr">
+          <button className="mp-btn sv" onClick={() => onConfirm(rows)}>Confirm</button>
+          <button className="mp-btn" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 function F5ViewModal({ rows, onEdit, onDelete, onClose, fromDate, toDate, onSearch }) {
   const [from, setFrom] = useState(fromDate);
   const [to, setTo]     = useState(toDate);
@@ -653,6 +866,7 @@ const [ctrlGOpen, setCtrlGOpen] = useState(false);
         CashierName:  CC.getStr("CashierName")    || "",
         CommonCompany: isCC,
         DayClose:     !!main0.DayClose,
+        ReceiptBill: !!main0.ReceiptBill,
         BillFormatName: com0.SaleBillFormat || "Default",
       };
     } catch {
@@ -729,14 +943,30 @@ const [billLoadNo, setBillLoadNo] = useState("");
   const [prodList,   setProdList]   = useState([]);
   const [f5Open,     setF5Open]     = useState(false);
   const [f5Rows,     setF5Rows]     = useState([]);
+  const [receiptPopup, setReceiptPopup] = useState(null);
+  const [receiptAllocations, setReceiptAllocations] = useState([]);
+  const [receiptStatus, setReceiptStatus] = useState(false);
 
   const rowsRef  = useRef(rows);
   const cellRefs = useRef({});
+  const prodListRef = useRef(prodList);
   const custRef  = useRef(null);
   const remarksRef = useRef(null);
+  const receiptStatusRef = useRef(false);
+  const receiptAllocationsRef = useRef([]);
 
   useEffect(() => { rowsRef.current = rows; }, [rows]);
+  useEffect(() => { prodListRef.current = prodList; }, [prodList]);
 useEffect(() => { focusColsRef.current = focusCols; }, [focusCols]);
+  useEffect(() => { receiptStatusRef.current = receiptStatus; }, [receiptStatus]);
+  useEffect(() => { receiptAllocationsRef.current = receiptAllocations; }, [receiptAllocations]);
+  useEffect(() => {
+    setReceiptPopup(null);
+    setReceiptAllocations([]);
+    setReceiptStatus(false);
+    receiptAllocationsRef.current = [];
+    receiptStatusRef.current = false;
+  }, [returnType]);
 
 const loadFocusCols = useCallback(async (mcomid) => {
   try {
@@ -1019,6 +1249,11 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
   // ── Customer change → load CRM + Balance ─────────────────────────────────
   const handleCustomerChange = useCallback(async (cid) => {
     setCustId(cid);
+    setReceiptPopup(null);
+    setReceiptAllocations([]);
+    setReceiptStatus(false);
+    receiptAllocationsRef.current = [];
+    receiptStatusRef.current = false;
     const found = customers.find(c => String(c.Id) === cid);
     setCustMobile(found?.MobileNo || "");
     if (!cid) { setCrmValue("0.00"); setCurBal("0.00"); setStockLbl("0.00"); return; }
@@ -1078,25 +1313,131 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
   }, [rows, discPer, otherPlus, otherMinus, coinage, recalcTotals]);
 
   // ── Fill item into row ────────────────────────────────────────────────────
+const getSaleReturnProductList = useCallback(async () => {
+  if (prodListRef.current.length > 0) return prodListRef.current;
+
+  setLoading(true);
+  setLdMsg("Loading products...");
+  const res = await CC.api(ProductListUrl, null, {}, { Comid: sess.Comid });
+  setLoading(false);
+  if (redirectIfDualLogin(res)) return [];
+
+  const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+  prodListRef.current = arr;
+  setProdList(arr);
+  return arr;
+}, [redirectIfDualLogin, sess.Comid]);
+
+const resolveBillItemProduct = useCallback(async (item) => {
+  const products = await getSaleReturnProductList();
+  if (!products.length) return item;
+
+  const productRefId = firstNumeric(item, ["ProductRefId", "ProductRefid", "ProductId", "Id"], 0);
+  const productCode = String(firstDefined(item, ["Productcode", "ProductCode", "Prod_Code"], "")).trim().toUpperCase();
+  const batchRefId = String(firstDefined(item, ["BatchRefid", "BatchRefId", "Batchid"], "")).trim();
+  const pdRefId = String(firstDefined(item, ["PDRefid"], "")).trim();
+  const billMrp = f2(firstNumeric(item, ["MRP", "Mrp", "OldMRP"], 0));
+
+  const candidates = products.filter((product) => {
+    const productId = firstNumeric(product, ["Id", "ProductRefId", "ProductRefid", "ProductId"], 0);
+    const code = String(firstDefined(product, ["Prod_Code", "ProductCode", "Productcode"], "")).trim().toUpperCase();
+    return (productRefId > 0 && productId === productRefId) || (productCode && code === productCode);
+  });
+
+  if (!candidates.length) return item;
+
+  const exactMatch = candidates.find((product) => {
+    const productBatchId = String(firstDefined(product, ["BatchRefid", "BatchRefId", "Batchid"], "")).trim();
+    const productPdRefId = String(firstDefined(product, ["PDRefid"], "")).trim();
+    const productMrp = f2(firstNumeric(product, ["MRP", "Mrp", "OldMRP"], 0));
+    if (batchRefId && productBatchId && productBatchId === batchRefId) return true;
+    if (pdRefId && productPdRefId && productPdRefId === pdRefId) return true;
+    if (billMrp > 0 && productMrp === billMrp) return true;
+    return false;
+  });
+
+  return exactMatch || candidates[0];
+}, [getSaleReturnProductList]);
+
+const buildSaleReturnRowFromProduct = useCallback((currentRow, item) => ({
+  ...currentRow,
+  ProductRefId:    firstNumeric(item, ["Id", "ProductRefId", "ProductRefid", "ProductId"], 0),
+  ProductCode:     firstDefined(item, ["Prod_Code", "ProductCode", "Productcode"], ""),
+  ProductName:     firstDefined(item, ["PName", "ProductName", "Productname"], ""),
+  MRP:             f2(firstNumeric(item, ["MRP", "Mrp", "OldMRP"], 0)),
+  SaleRate:        f2(firstNumericNonZero(item, ["SaleRate", "SalesRate", "Rate", "SellingRate"], 0)),
+  TaxPercent:      f2(firstNumeric(item, ["GST", "TaxPercent", "TaxPer", "GSTPercent"], 0)),
+  CESSPer:         f2(firstNumeric(item, ["CESS", "CESSPer", "CessPer"], 0)),
+  UOM:             firstDefined(item, ["UOM", "Uom"], ""),
+  UOMDecimal:      firstNumeric(item, ["UOMDecimal", "UomDecimal"], 0),
+  HSNCode:         firstDefined(item, ["HSNCode", "HSNcode", "HsnCode"], ""),
+  StockQty:        firstNumeric(item, ["Stock", "StockQty", "AvailableQty", "AvaiableQty"], 0),
+  DiscountPercent: f2(firstNumeric(item, ["SaleDiscountPer", "DiscountPercent", "DiscountPer", "Discper"], 0)),
+  BatchRefid:      firstDefined(item, ["BatchRefid", "Batchid", "BatchRefId"], null) || null,
+  Bat_No:          firstDefined(item, ["Bat_No", "BatchNo", "BatchNo1", "LotNo"], ""),
+  _dirty: true,
+}), []);
+
+const buildSaleReturnRowFromBillItem = useCallback((item, productItem) => {
+  const baseRow = buildSaleReturnRowFromProduct(mkRow(), productItem || item);
+  const soldQty = firstNumeric(item, ["ItemQty", "SaleQty", "Qty", "SoldQty"], 0);
+  const returnedQty = firstNumeric(item, ["ReturnedQty", "AlreadyReturnedQty", "ReturnQty"], 0);
+  const balanceQty = firstNumeric(item, ["BalanceQty", "AvaiableQty", "AvailableQty"], Math.max(0, soldQty - returnedQty));
+  const row = {
+    ...baseRow,
+    BillNo:              billLoadNo,
+    ReturnQty:           ns(firstDefined(item, ["ReturnQty"], "")),
+    SaleRate:            f2(vn(baseRow.SaleRate)),
+    MRP:                 f2(vn(baseRow.MRP)),
+    TaxPercent:          f2(vn(baseRow.TaxPercent)),
+    DiscountPercent:     f2(vn(baseRow.DiscountPercent)),
+    CESSPer:             f2(vn(baseRow.CESSPer)),
+    UOM:                 baseRow.UOM,
+    UOMDecimal:          vn(baseRow.UOMDecimal),
+    HSNCode:             baseRow.HSNCode,
+    BatchRefid:          firstDefined(item, ["BatchRefid", "Batchid", "BatchRefId"], baseRow.BatchRefid) || null,
+    Bat_No:              firstDefined(item, ["BatchNo", "Bat_No", "BatchNo1", "LotNo"], baseRow.Bat_No),
+    SaleRefId:           firstDefined(item, ["Id", "SaleRefId", "SDRefid", "SaleDetailRefId"], 0),
+    StockQty:            balanceQty,
+    OrgSaleQty:          soldQty,
+    ReturnedQty:         returnedQty,
+    BalanceQty:          balanceQty,
+    UOMRefid:            firstDefined(productItem || item, ["UOMRefid", "UomRefid"], null) || null,
+    OldMRP:              f2(vn(baseRow.MRP)),
+    Rate:                f2(vn(baseRow.SaleRate)),
+    GrossAmount:         f2(firstNumeric(item, ["GrossAmount", "GrossAmt", "Amount"], 0)),
+    NetAmount:           f2(firstNumeric(item, ["NetAmount", "NetAmt", "Amount"], 0)),
+    TaxAmount:           f2(firstNumeric(item, ["TaxAmount", "TaxAmt"], 0)),
+    DiscountAmount:      f2(firstNumeric(item, ["DiscountAmount", "DiscountAmt"], 0)),
+    PDRefid:             firstDefined(item, ["PDRefid", "SaleDetailRefId", "Id", "SDRefid"], null),
+    SaleMasterRefId:     firstDefined(item, ["SMid", "SaleMasterRefId", "SaleRefMasterId"], null),
+    BatchRefId:          firstDefined(item, ["BatchRefId", "BatchRefid", "Batchid"], null),
+    LotNo:               firstDefined(item, ["LotNo", "Bat_No", "BatchNo"], ""),
+    ExpiryDate:          firstDefined(item, ["ExpDate", "ExpiryDate"], ""),
+    ManufacturingDate:   firstDefined(item, ["MFDate", "MfgDate", "ManufacturingDate"], ""),
+    Inclusive:           firstDefined(productItem || item, ["Inclusive"], ""),
+    TaxType:             firstDefined(productItem || item, ["TaxType"], ""),
+    OpenRate:            firstDefined(productItem || item, ["OpenRate"], ""),
+    MultiMRP:            firstDefined(productItem || item, ["MultiMRP"], ""),
+    Barcode:             firstDefined(productItem || item, ["Barcode", "BarCode"], ""),
+    SerialNo:            firstDefined(productItem || item, ["SerialNo"], ""),
+    BrandRefId:          firstDefined(productItem || item, ["BrandRefId", "BrandId"], null),
+    CategoryRefId:       firstDefined(productItem || item, ["CategoryRefId", "CategoryId"], null),
+    _origItemQty:        soldQty,
+    _origBatchRefid:     firstDefined(item, ["BatchRefid", "Batchid", "BatchRefId"], 0) || 0,
+    _origMfgDate:        firstDefined(item, ["MFDate", "MfgDate", "ManufacturingDate"], ""),
+    _origExpiryDate:     firstDefined(item, ["ExpDate", "ExpiryDate"], ""),
+    _origPDRefid:        firstDefined(item, ["PDRefid", "SaleDetailRefId", "Id", "SDRefid"], null),
+  };
+  return calcReturnRow(row);
+}, [billLoadNo, buildSaleReturnRowFromProduct]);
+
 const fillItemIntoRow = useCallback((rid, item) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
       const newRow = {
-        ...r,
-        ProductRefId:    item.Id,
-        ProductCode:     item.Prod_Code || item.ProductCode,
-        ProductName:     item.PName     || item.ProductName,
-        MRP:             f2(vn(item.MRP)),
-        SaleRate:        f2(vn(item.SaleRate || item.SalesRate)),
-        TaxPercent:      f2(vn(item.GST)),
-        CESSPer:         f2(vn(item.CESS)),
-        UOM:             item.UOM     || "",
-        UOMDecimal:      item.UOMDecimal || 0,
-        HSNCode:         item.HSNCode || "",
-        StockQty:        vn(item.Stock),
-        DiscountPercent: f2(vn(item.SaleDiscountPer)),
-        ReturnQty:       item.UOMDecimal === 0 ? "1" : "",
-        _dirty: true,
+        ...buildSaleReturnRowFromProduct(r, item),
+        ReturnQty: firstNumeric(item, ["UOMDecimal", "UomDecimal"], 0) === 0 ? "1" : "",
       };
       setStockLbl(vn(item.Stock).toFixed(0));
       return newRow;
@@ -1119,7 +1460,7 @@ const fillItemIntoRow = useCallback((rid, item) => {
       const el = cellRefs.current[rid]?.[targetCol];
       if (el) { el.focus(); el.select?.(); }
     }, 50);
-}, []); // focusColsRef is a ref — no dependency needed
+}, [buildSaleReturnRowFromProduct]); // focusColsRef is a ref — no dependency needed
 
   // ── Fetch product by code ─────────────────────────────────────────────────
   const fetchProductByCode = useCallback(async (rid, code) => {
@@ -1200,13 +1541,32 @@ const billLoadRowRef = useRef(null);
 // Confirm handler: replaces current blank row(s) with the chosen return items
 // Confirm handler: replaces current blank row(s) with the chosen return items
 // Confirm handler: replaces current blank row(s) with the chosen return items
-const applyBillLoadItems = useCallback((selectedItems) => {
+const applyBillLoadItems = useCallback(async (selectedItems) => {
   const usable = selectedItems.filter(it => vn(it.ReturnQty) > 0);
   if (usable.length === 0) { setBillLoadOpen(false); return; }
+
+  const mappedRows = await Promise.all(
+    usable.map(async (item) => {
+      const productItem = await resolveBillItemProduct(item);
+      return buildSaleReturnRowFromBillItem(item, productItem);
+    })
+  );
 
   setRows(prev => {
     const triggerRid = billLoadRowRef.current;
     const base = prev.filter(r => !(r._rid === triggerRid && !r.ProductRefId));
+    return [...base, ...mappedRows, mkRow()];
+  });
+
+  setBillLoadOpen(false);
+  toast(`âœ… ${usable.length} item(s) loaded from Bill #${billLoadNo}`);
+  return;
+
+  setRows(prev => {
+    const triggerRid = billLoadRowRef.current;
+    const base = prev.filter(r => !(r._rid === triggerRid && !r.ProductRefId));
+    const mappedRows = usable.map(buildSaleReturnRowFromBillItem);
+    return [...base, ...mappedRows, mkRow()];
 
     const newRows = usable.map(it => {
       // ── Defensive field mapping: backend may return different casing
@@ -1289,7 +1649,7 @@ const applyBillLoadItems = useCallback((selectedItems) => {
 
   setBillLoadOpen(false);
   toast(`✅ ${usable.length} item(s) loaded from Bill #${billLoadNo}`);
-}, [billLoadNo]);
+}, [billLoadNo, buildSaleReturnRowFromBillItem, resolveBillItemProduct]);
   // ── Load product list ─────────────────────────────────────────────────────
   const loadProductsForPopup = useCallback(async (rid) => {
     if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
@@ -1421,6 +1781,11 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
     setCustId(""); setCustMobile(""); setSmId(""); setRemarks("");
     setCrmNo(""); setCrmValue("0.00"); setCurBal("0.00"); setStockLbl("0.00");
     setDiscPer(""); setOtherPlus(""); setOtherMinus(""); setCoinage("");
+    setReceiptPopup(null);
+    setReceiptAllocations([]);
+    setReceiptStatus(false);
+    receiptAllocationsRef.current = [];
+    receiptStatusRef.current = false;
     setRows([mkRow()]);
     setSelRid(null);
     await loadReturnNo();
@@ -1431,6 +1796,86 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
   }, [loadReturnNo]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
+  const openReceiptBillWindow = useCallback(async () => {
+    if (!custId) {
+      toast("❌ Select a Customer", true);
+      return false;
+    }
+
+    setLoading(true);
+    setLdMsg("Loading customer pending bills...");
+    const res = await CC.api(CustomerPendingReportUrl, null, {}, {
+      GroupBy: Number(custId),
+      ReportType: "",
+      Comid: Number(sess.Comid),
+      MComid: Number(sess.MComid),
+    });
+    setLoading(false);
+
+    if (redirectIfDualLogin(res)) return false;
+
+    const bills = Array.isArray(res?.Data1)
+      ? res.Data1
+      : Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+          ? res
+          : [];
+
+    const normalizedBills = bills.map((bill) => ({
+      ...bill,
+      BillNo: bill.BillNo,
+      Date: bill.Date,
+      TotAmt: bill.TotAmt,
+      Balance: bill.Balance,
+      PId: bill.PId ?? 0,
+      Eid: bill.Eid ?? 0,
+      Sid: bill.Sid ?? 0,
+      EnterAmt: "",
+    }));
+
+    if (normalizedBills.length === 0) {
+      toast("❌ Sale Return Not Allowed.Because No Credit Balance Amount !!!.", true);
+      return false;
+    }
+
+    const customerName = customers.find((c) => String(c.Id) === String(custId))?.AccountName || "";
+    setReceiptPopup({ bills: normalizedBills, customerName });
+    return true;
+  }, [custId, customers, redirectIfDualLogin, sess.Comid, sess.MComid, toast]);
+
+  const confirmReceiptBillAllocation = useCallback((details) => {
+    const filtered = details
+      .filter((row) => vn(row.EnterAmt) !== 0)
+      .map((row) => ({
+        ...row,
+        EnterAmt: f2(vn(row.EnterAmt)),
+        PId: Number(row.PId) || null,
+        Sid: Number(row.Sid) || null,
+        Eid: Number(row.Eid) || null,
+      }));
+
+    const total = filtered.reduce((sum, row) => sum + vn(row.EnterAmt), 0);
+    const netAmount = f2(totals.NetAmt);
+
+    if (total > netAmount + 0.001) {
+      toast("❌ Allocated amount cannot exceed the Sale Return amount.", true);
+      return false;
+    }
+
+    if (Math.abs(total - netAmount) > 0.001) {
+      toast(`❌ Please allocate the complete Sale Return amount. Remaining amount: ${f2(netAmount - total).toFixed(2)}`, true);
+      return false;
+    }
+
+    receiptAllocationsRef.current = filtered;
+    receiptStatusRef.current = true;
+    setReceiptAllocations(filtered);
+    setReceiptStatus(true);
+    setReceiptPopup(null);
+    return true;
+  }, [toast, totals.NetAmt]);
+
   const doSave = useCallback(async () => {
     if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
     if (!custId&&returnType!="CASH") { toast("❌ Select a Customer", true); return; }
@@ -1443,6 +1888,21 @@ if (zeroRateRow) {
   return;
 }
     if (vRows.length === 0) { toast("❌ Add at least one return item", true); return; }
+
+    if (sess.ReceiptBill && returnType === "CREDIT") {
+      const allocatedTotal = receiptAllocationsRef.current.reduce((sum, row) => sum + vn(row.EnterAmt), 0);
+      if (receiptStatusRef.current && Math.abs(allocatedTotal - f2(totals.NetAmt)) > 0.001) {
+        receiptStatusRef.current = false;
+        receiptAllocationsRef.current = [];
+        setReceiptStatus(false);
+        setReceiptAllocations([]);
+      }
+      if (!receiptStatusRef.current || Math.abs(allocatedTotal - f2(totals.NetAmt)) > 0.001) {
+        const opened = await openReceiptBillWindow();
+        if (!opened) return;
+        return;
+      }
+    }
 
     const ok = await confirm("Do you want to Save Sale Return?");
     if (!ok) return;
@@ -1529,7 +1989,13 @@ if (zeroRateRow) {
       ModifiedStatus:   editId > 0 ? 1 : 0,
       Modified_Date:    returnDate,
       SaleDetails: returndetails,
-       StockDetails: stockDetails, 
+      StockDetails: stockDetails,
+      SaleReturnAmountDetails: receiptAllocationsRef.current.map((row) => ({
+        PId: row.PId,
+        Sid: row.Sid,
+        Eid: row.Eid,
+        EnterAmt: f2(vn(row.EnterAmt)),
+      })),
     }];
    console.log(payload);
     const headers = {
@@ -1560,7 +2026,7 @@ if (zeroRateRow) {
   // eslint-disable-next-line
   }, [perm, confirm, clearForm, sess, totals, rows, custId, remarks,
       returnNo, returnDate, editId, otherMinus, otherPlus, discPer, coinage,
-      customers, returnType, smId]);
+      customers, returnType, smId, receiptStatus, openReceiptBillWindow, receiptAllocations]);
 
   // ── Delete return ─────────────────────────────────────────────────────────
 const doDeleteReturn = useCallback(async () => {
@@ -2322,6 +2788,18 @@ console.log("Deleting return with body:", body);
           fromDate={returnDate}
           toDate={returnDate}
           onSearch={openF5}
+        />
+      )}
+      {receiptPopup && (
+        <ReceiptBillPopup
+          bills={receiptPopup.bills}
+          customerName={receiptPopup.customerName}
+          netAmount={totals.NetAmt}
+          onConfirm={(details) => {
+            if (!confirmReceiptBillAllocation(details)) return;
+            setTimeout(() => { doSave(); }, 0);
+          }}
+          onClose={() => setReceiptPopup(null)}
         />
       )}
 {billLoadOpen && (

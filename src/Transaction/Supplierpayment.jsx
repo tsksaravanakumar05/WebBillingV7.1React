@@ -306,33 +306,47 @@ function PendingBillsWindow({ bills, supplierName, totalAmount, onConfirm, onClo
     const cur = vn(rows[i].EnterAmt);
     const bal = vn(rows[i].Balance);
 
-    // auto-fill logic (mirrors JS gridpendingbills keydown)
-    const rowsCopy = [...rows];
+    if (cur > bal) {
+      alert(`❌ Enter Amount (${cur}) cannot exceed Bill Balance (${bal}) !!!`);
+      updateEnter(i, "");
+      inputRefs.current[i]?.focus();
+      return;
+    }
+
+    const alreadySum = rows.reduce((a, r, idx) => idx === i ? a : a + vn(r.EnterAmt), 0);
+    const remaining = net - alreadySum;
+
+    if (cur > remaining + 0.001) {
+      alert(`❌ Enter Amount (${cur}) exceeds remaining payment amount (${remaining.toFixed(2)}) !!!`);
+      updateEnter(i, "");
+      inputRefs.current[i]?.focus();
+      return;
+    }
+
+    let rowsCopy = [...rows];
     if (cur === 0) {
-      const remaining = net - sumEnter(rowsCopy.map((r,j)=>j===i?{...r,EnterAmt:"0"}:r));
-      if (bal < remaining) {
-        rowsCopy[i] = { ...rowsCopy[i], EnterAmt: bal.toFixed(2) };
-      } else if (remaining > 0) {
-        rowsCopy[i] = { ...rowsCopy[i], EnterAmt: remaining.toFixed(2) };
-      }
+      const fill = remaining < bal ? remaining : bal;
+      rowsCopy[i] = { ...rowsCopy[i], EnterAmt: fill.toFixed(2) };
       setRows(rowsCopy);
     }
 
     const newSum = sumEnter(rowsCopy);
-    if (newSum >= net || i === rows.length - 1) {
-      const balSum = rows.reduce((a, r) => a + vn(r.Balance), 0);
-      if (newSum < net && balSum <= newSum) {
-        // all balance exhausted — proceed
-        onConfirm(rowsCopy);
-      } else if (Math.abs(newSum - net) < 0.001) {
-        onConfirm(rowsCopy);
-      } else if (i === rows.length - 1 && newSum < net) {
-        MSG && alert("Supplier Excess Payment Amount Not Allowed !!!.");
-      } else {
-        onConfirm(rowsCopy);
-      }
+
+    if (Math.abs(newSum - net) < 0.001) {
+      onConfirm(rowsCopy);
       return;
     }
+
+    if (i === rows.length - 1) {
+      const balSum = rows.reduce((a, r) => a + vn(r.Balance), 0);
+      if (Math.abs(balSum - newSum) < 0.001) {
+        onConfirm(rowsCopy);
+        return;
+      }
+      alert("❌ Supplier Excess Payment Amount Not Allowed !!!.");
+      return;
+    }
+
     inputRefs.current[i + 1]?.focus();
   };
 
@@ -734,7 +748,7 @@ export default function SupplierPayment() {
   }, [sess.PaymentBillWise, currentBalance, updateCell, toast, focusCell]);
 
   // ── BalanceFetch (mirrors methods.BalanceFetch) ──────────────────────────
-  const balanceFetch = useCallback(async (sid, dateISO, rowIdx) => {
+  const balanceFetch = useCallback(async (sid, dateISO) => {
     if (!sid) return;
     const res = await CC.api(CC.CurrentBalance, null, {}, {
       Id: Number(sid), Comid: Number(sess.Comid), MComid: Number(sess.MComid),
@@ -744,11 +758,10 @@ export default function SupplierPayment() {
     if (res.ok) {
       const bal = parseFloat(res.data || 0).toFixed(2);
       setCurrentBalance(bal);
-      updateCell(rowIdx, grdAmount, "0.00"); // reset amount on supplier change
     } else {
       setCurrentBalance("0.00");
     }
-  }, [sess.Comid, sess.MComid, redirectIfDualLogin, updateCell]);
+  }, [sess.Comid, sess.MComid, redirectIfDualLogin]);
 
   // ── FillGridData (mirrors methods.FillGridData) ──────────────────────────
   const fillGridData = useCallback(async () => {
@@ -939,7 +952,7 @@ export default function SupplierPayment() {
         Paymentdetails: JSON.stringify(pendingDetails),
         Comid: String(sess.Comid),
         MirrorTable: String(sess.MirrorTable),
-        LocalDB: String(sess.LocalDB || 1),
+        LocalDB: "0",
       }
     );
     setLoading(false);
@@ -1077,7 +1090,7 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
         // ChequeDate-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
         goToOrSkip(grdChequeDate, grdChequeNo);
       } else {
-        moveNext(idx, field);
+        goToOrSkip(grdDiscountAmount, grdChequeNo);
       }
     }
     else if (field === grdChequeDate) {
@@ -1085,7 +1098,7 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
         // BankName-க்கு போ (visible ஆ இருந்தா, இல்லாட்டி skip)
         goToOrSkip(grdBankName, grdChequeDate);
       } else {
-        moveNext(idx, field);
+        goToOrSkip(grdDiscountAmount, grdChequeDate);
       }
     }
     else if (field === grdDiscountAmount) {
@@ -1121,9 +1134,10 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
     updateCells(idx, {
       [grdSupplierName]:  item.AccountName || "",
       [grdSupplierRefId]: item.Id ?? null,
+      [grdAmount]: "0.00",
     });
     setSupplierPopup({ open:false, rowIdx:null, prefill:"" });
-    balanceFetch(item.Id, selDate, idx);
+    balanceFetch(item.Id, selDate);
     moveNext(idx, grdSupplierName);
   }, [supplierPopup.rowIdx, updateCells, balanceFetch, selDate, moveNext]);
 
@@ -1134,7 +1148,7 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
       [grdBankId]:   item.Id ?? null,
     });
     setBankPopup({ open:false, rowIdx:null, prefill:"" });
-    moveNext(idx, grdBankName);
+    moveNext(idx, grdChequeStatus);
   }, [bankPopup.rowIdx, updateCells, moveNext]);
 
   // ── Inline cell renderer (mirrors CustomerReceipt renderCell exactly) ────

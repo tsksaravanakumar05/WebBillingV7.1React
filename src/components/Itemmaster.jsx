@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../Master/MasterPage.css";
 // import "../Itemmaster.css";
 import * as CC from "../Master/Common";
@@ -412,7 +412,12 @@ function PwModal({ title, comid, onOk, onClose }) {
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 export default function ItemMaster() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const quickCreateState = location.state?.quickCreate;
+  const isIncomingProductQuickCreate =
+    quickCreateState?.quickCreateType === "product" &&
+    (quickCreateState?.productCreateReturn === true || quickCreateState?.openLastPage === true);
   const [obOpen, setObOpen] = useState(false);
 
   const { confirm, ConfirmUI } = CC.useConfirm();
@@ -696,11 +701,18 @@ const saveBarcodes = useCallback(async () => {
   const [tnOpen,setTnOpen]=useState(false);const[tnVal,setTnVal]=useState("");
   const [adminOpen,setAdminOpen]=useState(false);const adminRef=useRef(null);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [productQuickCreateContext, setProductQuickCreateContext] = useState(null);
 
   const gRef      = useRef(null);
   const drag      = useRef({ on:false,x:0,y:0,sl:0,st:0 });
   const pendingReturnRef = useRef(null);
   const pendingSelectRef = useRef(null);
+  const quickCreateReturnRef = useRef(false);
+  const productQuickCreateStateHandledRef = useRef(false);
+  const productQuickCreateLastPageRef = useRef(false);
+  const productQuickCreatePrefillRef = useRef(false);
+  const draftRestoreHandledRef = useRef(false);
+  const initLoadHandledRef = useRef(false);
   const rowsRef      = useRef(rows);
   const entryRowRef  = useRef(entryRow);
   const entryRefs = useRef({});
@@ -808,6 +820,21 @@ const redirectIfDualLogin = useCallback((res) => {
     setEntryRow(r); setVErr("");
     setTimeout(() => focusEntry(editableKeys[0]), 50);
   }, [autoGenCode, focusEntry, editableKeys, sess]);
+
+  const exitProductQuickCreate = useCallback((created, payload = {}) => {
+    if (!productQuickCreateContext || quickCreateReturnRef.current) return false;
+    quickCreateReturnRef.current = true;
+    navigate(productQuickCreateContext.returnTo || "/Itemmaster", {
+      state: {
+        quickCreate: {
+          ...productQuickCreateContext,
+          created,
+          ...payload,
+        },
+      },
+    });
+    return true;
+  }, [navigate, productQuickCreateContext]);
 
   useEffect(() => {
     if (!draftOk.current) return;
@@ -1061,12 +1088,26 @@ const validateRow = useCallback(async row => {
     setLoading(true); setLdMsg("Saving...");
     const hdrs = { "Comid":String(sess.Comid),"Commoncompany":String(sess.CommonCompany),"CommoncompanyDiffStock":String(sess.CommonCompanyDiffStock),"SupplierMulitipleAllow":String(sess.SupplierMulitipleAllow),"MulipleMRP":String(sess.MulipleMRP),"MirrorTable":String(sess.MirrorTable),"Tamil":String(sess.Tamil),"IdComList":String(sess.IdComList),"ApiType":"0" };
     const payload = toSave.map(buildPayload);
+    const primarySavedRow = entryComplete && latestEntry?._dirty ? latestEntry : toSave[0];
     try {
       const res = await CC.insertapi(CC.ItemInsert, payload, hdrs);
       setLoading(false);
       if (redirectIfDualLogin(res)) return;
       if (res._netErr) { await showAlert(res.Message ); return; }
       if (res.ok ?? res.IsSuccess) {
+        const responseRow =
+          (Array.isArray(res?.Data1) && res.Data1[0]) ||
+          (Array.isArray(res?.data?.Data1) && res.data.Data1[0]) ||
+          (Array.isArray(res?.data) && res.data[0]) ||
+          null;
+        const quickProductPayload = productQuickCreateContext ? {
+          masterType: "product",
+          source: productQuickCreateContext.source || "",
+          storageKey: productQuickCreateContext.storageKey || "",
+          productId: res?.Id || res?.id || responseRow?.Id || responseRow?.id || primarySavedRow?.Id || 0,
+          productCode: responseRow?.ProductCode || responseRow?.Prod_Code || primarySavedRow?.ProductCode || "",
+          productName: responseRow?.ProductName || responseRow?.PName || primarySavedRow?.ProductName || "",
+        } : null;
         dirtyIds.current.clear();
         toast("✅ " + (res.message || "Saved successfully"));
         try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
@@ -1077,12 +1118,15 @@ const validateRow = useCallback(async row => {
         } else {
           setRows(prev => prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r));
         }
+        if (quickProductPayload) {
+          exitProductQuickCreate(true, quickProductPayload);
+        }
       } else { await showAlert(res.Message || "Unable to save the item. Please try again."); }
     } catch (err) {
       setLoading(false);
       await showAlert("Save Failed\n\n" + (err?.message || "Unable to save the item. Please try again."));
     }
-  }, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry,redirectIfDualLogin, showAlert]);
+  }, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry, redirectIfDualLogin, showAlert, productQuickCreateContext, exitProductQuickCreate]);
 
   const entryRowIndex = rows.length;
 const doExcelUpload = useCallback(() => {
@@ -1577,23 +1621,29 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
 }
       if (e.key==="F12")    { e.preventDefault(); setF12Open(true); }
       if (e.key==="Delete"&&selRid) { e.preventDefault(); doDeleteRow(selRid); }
-      if (e.key==="Escape") { e.preventDefault(); navigate(-1); }
+      if (e.key==="Escape") {
+        e.preventDefault();
+        if (!exitProductQuickCreate(false)) navigate(-1);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line
-  }, [anyOpen, doSave, doExcelDownload, doExcelUpload, selRid, doDeleteRow, obOpen]);
+  }, [anyOpen, doSave, doExcelDownload, doExcelUpload, selRid, doDeleteRow, obOpen, exitProductQuickCreate, navigate]);
 
   useEffect(()=>{
+    if (initLoadHandledRef.current) return;
+    initLoadHandledRef.current = true;
     (async()=>{
       await loadColCfg();
       await loadDropdowns();
       let draftRestored=false;
       try{
         const saved=sessionStorage.getItem(ITEM_DRAFT_KEY);
-        if(saved){
+        if(saved && !isIncomingProductQuickCreate && !draftRestoreHandledRef.current){
           const parsed=JSON.parse(saved);
           if(parsed?.entryRow){
+            draftRestoreHandledRef.current = true;
             const rr=(Array.isArray(parsed.rows)?parsed.rows:[]).map(r=>({...r,_rid:r._rid||genRid()}));
             setRows(rr); setEntryRow({...parsed.entryRow,_rid:parsed.entryRow._rid||genRid()});
             setPage(Math.max(1,Math.ceil(rr.length/ROWS_PER_PAGE)));
@@ -1617,17 +1667,71 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
 
       if(!draftRestored){
         await loadItems("","",true);
-        if(sess.Productcodeautogen){const r=await autoGenCode(mkEmpty(sess));setEntryRow(r);}
+        let baseEntry = mkEmpty(sess);
+        if(sess.Productcodeautogen) baseEntry = await autoGenCode(baseEntry);
+        setEntryRow(baseEntry);
+        draftRestoreHandledRef.current = false;
       }
-     else {
-  await loadItems("", "", true); // ← இதை add பண்ணு (always load)
-}
+
+      if (isIncomingProductQuickCreate && !productQuickCreateStateHandledRef.current) {
+        productQuickCreateStateHandledRef.current = true;
+        productQuickCreateLastPageRef.current = false;
+        productQuickCreatePrefillRef.current = false;
+        quickCreateReturnRef.current = false;
+        setProductQuickCreateContext({ ...quickCreateState });
+        try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
+        navigate(location.pathname, { replace:true, state:null });
+      }
+
+      if(!draftRestored && !retId){
+        setTimeout(()=>focusEntry(editableKeys[0]),500);
+      }
       draftOk.current=true;
-      if (!retId) setTimeout(()=>focusEntry(editableKeys[0]),500);
       setDataLoaded(true);
     })();
   // eslint-disable-next-line
   },[]);
+
+  useEffect(() => {
+    if (!dataLoaded || !productQuickCreateContext || productQuickCreateLastPageRef.current) return;
+    const totalProducts = rowsRef.current.length;
+    const lastPage = Math.max(1, Math.ceil(totalProducts / ROWS_PER_PAGE));
+    productQuickCreateLastPageRef.current = true;
+    setPage(lastPage);
+  }, [dataLoaded, productQuickCreateContext, rows.length]);
+
+  useEffect(() => {
+    if (!dataLoaded || !productQuickCreateContext || !productQuickCreateLastPageRef.current || productQuickCreatePrefillRef.current) return;
+    productQuickCreatePrefillRef.current = true;
+
+    setEntryRow(prev => {
+      let changed = false;
+      const next = { ...prev };
+      const code = String(productQuickCreateContext?.initialProductCode || "").trim().toUpperCase();
+      const name = String(productQuickCreateContext?.initialProductName || "").trim();
+
+      if (!sess.Productcodeautogen && code) {
+        next.ProductCode = code;
+        changed = true;
+      }
+      if (name) {
+        next.ProductName = name;
+        changed = true;
+      }
+      if (changed) next._dirty = true;
+      return changed ? next : prev;
+    });
+
+    setTimeout(() => {
+      if (!sess.Productcodeautogen && String(productQuickCreateContext?.initialProductCode || "").trim()) {
+        focusEntry("ProductCode");
+      } else if (String(productQuickCreateContext?.initialProductName || "").trim()) {
+        focusEntry("ProductName");
+      } else {
+        focusEntry(editableKeys[0]);
+      }
+    }, 120);
+  }, [dataLoaded, productQuickCreateContext, sess.Productcodeautogen, focusEntry, editableKeys]);
 
   useEffect(() => {
     if (dataLoaded && pendingReturnRef.current) {
@@ -1991,7 +2095,7 @@ if (!isAuthorized) return null;
             </div>
           )}
         </div>
-        <button className="mp-back" onClick={()=>navigate(-1)}>← Back</button>
+        <button className="mp-back" onClick={()=>{ if (!exitProductQuickCreate(false)) navigate(-1); }}>← Back</button>
       </div> */}
 
       <div className="mp-body mp-ibody">
@@ -2001,20 +2105,49 @@ if (!isAuthorized) return null;
 
 
         {/* Pagination + status */}
-        <div className="mp-toolbar" style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-          <div style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap",minWidth:0,paddingRight:140}}>
-            {pageNums.map((n,idx)=>{
-              const prev=pageNums[idx-1];
-              return (
-                <span key={n} style={{display:"flex",alignItems:"center",gap:2}}>
-                  {prev&&n-prev>1&&<span style={{color:"#94a3b8",fontSize:11}}>…</span>}
-                  <button className={`mp-pgbtn${page===n?" on":""}`} onClick={()=>setPage(n)}>{n}</button>
-                </span>
-              );
-            })}
+        <div className="mp-toolbar" style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 10px", flexWrap:"wrap" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <button className="mp-pgbtn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{"<"}</button>
+            <button className={`mp-pgbtn${page===1?" on":""}`} onClick={() => setPage(1)}>1</button>
+            {totPages >= 2 && (
+              <button className={`mp-pgbtn${page===2?" on":""}`} onClick={() => setPage(2)}>2</button>
+            )}
+            {totPages > 2 && (
+              <>
+                <input
+                  key={page}
+                  className="mp-cell-input"
+                  style={{ width:52, height:26, textAlign:"center", padding:"0 6px" }}
+                  defaultValue={page}
+                  onBlur={e => {
+                    const nextPage = Number(String(e.target.value || "").replace(/[^\d]/g, ""));
+                    if (!Number.isFinite(nextPage) || nextPage <= 0) {
+                      e.target.value = String(page);
+                      return;
+                    }
+                    setPage(Math.min(totPages, Math.max(1, nextPage)));
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                />
+                <button className={`mp-pgbtn${page===totPages?" on":""}`} onClick={() => setPage(totPages)}>{totPages}</button>
+              </>
+            )}
+            <button className="mp-pgbtn" onClick={() => setPage(Math.min(totPages, page + 1))} disabled={page >= totPages}>{">"}</button>
+            <span style={{ fontSize:11, color:"#64748b", marginLeft:6, fontWeight:600 }}>
+              Record {filteredRows.length}
+            </span>
           </div>
-          <div className="mp-toolbar-title" style={{position:"absolute",left:"50%",transform:"translateX(-50%)",textAlign:"center",pointerEvents:"none",whiteSpace:"nowrap"}}>Item Master</div>
-          <div style={{display:"flex",gap:8,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap",marginLeft:"auto",paddingLeft:140}}>
+
+          <div style={{ width:1, height:22, background:"#d1d5db", margin:"0 4px" }} />
+
+          <div className="mp-toolbar-title">Item Master</div>
+
+          <div style={{display:"flex",gap:8,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap",marginLeft:"auto"}}>
             <span className="mp-badge">Rows: {rows.length}{totCnt>rows.length?` / ${totCnt}`:""}</span>
             {(entryRow._dirty||rows.some(r=>r._dirty))&&<span className="mp-badge-warn">✏️ {rows.filter(r=>r._dirty).length+(entryRow._dirty?1:0)} unsaved</span>}
             {vErr&&<span className="mp-verr">{vErr}</span>}
@@ -2201,7 +2334,7 @@ if (!isAuthorized) return null;
           {sess.GroupCommission && <button className="mp-btn" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);if(!r?.Id){await showAlert("Validation Failed\n\nSelect a saved row first");return;}const res=await CC.api(CC.ItemGroupCommission,null,{},{Id:r.Id,Comid:sess.Comid});setGcRows(!res._netErr&&(res.data||res.Data1)?res.data||res.Data1:[]);setGcOpen(true);}} disabled={!selRid}>💰 Group Commission</button>}
 
           <button className="mp-btn dl" onClick={async ()=>selRid?doDeleteRow(selRid):await showAlert("Validation Failed\n\nSelect a row to delete")} disabled={!selRid||loading}>🗑 Delete</button>
-          <button className="mp-btn dl" onClick={()=>navigate(-1)}>✕ Esc Cancel</button>
+          <button className="mp-btn dl" onClick={()=>{ if (!exitProductQuickCreate(false)) navigate(-1); }}>✕ Esc Cancel</button>
         </div>
 
         {/* Hint bar */}

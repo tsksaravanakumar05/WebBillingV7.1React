@@ -399,6 +399,8 @@ export const buildSession = (pageName) => {
       ItemMasterRateUpdate:        String(main0.ItemMasterRateUpdate        ?? false),
       Commoncompany:                String(main0.CommonCompany              ?? false),
       CommoncompanyDiffStock:       String(main0.CommonCompanyDiffStock      ?? false),
+      AllowQuickMasterCreation:     String(main0.AllowQuickMasterCreation    ?? true),
+      AllowQuickProductCreation:    String(main0.AllowQuickProductCreation   ?? true),
       SupplierMulitipleAllow:       String(main0.SupplierMulitipleAllow      ?? false),
       MulipleMRP:                   String(com0.MultiMRP                 ?? false),
       CMBTPatty:                      String(main0.CMBTPatty                  ?? false),
@@ -412,6 +414,8 @@ export const buildSession = (pageName) => {
              batchstockstatus: "0", TextilesSerialNowiseBilling: "false",
              ItemMasterRateUpdate: "false",
              Commoncompany: "false", CommoncompanyDiffStock: "false",
+             AllowQuickMasterCreation: "true",
+             AllowQuickProductCreation: "true",
              SupplierMulitipleAllow: "false", MulipleMRP: "false",
              BatchPerfix: "", BatchDigit: "0", LocalDB: "0" };
   }
@@ -857,6 +861,7 @@ export const modalStyles = {
   overlay: { position:"fixed", inset:0, background:"rgba(10,20,40,0.55)", backdropFilter:"blur(2px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 },
   modal:   { background:"#fff", borderRadius:"10px", padding:"28px 32px 22px", minWidth:"280px", maxWidth:"360px", textAlign:"center", boxShadow:"0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)", border:"1px solid #e2e8f0", animation:"cmPopIn 0.15s ease" },
   icon:    { width:"40px", height:"40px", borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", fontSize:"20px", fontWeight:"700", lineHeight:"40px", margin:"0 auto 14px" },
+  title:   { fontSize:"16px", color:"#0f172a", fontWeight:"700", margin:"0 0 10px" },
   msg:     { fontSize:"14px", color:"#1e293b", fontWeight:"500", margin:"0 0 20px", lineHeight:"1.5" },
   btns:    { display:"flex", gap:"10px", justifyContent:"center" },
   btn:     { padding:"7px 26px", borderRadius:"6px", border:"none", fontSize:"13px", fontWeight:"600", cursor:"pointer", outline:"none" },
@@ -865,7 +870,7 @@ export const modalStyles = {
 };
 
 // ─── 11. CONFIRM MODAL COMPONENT ──────────────────────────────────────────────
-export function ConfirmModal({ message, onYes, onNo }) {
+export function ConfirmModal({ title = "", message, onYes, onNo }) {
   const yesBtnRef = useRef(null);
 
   useEffect(() => {
@@ -883,6 +888,7 @@ export function ConfirmModal({ message, onYes, onNo }) {
     <div style={modalStyles.overlay}>
       <div style={modalStyles.modal} role="dialog" aria-modal="true">
         <div style={modalStyles.icon}>?</div>
+        {title ? <div style={modalStyles.title}>{title}</div> : null}
         <p style={modalStyles.msg}>{message}</p>
         <div style={modalStyles.btns}>
           <button ref={yesBtnRef} style={{ ...modalStyles.btn, ...modalStyles.yes }} onClick={onYes}>✔ Yes</button>
@@ -902,11 +908,21 @@ export function ConfirmModal({ message, onYes, onNo }) {
  */
 export function useConfirm() {
   const [conf, setConf] = useState(null);
-  const confirm   = useCallback((message) => new Promise((resolve) => setConf({ message, resolve })), []);
+  const confirm = useCallback((payload) => new Promise((resolve) => {
+    if (typeof payload === "string") {
+      setConf({ title: "", message: payload, resolve });
+      return;
+    }
+    setConf({
+      title: payload?.title || "",
+      message: payload?.message || "",
+      resolve,
+    });
+  }), []);
   const handleYes = useCallback(() => { conf?.resolve(true);  setConf(null); }, [conf]);
   const handleNo  = useCallback(() => { conf?.resolve(false); setConf(null); }, [conf]);
   const ConfirmUI = conf
-    ? <ConfirmModal message={conf.message} onYes={handleYes} onNo={handleNo} />
+    ? <ConfirmModal title={conf.title} message={conf.message} onYes={handleYes} onNo={handleNo} />
     : null;
   return { confirm, ConfirmUI };
 }

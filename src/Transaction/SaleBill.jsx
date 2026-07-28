@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../TransactionStyle/SaleBill.css";
 import "../Master/MasterPage.css";
 import * as CC from "../components/Common";
@@ -22,7 +22,12 @@ const BASE_URL = "http://localhost:64215";
 
 
 // ─── COMBOBOX ─────────────────────────────────────────────────────────────────
-function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, inputRef: extRef }) {
+const SALE_QUICK_CREATE_KEY = "sale_customer_quick_create_state";
+const SALE_PRODUCT_QUICK_CREATE_KEY = "sale_product_quick_create_state";
+const isQuickCreateEnabled = (v) => v === true || v === "true" || v === "1" || v === 1;
+const normalizeProductValue = (value) => String(value || "").trim().toUpperCase();
+
+function ComboBox({ options, value, onChange, onEnterKey, onCreateOption, placeholder, style, inputRef: extRef }) {
   const [q, setQ]           = useState("");
   const [open, setOpen]     = useState(false);
   const [hilite, setHilite] = useState(0);
@@ -42,6 +47,9 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
   const filtered = options.filter(o =>
     o.label.toUpperCase().includes(q.toUpperCase())
   ).slice(0, 150);
+  const createOptionVisible = !!q.trim()
+    && typeof onCreateOption === "function"
+    && !options.some((o) => String(o.label || "").trim().toUpperCase() === q.trim().toUpperCase());
 
   useEffect(() => { setHilite(0); }, [q]);
 
@@ -67,13 +75,23 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
     setOpen(false);
   };
 
-  const handleKeyDown = e => {
-    if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+  const handleKeyDown = async (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const maxIdx = filtered.length + (createOptionVisible ? 1 : 0) - 1;
+      setOpen(true);
+      setHilite(h => Math.min(h + 1, Math.max(maxIdx, 0)));
+    }
     if (e.key === "ArrowUp")   { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
     if (e.key === "Enter") {
       e.preventDefault();
       if (open && filtered[hilite]) { selectOption(filtered[hilite]); }
-      onEnterKey?.();
+      else if (open && createOptionVisible && hilite === filtered.length) {
+        if (await onCreateOption?.(q.trim())) return;
+      } else if (createOptionVisible) {
+        if (await onCreateOption?.(q.trim())) return;
+      }
+      onEnterKey?.(q.trim());
     }
     if (e.key === "Escape") { setOpen(false); setQ(selectedLabel); }
   };
@@ -91,7 +109,7 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
         onKeyDown={handleKeyDown}
         style={{ width: "100%", cursor: "text" }}
       />
-      {open && filtered.length > 0 && (
+      {open && (filtered.length > 0 || createOptionVisible) && (
         <div
           ref={listRef}
           style={{
@@ -122,6 +140,23 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
               {opt.label}
             </div>
           ))}
+          {createOptionVisible && (
+            <div
+              onMouseDown={() => { void onCreateOption?.(q.trim()); }}
+              style={{
+                padding: "5px 10px",
+                fontSize: 12,
+                cursor: "pointer",
+                background: hilite === filtered.length ? "#deeafb" : "#fff",
+                borderLeft: hilite === filtered.length ? "3px solid #1f65de" : "3px solid transparent",
+                color: "#1f65de",
+                fontWeight: 700,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}
+            >
+              + Create New Customer: {q.trim()}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -751,7 +786,7 @@ function PwModal({ title, comid, onOk, onClose }) {
 }
 // ─── PRODUCT SEARCH POPUP ────────────────────────────────────────────────────
 // ─── PRODUCT SEARCH POPUP ────────────────────────────────────────────────────
-function ProductSearchPopup({ products, onSelect, onClose, anchorPos, isTamil }) {
+function ProductSearchPopup({ products, onSelect, onClose, anchorPos, isTamil, allowQuickCreate, onCreateProduct }) {
   const [q, setQ]           = useState("");
   const [hilite, setHilite] = useState(0);
   const inputRef = useRef(null);
@@ -760,9 +795,12 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos, isTamil })
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 30); }, []);
 
   const filtered = products.filter(p =>
-    String(p.PName || "").toLowerCase().includes(q.toLowerCase()) ||
-    String(p.Prod_code || "").toLowerCase().includes(q.toLowerCase())
+    String(p.PName || p.ProductName || "").toLowerCase().includes(q.toLowerCase()) ||
+    String(p.Prod_Code || p.ProductCode || p.Prod_code || "").toLowerCase().includes(q.toLowerCase())
   ).slice(0, 120);
+  const createVisible = allowQuickCreate && !!q.trim() && !products.some((p) =>
+    normalizeProductValue(p.PName || p.ProductName) === normalizeProductValue(q)
+  );
 
   useEffect(() => { setHilite(0); }, [q]);
   useEffect(() => {
@@ -786,9 +824,13 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos, isTamil })
           placeholder="Type code or name…"
           className="sb-ps-input"
           onKeyDown={e => {
-            if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+            if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, createVisible ? filtered.length : Math.max(filtered.length - 1, 0))); }
             if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
-            if (e.key === "Enter")      { e.preventDefault(); if (filtered[hilite]) onSelect(filtered[hilite]); }
+            if (e.key === "Enter")      {
+              e.preventDefault();
+              if (createVisible && hilite === filtered.length) onCreateProduct?.(q.trim());
+              else if (filtered[hilite]) onSelect(filtered[hilite]);
+            }
             if (e.key === "Escape")     { e.preventDefault(); onClose(); }
           }}
         />
@@ -812,9 +854,7 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos, isTamil })
       )}
 
       <div ref={listRef} className="sb-prod-list">
-        {filtered.length === 0
-          ? <div className="sb-ps-empty">No products found</div>
-          : filtered.map((p, idx) => (
+        {filtered.map((p, idx) => (
             <div key={p.Id} data-idx={idx}
               className={`sb-prod-item${idx === hilite ? " hi" : ""}`}
               onClick={() => onSelect(p)}
@@ -857,6 +897,18 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos, isTamil })
             </div>
           ))
         }
+        {filtered.length === 0 && !createVisible && <div className="sb-ps-empty">No products found</div>}
+        {createVisible && (
+          <div
+            data-idx={filtered.length}
+            className={`sb-prod-item${hilite === filtered.length ? " hi" : ""}`}
+            onClick={() => onCreateProduct?.(q.trim())}
+            onMouseEnter={() => setHilite(filtered.length)}
+            style={{ fontWeight: 700, color: "#1f65de" }}
+          >
+            + Create New Product: {q.trim()}
+          </div>
+        )}
       </div>
       <div className="sb-ps-footer">
         <span><kbd>↑↓</kbd> Navigate</span>
@@ -1448,7 +1500,10 @@ const SmCodeCell = forwardRef(function SmCodeCell(
 export default function SaleBill() {
   const unlockedRidRef       = useRef(null);
   const pendingRateChangeRef = useRef(null);
+  const productCreateConfirmRef = useRef(false);
+  const location             = useLocation();
   const navigate             = useNavigate();
+  const quickCreateState     = location.state?.quickCreate;
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }    = CC.useToast();
 
@@ -1469,6 +1524,9 @@ export default function SaleBill() {
   const srdetailsRef  = useRef([]);
   const remarksRef    = useRef(null);
   const payInputRefs  = useRef([]);
+  const quickCreateHandledRef = useRef(false);
+  const goToNextFieldRef = useRef(null);
+  const loadSaleProductsRef = useRef(null);
 
   const loadColCfg = useCallback(async (comid) => {
     try {
@@ -1520,6 +1578,8 @@ export default function SaleBill() {
         CashierId:    CC.getStr("CashierRefid")   || "0",
         Tamil:        !!main0.ProductNameTamil,
         CommonCompany: isCC,
+        AllowQuickMasterCreation: !!(main0.AllowQuickMasterCreation ?? true),
+        AllowQuickProductCreation: !!(main0.AllowQuickProductCreation ?? true),
         CommonCompanyDiffStock: !!main0.CommonCompanyDiffStock,
         MulipleMRP:   !!com0.MultiMRP,
         SaleSubMaster: !!main0.SaleSubMaster,
@@ -1566,6 +1626,8 @@ export default function SaleBill() {
         CashId: "0", CashierId: "0",
         BillNoType: "Daily Reset On Company", BillNoPrefix: "", BillNoDigit: 0,
         SaleSubMaster: false, Herbalife: false, CMBTPatty: false, BatchWiseStock: false, TextilesSerialNowiseBilling: false, DayClose: false, TaxName: "Exclusive",
+        AllowQuickMasterCreation: true,
+        AllowQuickProductCreation: true,
         BillFormatName: "Default", CompanyName: "", PrintA4: false, PrintSmall: false, CustomerNameTamil: false, WhatsAppURL: "",
       };
     }
@@ -1768,6 +1830,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
   };
 
   const validRows = rows.filter(r => r.ProductRefId && CC.vn(r.ItemQty) > 0);
+  const roundedNetAmount = Math.round(CC.vn(totals.NetAmt));
   const itemCount = validRows.length;
   const totalQty  = validRows.reduce((s, r) => s + CC.vn(r.ItemQty), 0);
 
@@ -2138,6 +2201,213 @@ const loadFocusCols = useCallback(async (mcomid) => {
   // eslint-disable-next-line
   }, [sess]);
 
+  const saveQuickCreateState = useCallback((extra = {}) => {
+    const snapshot = {
+      billNo, billDate, custId, custMobile, smId, remarks, editId,
+      crmValue, curBal, custCardRefId, crmPointRate, crmValueRate,
+      custOpCrmPoints, custOpCrmValue, stockLbl, rows, selRid, payRows,
+      totals, otherPlus, otherMinus, discPer, gstSplit, billHoldName, tamilMode,
+      ...extra,
+    };
+    sessionStorage.setItem(extra.storageKey || SALE_QUICK_CREATE_KEY, JSON.stringify(snapshot));
+  }, [
+    billNo, billDate, custId, custMobile, smId, remarks, editId,
+    crmValue, curBal, custCardRefId, crmPointRate, crmValueRate,
+    custOpCrmPoints, custOpCrmValue, stockLbl, rows, selRid, payRows,
+    totals, otherPlus, otherMinus, discPer, gstSplit, billHoldName, tamilMode,
+  ]);
+
+  const restoreQuickCreateState = useCallback((snapshot) => {
+    if (!snapshot || typeof snapshot !== "object") return;
+    setBillNo(snapshot.billNo || "");
+    setBillDate(snapshot.billDate || CC.today());
+    setCustId(snapshot.custId || "");
+    setCustMobile(snapshot.custMobile || "");
+    setSmId(snapshot.smId || "");
+    setRemarks(snapshot.remarks || "");
+    setEditId(snapshot.editId || 0);
+    setCrmValue(snapshot.crmValue || "0.00");
+    setCurBal(snapshot.curBal || "0.00");
+    setCustCardRefId(snapshot.custCardRefId || "0");
+    setCrmPointRate(snapshot.crmPointRate || 0);
+    setCrmValueRate(snapshot.crmValueRate || 0);
+    setCustOpCrmPoints(snapshot.custOpCrmPoints || 0);
+    setCustOpCrmValue(snapshot.custOpCrmValue || 0);
+    setStockLbl(snapshot.stockLbl || "0.00");
+    setRows(Array.isArray(snapshot.rows) && snapshot.rows.length ? snapshot.rows : [mkRow()]);
+    setSelRid(snapshot.selRid || null);
+    setPayRows(Array.isArray(snapshot.payRows) ? snapshot.payRows : []);
+    setTotals(snapshot.totals || {
+      GrossAmt: 0, DiscAmt: 0, GSTAmt: 0, CESSAmt: 0, OtherPlus: 0, OtherMinus: 0, Coinage: 0, NetAmt: 0,
+    });
+    setOtherPlus(snapshot.otherPlus || "");
+    setOtherMinus(snapshot.otherMinus || "");
+    setDiscPer(snapshot.discPer || "");
+    setGstSplit(Array.isArray(snapshot.gstSplit) ? snapshot.gstSplit : []);
+    setBillHoldName(snapshot.billHoldName || "");
+    setTamilMode(!!snapshot.tamilMode);
+  }, []);
+
+  const focusProductField = useCallback((rid, colKey = "ProductCode") => {
+    if (!rid) return;
+    setTimeout(() => {
+      const el = cellRefs.current[rid]?.[colKey];
+      if (el) {
+        el.focus();
+        el.select?.();
+      }
+    }, 80);
+  }, []);
+
+  const navigateSaleProductQuickCreate = useCallback((context) => {
+    const code = String(context?.typedProductCode || "").trim();
+    const name = String(context?.typedProductName || "").trim();
+    if ((!code && !name) || !isQuickCreateEnabled(sess.AllowQuickProductCreation)) return false;
+    const storageKey = `${SALE_PRODUCT_QUICK_CREATE_KEY}:${Date.now()}`;
+    saveQuickCreateState({
+      storageKey,
+      productQuickCreateContext: {
+        rid: context.rid,
+        field: context.field || (code ? "ProductCode" : "ProductName"),
+        typedProductCode: code,
+        typedProductName: name,
+      },
+    });
+    navigate("/Itemmaster", {
+      state: {
+        quickCreate: {
+          quickCreateType: "product",
+          productCreateReturn: true,
+          openLastPage: true,
+          source: "sale",
+          returnTo: location.pathname,
+          storageKey,
+          rid: context.rid,
+          field: context.field || (code ? "ProductCode" : "ProductName"),
+          initialProductCode: code,
+          initialProductName: name,
+        },
+      },
+    });
+    return true;
+  }, [location.pathname, navigate, saveQuickCreateState, sess.AllowQuickProductCreation]);
+
+  const startSaleProductQuickCreate = useCallback(async (context) => {
+    const code = String(context?.typedProductCode || "").trim();
+    const name = String(context?.typedProductName || "").trim();
+    const field = context?.field || (code ? "ProductCode" : "ProductName");
+    if ((!code && !name) || !isQuickCreateEnabled(sess.AllowQuickProductCreation) || productCreateConfirmRef.current) return false;
+    productCreateConfirmRef.current = true;
+    const ok = await confirm({
+      title: "Create New Product",
+      message: code
+        ? `Product code "${code}" does not exist.\nDo you want to create a new Product?`
+        : `Product "${name}" does not exist.\nDo you want to create a new Product?`,
+    });
+    productCreateConfirmRef.current = false;
+    if (!ok) {
+      focusProductField(context?.rid, field);
+      return true;
+    }
+    return navigateSaleProductQuickCreate({ ...context, field, typedProductCode: code, typedProductName: name });
+  }, [confirm, focusProductField, navigateSaleProductQuickCreate, sess.AllowQuickProductCreation]);
+
+  const navigateCustomerQuickCreate = useCallback((typedName) => {
+    const name = String(typedName || "").trim();
+    if (!name || !isQuickCreateEnabled(sess.AllowQuickMasterCreation)) return false;
+    saveQuickCreateState();
+    navigate("/Customer", {
+      state: {
+        quickCreate: {
+          source: "sale",
+          returnTo: location.pathname,
+          storageKey: SALE_QUICK_CREATE_KEY,
+          typedName: name,
+        },
+      },
+    });
+    return true;
+  }, [location.pathname, navigate, saveQuickCreateState, sess.AllowQuickMasterCreation]);
+
+  const startCustomerQuickCreate = useCallback(async (typedName) => {
+    const name = String(typedName || "").trim();
+    if (!name || !isQuickCreateEnabled(sess.AllowQuickMasterCreation)) return false;
+    const ok = await confirm({
+      title: "Create New Customer",
+      message: `Customer "${name}" does not exist.\nDo you want to create it?`,
+    });
+    if (!ok) {
+      setTimeout(() => {
+        custRef.current?.focus?.();
+        custRef.current?.select?.();
+      }, 30);
+      return true;
+    }
+    return navigateCustomerQuickCreate(name);
+  }, [confirm, navigateCustomerQuickCreate, sess.AllowQuickMasterCreation]);
+  const fillItemIntoRow = useCallback((rid, item, options = {}) => {
+    const { skipAdvance = false } = options;
+    setRows(prev => prev.map(r => {
+      if (r._rid !== rid) return r;
+      const newRow = withRowProductNames({
+        ...r,
+        ProductRefId:    item.Id,
+        ProductCode:     item.Prod_Code ? item.Prod_Code : item.ProductCode,
+        EnglishDescription: item.PName ? item.PName : item.ProductName,
+        TamilDescription: item.PrinterName || "",
+        MRP:             CC.f2(CC.vn(item.MRP)),
+        SaleRate:        CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
+        PurchaseRate:    CC.f2(CC.vn(item.PurRate || item.PurchaseRate)),
+        _origSaleRate:   CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
+        TaxPercent:      CC.f2(CC.vn(item.GST)),
+        CESSPer:         CC.f2(CC.vn(item.CESS)),
+        SPLCESS:         CC.f2(CC.vn(item.SPLCESS)),
+        UOM:             item.UOM || "",
+        UOMDecimal:      item.UOMDecimal || 0,
+        HSNCode:         item.HSNCode || "",
+        StockQty:        CC.vn(item.Stock ?? item.StockQty),
+        BatchRefid:      item.Batchid || item.BatchRefid || null,
+        Bat_No:          item.BatchNo || item.Bat_No || "",
+        ExpDate:         item.Expdate || item.ExpDate || item.ExpiryDate || "",
+        MfgDate:         item.MFdate || item.MfgDate || "",
+        PDRefid:         item.PDRefid || item.PDRefId || null,
+        BatchWiseIdNewRefId: getRowBatchWiseId(item),
+        OpenItemMasterid: getRowOpenItemMasterId(item),
+        SalesRateType:   item.SaleRateType,
+        NegativetStock:  !!item.NegativetStock,
+        NStock:          item.Nstock || 0,
+        DiscountPercent: CC.f2(CC.vn(item.SaleDiscountPer)),
+        CRMPoints:       item.CRMPoints ? 1 : 0,
+        RealQty:         CC.vn(item.RealQty || 1),
+        StockQtyNew:     "1",
+        ItemQty:         "1",
+        _dirty: true,
+      }, tamilMode);
+      setStockLbl(CC.vn(item.Stock).toFixed(0));
+     return calcSaleRow(newRow); 
+    }));
+    setProdPopup(null);
+
+    // setTimeout(() => {
+    //   const defaultCols = visCols
+    //     .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
+    //     .filter(Boolean)
+    //     .filter(cd => !cd.readOnly)
+    //     .map(cd => cd.key);
+
+    //   const COLS = focusColsRef.current.length > 0
+    //     ? focusColsRef.current.filter(k => defaultCols.includes(k))
+    //     : defaultCols;
+
+    //   const pcIdx  = COLS.indexOf("ProductCode");
+    //   const nextCol = pcIdx >= 0 && pcIdx < COLS.length - 1 ? COLS[pcIdx + 1] : "ItemQty";
+    //   const el = cellRefs.current[rid]?.[nextCol];
+    //   if (el) { el.focus(); el.select?.(); }
+    // }, 50);
+    if (!skipAdvance) {
+      setTimeout(() => goToNextFieldRef.current?.(rid, "ProductCode"), 50);
+    }
+  }, [tamilMode]);
   // ── Totals recalc ─────────────────────────────────────────────────────────
   const recalcTotals = useCallback((rowsArr, oPlus, oMinus) => {
     let grossAmt = 0, gstAmt = 0, cessAmt = 0, discAmt = 0, cdAmt = 0;
@@ -2266,6 +2536,68 @@ const loadFocusCols = useCallback(async (mcomid) => {
       setCurBal("0.00");
     }
   }, [sess, billDate, customers]);
+
+  useEffect(() => {
+    if (!quickCreateState || quickCreateHandledRef.current) return;
+    if (quickCreateState.quickCreateType !== "product" && customers.length === 0) return;
+    quickCreateHandledRef.current = true;
+
+    let snapshot = null;
+    try {
+      snapshot = JSON.parse(sessionStorage.getItem(quickCreateState.storageKey || SALE_QUICK_CREATE_KEY) || "null");
+    } catch {}
+    sessionStorage.removeItem(quickCreateState.storageKey || SALE_QUICK_CREATE_KEY);
+    restoreQuickCreateState(snapshot);
+
+    const clearNavState = () => navigate(location.pathname, { replace: true, state: null });
+
+    if (quickCreateState.quickCreateType === "product") {
+      const ctx = quickCreateState;
+      const snapCtx = snapshot?.productQuickCreateContext || {};
+      const rid = ctx.rid || snapCtx.rid;
+      const field = ctx.field || snapCtx.field || "ProductCode";
+
+      const restoreFocus = () => focusProductField(rid, field);
+
+      if (!ctx.created) {
+        setTimeout(restoreFocus, 120);
+        clearNavState();
+        return;
+      }
+
+      (async () => {
+        const sourceList = (prodList && prodList.length) ? prodList : await loadSaleProductsRef.current?.();
+        const match = (sourceList || []).find((p) =>
+          String(p.Id) === String(ctx.productId) ||
+          normalizeProductValue(p.ProductCode || p.Prod_Code) === normalizeProductValue(ctx.productCode) ||
+          normalizeProductValue(p.ProductName || p.PName) === normalizeProductValue(ctx.productName)
+        );
+
+        if (match && rid) {
+          fillItemIntoRow(rid, match);
+        } else {
+          restoreFocus();
+        }
+        productCreateConfirmRef.current = false;
+        clearNavState();
+      })();
+      return;
+    }
+
+    if (quickCreateState.created && quickCreateState.entityId) {
+      handleCustomerChange(String(quickCreateState.entityId));
+    }
+
+    setTimeout(() => {
+      custRef.current?.focus?.();
+      custRef.current?.select?.();
+    }, 120);
+
+    clearNavState();
+  }, [
+    quickCreateState, customers, restoreQuickCreateState, handleCustomerChange,
+    navigate, location.pathname, fillItemIntoRow, prodList, focusProductField,
+  ]);
   // ── getRowEnabledCols — FIXED ──────────────────────────────────────────────
 // Ctrl+G order is now the ONLY basis for ordering. Overrides (SaleRate /
 // ItemQty) are injected exactly once, immediately after "ProductCode", and
@@ -2386,6 +2718,7 @@ const getRowEnabledCols = useCallback((rid) => {
       }
     }
   }, [getRowEnabledCols]);
+  goToNextFieldRef.current = goToNextField;
   // const getRowEnabledCols = useCallback((rid) => {
   //   const defaultCols = visCols
   //     .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
@@ -2414,69 +2747,7 @@ const getRowEnabledCols = useCallback((rid) => {
   // }, [visCols]);
 
   // ── Fill item into row ─────────────────────────────────────────────────────
-  const fillItemIntoRow = useCallback((rid, item, options = {}) => {
-    const { skipAdvance = false } = options;
-    setRows(prev => prev.map(r => {
-      if (r._rid !== rid) return r;
-      const newRow = withRowProductNames({
-        ...r,
-        ProductRefId:    item.Id,
-        ProductCode:     item.Prod_Code ? item.Prod_Code : item.ProductCode,
-        EnglishDescription: item.PName ? item.PName : item.ProductName,
-        TamilDescription: item.PrinterName || "",
-        MRP:             CC.f2(CC.vn(item.MRP)),
-        SaleRate:        CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
-        PurchaseRate:    CC.f2(CC.vn(item.PurRate || item.PurchaseRate)),
-        _origSaleRate:   CC.f2(CC.vn(item.SaleRate ? item.SaleRate : item.SalesRate)),
-        TaxPercent:      CC.f2(CC.vn(item.GST)),
-        CESSPer:         CC.f2(CC.vn(item.CESS)),
-        SPLCESS:         CC.f2(CC.vn(item.SPLCESS)),
-        UOM:             item.UOM || "",
-        UOMDecimal:      item.UOMDecimal || 0,
-        HSNCode:         item.HSNCode || "",
-        StockQty:        CC.vn(item.Stock ?? item.StockQty),
-        BatchRefid:      item.Batchid || item.BatchRefid || null,
-        Bat_No:          item.BatchNo || item.Bat_No || "",
-        ExpDate:         item.Expdate || item.ExpDate || item.ExpiryDate || "",
-        MfgDate:         item.MFdate || item.MfgDate || "",
-        PDRefid:         item.PDRefid || item.PDRefId || null,
-        BatchWiseIdNewRefId: getRowBatchWiseId(item),
-        OpenItemMasterid: getRowOpenItemMasterId(item),
-        SalesRateType:   item.SaleRateType,
-        NegativetStock:  !!item.NegativetStock,
-        NStock:          item.Nstock || 0,
-        DiscountPercent: CC.f2(CC.vn(item.SaleDiscountPer)),
-        CRMPoints:       item.CRMPoints ? 1 : 0,
-        RealQty:         CC.vn(item.RealQty || 1),
-        StockQtyNew:     "1",
-        ItemQty:         "1",
-        _dirty: true,
-      }, tamilMode);
-      setStockLbl(CC.vn(item.Stock).toFixed(0));
-     return calcSaleRow(newRow); 
-    }));
-    setProdPopup(null);
 
-    // setTimeout(() => {
-    //   const defaultCols = visCols
-    //     .map(vc => CC.SB_COLUMNS.find(c => c.key === vc.key))
-    //     .filter(Boolean)
-    //     .filter(cd => !cd.readOnly)
-    //     .map(cd => cd.key);
-
-    //   const COLS = focusColsRef.current.length > 0
-    //     ? focusColsRef.current.filter(k => defaultCols.includes(k))
-    //     : defaultCols;
-
-    //   const pcIdx  = COLS.indexOf("ProductCode");
-    //   const nextCol = pcIdx >= 0 && pcIdx < COLS.length - 1 ? COLS[pcIdx + 1] : "ItemQty";
-    //   const el = cellRefs.current[rid]?.[nextCol];
-    //   if (el) { el.focus(); el.select?.(); }
-    // }, 50);
-    if (!skipAdvance) {
-      setTimeout(() => goToNextField(rid, "ProductCode"), 50);
-    }
-  }, [tamilMode, goToNextField]);
 
   const applyLotNoToRow = useCallback((rid, lotItem) => {
     setRows(prev => prev.map(r => (
@@ -2518,7 +2789,19 @@ const getRowEnabledCols = useCallback((rid) => {
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data
               : Array.isArray(res.Data1) ? res.Data1 : [];
-    if (arr.length === 0) { toast("❌ Invalid Product Code", true); return; }
+    if (arr.length === 0) {
+      if (!isQuickCreateEnabled(sess.AllowQuickProductCreation)) {
+        toast("❌ Invalid Product Code", true);
+        return;
+      }
+      await startSaleProductQuickCreate({
+        rid,
+        field: "ProductCode",
+        typedProductCode: code.trim(),
+        typedProductName: "",
+      });
+      return;
+    }
 
     if (arr[0]?.BatchStatus === 1 || arr[0]?.BatchwiseStock === 1) {
       if (arr.length === 1 && arr[0].BatchNo === code.trim().toUpperCase()) {
@@ -2548,7 +2831,7 @@ const getRowEnabledCols = useCallback((rid) => {
       setProdList(arr);
       setProdPopup({ rid, pos: { top: 200, left: 80 } });
     }
-  }, [sess, fillItemIntoRow, openLotNoPopup]);
+  }, [sess, fillItemIntoRow, openLotNoPopup, toast, startSaleProductQuickCreate]);
 
   const fillBatchItemIntoRow = useCallback(async (rid, batchItem) => {
     setRows(prev => prev.map(r => {
@@ -2650,17 +2933,24 @@ const getRowEnabledCols = useCallback((rid) => {
   }, []);
 
   // ── Load product list ──────────────────────────────────────────────────────
-  const loadProductsForPopup = useCallback(async (rid) => {
-    if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
+  const loadSaleProducts = useCallback(async () => {
     setLoading(true); setLdMsg("Loading products...");
     const res = await CC.api(CC.SO_ProductListUrl, null, {}, { Comid: sess.Comid });
     setLoading(false);
-    if (redirectIfDualLogin(res)) return;
+    if (redirectIfDualLogin(res)) return [];
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : Array.isArray(res) ? res : [];
     setProdList(arr);
+    return arr;
+  // eslint-disable-next-line
+  }, [sess.Comid]);
+  loadSaleProductsRef.current = loadSaleProducts;
+
+  const loadProductsForPopup = useCallback(async (rid) => {
+    if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
+    await loadSaleProducts();
     setProdPopup({ rid, pos: { top: 160, left: 80 } });
   // eslint-disable-next-line
-  }, [sess, prodList]);
+  }, [prodList, loadSaleProducts]);
 
   // ── Cell keydown ───────────────────────────────────────────────────────────
   const handleCellKeyDown = useCallback((e, rid, colKey) => {
@@ -3406,7 +3696,7 @@ const doSave = useCallback(async (isCashBill = false, overridePayRows = null) =>
     const cashIdx = basePayRows.findIndex(r => r.CardType === "CASH");
     const idx     = cashIdx >= 0 ? cashIdx : 0;
     effectivePayRows = basePayRows.map((r, i) =>
-      i === idx ? { ...r, Amount: totals.NetAmt.toFixed(2) } : { ...r, Amount: "" }
+      i === idx ? { ...r, Amount: roundedNetAmount.toFixed(2) } : { ...r, Amount: "" }
     );
     setPayRows(effectivePayRows);
   }
@@ -3444,12 +3734,27 @@ const doSave = useCallback(async (isCashBill = false, overridePayRows = null) =>
     BatchWiseIdNewRefId: getRowBatchWiseId(r),
   }));
 
-  const payFiltered = effectivePayRows.filter(p => CC.vn(p.Amount) > 0).map(p => ({
+  const rawPayFiltered = effectivePayRows.filter(p => CC.vn(p.Amount) > 0).map(p => ({
     CardAccountRefId: p.CardAccountRefId, Saletype: p.Saletype,
     CardType: p.CardType, Amount: CC.f2(CC.vn(p.Amount)), SchargeAmt: CC.f2(CC.vn(p.SchargeAmt)),
     CustomerRefid: custId ? parseInt(custId) : parseInt(sess.CashId),
     BankRefid: p.BankRefid || null,
   }));
+
+  const actualPaidAmount = rawPayFiltered
+    .filter(p => p.CardType !== "CREDIT")
+    .reduce((sum, p) => sum + CC.vn(p.Amount), 0);
+  const computedCreditAmount = rawPayFiltered.some(p => p.CardType === "CREDIT")
+    ? CC.f2(Math.max(0, roundedNetAmount - actualPaidAmount))
+    : 0;
+
+  const payFiltered = rawPayFiltered
+    .map(p => (
+      p.CardType === "CREDIT"
+        ? { ...p, Amount: computedCreditAmount }
+        : p
+    ))
+    .filter(p => CC.vn(p.Amount) > 0);
 
   let saleType     = "CASH";
   const hasCard    = payFiltered.some(p => p.CardType === "CARD"   && p.Amount > 0);
@@ -3483,7 +3788,9 @@ const crmBillAmount = validRows.reduce(
   const usedValue = usedCRMPointRow ? CC.vn(usedCRMPointRow.Amount) : 0;
   const usedPoint = refCrmValueRate > 0 ? CC.f2((usedValue * refCrmPointRate) / refCrmValueRate) : 0;
   
-  const paidAmount = payFiltered.reduce((sum, p) => sum + CC.vn(p.Amount), 0);
+  const paidAmount = payFiltered
+    .filter(p => p.CardType !== "CREDIT")
+    .reduce((sum, p) => sum + CC.vn(p.Amount), 0);
 
   const subSalemasterFlag = (
     refCrmPointRate !== 0 ||
@@ -3494,7 +3801,7 @@ const crmBillAmount = validRows.reduce(
 
 const saleMaster1 = subSalemasterFlag === "1" ? {
     OpeningBalance: CC.vn(refCurBal),
-    ClosingBalance: CC.vn(refCurBal) + totals.NetAmt - paidAmount,
+    ClosingBalance: CC.vn(refCurBal) + roundedNetAmount - paidAmount,
     PaidAmount: 0,
     BillAmount: 0,
     DriverName: "",
@@ -3569,7 +3876,7 @@ const payload = [{
     schargePer: 0,
     OldBillAmount: 0,
     TodaySaving: 0,
-    NetAmount: Math.round(CC.vn(totals.NetAmt)), coinage: 0, Remarks: remarks,
+    NetAmount: roundedNetAmount, coinage: 0, Remarks: remarks,
     CashierRefId: parseInt(sess.CashierId) || 0,
     salesmanRefId: smId ? parseInt(smId) : null,
     BillFormatName: sess.BillFormatName,
@@ -3581,7 +3888,7 @@ const payload = [{
     StateCode: custObj?.StateCode || "", StateName: custObj?.StateName || "",
     MobileNo: sess.Phone || "",
     TinNo: custObj?.GSTINNo || "", IGSTBill: custObj?.IGSTBill || "GST",
-    Credit: hasCredit ? payFiltered.find(p => p.CardType === "CREDIT")?.Amount || 0 : 0,
+    Credit: hasCredit ? computedCreditAmount : 0,
     Modified_By: username,
     ModifiedStatus: editId > 0 ? 1 : 0, Modified_Date: billDate,
     SaleDetails: saledetails, SaleAmountDetails: payFiltered,
@@ -3678,7 +3985,7 @@ const payload = [{
 
     const updated = payRows.map((r, idx) =>
       idx === creditIdx
-        ? { ...r, Amount: totals.NetAmt.toFixed(2) }
+        ? { ...r, Amount: Math.round(CC.vn(totals.NetAmt)).toFixed(2) }
         : { ...r, Amount: "" }
     );
 
@@ -4042,6 +4349,7 @@ onView={() => {
                   ]}
                   value={custId}
                   onChange={handleCustomerChange}
+                  onCreateOption={startCustomerQuickCreate}
                   onEnterKey={() => {
                     const firstRow = rowsRef.current[0];
                     if (firstRow) cellRefs.current[firstRow._rid]?.["ProductCode"]?.focus();
@@ -4570,14 +4878,21 @@ onView={() => {
       )}
 
      {prodPopup && (
-  <ProductSearchPopup
+ <ProductSearchPopup
     products={prodList}
     isTamil={tamilMode}
     onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
+    allowQuickCreate={isQuickCreateEnabled(sess.AllowQuickProductCreation)}
+    onCreateProduct={(value) => startSaleProductQuickCreate({
+      rid: prodPopup.rid,
+      field: "ProductName",
+      typedProductCode: "",
+      typedProductName: value,
+    })}
     onClose={() => setProdPopup(null)}
     anchorPos={prodPopup.pos}
   />
-)}
+)} 
 
       {f5Open && (
         <F5ViewModal

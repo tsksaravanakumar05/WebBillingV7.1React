@@ -378,6 +378,11 @@ const PATTY_ROW_TEMPLATE = [
   { Id: 0, PattyName: "COOLY" },
 ];
 
+const PURCHASE_QUICK_CREATE_KEY = "purchase_supplier_quick_create_state";
+const PURCHASE_PRODUCT_QUICK_CREATE_KEY = "purchase_product_quick_create_state";
+const isQuickCreateEnabled = (v) => v === true || v === "true" || v === "1" || v === 1;
+const normalizeProductValue = (value) => String(value || "").trim().toUpperCase();
+
 // ─── MODE_LABELS — mirrors the lbPurchaseNo/lbPurchaseDate/lbPurchaseType.Text
 // swap done inside LoadArrival() in frmpurchase.cs for each radio mode. ─────────
 const MODE_LABELS = {
@@ -412,8 +417,10 @@ export default function Purchase() {
   const navigate = useNavigate();
   const externalOpenRef = useRef("");
   const fromPattyPurchaseView = !!location.state?.pattyPurchaseOpen;
+  const quickCreateState = location.state?.quickCreate;
+  const productCreateConfirmRef = useRef(false);
 
-  const { confirm, ConfirmUI } = MSG.useConfirm();
+  const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast,   toasts    } = MSG.useToast();
 
   // ── Permission / authorization ─────────────────────────────────────────────
@@ -532,6 +539,9 @@ const [pattyFeatureEnabled, setPattyFeatureEnabled] = useState(false);
   const [supplierDropdown, setSupplierDropdown] = useState([]);
   const [supplierDDOpen,   setSupplierDDOpen  ] = useState(false);
   const [supplierSelIdx,   setSupplierSelIdx  ] = useState(0);
+  const supplierCreateVisible = isQuickCreateEnabled(sess.AllowQuickMasterCreation)
+    && !!supplierQuery.trim()
+    && !supplierList.some((s) => (s.AccountName || "").trim().toLowerCase() === supplierQuery.trim().toLowerCase());
 
   // ── Totals ─────────────────────────────────────────────────────────────────
   const [totals, setTotals] = useState(EMPTY_TOTALS);
@@ -603,6 +613,7 @@ const [pattyFeatureEnabled, setPattyFeatureEnabled] = useState(false);
   const [focusFormColOpen,    setFocusFormColOpen   ] = useState(false);
   const [focusFormColDraft,   setFocusFormColDraft  ] = useState([]);
   const [focusFormDragIdx,    setFocusFormDragIdx   ] = useState(null);
+  const quickCreateHandledRef = useRef(false);
 
   // ── Batch-column visibility flags ──────────────────────────────────────────
   const bStatus = batchWise && (colConfig.find(c => c.key === "BrandId")?.visible ?? true) ? 1 : 0;
@@ -633,6 +644,7 @@ const [pattyFeatureEnabled, setPattyFeatureEnabled] = useState(false);
   const gridRef              = useRef(null);
   const supplierContainerRef = useRef(null);
   const focusCellRef         = useRef(null);
+  const applyProductToRowRef = useRef(null);
   const f12PrevCellRef       = useRef(null);
   const initialFocusDone     = useRef(false);
 
@@ -1178,6 +1190,168 @@ useEffect(() => {
     else setSupplierList(res?.data || res?.Data1 || []);
   }, [sess.MComid, redirectIfDualLogin]);
 
+  const saveQuickCreateState = useCallback((extra = {}) => {
+    const snapshot = {
+      purchaseNo, purchaseDate, dueDate, invoiceDate, invoiceNo, invoiceAmt,
+      remarks, purchaseType, igstStatus, igstChecked,
+      supplierId, supplierQuery, supplierInfo, creditDays,
+      taxMode, purRateInclusive, otherPlus, otherSub, tcsPercent, tcsAmt,
+      lorryNo, discPer, purchaseMode, pattyFeatureEnabled,
+      arrivalDays, dispatchedDate, pattyVehicleNo, pattyPerson, pattyDate,
+      pattyRows, pattyLoaded, totals, gridRows, selectedCell, gstSplit,
+      editId, updateIdEdit, serialNoList,
+      ...extra,
+    };
+    sessionStorage.setItem(extra.storageKey || PURCHASE_QUICK_CREATE_KEY, JSON.stringify(snapshot));
+  }, [
+    purchaseNo, purchaseDate, dueDate, invoiceDate, invoiceNo, invoiceAmt,
+    remarks, purchaseType, igstStatus, igstChecked,
+    supplierId, supplierQuery, supplierInfo, creditDays,
+    taxMode, purRateInclusive, otherPlus, otherSub, tcsPercent, tcsAmt,
+    lorryNo, discPer, purchaseMode, pattyFeatureEnabled,
+    arrivalDays, dispatchedDate, pattyVehicleNo, pattyPerson, pattyDate,
+    pattyRows, pattyLoaded, totals, gridRows, selectedCell, gstSplit,
+    editId, updateIdEdit, serialNoList,
+  ]);
+
+  const restoreQuickCreateState = useCallback((snapshot) => {
+    if (!snapshot || typeof snapshot !== "object") return;
+    setPurchaseNo(snapshot.purchaseNo || "");
+    setPurchaseDate(snapshot.purchaseDate || today());
+    setDueDate(snapshot.dueDate || today());
+    setInvoiceDate(snapshot.invoiceDate || today());
+    setInvoiceNo(snapshot.invoiceNo || "");
+    setInvoiceAmt(snapshot.invoiceAmt || "0.00");
+    setRemarks(snapshot.remarks || "");
+    setPurchaseType(snapshot.purchaseType || "CREDIT");
+    setIgstStatus(snapshot.igstStatus || "GST");
+    setIgstChecked(!!snapshot.igstChecked);
+    setSupplierId(snapshot.supplierId || "");
+    setSupplierQuery(snapshot.supplierQuery || "");
+    setSupplierInfo(snapshot.supplierInfo || { address: "", city: "", phone: "", balance: "0.00" });
+    setCreditDays(snapshot.creditDays || 0);
+    setTaxMode(snapshot.taxMode || "exclusive");
+    setPurRateInclusive(!!snapshot.purRateInclusive);
+    setOtherPlus(snapshot.otherPlus || "0.00");
+    setOtherSub(snapshot.otherSub || "0.00");
+    setTcsPercent(snapshot.tcsPercent || "0.00");
+    setTcsAmt(snapshot.tcsAmt || "0.00");
+    setLorryNo(snapshot.lorryNo || "");
+    setDiscPer(snapshot.discPer || "0.00");
+    setPurchaseMode(snapshot.purchaseMode || "PURCHASE");
+    setPattyFeatureEnabled(!!snapshot.pattyFeatureEnabled);
+    setArrivalDays(snapshot.arrivalDays || 0);
+    setDispatchedDate(snapshot.dispatchedDate || today());
+    setPattyVehicleNo(snapshot.pattyVehicleNo || "");
+    setPattyPerson(snapshot.pattyPerson || "");
+    setPattyDate(snapshot.pattyDate || today());
+    setPattyRows(Array.isArray(snapshot.pattyRows) ? snapshot.pattyRows : []);
+    setPattyLoaded(!!snapshot.pattyLoaded);
+    setTotals(snapshot.totals || EMPTY_TOTALS);
+    setGridRows(Array.isArray(snapshot.gridRows) && snapshot.gridRows.length ? snapshot.gridRows : [makeGridRow()]);
+    setSelectedCell(snapshot.selectedCell || { rowKey: null, colKey: null });
+    setGstSplit(Array.isArray(snapshot.gstSplit) ? snapshot.gstSplit : []);
+    setEditId(snapshot.editId || 0);
+    setUpdateIdEdit(snapshot.updateIdEdit || "");
+    setSerialNoList(Array.isArray(snapshot.serialNoList) ? snapshot.serialNoList : []);
+  }, []);
+
+  const loadPurchaseProducts = useCallback(async () => {
+    const res = await CC.api(CC.GetProductListV7, null, {}, { Comid: sess.MComid });
+    if (redirectIfDualLogin(res)) return [];
+    return res?.Data1 || res?.data?.Data1 || res?.data || [];
+  }, [sess.MComid, redirectIfDualLogin]);
+
+  const focusProductField = useCallback((rowKey, colKey = "ProductCode") => {
+    if (!rowKey) return;
+    setTimeout(() => focusCellRef.current?.(rowKey, colKey), 80);
+  }, []);
+
+  const navigateProductQuickCreate = useCallback((context) => {
+    const code = String(context?.typedProductCode || "").trim();
+    const name = String(context?.typedProductName || "").trim();
+    if ((!code && !name) || !isQuickCreateEnabled(sess.AllowQuickProductCreation)) return false;
+    const storageKey = `${PURCHASE_PRODUCT_QUICK_CREATE_KEY}:${Date.now()}`;
+    saveQuickCreateState({
+      storageKey,
+      productQuickCreateContext: {
+        rowKey: context.rowKey,
+        field: context.field || (code ? "ProductCode" : "ProductName"),
+        typedProductCode: code,
+        typedProductName: name,
+      },
+    });
+    navigate("/Itemmaster", {
+      state: {
+        quickCreate: {
+          quickCreateType: "product",
+          productCreateReturn: true,
+          openLastPage: true,
+          source: "purchase",
+          returnTo: location.pathname,
+          storageKey,
+          rowKey: context.rowKey,
+          field: context.field || (code ? "ProductCode" : "ProductName"),
+          initialProductCode: code,
+          initialProductName: name,
+        },
+      },
+    });
+    return true;
+  }, [location.pathname, navigate, saveQuickCreateState, sess.AllowQuickProductCreation]);
+
+  const startProductQuickCreate = useCallback(async (context) => {
+    const code = String(context?.typedProductCode || "").trim();
+    const name = String(context?.typedProductName || "").trim();
+    const field = context?.field || (code ? "ProductCode" : "ProductName");
+    if ((!code && !name) || !isQuickCreateEnabled(sess.AllowQuickProductCreation) || productCreateConfirmRef.current) return false;
+    productCreateConfirmRef.current = true;
+    const message = code
+      ? `Product code "${code}" does not exist.\nDo you want to create a new Product?`
+      : `Product "${name}" does not exist.\nDo you want to create a new Product?`;
+    const ok = await confirm({ title: "Create New Product", message });
+    productCreateConfirmRef.current = false;
+    if (!ok) {
+      focusProductField(context?.rowKey, field);
+      return true;
+    }
+    return navigateProductQuickCreate({ ...context, field, typedProductCode: code, typedProductName: name });
+  }, [confirm, focusProductField, navigateProductQuickCreate, sess.AllowQuickProductCreation]);
+
+  const navigateSupplierQuickCreate = useCallback((typedName) => {
+    const name = String(typedName || "").trim();
+    if (!name || !isQuickCreateEnabled(sess.AllowQuickMasterCreation)) return false;
+    saveQuickCreateState();
+    navigate("/Supplier", {
+      state: {
+        quickCreate: {
+          source: "purchase",
+          returnTo: location.pathname,
+          storageKey: PURCHASE_QUICK_CREATE_KEY,
+          typedName: name,
+        },
+      },
+    });
+    return true;
+  }, [location.pathname, navigate, saveQuickCreateState, sess.AllowQuickMasterCreation]);
+
+  const startSupplierQuickCreate = useCallback(async (typedName) => {
+    const name = String(typedName || "").trim();
+    if (!name || !isQuickCreateEnabled(sess.AllowQuickMasterCreation)) return false;
+    const ok = await confirm({
+      title: "Create New Supplier",
+      message: `Supplier "${name}" does not exist.\nDo you want to create it?`,
+    });
+    if (!ok) {
+      setTimeout(() => {
+        supplierRef.current?.focus?.();
+        supplierRef.current?.select?.();
+      }, 30);
+      return true;
+    }
+    return navigateSupplierQuickCreate(name);
+  }, [confirm, navigateSupplierQuickCreate, sess.AllowQuickMasterCreation]);
+
   const loadBatchWiseMasters = useCallback(async () => {
     const mainSet  = JSON.parse(localStorage.getItem("Mainsetting") || "[{}]");
     const isBatch  = mainSet?.[0]?.BatchWiseStock === true;
@@ -1280,8 +1454,8 @@ useEffect(() => {
     const filtered = supplierList.filter((s) => (s.AccountName || "").toLowerCase().includes(q));
     setSupplierDropdown(filtered);
     setSupplierSelIdx(0);
-    setSupplierDDOpen(filtered.length > 0);
-  }, [supplierList]);
+    setSupplierDDOpen(filtered.length > 0 || (isQuickCreateEnabled(sess.AllowQuickMasterCreation) && !!value.trim()));
+  }, [sess.AllowQuickMasterCreation, supplierList]);
 
   const confirmSupplierSelection = useCallback((supplier) => {
     setSupplierQuery(supplier.AccountName || "");
@@ -1291,11 +1465,12 @@ useEffect(() => {
     setTimeout(() => nextFocusForm("cmbsupplier"), 50);
   }, [handleSupplierChange, nextFocusForm]);
 
-  const supplierInputKeyDown = useCallback((e) => {
+  const supplierInputKeyDown = useCallback(async (e) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      const maxIdx = supplierDropdown.length + (supplierCreateVisible ? 1 : 0) - 1;
       if (!supplierDDOpen) openSupplierDropdown();
-      else setSupplierSelIdx((i) => Math.min(i + 1, supplierDropdown.length - 1));
+      else setSupplierSelIdx((i) => Math.min(i + 1, Math.max(maxIdx, 0)));
       return;
     }
     if (e.key === "ArrowUp")  { e.preventDefault(); setSupplierSelIdx((i) => Math.max(i - 1, 0)); return; }
@@ -1305,23 +1480,93 @@ useEffect(() => {
       if (supplierDDOpen) {
         const chosen = supplierDropdown[supplierSelIdx];
         if (chosen) confirmSupplierSelection(chosen);
+        else if (supplierCreateVisible) await startSupplierQuickCreate(supplierQuery);
         else toast("❌ Select Valid Supplier !!!.", true);
         return;
       }
       if (supplierId) { nextFocusForm("cmbsupplier"); return; }
       if (supplierQuery.trim()) {
-        const exact = supplierList.find((s) => (s.AccountName || "").toLowerCase() === supplierQuery.toLowerCase());
+        const exact = supplierList.find((s) => (s.AccountName || "").trim().toLowerCase() === supplierQuery.trim().toLowerCase());
         if (exact) { confirmSupplierSelection(exact); return; }
+        if (await startSupplierQuickCreate(supplierQuery)) return;
       }
       toast("❌ Select Valid Supplier !!!.", true);
     }
-  }, [supplierDDOpen, supplierDropdown, supplierSelIdx, supplierId, supplierQuery, supplierList, openSupplierDropdown, confirmSupplierSelection, toast]);
+  }, [supplierDDOpen, supplierDropdown, supplierSelIdx, supplierId, supplierQuery, supplierList, supplierCreateVisible, openSupplierDropdown, confirmSupplierSelection, toast, nextFocusForm, startSupplierQuickCreate]);
 
   useEffect(() => {
     if (!supplierId) return;
     const found = supplierList.find((s) => String(s.Id) === String(supplierId));
     if (found) setSupplierQuery(found.AccountName || "");
   }, [supplierId, supplierList]);
+
+  useEffect(() => {
+    if (!quickCreateState || quickCreateHandledRef.current) return;
+    if (quickCreateState.quickCreateType !== "product" && supplierList.length === 0) return;
+    quickCreateHandledRef.current = true;
+
+    let snapshot = null;
+    try {
+      snapshot = JSON.parse(sessionStorage.getItem(quickCreateState.storageKey || PURCHASE_QUICK_CREATE_KEY) || "null");
+    } catch {}
+    sessionStorage.removeItem(quickCreateState.storageKey || PURCHASE_QUICK_CREATE_KEY);
+    restoreQuickCreateState(snapshot);
+
+    const clearNavState = () => navigate(location.pathname, { replace: true, state: null });
+
+    if (quickCreateState.quickCreateType === "product") {
+      const ctx = quickCreateState;
+      const snapCtx = snapshot?.productQuickCreateContext || {};
+      const rowKey = ctx.rowKey || snapCtx.rowKey;
+      const field = ctx.field || snapCtx.field || "ProductCode";
+
+      const restoreFocus = () => focusProductField(rowKey, field);
+
+      if (!ctx.created) {
+        setTimeout(restoreFocus, 120);
+        clearNavState();
+        return;
+      }
+
+      (async () => {
+        try {
+          const products = await loadPurchaseProducts();
+          const match = products.find((p) =>
+            String(p.Id) === String(ctx.productId) ||
+            normalizeProductValue(p.ProductCode || p.Prod_Code) === normalizeProductValue(ctx.productCode) ||
+            normalizeProductValue(p.ProductName || p.PName) === normalizeProductValue(ctx.productName)
+          );
+          if (match && rowKey) {
+            applyProductToRowRef.current?.(rowKey, match);
+          } else {
+            toast("⚠️ Newly created product could not be auto-selected.", true);
+            restoreFocus();
+          }
+        } catch {
+          restoreFocus();
+        } finally {
+          productCreateConfirmRef.current = false;
+          clearNavState();
+        }
+      })();
+      return;
+    }
+
+    if (quickCreateState.created && quickCreateState.entityId) {
+      setSupplierQuery(quickCreateState.entityName || snapshot?.supplierQuery || "");
+      handleSupplierChange(String(quickCreateState.entityId));
+    }
+
+    setTimeout(() => {
+      supplierRef.current?.focus?.();
+      supplierRef.current?.select?.();
+    }, 120);
+
+    clearNavState();
+  }, [
+    quickCreateState, supplierList, restoreQuickCreateState, handleSupplierChange,
+    navigate, location.pathname, loadPurchaseProducts, toast, focusProductField,
+  ]);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  GRID HELPERS
@@ -1717,6 +1962,28 @@ if (colKey === "MfgDate") {
       }, 30);
     }
   }, [calcRow, serialNoList, setSerialNoPopup]);
+  applyProductToRowRef.current = applyProductToRow;
+
+  const handlePurchaseProductNameCommit = useCallback(async (rowKey, rawValue) => {
+    const name = String(rawValue || "").trim();
+    if (!name) return false;
+    const products = await loadPurchaseProducts();
+    const exact = products.find((p) =>
+      normalizeProductValue(p.ProductName || p.PName) === normalizeProductValue(name)
+    );
+    if (exact) {
+      applyProductToRow(rowKey, exact);
+      return true;
+    }
+    if (!isQuickCreateEnabled(sess.AllowQuickProductCreation)) return false;
+    await startProductQuickCreate({
+      rowKey,
+      field: "ProductName",
+      typedProductCode: "",
+      typedProductName: name,
+    });
+    return true;
+  }, [loadPurchaseProducts, applyProductToRow, sess.AllowQuickProductCreation, startProductQuickCreate]);
 
   const fillProductByCode = useCallback(async (code, rowKey) => {
     if (!code?.trim()) return;
@@ -1732,12 +1999,16 @@ if (colKey === "MfgDate") {
         Array.isArray(res?.Data1) ? res.Data1 :
         Array.isArray(res?.data)  ? res.data   : [];
       if (objPlist.length === 0) {
-        const mainSet = JSON.parse(localStorage.getItem("Mainsetting") || "[{}]");
-        const productCreatePurchase = mainSet?.[0]?.Product_Purchase ?? false;
-        if (!productCreatePurchase) { toast("❌ Invalid Product Code !!!.", true); return; }
-        const ok = await confirm("Items Not Exists. Do You Want to Create New Items?");
-        if (!ok) return;
-        setItemCreatePopup({ open: true, rowKey, code: code.trim() });
+        if (!isQuickCreateEnabled(sess.AllowQuickProductCreation)) {
+          toast("❌ Invalid Product Code !!!.", true);
+          return;
+        }
+        await startProductQuickCreate({
+          rowKey,
+          field: "ProductCode",
+          typedProductCode: code.trim(),
+          typedProductName: "",
+        });
         return;
       }
       if (objPlist.length === 1) { applyProductToRow(rowKey, objPlist[0]); return; }
@@ -1746,7 +2017,7 @@ if (colKey === "MfgDate") {
       console.error(err);
       toast("❌ Product lookup failed", true);
     } finally { setLoading(false); }
-  }, [sess, applyProductToRow, redirectIfDualLogin, toast, confirm]);
+  }, [sess, applyProductToRow, redirectIfDualLogin, toast, startProductQuickCreate]);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  F5 VIEW
@@ -2812,6 +3083,38 @@ if (savedArrivalType) {
       );
     }
 
+    if (col.key === "ProductName") {
+      return (
+        <td key={col.key} className={`grid-cell editable ${isSelected ? "selected" : ""} ${isFreeRow ? "free-product-row" : ""}`}
+          style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
+          <input
+            id={cellId}
+            type="text"
+            className="cell-input"
+            style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}
+            value={row[col.key] ?? ""}
+            onChange={(e) => handleCellChange(row._key, col.key, e.target.value)}
+            onFocus={onFocus}
+            onBlur={(e) => {
+              void handlePurchaseProductNameCommit(row._key, e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === "Tab") {
+                const typedName = String(e.currentTarget.value || "").trim();
+                if (typedName && !row.ProductRefId) {
+                  e.preventDefault();
+                  void handlePurchaseProductNameCommit(row._key, typedName);
+                  return;
+                }
+              }
+              handleGridKeyDown(e, row._key, col.key);
+            }}
+            tabIndex={0}
+          />
+        </td>
+      );
+    }
+
     // Default: text / date / number
     return (
       <td key={col.key} className={`grid-cell editable ${isSelected ? "selected" : ""} ${col.align === "right" ? "right" : ""} ${isFreeRow ? "free-product-row" : ""}`}
@@ -2825,7 +3128,7 @@ if (savedArrivalType) {
         />
       </td>
     );
-  }, [selectedCell, handleCellChange, handleGridKeyDown, bStatus, sStatus, cStatus, mStatus, brandList, modelList, colorList, sizeList, serialNoList]);
+  }, [selectedCell, handleCellChange, handleGridKeyDown, bStatus, sStatus, cStatus, mStatus, brandList, modelList, colorList, sizeList, serialNoList, handlePurchaseProductNameCommit]);
 
   if (!isAuthorized) return null;
 
@@ -2885,7 +3188,14 @@ if (savedArrivalType) {
       {/* ── Product Lookup Popup ── */}
       {productPopup.open && (
         <ProductPopup productPopup={productPopup} setProductPopup={setProductPopup}
-          applyProductToRow={applyProductToRow} sess={sess} setLoading={setLoading} />
+          applyProductToRow={applyProductToRow} sess={sess} setLoading={setLoading}
+          allowQuickCreate={isQuickCreateEnabled(sess.AllowQuickProductCreation)}
+          onCreateProduct={(value) => startProductQuickCreate({
+            rowKey: productPopup.rowKey,
+            field: "ProductName",
+            typedProductCode: "",
+            typedProductName: value,
+          })} />
       )}
       
       {gridComboPopup.open && (
@@ -3302,7 +3612,7 @@ if (savedArrivalType) {
               onBlur={() => setTimeout(() => {
                 setSupplierDDOpen(false);
                 if (!supplierId && supplierQuery.trim()) {
-                  const exact = supplierList.find((s) => (s.AccountName || "").toLowerCase() === supplierQuery.toLowerCase());
+                  const exact = supplierList.find((s) => (s.AccountName || "").trim().toLowerCase() === supplierQuery.trim().toLowerCase());
                   if (exact) confirmSupplierSelection(exact);
                 }
               }, 180)}
@@ -3315,6 +3625,22 @@ if (savedArrivalType) {
                     {s.AccountName}
                   </div>
                 ))}
+                {supplierCreateVisible && (
+                  <div
+                    onMouseDown={() => { void startSupplierQuickCreate(supplierQuery); }}
+                    style={{
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      background: supplierSelIdx === supplierDropdown.length ? "var(--clr-bg-row-hover)" : "var(--clr-bg-white)",
+                      borderBottom: "1px solid var(--clr-bg-soft)",
+                      fontWeight: 700,
+                      color: "var(--clr-primary, #1f65de)",
+                    }}
+                  >
+                    + Create New Supplier: {supplierQuery.trim()}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -3648,7 +3974,7 @@ if (savedArrivalType) {
 }
 
 // ─── ProductPopup ─────────────────────────────────────────────────────────────
-function ProductPopup({ productPopup, setProductPopup, applyProductToRow, sess, setLoading }) {
+function ProductPopup({ productPopup, setProductPopup, applyProductToRow, sess, setLoading, allowQuickCreate, onCreateProduct }) {
   const [localQuery, setLocalQuery] = useState(productPopup.query || "");
   const [localList,  setLocalList ] = useState(productPopup.list  || []);
   const [selIdx,     setSelIdx    ] = useState(0);
@@ -3675,11 +4001,22 @@ function ProductPopup({ productPopup, setProductPopup, applyProductToRow, sess, 
   }, [sess, setLoading]);
 
   const handleKey = (e) => {
-    if (e.key === "ArrowDown")  { e.preventDefault(); setSelIdx((i) => Math.min(i + 1, localList.length - 1)); }
+    const createVisible = allowQuickCreate && !!localQuery.trim() && !localList.some((p) =>
+      normalizeProductValue(p.PName || p.ProductName) === normalizeProductValue(localQuery)
+    );
+    const maxIdx = createVisible ? localList.length : Math.max(localList.length - 1, 0);
+    if (e.key === "ArrowDown")  { e.preventDefault(); setSelIdx((i) => Math.min(i + 1, maxIdx)); }
     else if (e.key === "ArrowUp")  { e.preventDefault(); setSelIdx((i) => Math.max(i - 1, 0)); }
-    else if (e.key === "Enter")    { if (localList[selIdx]) applyProductToRow(productPopup.rowKey, localList[selIdx]); }
+    else if (e.key === "Enter")    {
+      if (createVisible && selIdx === localList.length) onCreateProduct?.(localQuery.trim());
+      else if (localList[selIdx]) applyProductToRow(productPopup.rowKey, localList[selIdx]);
+    }
     else if (e.key === "Escape")   { setProductPopup({ open: false, rowKey: null, list: [], query: "" }); }
   };
+
+  const createVisible = allowQuickCreate && !!localQuery.trim() && !localList.some((p) =>
+    normalizeProductValue(p.PName || p.ProductName) === normalizeProductValue(localQuery)
+  );
 
   return (
     <div className="popup-overlay">
@@ -3705,6 +4042,16 @@ function ProductPopup({ productPopup, setProductPopup, applyProductToRow, sess, 
                     <td className="right">{valNum(p.SaleRate).toFixed(2)}</td>
                   </tr>
                 ))}
+                {createVisible && (
+                  <tr
+                    className={selIdx === localList.length ? "popup-row selected" : "popup-row"}
+                    onClick={() => onCreateProduct?.(localQuery.trim())}
+                  >
+                    <td colSpan={8} style={{ fontWeight: 700, color: "var(--clr-primary, #1f65de)" }}>
+                      + Create New Product: {localQuery.trim()}
+                    </td>
+                  </tr>
+                )}
                 {localList.length === 0 && <tr><td colSpan={6} className="no-data">No records found</td></tr>}
               </tbody>
             </table>

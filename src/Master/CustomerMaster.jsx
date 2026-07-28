@@ -20,7 +20,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./MasterPage.css";
 import "./SupplierMaster.css";   // reuse supplier CSS (100% width layout)
 
@@ -242,7 +242,9 @@ function SearchableList({ items, labelField, prefill, onChange, onClose, onEnter
 
 // ─── CustomerMaster ───────────────────────────────────────────────────────────
 export default function CustomerMaster() {
+  const location  = useLocation();
   const navigate  = useNavigate();
+  const quickCreateState = location.state?.quickCreate;
   const inputRefs = useRef({});    // keyed `${rowIdx}-${colField}`
   const dirtyIds  = useRef(new Set());
   const gridRef   = useRef([]);
@@ -400,7 +402,7 @@ const loadCounter = useCallback(async (Startindex, PageCount, Keyword = "", Colu
     _uid: CC.uid(),
   }));
 
-  const prefillName   = sessionStorage.getItem("POPValue")  || "";
+  const prefillName   = quickCreateState?.typedName || sessionStorage.getItem("POPValue")  || "";
   const prefillMobile = sessionStorage.getItem("POPValue1") || "";
   const blank         = makeNewRow(prefillName, prefillMobile);
   const full          = [...existing, blank];
@@ -1039,6 +1041,21 @@ const vn = v => parseFloat(v) || 0;
     if (res.ok || res.IsSuccess) {
       dirtyIds.current.clear();
       toast("✅ " + (res.message || "Saved successfully!"));
+      const quickId = String(res.Data2 ?? res.Id ?? payload[0]?.Id ?? "");
+      if (quickCreateState?.source === "sale") {
+        navigate(quickCreateState.returnTo || "/Sale", {
+          state: {
+            quickCreate: {
+              source: "sale",
+              storageKey: quickCreateState.storageKey || "sale_customer_quick_create_state",
+              created: true,
+              entityId: quickId,
+              entityName: dirty[0]?.[grdSupplierName] || quickCreateState.typedName || "",
+            },
+          },
+        });
+        return;
+      }
       if (sessionStorage.getItem("POPStatus") === "ON") {
         sessionStorage.setItem("POPValue",  String(res.Id || ""));
         sessionStorage.setItem("POPName",   res.Name || "");
@@ -1056,6 +1073,19 @@ const vn = v => parseFloat(v) || 0;
     if (tamilPopup.open) { setTamilPopup({ open:false, rowIdx:null, value:"" }); return; }
     const ok = await confirm("Do you want to quit this page?");
     if (!ok) return;
+    if (quickCreateState?.source === "sale") {
+      navigate(quickCreateState.returnTo || "/Sale", {
+        state: {
+          quickCreate: {
+            source: "sale",
+            storageKey: quickCreateState.storageKey || "sale_customer_quick_create_state",
+            cancelled: true,
+            typedName: quickCreateState.typedName || "",
+          },
+        },
+      });
+      return;
+    }
     if (sessionStorage.getItem("POPStatus") === "ON") {
       sessionStorage.setItem("POPValue",  "-1");
       sessionStorage.setItem("POPStatus", "OFF");
@@ -1063,7 +1093,7 @@ const vn = v => parseFloat(v) || 0;
     } else {
       navigate(-1);
     }
-  }, [tamilPopup.open, confirm, navigate]);
+  }, [tamilPopup.open, confirm, navigate, quickCreateState]);
 
   // ── Popup loaders ──────────────────────────────────────────────────────────
 

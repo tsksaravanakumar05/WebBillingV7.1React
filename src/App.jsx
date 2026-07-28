@@ -145,6 +145,7 @@ import CustomerDue from "./CrystalReport/CustomerMaster/Customerduereport.jsx";
 import CustomerStatement from "./CrystalReport/CustomerMaster/Customerstatement.jsx";
 import CustomerAging from "./CrystalReport/CustomerMaster/Customeragingreport.jsx";
 import CRMCustomer from "./CrystalReport/CustomerMaster/Crmcustomer.jsx";
+import CustomerUnpaidReport from "./CrystalReport/CustomerMaster/Customerunpaidreport.jsx";
 //import Purchaseconsolidated from "./CrystalReport/PurchaseMaster/Purchaseconsolidated.jsx";
 
 import CustomerReceiptReport from "./CrystalReport/CustomerMaster/CustomerReceipt.jsx";
@@ -306,6 +307,7 @@ function App() {
         <Route path="/Report/CustomerStatement" element={<CustomerStatement />} />
         <Route path="/Report/CustomerAging" element={<CustomerAging />}  />
         <Route path="/Report/CrmReport" element={<CRMCustomer />} />
+        <Route path="/Report/CustomerUnpaidReport" element={<CustomerUnpaidReport />} />
         <Route  path="/Report/CustomerReceipt"  element={<CustomerReceiptReport />}
 />
 

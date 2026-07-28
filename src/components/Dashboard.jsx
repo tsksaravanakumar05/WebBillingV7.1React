@@ -579,7 +579,7 @@ const ProductsTable = memo(() => {
   return (
     <div className="kd-panel kd-table-panel">
       <div className="kd-panel-header">
-        <h3 className="kd-panel-title">Top Products</h3>
+        <h3 className="kd-panel-title">Weekly Top 10 Sales Product List</h3>
         <div className="kd-table-controls">
           <div className="kd-search-wrap">
             <span className="kd-search-icon"><SearchIcon /></span>

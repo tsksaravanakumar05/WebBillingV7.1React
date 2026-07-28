@@ -7,7 +7,7 @@ import MenuSetting from "./Menusetting";
 /* ═══════════════════════════════════════════════
    SVG ICONS (Used only in Topbar)
 ═══════════════════════════════════════════════ */
-function BellIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>; }
+function HomeIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg>; }
 function GridIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>; }
 
 /* ═══════════════════════════════════════════════
@@ -34,9 +34,14 @@ const Topbar = memo(() => {
         <span className="kd-logo-text"><strong>{CompanyName}</strong></span>
       </div>
       <div className="kd-topbar-right">
-        <button type="button" className="kd-icon-btn" title="Notifications">
-          <BellIcon />
-          <span className="kd-notif-dot" />
+        <button
+          type="button"
+          className="kd-icon-btn"
+          title="Go to Dashboard"
+          aria-label="Go to Dashboard"
+          onClick={() => navigate("/dashboard")}
+        >
+          <HomeIcon />
         </button>
         <button type="button" className="kd-icon-btn" title="Apps">
           <GridIcon />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./Suppliermaster.css";
 import Topbar from "../components/Topbar";
 import * as CC from "../Master/Common"; 
@@ -114,7 +114,9 @@ function SalesmanPicker({ salesmanList, initialSearch = "", onSelect, onClose, o
 
 // ─── SupplierMaster ───────────────────────────────────────────────────────────
 export default function SupplierMaster() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const quickCreateState = location.state?.quickCreate;
 const [pageCountTotal, setPageCountTotal] = useState(0); // total record count (data.Count)
 const [pageLen, setPageLen]               = useState(1); // total pages
 const [curPage, setCurPage]               = useState(1); // current page (1-based)
@@ -422,7 +424,7 @@ if (redirectIfDualLogin(res)) return;
 
   // ── doLoadData — plain async, no useCallback, no deps ────────────────────
 const doLoadData = async (smList, keyword = "", column = "", page = 1) => {
-  const prefill = sessionStorage.getItem("masterPrefill") || "";
+  const prefill = quickCreateState?.typedName || sessionStorage.getItem("masterPrefill") || "";
  let startIndex;
   if (page === 1 && !keyword) {
     startIndex = 0;           // ← first load, latest records
@@ -801,7 +803,20 @@ if (redirectIfDualLogin(res)) return;
     if (res.ok || res.IsSuccess) {
       toast("✅ " + (res.message||"Saved successfully!"));
       const retField = sessionStorage.getItem("masterReturnField");
-      if (retField) {
+      const quickId = String(res.Data2 ?? res.Id ?? payload[0]?.Id ?? "");
+      if (quickCreateState?.source === "purchase") {
+        navigate(quickCreateState.returnTo || "/Purchase", {
+          state: {
+            quickCreate: {
+              source: "purchase",
+              storageKey: quickCreateState.storageKey || "purchase_supplier_quick_create_state",
+              created: true,
+              entityId: quickId,
+              entityName: dirty[0]?.AccountName || quickCreateState.typedName || "",
+            },
+          },
+        });
+      } else if (retField) {
         sessionStorage.setItem("masterReturnValue", String(res.Data2??res.Id??""));
         sessionStorage.setItem("masterReturnName", dirty[0]?.AccountName||"");
         sessionStorage.removeItem("masterReturnField");
@@ -815,8 +830,21 @@ if (redirectIfDualLogin(res)) return;
   // ── handleEsc ─────────────────────────────────────────────────────────────
   const handleEsc = useCallback(() => {
     if (!window.confirm("Do You Want To Quit Page?")) return;
+    if (quickCreateState?.source === "purchase") {
+      navigate(quickCreateState.returnTo || "/Purchase", {
+        state: {
+          quickCreate: {
+            source: "purchase",
+            storageKey: quickCreateState.storageKey || "purchase_supplier_quick_create_state",
+            cancelled: true,
+            typedName: quickCreateState.typedName || "",
+          },
+        },
+      });
+      return;
+    }
     navigate("/Home");
-  }, [navigate]);
+  }, [navigate, quickCreateState]);
 const handleFilterSearch = useCallback((e) => {
   if (e.key === "Enter" && filterSearch.trim()) {
     doLoadData(salesmanRef.current, filterSearch, filterColumn, 1);
