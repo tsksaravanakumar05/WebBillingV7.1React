@@ -4,6 +4,7 @@ import "./Suppliermaster.css";
 import Topbar from "../components/Topbar";
 import * as CC from "../Master/Common"; 
 import * as CC1 from "../components/Common"; // ← same Common.jsx
+import { Plus, Save, Download, Upload, Settings, RefreshCw, X } from "lucide-react";
 
 // ─── Column config ────────────────────────────────────────────────────────────
 const ALL_COLUMNS = [
@@ -1287,7 +1288,7 @@ function PwModal({ title, comid, onOk, onClose }) {
 </div>
 
   {/* ── BOTTOM TOOLBAR: All action buttons ── */}
-  <div className="mp-toolbar" style={{
+  {/* <div className="mp-toolbar" style={{
     display: "flex", alignItems: "center",
     gap: 6, padding: "6px 10px", flexWrap: "wrap",
   }}>
@@ -1319,7 +1320,53 @@ function PwModal({ title, comid, onOk, onClose }) {
       ✕ Esc Cancel
     </button>
    
-  </div>
+  </div> */}
+{/* ── BOTTOM TOOLBAR: All action buttons ── */}
+<div className="mp-toolbar" style={{
+  display: "flex", alignItems: "center",
+  gap: 6, padding: "6px 10px", flexWrap: "wrap",
+}}>
+
+
+  <button className="mp-btn sv" onClick={handleSave} disabled={loading}>
+    <Save size={16} strokeWidth={2.5} /> F1 Save
+  </button>
+  <button className="mp-btn nw" onClick={addRow} disabled={loading}>
+    <Plus size={16} strokeWidth={3} /> Add Row
+  </button>
+  <button className="mp-btn col"
+    onClick={() => setF12Open(true)}>
+    <Settings size={16} strokeWidth={2.5} /> F12 Columns
+  </button>
+  <button className="mp-btn rf"
+    onClick={() => doLoadData(salesmanRef.current, "", "", curPage)}
+    disabled={loading}>
+    <RefreshCw size={16} strokeWidth={2.5} /> Refresh
+  </button>
+
+  <button className="mp-btn ex"
+    onClick={() => { pwOkRef.current = doExcelDownload; setPw({ title:"F4 Password" }); }}>
+    <Download size={16} strokeWidth={2.5} /> F4 Excel↓
+  </button>
+
+  <button className="mp-btn exup"
+    onClick={() => { pwOkRef.current = doExcelUpload; setPw({ title:"F7 Password" }); }}>
+    <Upload size={16} strokeWidth={2.5} /> F7 Excel↑
+  </button>
+
+
+
+
+  <button className="mp-btn cn" onClick={handleEsc} style={{ marginLeft:"auto" }}>
+    <X size={16} strokeWidth={2.5} /> Esc Cancel
+  </button>
+
+  {salesmanLoading && (
+    <span style={{ fontSize:11, color:"#94a3b8", marginLeft:8 }}>Loading salesman…</span>
+  )}
+
+
+</div>
 
 </div>
 

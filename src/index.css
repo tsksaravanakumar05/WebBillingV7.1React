@@ -212,6 +212,8 @@
   --clr-si-invalid-border:      #ef4444;
   --clr-si-warn-bg2:            #fef3c7;
   --clr-si-amber:               #f59e0b;
+  --clr-si-amber-hover:               #c08115;
+  --clr-btn-columns-hover:      #d6a754;
   --clr-si-amber-text:          #92400e;
   --clr-si-danger-border-light: #fecaca;
   --clr-si-row-stripe-alt:      #f8fafc;
@@ -219,6 +221,7 @@
   --clr-si-edit-btn-bg:         #e8f0fe;
   --clr-si-info-border:         #dde9f8;
   --clr-si-purple:              #8b5cf6;
+  --clr-si-purple-hover:              #5b448f;
   --clr-si-th-batch-bg:         #1e4d8c;
   --clr-si-shadow-blue-strong:  rgba(31, 101, 222, 0.22);
   --clr-si-shadow-blue-md:      rgba(31, 101, 222, 0.20);
@@ -244,6 +247,50 @@
   --font-size-13-5:  1.35rem;  /* 13.5px — bm- cell inputs, buttons */
   --font-size-16:    1.6rem;   /* 16px — mp-icon, picker close */
   --font-size-18:    1.8rem;   /* 18px — toolbar title */
+
+  /* ═══════════════════════════════════════
+   BUTTON COLORS
+═══════════════════════════════════════ */
+
+--clr-btn-save:           var(--clr-primary);
+--clr-btn-save-hover:     var(--clr-primary-hover);
+
+--clr-btn-new:            var(--clr-green);
+--clr-btn-new-hover:      #15803d;
+
+/* --clr-btn-columns:        #475569;
+--clr-btn-columns-hover:  #334155; */
+
+--clr-btn-refresh:        #0891b2;
+--clr-btn-refresh-hover:  #0e7490;
+
+--clr-btn-opening:        #4f46e5;
+--clr-btn-opening-hover:  #4338ca;
+
+--clr-btn-export:         var(--clr-export);
+--clr-btn-export-hover:   #047857;
+
+--clr-btn-import:         #e221b2;
+--clr-btn-import-hover:   #7e2d6a;
+
+--clr-btn-barcode:        #535961;
+--clr-btn-barcode-hover:  #858e9b;
+
+--clr-btn-delete:          #ef4444;
+--clr-btn-delete-hover:   var(--clr-danger-dark);
+
+--clr-btn-cancel:         #ee149ac5;
+--clr-btn-cancel-hover:   #c91f8885;
+/* ═══════════════════════════════════════
+   Barcode button color tokens — outlined style
+   ═══════════════════════════════════════ */
+   --clr-btn-barcode-bg:         var(--clr-bg-white);
+   --clr-btn-barcode-border:     var(--clr-border-default);
+   --clr-btn-barcode-text:       var(--clr-text-mid);
+   
+   --clr-btn-barcode-hover-bg:      var(--clr-bg-row-hover);
+   --clr-btn-barcode-hover-border:  var(--clr-text-faint);
+   --clr-btn-barcode-hover-text:    var(--clr-text-primary);
   
 }
 

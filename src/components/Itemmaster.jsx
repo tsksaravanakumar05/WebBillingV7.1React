@@ -10,6 +10,7 @@ import * as CC from "../Master/Common";
 import * as CC1 from "../components/Common";
 import Topbar from "./Topbar";
 import OpeningBalance from "../Master/Openingbalance";
+import { Plus, Save, RefreshCw, Download, Upload, Barcode } from "lucide-react";
 
 // ─── COLUMNS ─────────────────────────────────────────────────────────────────
 const COLUMNS = [
@@ -2304,7 +2305,7 @@ if (!isAuthorized) return null;
 
         {/* CHANGE 14: Bottom toolbar — F1 Save + Add Row (same as CashierMaster) */}
         {/* மாற்றம் 14: Bottom toolbar — F1 Save + Add Row (CashierMaster போல்) */}
-        <div className="mp-toolbar">
+        {/* <div className="mp-toolbar">
           <button className="mp-btn sv" onClick={doSave}    disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={resetEntry} disabled={loading}>➕ New Entry</button>
                     <button className="mp-btn"    onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
@@ -2334,9 +2335,56 @@ if (!isAuthorized) return null;
           {sess.GroupCommission && <button className="mp-btn" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);if(!r?.Id){await showAlert("Validation Failed\n\nSelect a saved row first");return;}const res=await CC.api(CC.ItemGroupCommission,null,{},{Id:r.Id,Comid:sess.Comid});setGcRows(!res._netErr&&(res.data||res.Data1)?res.data||res.Data1:[]);setGcOpen(true);}} disabled={!selRid}>💰 Group Commission</button>}
 
           <button className="mp-btn dl" onClick={async ()=>selRid?doDeleteRow(selRid):await showAlert("Validation Failed\n\nSelect a row to delete")} disabled={!selRid||loading}>🗑 Delete</button>
-          <button className="mp-btn dl" onClick={()=>{ if (!exitProductQuickCreate(false)) navigate(-1); }}>✕ Esc Cancel</button>
-        </div>
+          <button className="mp-btn dl" onClick={()=>navigate(-1)}>✕ Esc Cancel</button>
+        </div> */}
+<div className="mp-toolbar">
+  <button className="mp-btn sv" onClick={doSave} disabled={loading}>
+    <Save size={16} strokeWidth={2.5} /> F1 Save
+  </button>
 
+  <button className="mp-btn nw" onClick={resetEntry} disabled={loading}>
+    <Plus size={16} strokeWidth={3} /> New Entry
+  </button>
+
+  <button className="mp-btn col" onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
+
+  <button className="mp-btn rf" onClick={async () => { await loadItems("","",true); resetEntry(); }} disabled={loading}>
+    <RefreshCw size={16} strokeWidth={2.5} /> Refresh
+  </button>
+
+  <button className="mp-btn ob" onClick={() => setObOpen(true)} disabled={loading}>⚖ F3 Opening Balance</button>
+
+  <button className="mp-btn ex" onClick={() => { pwOkRef.current = doExcelDownload; setPw({title:"F4 Password"}); }}>
+    <Download size={16} strokeWidth={2.5} /> F4 Excel↓
+  </button>
+
+  <button className="mp-btn exup" onClick={() => { pwOkRef.current = doExcelUpload; setPw({title:"F7 Password"}); }}>
+    <Upload size={16} strokeWidth={2.5} /> F7 Excel↑
+  </button>
+
+  <button className="mp-btn bc" onClick={async () => {
+    const r = rows.find(x => x._rid === selRid);
+    if (!r?.Id) { await showAlert("Validation Failed\n\nSelect a saved item first"); return; }
+    loadBarcodes(r.Id);
+  }} disabled={!selRid}>
+    <Barcode size={16} strokeWidth={2.5} /> F9 Barcode
+  </button>
+  {pw && (
+    <PwModal
+      title={pw.title}
+      comid={sess.Comid}
+      onOk={() => { pwOkRef.current?.(); }}
+      onClose={() => setPw(null)}
+    />
+  )}
+
+  {sess.GroupCommission && (
+    <button className="mp-btn col" onClick={async()=>{const r=rows.find(x=>x._rid===selRid);if(!r?.Id){await showAlert("Validation Failed\n\nSelect a saved row first");return;}const res=await CC.api(CC.ItemGroupCommission,null,{},{Id:r.Id,Comid:sess.Comid});setGcRows(!res._netErr&&(res.data||res.Data1)?res.data||res.Data1:[]);setGcOpen(true);}} disabled={!selRid}>💰 Group Commission</button>
+  )}
+
+  <button className="mp-btn dl" onClick={async ()=>selRid?doDeleteRow(selRid):await showAlert("Validation Failed\n\nSelect a row to delete")} disabled={!selRid||loading}>🗑 Delete</button>
+  <button className="mp-btn cn" onClick={()=>navigate(-1)}>✕ Esc Cancel</button>
+</div>
         {/* Hint bar */}
        
       </div>
