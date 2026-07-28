@@ -240,7 +240,7 @@
   /* ═══════════════════════════════════════════════════
      BUTTONS
      ═══════════════════════════════════════════════════ */
-  .mp-btn {
+  /* .mp-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -262,16 +262,16 @@
   }
   
   .mp-btn.sv {
-    background: var(--clr-primary);
+    background: var(--clr-btn-import);
     color: var(--clr-text-white);
-    border-color: var(--clr-primary);
+    border-color: var(--clr-btn-import);
   }
-  .mp-btn.sv:hover { background: var(--clr-primary-hover); border-color: var(--clr-primary-hover); }
+  .mp-btn.sv:hover { background: var(--clr-btn-import-hover); border-color: var(--clr-primary-hover); }
   .mp-btn.sv:disabled { opacity: 0.45; cursor: not-allowed; }
   
   .mp-btn.nw {
     background: var(--clr-bg-white);
-    color: var(--clr-primary);
+    color: var(--Green);
     border-color: var(--clr-primary);
   }
   .mp-btn.nw:hover { background: var(--clr-primary); color: var(--clr-text-white); }
@@ -289,8 +289,162 @@
     border-color: var(--clr-primary);
   }
   .mp-btn.info:hover { background: var(--clr-primary); color: var(--clr-text-white); }
+   */
+/* ═══════════════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════════════ */
+
+   .mp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    font-size: var(--font-size-md);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s ease;
+    white-space: nowrap;
+    letter-spacing: .2px;
+  }
   
+  .mp-toolbar .mp-btn + .mp-btn {
+    margin-left: 2px;
+  }
   
+  .mp-btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+  }
+  
+  /* Save (F1) */
+  .mp-btn.sv{
+    background: var(--clr-btn-save);
+    border-color: var(--clr-btn-save);
+    color: var(--clr-text-white);
+  }
+  .mp-btn.sv:hover{
+    background: var(--clr-btn-save-hover);
+    border-color: var(--clr-btn-save-hover);
+  }
+  
+  /* New Entry */
+  .mp-btn.nw{
+    background: var(--clr-btn-new);
+    border-color: var(--clr-btn-new);
+    color: var(--clr-text-white);
+  }
+  .mp-btn.nw:hover{
+    background: var(--clr-btn-new-hover);
+    border-color: var(--clr-btn-new-hover);
+  }
+  
+/* F12 Columns → purple (was amber) */
+.mp-btn.col{
+  background: var(--clr-si-purple);
+  border-color: var(--clr-si-purple);
+  color: var(--clr-text-white);
+}
+.mp-btn.col:hover{
+  background: var(--clr-si-purple-hover);
+  border-color: var(--clr-si-purple-hover);
+}
+  
+/* Refresh → orange/amber (was teal) */
+.mp-btn.rf{
+  background: var(--clr-si-amber);
+  border-color: var(--clr-si-amber);
+  color: var(--clr-text-white);
+}
+.mp-btn.rf:hover{
+  background: var(--clr-si-amber-hover);
+  border-color: var(--clr-si-amber-hover);
+}
+
+/* F3 Opening Balance → teal (was purple) */
+.mp-btn.ob{
+  background: var(--clr-btn-refresh);
+  border-color: var(--clr-btn-refresh);
+  color: var(--clr-text-white);
+}
+.mp-btn.ob:hover{
+  background: var(--clr-btn-refresh-hover);
+  border-color: var(--clr-btn-refresh-hover);
+}
+
+/* F4 Excel↓ → blue (was green) */
+.mp-btn.ex{
+  background: var(--clr-btn-save);
+  border-color: var(--clr-btn-save);
+  color: var(--clr-text-white);
+}
+.mp-btn.ex:hover{
+  background: var(--clr-btn-save-hover);
+  border-color: var(--clr-btn-save-hover);
+}
+
+/* F7 Excel↑ → dark green (was pink) */
+.mp-btn.exup{
+  background: var(--clr-btn-new-hover);
+  border-color: var(--clr-btn-new-hover);
+  color: var(--clr-text-white);
+}
+.mp-btn.exup:hover{
+  background: #14532d;
+  border-color: #14532d;
+}
+  
+  /* F9 Barcode */
+  .mp-btn.bc{
+    background: var(--clr-btn-barcode);
+    border-color: var(--clr-btn-barcode);
+    color: var(--clr-text-white);
+  }
+  .mp-btn.bc:hover{
+    background: var(--clr-btn-barcode-hover);
+    border-color: var(--clr-btn-barcode-hover);
+  }
+  
+  /* Delete */
+  .mp-btn.dl{
+    background: var(--clr-btn-delete);
+    border-color: var(--clr-btn-delete);
+    color: var(--clr-text-white);
+  }
+  .mp-btn.dl:hover{
+    background: var(--clr-btn-delete-hover);
+    border-color: var(--clr-btn-delete-hover);
+  }
+  
+  /* Esc Cancel */
+  .mp-btn.cn{
+    background: var(--clr-btn-cancel);
+    border-color: var(--clr-btn-cancel);
+    color: var(--clr-text-white);
+  }
+  .mp-btn.cn:hover{
+    background: var(--clr-btn-cancel-hover);
+    border-color: var(--clr-btn-cancel-hover);
+  }
+  /* F9 Barcode — light gray, outlined (not solid) */
+/* .mp-btn.bc{
+  background: var(--clr-btn-barcode-bg);
+  border-color: var(--clr-btn-barcode-border);
+  color: var(--clr-btn-barcode-text);
+}
+.mp-btn.bc:hover{
+  background: var(--clr-btn-barcode-hover-bg);
+  border-color: var(--clr-btn-barcode-hover-border);
+  color: var(--clr-btn-barcode-hover-text);
+}
+.mp-btn.bc:disabled{
+  background: var(--clr-btn-barcode-bg);
+  border-color: var(--clr-si-border-light);
+  color: var(--clr-text-inactive);
+} */
   /* ═══════════════════════════════════════════════════
      HINT BAR
      ═══════════════════════════════════════════════════ */
@@ -610,6 +764,7 @@
     border: 1px solid transparent;
     transition: all 0.15s ease;
     height: 32px;
+
   }
   .mp-modal-btn.yes {
     background: var(--clr-primary);

@@ -165,6 +165,7 @@ button.mp-toggle.off:focus {
   cursor: pointer;
   transition: all 0.12s;
   height: 30px;
+  
 }
 
 /* Save */
