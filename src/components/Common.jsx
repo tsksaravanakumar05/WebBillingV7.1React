@@ -21,8 +21,9 @@ export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 //export const BASE_URL = "https://billing.kassapos.co.in";
-export const BASE_URL = "http://localhost:64215";
+//export const BASE_URL = "http://localhost:64215";
 //export const BASE_URL = "https://billing.kassapos.co.in";
+export const BASE_URL = "https://hobilling.kassapos.in";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
@@ -368,6 +369,56 @@ export const NullToString = (v) => (v == null ? "" : String(v));
 //  All fetch calls must go through mkUrl so BASE_URL is always prepended.
 //  No component should concatenate BASE_URL itself.
 export const mkUrl = (path) => BASE_URL + path;
+
+const defaultProductListCache = {};
+
+const parseProductListResponse = (res) =>
+  Array.isArray(res?.Data1) ? res.Data1 :
+  Array.isArray(res?.data?.Data1) ? res.data.Data1 :
+  Array.isArray(res?.data) ? res.data :
+  Array.isArray(res) ? res : [];
+
+export const getCachedProductList = (comid) => {
+  if (!comid) return [];
+  const parsed = defaultProductListCache[String(comid || "").trim()];
+  return Array.isArray(parsed) ? parsed : [];
+};
+
+export const setCachedProductList = (comid, list) => {
+  if (!comid) return [];
+  const safeList = Array.isArray(list) ? list : [];
+  defaultProductListCache[String(comid || "").trim()] = safeList;
+  return safeList;
+};
+
+export const preloadProductListForComid = async (comid, opts = {}) => {
+  const { force = false, path = GetProductListV7 } = opts;
+  if (!comid) return [];
+
+  const cached = getCachedProductList(comid);
+  if (!force && cached.length > 0) return cached;
+
+  const res = await api(path, null, {}, { Comid: comid });
+  if (res?._dualLogin || res?._netErr || res?._http404 || res?.ok === false) {
+    return cached;
+  }
+
+  const parsed = parseProductListResponse(res);
+  return setCachedProductList(comid, parsed);
+};
+
+export const preloadProductListsForSession = async (sessionLike, opts = {}) => {
+  const ids = [...new Set([
+    String(sessionLike?.Comid || "").trim(),
+    String(sessionLike?.MComid || "").trim(),
+  ].filter(Boolean))];
+
+  const results = await Promise.all(ids.map((id) => preloadProductListForComid(id, opts)));
+  return ids.reduce((acc, id, idx) => {
+    acc[id] = results[idx];
+    return acc;
+  }, {});
+};
 
 // ─── 7. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
 /**

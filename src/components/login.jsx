@@ -5,7 +5,7 @@ import Image from "../assets/image.png";
 import Logo from "../assets/logo.png";
 
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { BASE_URL, modalStyles } from "../components/Common"
+import * as CC from "../components/Common";
 // ─────────────────────────────────────────────────────────────────────────────
 // WHY QUERY STRING — NOT JSON BODY
 // ─────────────────────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ localStorage.removeItem("lastBillAmt");
       }).toString();
 
       // Vite proxy: /Login/LoginSuccess → http://localhost:64215/api/loginApp/LoginSuccess
-      const res = await fetch(`${BASE_URL}/api/loginApp/webLoginSuccess?${qs}`, {
+      const res = await fetch(`${CC.BASE_URL}/api/loginApp/webLoginSuccess?${qs}`, {
         method: "POST",
         // No Content-Type, no body — backend reads primitives from query string
       });
@@ -159,6 +159,11 @@ localStorage.removeItem("lastBillAmt");
           console.log(data.Maindata?? []);
       //  }
 
+        await CC.preloadProductListsForSession({
+          Comid:  String(user.Comid  ?? "1"),
+          MComid: String(user.MComid ?? user.Comid ?? "1"),
+        });
+
         console.log("✅ Login OK | userid:", user.UserId,
                     "| Comid:", user.Comid,
                     "| token:", String(data.Data14 ?? "").slice(0, 20));
@@ -183,19 +188,19 @@ localStorage.removeItem("lastBillAmt");
   return (
     <div className="login-main">
       {loginFailedOpen && (
-        <div style={modalStyles.overlay}>
-          <div style={modalStyles.modal} role="dialog" aria-modal="true">
-            <div style={modalStyles.icon}>?</div>
-            <p style={{ ...modalStyles.msg, fontWeight: "700", marginBottom: "8px" }}>
+        <div style={CC.modalStyles.overlay}>
+          <div style={CC.modalStyles.modal} role="dialog" aria-modal="true">
+            <div style={CC.modalStyles.icon}>?</div>
+            <p style={{ ...CC.modalStyles.msg, fontWeight: "700", marginBottom: "8px" }}>
               Login Failed
             </p>
-            <p style={modalStyles.msg}>
+            <p style={CC.modalStyles.msg}>
               Invalid User ID or Password. Please try again.
             </p>
-            <div style={modalStyles.btns}>
+            <div style={CC.modalStyles.btns}>
               <button
                 autoFocus
-                style={{ ...modalStyles.btn, ...modalStyles.yes }}
+                style={{ ...CC.modalStyles.btn, ...CC.modalStyles.yes }}
                 onClick={closeLoginFailedPopup}
               >
                 OK

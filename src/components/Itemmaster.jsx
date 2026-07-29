@@ -924,20 +924,28 @@ const loadColCfg = useCallback(async () => {
   },[sess.Comid,redirectIfDualLogin]);
 // ── Auto edit-mode when filter results in exactly 1 row ──────────────
 
-  const loadItems = useCallback(async (kw="",col="",isInit=false) => {
+  const loadItems = useCallback(async (kw="", col="", opts = {}) => {
+    const { isInit = false, pageNo = 1 } = opts;
+    const startindex = Math.max(0, (pageNo - 1) * ROWS_PER_PAGE);
     setLoading(true); setLdMsg("Loading Item Master...");
-    const res = await CC.api(CC.ItemSelect, null, {"Download":"0"}, { Comid:sess.Comid,Startindex:0,PageCount:99999,Keyword:kw,Column:col,webtype:1 });
+    const res = await CC.api(CC.ItemSelect, null, {"Download":"0"}, {
+      Comid: sess.Comid,
+      Startindex: startindex,
+      PageCount: ROWS_PER_PAGE,
+      Keyword: kw,
+      Column: col,
+      webtype: 1
+    });
     setLoading(false);
      if (redirectIfDualLogin(res)) return;
     if(res._http404){toast(`❌ 404: ${res.message}`,true);return;}
     if(res._netErr) {toast(`❌ ${res.message}`,true);return;}
     const arr = Array.isArray(res.data)?res.data:Array.isArray(res)?res:[];
-    if(isInit) setTotCnt(res.Count||arr.length);
+    if(isInit || pageNo >= 1) setTotCnt(Number(res.Count ?? res.Data4 ?? arr.length) || arr.length);
   // In loadItems — keep it simple, no _editMode change here:
 const fmt = arr.map(item => fmtRow(item, sess));
 setRows(fmt);
 // remove the setSelRid for single row here too
-setPage(Math.max(1, Math.ceil(fmt.length / ROWS_PER_PAGE)));
   }, [sess.Comid, toast]);
 
   const comboCfg = {
@@ -1109,6 +1117,7 @@ const validateRow = useCallback(async row => {
           productCode: responseRow?.ProductCode || responseRow?.Prod_Code || primarySavedRow?.ProductCode || "",
           productName: responseRow?.ProductName || responseRow?.PName || primarySavedRow?.ProductName || "",
         } : null;
+        await CC.preloadProductListsForSession({ Comid: sess.Comid, MComid: sess.MComid }, { force: true });
         dirtyIds.current.clear();
         toast("✅ " + (res.message || "Saved successfully"));
         try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
@@ -1545,8 +1554,8 @@ const handleEntryKeyDown = useCallback((e, colKey) => {
   ));
   setSelRid(r._rid);
 }, [filteredRows.length, filteredRows[0]?._rid]);
-  const totPages  = Math.max(1,Math.ceil(filteredRows.length/ROWS_PER_PAGE));
-  const pagedRows = filteredRows.slice((page-1)*ROWS_PER_PAGE,page*ROWS_PER_PAGE);
+  const totPages  = Math.max(1,Math.ceil(totCnt/ROWS_PER_PAGE));
+  const pagedRows = filteredRows;
   const pageNums  = (() => {
     if(totPages<=10) return Array.from({length:totPages},(_,i)=>i+1);
     const s=new Set([1,totPages]); for(let i=Math.max(1,page-3);i<=Math.min(totPages,page+3);i++)s.add(i); return Array.from(s).sort((a,b)=>a-b);
@@ -1667,7 +1676,7 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
       }
 
       if(!draftRestored){
-        await loadItems("","",true);
+        await loadItems("", "", { isInit: true, pageNo: 1 });
         let baseEntry = mkEmpty(sess);
         if(sess.Productcodeautogen) baseEntry = await autoGenCode(baseEntry);
         setEntryRow(baseEntry);
@@ -1695,11 +1704,11 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
 
   useEffect(() => {
     if (!dataLoaded || !productQuickCreateContext || productQuickCreateLastPageRef.current) return;
-    const totalProducts = rowsRef.current.length;
+    const totalProducts = totCnt;
     const lastPage = Math.max(1, Math.ceil(totalProducts / ROWS_PER_PAGE));
     productQuickCreateLastPageRef.current = true;
     setPage(lastPage);
-  }, [dataLoaded, productQuickCreateContext, rows.length]);
+  }, [dataLoaded, productQuickCreateContext, totCnt]);
 
   useEffect(() => {
     if (!dataLoaded || !productQuickCreateContext || !productQuickCreateLastPageRef.current || productQuickCreatePrefillRef.current) return;
@@ -1733,6 +1742,11 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
       }
     }, 120);
   }, [dataLoaded, productQuickCreateContext, sess.Productcodeautogen, focusEntry, editableKeys]);
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+    loadItems("", "", { pageNo: page });
+  }, [dataLoaded, page, loadItems]);
 
   useEffect(() => {
     if (dataLoaded && pendingReturnRef.current) {
@@ -2140,7 +2154,7 @@ if (!isAuthorized) return null;
             )}
             <button className="mp-pgbtn" onClick={() => setPage(Math.min(totPages, page + 1))} disabled={page >= totPages}>{">"}</button>
             <span style={{ fontSize:11, color:"#64748b", marginLeft:6, fontWeight:600 }}>
-              Record {filteredRows.length}
+              Record {totCnt}
             </span>
           </div>
 
@@ -2309,7 +2323,7 @@ if (!isAuthorized) return null;
           <button className="mp-btn sv" onClick={doSave}    disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={resetEntry} disabled={loading}>➕ New Entry</button>
                     <button className="mp-btn"    onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
-          <button className="mp-btn"    onClick={async () => { await loadItems("","",true); resetEntry(); }} disabled={loading}>🔄 Refresh</button>
+          <button className="mp-btn"    onClick={async () => { await loadItems("", "", { isInit: true, pageNo: page }); resetEntry(); }} disabled={loading}>🔄 Refresh</button>
           <button className="mp-btn"    onClick={() => setObOpen(true)} disabled={loading}>⚖ F3 Opening Balance</button>
    
 <button className="mp-btn ex" onClick={() => { pwOkRef.current = doExcelDownload; setPw({title:"F4 Password"}); }}>
@@ -2348,7 +2362,7 @@ if (!isAuthorized) return null;
 
   <button className="mp-btn col" onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
 
-  <button className="mp-btn rf" onClick={async () => { await loadItems("","",true); resetEntry(); }} disabled={loading}>
+  <button className="mp-btn rf" onClick={async () => { await loadItems("", "", { isInit: true, pageNo: page }); resetEntry(); }} disabled={loading}>
     <RefreshCw size={16} strokeWidth={2.5} /> Refresh
   </button>
 
