@@ -765,7 +765,7 @@ export default function PattyMaster() {
         <div className="mp-toolbar">
           <button className="mp-btn sv" onClick={handleSave} disabled={loading}>💾 F1 Save</button>
           <button className="mp-btn nw" onClick={addRow}     disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn"    onClick={() => setF12Open(true)} title="Column Settings">⚙ F12 Columns</button>
+          <button className="mp-btn col"    onClick={() => setF12Open(true)} title="Column Settings">⚙ F12 Columns</button>
           <button className="mp-btn dl" onClick={handleEsc}>✕ Esc Cancel</button>
         </div>
       </div>

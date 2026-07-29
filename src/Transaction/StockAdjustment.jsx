@@ -53,6 +53,7 @@ import Topbar from "../components/Topbar";
 import * as CC from "../components/Common";
 import * as MSG from "../components/Messages";
 import   DateFieldDDMMYYYY from "../Commondatetime";
+import { Plus, Save, Pencil, ClipboardList, Trash2, RotateCcw, X } from "lucide-react";
 
 // ─── Extra endpoints (Stock Adjustment specific) ─────────────────────────────
 const ItemMasterSelectByCode   = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
@@ -154,18 +155,38 @@ const fmtByDecimal = (v, decimal) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POPUP WINDOW (reusable — identical to BankVoucher)
 // ─────────────────────────────────────────────────────────────────────────────
+// function PopupWindow({ title, children, onClose, width = 700, height = 460 }) {
+//   return (
+//     <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.45)",zIndex:8500,
+//       display:"flex",alignItems:"center",justifyContent:"center" }} onClick={onClose}>
+//       <div style={{ background:"#fff",borderRadius:8,boxShadow:"0 8px 32px rgba(0,0,0,0.22)",
+//         width,height,display:"flex",flexDirection:"column",overflow:"hidden" }}
+//         onClick={e=>e.stopPropagation()}>
+//         <div style={{ padding:"9px 14px",background:"#1a2e4a",color:"#fff",fontWeight:700,
+//           fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
+//           <span>{title}</span>
+//           <button onClick={onClose} style={{ background:"none",border:"none",color:"#fff",
+//             cursor:"pointer",fontSize:17,lineHeight:1 }}>✕</button>
+//         </div>
+//         {children}
+//       </div>
+//     </div>
+//   );
+// }
+// ─────────────────────────────────────────────────────────────────────────────
+// POPUP WINDOW (reusable — identical to BankVoucher)
+// ─────────────────────────────────────────────────────────────────────────────
 function PopupWindow({ title, children, onClose, width = 700, height = 460 }) {
   return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,0.45)",zIndex:8500,
-      display:"flex",alignItems:"center",justifyContent:"center" }} onClick={onClose}>
-      <div style={{ background:"#fff",borderRadius:8,boxShadow:"0 8px 32px rgba(0,0,0,0.22)",
-        width,height,display:"flex",flexDirection:"column",overflow:"hidden" }}
-        onClick={e=>e.stopPropagation()}>
-        <div style={{ padding:"9px 14px",background:"#1a2e4a",color:"#fff",fontWeight:700,
-          fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
+    <div className="popup-overlay" onClick={onClose}>
+      <div
+        className="popup-window"
+        style={{ width, height }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="popup-header">
           <span>{title}</span>
-          <button onClick={onClose} style={{ background:"none",border:"none",color:"#fff",
-            cursor:"pointer",fontSize:17,lineHeight:1 }}>✕</button>
+          <button className="popup-close" onClick={onClose}>✕</button>
         </div>
         {children}
       </div>
@@ -173,6 +194,90 @@ function PopupWindow({ title, children, onClose, width = 700, height = 460 }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEM DESCRIPTION SEARCHABLE LIST (mirrors #input + gridItemDescriptionWindow)
+// ─────────────────────────────────────────────────────────────────────────────
+// function SearchableList({ items, labelField, codeField, prefill, onChange, onClose, placeholder }) {
+//   const [q,  setQ ] = useState(prefill || "");
+//   const [fi, setFi] = useState(-1);
+//   const inputRef    = useRef(null);
+//   const listRef     = useRef(null);
+
+//   useEffect(() => {
+//     setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 60);
+//   }, []);
+
+//   const filtered = items.filter(item =>
+//     String(item[labelField] || "").toLowerCase().includes(q.toLowerCase())
+//   );
+
+//   const pick = (item) => onChange(item);
+
+//   const onKeyDown = (e) => {
+//     if (e.key === "ArrowDown") {
+//       e.preventDefault();
+//       if (filtered.length === 0) return;
+//       const nx = Math.min(fi + 1, filtered.length - 1);
+//       setFi(nx); listRef.current?.children[nx]?.focus();
+//     }
+//     if (e.key === "Enter") {
+//       e.preventDefault();
+//       if (filtered.length === 0) return;
+//       const target = fi >= 0 ? filtered[fi] : filtered[0];
+//       if (target) pick(target);
+//     }
+//     if (e.key === "Escape") onClose();
+//   };
+
+//   const itemKeyDown = (e, item, i) => {
+//     if (e.key === "Enter")     { e.preventDefault(); pick(item); }
+//     if (e.key === "ArrowDown") { e.preventDefault(); const nx = Math.min(i+1, filtered.length-1); setFi(nx); listRef.current?.children[nx]?.focus(); }
+//     if (e.key === "ArrowUp")   { e.preventDefault(); if(i>0){setFi(i-1);listRef.current?.children[i-1]?.focus();}else{setFi(-1);inputRef.current?.focus();} }
+//     if (e.key === "Escape")    onClose();
+//   };
+
+//   return (
+//     <>
+//       <div style={{ padding:"6px 8px",borderBottom:"1px solid #e2e8f0",flexShrink:0 }}>
+//         <input ref={inputRef} className="mp-cell-input" placeholder={placeholder}
+//           value={q} onChange={e => { setQ(e.target.value); setFi(-1); }}
+//           onKeyDown={onKeyDown} style={{ height:28,width:"100%" }} />
+//       </div>
+//       <div ref={listRef} style={{ overflowY:"auto",flex:1 }}>
+//         <table className="mp-tbl" style={{ tableLayout:"fixed",width:"100%" }}>
+//           <thead>
+//             <tr>
+//               <th style={{ width:100 }}>Product Code</th>
+//               <th>Product Name</th>
+//               <th style={{ width:120,textAlign:"right" }}>Landing Cost</th>
+//               <th style={{ width:120,textAlign:"right" }}>Opening Stock</th>
+//             </tr>
+//           </thead>
+//           <tbody>
+//             {filtered.length === 0 && (
+//               <tr><td colSpan={4} style={{ padding:12,color:"#94a3b8",fontSize:12,textAlign:"center" }}>No results</td></tr>
+//             )}
+//             {filtered.map((item, i) => (
+//               <tr key={i} tabIndex={0}
+//                 style={{ cursor:"pointer", background: fi===i ? "#dbeafe" : "transparent" }}
+//                 onClick={() => pick(item)}
+//                 onKeyDown={e => itemKeyDown(e, item, i)}
+//                 onFocus={() => setFi(i)}>
+//                 <td>{item[codeField]}</td>
+//                 <td>{item[labelField]}</td>
+//                 <td style={{ textAlign:"right" }}>{item.LandingCost}</td>
+//                 <td style={{ textAlign:"right" }}>{item.OpeningStock}</td>
+//               </tr>
+//             ))}
+//           </tbody>
+//         </table>
+//       </div>
+//       <div style={{ padding:"4px 10px",fontSize:10,color:"#94a3b8",borderTop:"1px solid #f1f5f9",flexShrink:0 }}>
+//         ↑↓ Navigate &nbsp;|&nbsp; Enter Select &nbsp;|&nbsp; Esc Close
+//       </div>
+//     </>
+//   );
+// }
 // ─────────────────────────────────────────────────────────────────────────────
 // ITEM DESCRIPTION SEARCHABLE LIST (mirrors #input + gridItemDescriptionWindow)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -216,45 +321,50 @@ function SearchableList({ items, labelField, codeField, prefill, onChange, onClo
   };
 
   return (
-    <>
-      <div style={{ padding:"6px 8px",borderBottom:"1px solid #e2e8f0",flexShrink:0 }}>
-        <input ref={inputRef} className="mp-cell-input" placeholder={placeholder}
-          value={q} onChange={e => { setQ(e.target.value); setFi(-1); }}
-          onKeyDown={onKeyDown} style={{ height:28,width:"100%" }} />
-      </div>
-      <div ref={listRef} style={{ overflowY:"auto",flex:1 }}>
-        <table className="mp-tbl" style={{ tableLayout:"fixed",width:"100%" }}>
+    <div className="popup-body">
+      <input
+        ref={inputRef}
+        className="popup-search-input"
+        placeholder={placeholder}
+        value={q}
+        onChange={e => { setQ(e.target.value); setFi(-1); }}
+        onKeyDown={onKeyDown}
+      />
+      <div className="popup-list-wrap">
+        <table className="popup-table">
           <thead>
             <tr>
-              <th style={{ width:100 }}>Product Code</th>
+              <th>Product Code</th>
               <th>Product Name</th>
-              <th style={{ width:120,textAlign:"right" }}>Landing Cost</th>
-              <th style={{ width:120,textAlign:"right" }}>Opening Stock</th>
+              <th>Landing Cost</th>
+              <th>Opening Stock</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={listRef}>
             {filtered.length === 0 && (
-              <tr><td colSpan={4} style={{ padding:12,color:"#94a3b8",fontSize:12,textAlign:"center" }}>No results</td></tr>
+              <tr><td colSpan={4} className="no-data">No results</td></tr>
             )}
             {filtered.map((item, i) => (
               <tr key={i} tabIndex={0}
-                style={{ cursor:"pointer", background: fi===i ? "#dbeafe" : "transparent" }}
+                className={fi === i ? "popup-row selected" : "popup-row"}
                 onClick={() => pick(item)}
                 onKeyDown={e => itemKeyDown(e, item, i)}
                 onFocus={() => setFi(i)}>
                 <td>{item[codeField]}</td>
                 <td>{item[labelField]}</td>
-                <td style={{ textAlign:"right" }}>{item.LandingCost}</td>
-                <td style={{ textAlign:"right" }}>{item.OpeningStock}</td>
+                <td className="right">{item.LandingCost}</td>
+                <td className="right">{item.OpeningStock}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div style={{ padding:"4px 10px",fontSize:10,color:"#94a3b8",borderTop:"1px solid #f1f5f9",flexShrink:0 }}>
-        ↑↓ Navigate &nbsp;|&nbsp; Enter Select &nbsp;|&nbsp; Esc Close
+      <div className="popup-footer">
+        <span><kbd>↑↓</kbd> Navigate</span>
+        <span><kbd>Enter</kbd> Select</span>
+        <span><kbd>Esc</kbd> Close</span>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1732,27 +1842,46 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
 
         {/* ── BOTTOM TOOLBAR ── */}
         <div className="mp-toolbar" style={{ display:"flex",alignItems:"center",gap:6,padding:"6px 10px",flexWrap:"wrap" }}>
-          <button className="mp-btn nw" onClick={addRow} disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn sv" onClick={stockAdjustmentSave} disabled={loading}>💾 F1 Save</button>
-          <button className="mp-btn" style={{ background:"#0891b2",color:"#fff",borderColor:"#0891b2" }}
-            onClick={() => { if (!permRef.current.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; } setPwModal({ purpose:"F3" }); }}
-            disabled={loading}>✏ F3 Edit</button>
-          <button className="mp-btn" style={{ background:"#7c3aed",color:"#fff",borderColor:"#7c3aed" }}
-            onClick={() => setF5Open(true)} disabled={loading}>📋 F5 View</button>
-          <button className="mp-btn" style={{ background:"#dc2626",color:"#fff",borderColor:"#dc2626" }}
-            onClick={() => {
-              if (!permRef.current.Delete) { toast("❌ Page Delete Permission Denied !!!.", true); return; }
-              if (editId === 0) { toast("❌ No Delete Id !!!.", true); return; }
-              setPwModal({ purpose:"F9" });
-            }} disabled={loading}>🗑 F9 Delete</button>
-          <button className="mp-btn sb"
-            
-            onClick={() => confirm("Do You Want To Clear?").then(ok => { if (ok) clearGrid(); })}
-            disabled={loading}>♻ F10 Clear</button>
-          <button className="mp-btn cn"
-            onClick={() => confirm("Do You Want To Quit?").then(ok => { if (ok) navigate("/Home"); })}
-            style={{ marginLeft:"auto" }}>✕ Esc Quit</button>
-        </div>
+  <button className="mp-btn nw" onClick={addRow} disabled={loading}>
+    <Plus size={16} color="#fff" strokeWidth={2.5} /> Add Row
+  </button>
+
+  <button className="mp-btn sv" onClick={stockAdjustmentSave} disabled={loading}>
+    <Save size={16} color="#fff" strokeWidth={2.5} /> F1 Save
+  </button>
+
+  <button className="mp-btn" style={{ background:"#0891b2",color:"#fff",borderColor:"#0891b2" }}
+    onClick={() => { if (!permRef.current.Edit) { toast("❌ Page Edit Permission Denied !!!.", true); return; } setPwModal({ purpose:"F3" }); }}
+    disabled={loading}>
+    <Pencil size={16} color="#fff" strokeWidth={2.5} /> F3 Edit
+  </button>
+
+  <button className="mp-btn" style={{ background:"#7c3aed",color:"#fff",borderColor:"#7c3aed" }}
+    onClick={() => setF5Open(true)} disabled={loading}>
+    <ClipboardList size={16} color="#fff" strokeWidth={2.5} /> F5 View
+  </button>
+
+  <button className="mp-btn" style={{ background:"#dc2626",color:"#fff",borderColor:"#dc2626" }}
+    onClick={() => {
+      if (!permRef.current.Delete) { toast("❌ Page Delete Permission Denied !!!.", true); return; }
+      if (editId === 0) { toast("❌ No Delete Id !!!.", true); return; }
+      setPwModal({ purpose:"F9" });
+    }} disabled={loading}>
+    <Trash2 size={16} color="#fff" strokeWidth={2.5} /> F9 Delete
+  </button>
+
+  <button className="mp-btn sb"
+    onClick={() => confirm("Do You Want To Clear?").then(ok => { if (ok) clearGrid(); })}
+    disabled={loading}>
+    <RotateCcw size={16} color="#fff" strokeWidth={2.5} /> F10 Clear
+  </button>
+
+  <button className="mp-btn cn"
+    onClick={() => confirm("Do You Want To Quit?").then(ok => { if (ok) navigate("/Home"); })}
+    style={{ marginLeft:"auto" }}>
+    <X size={16} color="#fff" strokeWidth={2.5} /> Esc Quit
+  </button>
+</div>
       </div>
 
       {/* ── Loading overlay ── */}

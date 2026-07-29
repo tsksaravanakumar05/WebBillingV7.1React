@@ -978,16 +978,16 @@ function handleSave() {
 
             {/* ── Toolbar ── */}
             <div className="bm-actions">
-              <button className="bm-btn bm-btn-primary" disabled={loading || submitting.current} onClick={handleSave}>
+              <button className="mp-btn sv" disabled={loading || submitting.current} onClick={handleSave}>
                 <Save size={16} />
                 Save (F1)
               </button>
-              <button className="bm-btn" onClick={() => setShowTrip(true)}>
+              <button className="mp-btn nw" onClick={() => setShowTrip(true)}>
                 <Truck size={16} />
                 Trip (F2)
               </button>
               <button
-                className="bm-btn bm-btn-secondary"
+                className="mp-btn dl"
                 onClick={() => showConfirm("Do You Want To Clear?", () => { setConfirm(null); handleClear(); })}
               >
                 <RotateCcw size={16} />

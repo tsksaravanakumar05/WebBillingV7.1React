@@ -266,6 +266,74 @@ function PwModal({ title, comid, onOk, onClose }) {
 }
 
 // ─── PRODUCT SEARCH POPUP (same structure as SaleReturn) ──────────────────────
+// function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
+//   const [q, setQ]           = useState("");
+//   const [hilite, setHilite] = useState(0);
+//   const inputRef = useRef(null);
+//   const listRef  = useRef(null);
+
+//   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 30); }, []);
+
+//   const filtered = products.filter(p =>
+//     String(p.PName || "").toLowerCase().includes(q.toLowerCase()) ||
+//     String(p.Prod_Code || p.ProductCode || "").toLowerCase().includes(q.toLowerCase())
+//   ).slice(0, 120);
+
+//   useEffect(() => { setHilite(0); }, [q]);
+//   useEffect(() => {
+//     const el = listRef.current?.querySelector(`[data-idx="${hilite}"]`);
+//     if (el) el.scrollIntoView({ block: "nearest" });
+//   }, [hilite]);
+
+//   return (
+//     <div className="sb-prod-search" style={{ top: anchorPos?.top || 160, left: (anchorPos?.left || 0) + 250 }}>
+//       <div className="sb-prod-search-hdr">
+//         <span className="sb-ps-title">🔍 Product Search</span>
+//         <span className="sb-ps-count">{filtered.length} items</span>
+//         <button className="sb-ps-close" onClick={onClose}>✕</button>
+//       </div>
+//       <div className="sb-ps-input-wrap">
+//         <span className="sb-ps-icon">⌕</span>
+//         <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
+//           placeholder="Type code or name…" className="sb-ps-input"
+//           onKeyDown={e => {
+//             if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+//             if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
+//             if (e.key === "Enter")      { e.preventDefault(); if (filtered[hilite]) onSelect(filtered[hilite]); }
+//             if (e.key === "Escape")     { e.preventDefault(); onClose(); }
+//           }}
+//         />
+//       </div>
+//       <div className="sb-ps-cols">
+//         <span style={{ width: 90 }}>Code</span>
+//         <span style={{ flex: 1 }}>Product Name</span>
+//         <span style={{ width: 72, textAlign: "right" }}>Rate</span>
+//         <span style={{ width: 60, textAlign: "right" }}>Stock</span>
+//       </div>
+//       <div ref={listRef} className="sb-prod-list">
+//         {filtered.length === 0
+//           ? <div className="sb-ps-empty">No products found</div>
+//           : filtered.map((p, idx) => (
+//             <div key={p.Id} data-idx={idx}
+//               className={`sb-prod-item${idx === hilite ? " hi" : ""}`}
+//               onClick={() => onSelect(p)}
+//               onMouseEnter={() => setHilite(idx)}>
+//               <span className="sb-prod-code">{p.Prod_Code || p.ProductCode}</span>
+//               <span className="sb-prod-name">{p.PName || p.ProductName}</span>
+//               <span className="sb-prod-rate">₹{f2(vn(p.SaleRate || p.SalesRate)).toFixed(2)}</span>
+//               <span className="sb-prod-stock">{vn(p.Stock).toFixed(0)}</span>
+//             </div>
+//           ))
+//         }
+//       </div>
+//       <div className="sb-ps-footer">
+//         <span><kbd>↑↓</kbd> Navigate</span>
+//         <span><kbd>Enter</kbd> Select</span>
+//         <span><kbd>Esc</kbd> Close</span>
+//       </div>
+//     </div>
+//   );
+// }
 function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
   const [q, setQ]           = useState("");
   const [hilite, setHilite] = useState(0);
@@ -286,50 +354,57 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
   }, [hilite]);
 
   return (
-    <div className="sb-prod-search" style={{ top: anchorPos?.top || 160, left: (anchorPos?.left || 0) + 250 }}>
-      <div className="sb-prod-search-hdr">
-        <span className="sb-ps-title">🔍 Product Search</span>
-        <span className="sb-ps-count">{filtered.length} items</span>
-        <button className="sb-ps-close" onClick={onClose}>✕</button>
-      </div>
-      <div className="sb-ps-input-wrap">
-        <span className="sb-ps-icon">⌕</span>
-        <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
-          placeholder="Type code or name…" className="sb-ps-input"
-          onKeyDown={e => {
-            if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
-            if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
-            if (e.key === "Enter")      { e.preventDefault(); if (filtered[hilite]) onSelect(filtered[hilite]); }
-            if (e.key === "Escape")     { e.preventDefault(); onClose(); }
-          }}
-        />
-      </div>
-      <div className="sb-ps-cols">
-        <span style={{ width: 90 }}>Code</span>
-        <span style={{ flex: 1 }}>Product Name</span>
-        <span style={{ width: 72, textAlign: "right" }}>Rate</span>
-        <span style={{ width: 60, textAlign: "right" }}>Stock</span>
-      </div>
-      <div ref={listRef} className="sb-prod-list">
-        {filtered.length === 0
-          ? <div className="sb-ps-empty">No products found</div>
-          : filtered.map((p, idx) => (
-            <div key={p.Id} data-idx={idx}
-              className={`sb-prod-item${idx === hilite ? " hi" : ""}`}
-              onClick={() => onSelect(p)}
-              onMouseEnter={() => setHilite(idx)}>
-              <span className="sb-prod-code">{p.Prod_Code || p.ProductCode}</span>
-              <span className="sb-prod-name">{p.PName || p.ProductName}</span>
-              <span className="sb-prod-rate">₹{f2(vn(p.SaleRate || p.SalesRate)).toFixed(2)}</span>
-              <span className="sb-prod-stock">{vn(p.Stock).toFixed(0)}</span>
-            </div>
-          ))
-        }
-      </div>
-      <div className="sb-ps-footer">
-        <span><kbd>↑↓</kbd> Navigate</span>
-        <span><kbd>Enter</kbd> Select</span>
-        <span><kbd>Esc</kbd> Close</span>
+    <div className="popup-overlay">
+      <div className="popup-window product-popup">
+        <div className="popup-header">
+          <span>🔍 Product Search</span>
+          <button className="popup-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="popup-body">
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Type code or name…"
+            className="popup-search-input"
+            onKeyDown={e => {
+              if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+              if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
+              if (e.key === "Enter")      { e.preventDefault(); if (filtered[hilite]) onSelect(filtered[hilite]); }
+              if (e.key === "Escape")     { e.preventDefault(); onClose(); }
+            }}
+          />
+
+          <div className="popup-list-wrap">
+            <table className="popup-table">
+              <thead>
+                <tr><th>Code</th><th>Product Name</th><th>Rate</th><th>Stock</th></tr>
+              </thead>
+              <tbody ref={listRef}>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={4} className="no-data">No products found</td></tr>
+                ) : (
+                  filtered.map((p, idx) => (
+                    <tr key={p.Id} data-idx={idx}
+                      className={idx === hilite ? "popup-row selected" : "popup-row"}
+                      onClick={() => onSelect(p)}
+                      onMouseEnter={() => setHilite(idx)}>
+                      <td>{p.Prod_Code || p.ProductCode}</td>
+                      <td>{p.PName || p.ProductName}</td>
+                      <td className="right">{f2(vn(p.SaleRate || p.SalesRate)).toFixed(2)}</td>
+                      <td className="right">{vn(p.Stock).toFixed(0)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="popup-footer">
+          <span><kbd>↑↓</kbd> Navigate</span>
+          <span><kbd>Enter</kbd> Select</span>
+          <span><kbd>Esc</kbd> Close</span>
+        </div>
       </div>
     </div>
   );

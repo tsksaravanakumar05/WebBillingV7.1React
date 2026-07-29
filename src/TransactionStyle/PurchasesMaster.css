@@ -791,8 +791,8 @@
    /* Modal header — #1f65de blue, same as .sb-pay-hdr */
    .mp-modal-hdr,
    .popup-header {
-     background: var(--pm-blue);         /* #1f65de */
-     color: var(--clr-text-white);
+     /* background: var(--pm-blue);        
+     color: var(--clr-text-white); */
      padding: 10px 16px;
      font-size: 13px;
      font-weight: 700;

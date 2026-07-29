@@ -387,6 +387,80 @@ function PwModal({ title, comid, onOk, onClose }) {
 }
 
 // ─── PRODUCT SEARCH POPUP ─────────────────────────────────────────────────────
+// function ProductSearchPopup({ products, onSelect, onClose }) {
+//   const [q, setQ]           = useState("");
+//   const [hilite, setHilite] = useState(0);
+//   const inputRef = useRef(null);
+//   const listRef  = useRef(null);
+
+//   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 30); }, []);
+//   const filtered = useMemo(() => products.filter(p =>
+//     String(p.ProductName || p.PName || "").toLowerCase().includes(q.toLowerCase()) ||
+//     String(p.ProductCode || p.Prod_Code || "").toLowerCase().includes(q.toLowerCase())
+//   ).slice(0, 120), [products, q]);
+
+//   useEffect(() => { setHilite(0); }, [q]);
+//   useEffect(() => {
+//     listRef.current?.querySelector(`[data-idx="${hilite}"]`)?.scrollIntoView({ block: "nearest" });
+//   }, [hilite]);
+
+//   return (
+//     <div className="si-prodsearch-panel" style={{
+//       position: "fixed", top: 120, left: 80, zIndex: 9800,
+//       borderRadius: 8, width: 820, height: "80vh", display: "flex", flexDirection: "column",
+//     }}>
+//       <div className="si-popup-header" style={{ padding: "8px 14px", borderRadius: "8px 8px 0 0" }}>
+//         <span className="si-popup-header-title" style={{ fontSize: 13, flex: 1 }}>🔍 Product Search</span>
+//         <span className="si-popup-header-badge" style={{ fontSize: 10, padding: "2px 8px" }}>
+//           {filtered.length} items
+//         </span>
+//         <button onClick={onClose} className="si-popup-header-close" style={{ width: 22, height: 22, fontSize: 11 }}>✕</button>
+//       </div>
+//       <div className="si-prodsearch-searchbar" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+//         <span className="si-prodsearch-icon" style={{ fontSize: 16 }}>⌕</span>
+//         <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
+//           placeholder="Type code or product name…"
+//           className="si-prodsearch-input"
+//           style={{ flex: 1, border: "none", outline: "none", fontSize: 12 }}
+//           onKeyDown={e => {
+//             if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+//             if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
+//             if (e.key === "Enter")      { if (filtered[hilite]) onSelect(filtered[hilite]); }
+//             if (e.key === "Escape")     { onClose(); }
+//           }}
+//         />
+//       </div>
+//       <div className="si-popup-colhdr" style={{ gridTemplateColumns: "110px 1fr 90px 80px 80px", padding: "4px 10px", fontSize: 10.5, fontWeight: 700 }}>
+//         <span>Code</span><span>Name</span><span style={{ textAlign: "right" }}>Pur.Rate</span>
+//         <span style={{ textAlign: "right" }}>Sale Rate</span><span style={{ textAlign: "right" }}>Stock</span>
+//       </div>
+//       <div ref={listRef} style={{ flex: 1, overflowY: "auto" }}>
+//         {filtered.length === 0
+//           ? <div className="si-popup-empty" style={{ padding: 20, fontSize: 12 }}>No products found</div>
+//           : filtered.map((p, idx) => (
+//             <div key={p.Id} data-idx={idx} onClick={() => onSelect(p)} onMouseEnter={() => setHilite(idx)}
+//               className={`si-popup-row ${idx === hilite ? "hilite" : idx % 2 === 0 ? "even" : "odd"}`}
+//               style={{
+//                 gridTemplateColumns: "110px 1fr 90px 80px 80px",
+//                 padding: "5px 10px", fontSize: 12,
+//               }}>
+//               <span className="si-cell-code" style={{ fontWeight: 600 }}>{p.ProductCode || p.Prod_Code}</span>
+//               <span className="si-cell-primary">{p.ProductName || p.PName}</span>
+//               <span className="si-cell-primary" style={{ textAlign: "right" }}>₹{f2(vn(p.PurchaseRate)).toFixed(2)}</span>
+//               <span className="si-cell-primary" style={{ textAlign: "right" }}>₹{f2(vn(p.SalesRate || p.SaleRate)).toFixed(2)}</span>
+//               <span className={vn(p.Stock) < 0 ? "si-cell-stock-low" : "si-cell-rate"} style={{ textAlign: "right" }}>{vn(p.Stock).toFixed(0)}</span>
+//             </div>
+//           ))
+//         }
+//       </div>
+//       <div className="si-popup-footer si-prodsearch-footer" style={{ padding: "5px 12px", gap: 14, fontSize: 10.5 }}>
+//         <span><kbd className="si-kbd" style={{ padding: "1px 5px", fontSize: 9.5 }}>↑↓</kbd> Navigate</span>
+//         <span><kbd className="si-kbd" style={{ padding: "1px 5px", fontSize: 9.5 }}>Enter</kbd> Select</span>
+//         <span><kbd className="si-kbd" style={{ padding: "1px 5px", fontSize: 9.5 }}>Esc</kbd> Close</span>
+//       </div>
+//     </div>
+//   );
+// }
 function ProductSearchPopup({ products, onSelect, onClose }) {
   const [q, setQ]           = useState("");
   const [hilite, setHilite] = useState(0);
@@ -405,58 +479,64 @@ function ProductSearchPopup({ products, onSelect, onClose }) {
   }, [hilite]);
 
   return (
-    <div className="si-prodsearch-panel" style={{
-      position: "fixed", top: 120, left: 80, zIndex: 9800,
-      borderRadius: 8, width: 820, height: "80vh", display: "flex", flexDirection: "column",
-    }}>
-      <div className="si-popup-header" style={{ padding: "8px 14px", borderRadius: "8px 8px 0 0" }}>
-        <span className="si-popup-header-title" style={{ fontSize: 13, flex: 1 }}>🔍 Product Search</span>
-        <span className="si-popup-header-badge" style={{ fontSize: 10, padding: "2px 8px" }}>
-          {filtered.length} items
-        </span>
-        <button onClick={onClose} className="si-popup-header-close" style={{ width: 22, height: 22, fontSize: 11 }}>✕</button>
-      </div>
-      <div className="si-prodsearch-searchbar" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
-        <span className="si-prodsearch-icon" style={{ fontSize: 16 }}>⌕</span>
-        <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
-          placeholder="Type code or product name…"
-          className="si-prodsearch-input"
-          style={{ flex: 1, border: "none", outline: "none", fontSize: 12 }}
-          onKeyDown={e => {
-            if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
-            if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
-            if (e.key === "Enter")      { if (filtered[hilite]) onSelect(filtered[hilite]); }
-            if (e.key === "Escape")     { onClose(); }
-          }}
-        />
-      </div>
-      <div className="si-popup-colhdr" style={{ gridTemplateColumns: "110px 1fr 90px 80px 80px", padding: "4px 10px", fontSize: 10.5, fontWeight: 700 }}>
-        <span>Code</span><span>Name</span><span style={{ textAlign: "right" }}>Pur.Rate</span>
-        <span style={{ textAlign: "right" }}>Sale Rate</span><span style={{ textAlign: "right" }}>Stock</span>
-      </div>
-      <div ref={listRef} style={{ flex: 1, overflowY: "auto" }}>
-        {filtered.length === 0
-          ? <div className="si-popup-empty" style={{ padding: 20, fontSize: 12 }}>No products found</div>
-          : filtered.map((p, idx) => (
-            <div key={p.Id} data-idx={idx} onClick={() => onSelect(p)} onMouseEnter={() => setHilite(idx)}
-              className={`si-popup-row ${idx === hilite ? "hilite" : idx % 2 === 0 ? "even" : "odd"}`}
-              style={{
-                gridTemplateColumns: "110px 1fr 90px 80px 80px",
-                padding: "5px 10px", fontSize: 12,
-              }}>
-              <span className="si-cell-code" style={{ fontWeight: 600 }}>{p.ProductCode || p.Prod_Code}</span>
-              <span className="si-cell-primary">{p.ProductName || p.PName}</span>
-              <span className="si-cell-primary" style={{ textAlign: "right" }}>₹{f2(vn(p.PurchaseRate)).toFixed(2)}</span>
-              <span className="si-cell-primary" style={{ textAlign: "right" }}>₹{f2(vn(p.SalesRate || p.SaleRate)).toFixed(2)}</span>
-              <span className={vn(p.Stock) < 0 ? "si-cell-stock-low" : "si-cell-rate"} style={{ textAlign: "right" }}>{vn(p.Stock).toFixed(0)}</span>
-            </div>
-          ))
-        }
-      </div>
-      <div className="si-popup-footer si-prodsearch-footer" style={{ padding: "5px 12px", gap: 14, fontSize: 10.5 }}>
-        <span><kbd className="si-kbd" style={{ padding: "1px 5px", fontSize: 9.5 }}>↑↓</kbd> Navigate</span>
-        <span><kbd className="si-kbd" style={{ padding: "1px 5px", fontSize: 9.5 }}>Enter</kbd> Select</span>
-        <span><kbd className="si-kbd" style={{ padding: "1px 5px", fontSize: 9.5 }}>Esc</kbd> Close</span>
+    <div className="popup-overlay">
+      <div className="popup-window product-popup">
+        <div className="popup-header">
+          <span>🔍 Product Search</span>
+          <button className="popup-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="popup-body">
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Type code or product name…"
+            className="popup-search-input"
+            onKeyDown={e => {
+              if (e.key === "ArrowDown")  { e.preventDefault(); setHilite(h => Math.min(h + 1, filtered.length - 1)); }
+              if (e.key === "ArrowUp")    { e.preventDefault(); setHilite(h => Math.max(h - 1, 0)); }
+              if (e.key === "Enter")      { if (filtered[hilite]) onSelect(filtered[hilite]); }
+              if (e.key === "Escape")     { onClose(); }
+            }}
+          />
+
+          <div className="popup-list-wrap">
+            <table className="popup-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Pur.Rate</th>
+                  <th>Sale Rate</th>
+                  <th>Stock</th>
+                </tr>
+              </thead>
+              <tbody ref={listRef}>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={5} className="no-data">No products found</td></tr>
+                ) : (
+                  filtered.map((p, idx) => (
+                    <tr key={p.Id} data-idx={idx}
+                      onClick={() => onSelect(p)}
+                      onMouseEnter={() => setHilite(idx)}
+                      className={idx === hilite ? "popup-row selected" : "popup-row"}>
+                      <td>{p.ProductCode || p.Prod_Code}</td>
+                      <td>{p.ProductName || p.PName}</td>
+                      <td className="right">{f2(vn(p.PurchaseRate)).toFixed(2)}</td>
+                      <td className="right">{f2(vn(p.SalesRate || p.SaleRate)).toFixed(2)}</td>
+                      <td className="right">{vn(p.Stock).toFixed(0)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="popup-footer">
+          <span><kbd>↑↓</kbd> Navigate</span>
+          <span><kbd>Enter</kbd> Select</span>
+          <span><kbd>Esc</kbd> Close</span>
+        </div>
       </div>
     </div>
   );

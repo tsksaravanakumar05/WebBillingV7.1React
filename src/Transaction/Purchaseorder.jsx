@@ -336,6 +336,105 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
 }
 
 // ─── PRODUCT SEARCH POPUP ────────────────────────────────────────────────────
+// function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
+//   const [q, setQ]   = useState("");
+//   const [hi, setHi] = useState(0);
+//   const listRef     = useRef(null);
+//   const inpRef      = useRef(null);
+
+//   useEffect(() => { setTimeout(() => inpRef.current?.focus(), 60); }, []);
+
+//   const filtered = useMemo(() => {
+//     if (!q.trim()) return products.slice(0, 300);
+//     const lq = q.toLowerCase();
+//     return products.filter(p =>
+//       (p.ProductName || p.PName || "").toLowerCase().includes(lq) ||
+//       (p.ProductCode || p.Prod_Code || "").toLowerCase().startsWith(lq)
+//     ).slice(0, 300);
+//   }, [products, q]);
+
+//   useEffect(() => {
+//     if (hi >= filtered.length) setHi(Math.max(0, filtered.length - 1));
+//   }, [filtered, hi]);
+
+//   const scrollHi = useCallback(idx => {
+//     const el = listRef.current?.querySelector(`[data-idx="${idx}"]`);
+//     el?.scrollIntoView({ block: "nearest" });
+//   }, []);
+
+//   const handleKey = e => {
+//     if (e.key === "ArrowDown") { e.preventDefault(); const next = Math.min(hi + 1, filtered.length - 1); setHi(next); scrollHi(next); }
+//     if (e.key === "ArrowUp")   { e.preventDefault(); const prev = Math.max(hi - 1, 0); setHi(prev); scrollHi(prev); }
+//     if (e.key === "Enter")     { e.preventDefault(); if (filtered[hi]) onSelect(filtered[hi]); }
+//     if (e.key === "Escape")    { onClose(); }
+//   };
+
+//   return (
+//     <div className="sb-prod-search" style={{ top: anchorPos?.top || 120, left: anchorPos?.left || 80, width: 820, height: "80vh" }}>
+//       <div className="sb-prod-search-hdr">
+//         <span className="sb-ps-title">🔍 Product Search</span>
+//         <span className="sb-ps-count">{filtered.length} items</span>
+//         <button className="sb-ps-close" onClick={onClose}>✕</button>
+//       </div>
+//       <div className="sb-ps-input-wrap">
+//         <span className="sb-ps-icon">⌕</span>
+//         <input ref={inpRef} value={q} onChange={e => { setQ(e.target.value); setHi(0); }}
+//           onKeyDown={handleKey} placeholder="Type to filter…" className="sb-ps-input" />
+//       </div>
+//       <div className="sb-ps-cols">
+//         <span style={{ width: 70 }}>Code</span>
+//         <span style={{ flex: 1 }}>Description</span>
+//         <span style={{ width: 45, textAlign: "center" }}>UOM</span>
+//         <span style={{ width: 60, textAlign: "right" }}>MRP</span>
+//         <span style={{ width: 60, textAlign: "right" }}>PurRate</span>
+//         <span style={{ width: 45, textAlign: "right" }}>GST%</span>
+//         <span style={{ width: 75, textAlign: "right" }}>LandingCost</span>
+//         <span style={{ width: 60, textAlign: "right" }}>SaleRate</span>
+//       </div>
+//       <div ref={listRef} className="sb-prod-list">
+//         {filtered.length === 0
+//           ? <div className="sb-ps-empty">No products found</div>
+//           : filtered.map((p, idx) => (
+//             <div key={p.Id} data-idx={idx}
+//               className={`sb-prod-item${idx === hi ? " hi" : ""}`}
+//               onClick={() => onSelect(p)} onMouseEnter={() => setHi(idx)}>
+//               <span className="sb-prod-code" style={{ width: 70 }}>
+//                 {p.Prod_Code || p.ProductCode}
+//               </span>
+//               <span className="sb-prod-name" style={{ flex: 1 }}>
+//                 {p.PName || p.ProductName}
+//               </span>
+//               <span style={{ width: 45, textAlign: "center", fontSize: 10.5, color: "#6b7a99" }}>
+//                 {p.UOM || "—"}
+//               </span>
+//               <span style={{ width: 60, textAlign: "right", color: "#475569" }}>
+//                 ₹{f2(vn(p.MRP)).toFixed(2)}
+//               </span>
+//               <span className="sb-prod-rate" style={{ width: 60, textAlign: "right" }}>
+//                 ₹{f2(vn(p.PurchaseRate)).toFixed(2)}
+//               </span>
+//               <span style={{ width: 45, textAlign: "right", color: "#8b5cf6" }}>
+//                 {f2(vn(p.GST)).toFixed(2)}
+//               </span>
+//               <span style={{ width: 75, textAlign: "right", color: "#ea580c" }}>
+//                 ₹{f2(vn(p.LandingCost)).toFixed(2)}
+//               </span>
+//               <span style={{ width: 60, textAlign: "right", color: "#16a34a", fontWeight: 600 }}>
+//                 ₹{f2(vn(p.SaleRate ?? p.SalesRate)).toFixed(2)}
+//               </span>
+//             </div>
+//           ))
+//         }
+//       </div>
+//       <div className="sb-ps-footer">
+//         <span><kbd>↑↓</kbd> Navigate</span>
+//         <span><kbd>Enter</kbd> Select</span>
+//         <span><kbd>Esc</kbd> Close</span>
+//       </div>
+//     </div>
+//   );
+// }
+
 function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
   const [q, setQ]   = useState("");
   const [hi, setHi] = useState(0);
@@ -370,66 +469,67 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos }) {
   };
 
   return (
-    <div className="sb-prod-search" style={{ top: anchorPos?.top || 120, left: anchorPos?.left || 80, width: 820, height: "80vh" }}>
-      <div className="sb-prod-search-hdr">
-        <span className="sb-ps-title">🔍 Product Search</span>
-        <span className="sb-ps-count">{filtered.length} items</span>
-        <button className="sb-ps-close" onClick={onClose}>✕</button>
-      </div>
-      <div className="sb-ps-input-wrap">
-        <span className="sb-ps-icon">⌕</span>
-        <input ref={inpRef} value={q} onChange={e => { setQ(e.target.value); setHi(0); }}
-          onKeyDown={handleKey} placeholder="Type to filter…" className="sb-ps-input" />
-      </div>
-      <div className="sb-ps-cols">
-        <span style={{ width: 70 }}>Code</span>
-        <span style={{ flex: 1 }}>Description</span>
-        <span style={{ width: 45, textAlign: "center" }}>UOM</span>
-        <span style={{ width: 60, textAlign: "right" }}>MRP</span>
-        <span style={{ width: 60, textAlign: "right" }}>PurRate</span>
-        <span style={{ width: 45, textAlign: "right" }}>GST%</span>
-        <span style={{ width: 75, textAlign: "right" }}>LandingCost</span>
-        <span style={{ width: 60, textAlign: "right" }}>SaleRate</span>
-      </div>
-      <div ref={listRef} className="sb-prod-list">
-        {filtered.length === 0
-          ? <div className="sb-ps-empty">No products found</div>
-          : filtered.map((p, idx) => (
-            <div key={p.Id} data-idx={idx}
-              className={`sb-prod-item${idx === hi ? " hi" : ""}`}
-              onClick={() => onSelect(p)} onMouseEnter={() => setHi(idx)}>
-              <span className="sb-prod-code" style={{ width: 70 }}>
-                {p.Prod_Code || p.ProductCode}
-              </span>
-              <span className="sb-prod-name" style={{ flex: 1 }}>
-                {p.PName || p.ProductName}
-              </span>
-              <span style={{ width: 45, textAlign: "center", fontSize: 10.5, color: "#6b7a99" }}>
-                {p.UOM || "—"}
-              </span>
-              <span style={{ width: 60, textAlign: "right", color: "#475569" }}>
-                ₹{f2(vn(p.MRP)).toFixed(2)}
-              </span>
-              <span className="sb-prod-rate" style={{ width: 60, textAlign: "right" }}>
-                ₹{f2(vn(p.PurchaseRate)).toFixed(2)}
-              </span>
-              <span style={{ width: 45, textAlign: "right", color: "#8b5cf6" }}>
-                {f2(vn(p.GST)).toFixed(2)}
-              </span>
-              <span style={{ width: 75, textAlign: "right", color: "#ea580c" }}>
-                ₹{f2(vn(p.LandingCost)).toFixed(2)}
-              </span>
-              <span style={{ width: 60, textAlign: "right", color: "#16a34a", fontWeight: 600 }}>
-                ₹{f2(vn(p.SaleRate ?? p.SalesRate)).toFixed(2)}
-              </span>
-            </div>
-          ))
-        }
-      </div>
-      <div className="sb-ps-footer">
-        <span><kbd>↑↓</kbd> Navigate</span>
-        <span><kbd>Enter</kbd> Select</span>
-        <span><kbd>Esc</kbd> Close</span>
+    <div className="popup-overlay">
+      <div className="popup-window product-popup">
+        <div className="popup-header">
+          <span>🔍 Product Search ({filtered.length} items)</span>
+          <button className="popup-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="popup-body">
+          <input
+            ref={inpRef}
+            className="popup-search-input"
+            value={q}
+            onChange={e => { setQ(e.target.value); setHi(0); }}
+            onKeyDown={handleKey}
+            placeholder="Type to filter…"
+          />
+          <div className="popup-list-wrap">
+            <table className="popup-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Description</th>
+                  <th>UOM</th>
+                  <th>MRP</th>
+                  <th>PurRate</th>
+                  <th>GST%</th>
+                  <th>LandingCost</th>
+                  <th>SaleRate</th>
+                </tr>
+              </thead>
+              <tbody ref={listRef}>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={8} className="no-data">No products found</td></tr>
+                ) : (
+                  filtered.map((p, idx) => (
+                    <tr
+                      key={p.Id}
+                      data-idx={idx}
+                      className={idx === hi ? "popup-row selected" : "popup-row"}
+                      onClick={() => onSelect(p)}
+                      onMouseEnter={() => setHi(idx)}
+                    >
+                      <td>{p.Prod_Code || p.ProductCode}</td>
+                      <td>{p.PName || p.ProductName}</td>
+                      <td>{p.UOM || "—"}</td>
+                      <td className="right">{f2(vn(p.MRP)).toFixed(2)}</td>
+                      <td className="right">{f2(vn(p.PurchaseRate)).toFixed(2)}</td>
+                      <td className="right">{f2(vn(p.GST)).toFixed(2)}</td>
+                      <td className="right">{f2(vn(p.LandingCost)).toFixed(2)}</td>
+                      <td className="right">{f2(vn(p.SaleRate ?? p.SalesRate)).toFixed(2)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="popup-footer">
+          <span><kbd>↑↓</kbd> Navigate</span>
+          <span><kbd>Enter</kbd> Select</span>
+          <span><kbd>Esc</kbd> Close</span>
+        </div>
       </div>
     </div>
   );

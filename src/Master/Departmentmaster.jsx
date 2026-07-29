@@ -613,15 +613,15 @@ if (redirectIfDualLogin(res)) return;
 
             {/* ── Toolbar ── */}
             <div className="bm-actions">
-              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+              <button className="mp-btn sv" onClick={handleSave} disabled={loading}>
                 <Save size={16} />
                 {loading ? "Loading…" : "F1 Save"}
               </button>
-              <button className="bm-btn" onClick={addRow} disabled={loading}>
+              <button className="mp-btn nw" onClick={addRow} disabled={loading}>
                 <Plus size={16} />
                 Add Row
               </button>
-              <button className="bm-btn bm-btn-secondary" onClick={handleEsc} disabled={loading}>
+              <button className="mp-btn dl" onClick={handleEsc} disabled={loading}>
                 <XCircle size={16} />
                 Esc Cancel
               </button>
