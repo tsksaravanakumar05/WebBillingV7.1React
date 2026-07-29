@@ -74,8 +74,6 @@ const DEFAULT_COL_SETTINGS = SR_COLUMNS.map(c => ({
 const RETURN_TYPES = [
   { value: "CASH",   label: "CASH" },
   { value: "CREDIT", label: "CREDIT" },
-  { value: "CRN",    label: "CRN" },
-  { value: "DBN",    label: "DBN" },
 ];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -943,7 +941,7 @@ const [billLoadNo, setBillLoadNo] = useState("");
   const [lastReturnAmt, setLastReturnAmt] = useState(() => parseFloat(localStorage.getItem("lastReturnAmt")) || 0);
 
   const [prodPopup,  setProdPopup]  = useState(null);
-  const [prodList,   setProdList]   = useState([]);
+  const [prodList,   setProdList]   = useState(() => CC.getCachedProductList(sess.Comid));
   const [f5Open,     setF5Open]     = useState(false);
   const [f5Rows,     setF5Rows]     = useState([]);
   const [receiptPopup, setReceiptPopup] = useState(null);
@@ -1317,7 +1315,14 @@ function CtrlGFocusPopup({ colSettings, comid, mcomid, onSaved, onClose, toast }
 
   // ── Fill item into row ────────────────────────────────────────────────────
 const getSaleReturnProductList = useCallback(async () => {
-  if (prodListRef.current.length > 0) return prodListRef.current;
+  const cached = prodListRef.current.length > 0 ? prodListRef.current : CC.getCachedProductList(sess.Comid);
+  if (cached.length > 0) {
+    if (prodListRef.current.length === 0) {
+      prodListRef.current = cached;
+      setProdList(cached);
+    }
+    return cached;
+  }
 
   setLoading(true);
   setLdMsg("Loading products...");
@@ -1326,6 +1331,7 @@ const getSaleReturnProductList = useCallback(async () => {
   if (redirectIfDualLogin(res)) return [];
 
   const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+  CC.setCachedProductList(sess.Comid, arr);
   prodListRef.current = arr;
   setProdList(arr);
   return arr;
@@ -1483,6 +1489,37 @@ const fillItemIntoRow = useCallback((rid, item) => {
       setProdPopup({ rid, pos: { top: 200, left: 80 } });
     }
   }, [sess, fillItemIntoRow]);
+
+  const applyPopupSelectedProduct = useCallback(async (rid, item) => {
+    const code = String(item?.Prod_Code || item?.ProductCode || "").trim().toUpperCase();
+    if (!code) {
+      fillItemIntoRow(rid, item);
+      return;
+    }
+    const res = await CC.api(SelectItemByCodeUrl, null, {}, {
+      code,
+      Comid: sess.MComid, CComid: sess.Comid,
+      Id: 0, Batchwise: 0,
+    });
+    if (redirectIfDualLogin(res)) return;
+    const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    if (arr.length === 0) {
+      fillItemIntoRow(rid, item);
+      return;
+    }
+    const selectedId = String(item?.Id ?? "");
+    const selectedBatchId = String(item?.Batchid ?? item?.BatchRefid ?? "");
+    const selectedBatchNo = String(item?.BatchNo ?? item?.Bat_No ?? "").trim().toUpperCase();
+    const selectedMrp = f2(vn(item?.MRP));
+    const resolved = arr.find((candidate) => {
+      if (selectedId && String(candidate?.Id ?? "") === selectedId) return true;
+      if (selectedBatchId && String(candidate?.Batchid ?? candidate?.BatchRefid ?? "") === selectedBatchId) return true;
+      if (selectedBatchNo && String(candidate?.BatchNo ?? candidate?.Bat_No ?? "").trim().toUpperCase() === selectedBatchNo) return true;
+      if (vn(selectedMrp) > 0 && f2(vn(candidate?.MRP)) === selectedMrp) return true;
+      return false;
+    }) || arr[0];
+    fillItemIntoRow(rid, resolved);
+  }, [sess, fillItemIntoRow, redirectIfDualLogin]);
 // ─── BillNo cell → fetch original sale bill for return (mirrors LoadSD) ─────
 // ─── BillNo cell → validate bill, then load its items (mirrors BillNoCheck → LoadSD) ──
 const fetchBillForReturn = useCallback(async (rid, billNoVal) => {
@@ -1655,12 +1692,22 @@ const applyBillLoadItems = useCallback(async (selectedItems) => {
 }, [billLoadNo, buildSaleReturnRowFromBillItem, resolveBillItemProduct]);
   // ── Load product list ─────────────────────────────────────────────────────
   const loadProductsForPopup = useCallback(async (rid) => {
-    if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
+    const cached = prodList.length > 0 ? prodList : CC.getCachedProductList(sess.Comid);
+    if (cached.length > 0) {
+      if (prodList.length === 0) {
+        prodListRef.current = cached;
+        setProdList(cached);
+      }
+      setProdPopup({ rid, pos: { top: 160, left: 80 } });
+      return;
+    }
     setLoading(true); setLdMsg("Loading products...");
     const res = await CC.api(ProductListUrl, null, {}, { Comid: sess.Comid });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    CC.setCachedProductList(sess.Comid, arr);
+    prodListRef.current = arr;
     setProdList(arr);
     setProdPopup({ rid, pos: { top: 160, left: 80 } });
   // eslint-disable-next-line
@@ -2833,7 +2880,7 @@ console.log("Deleting return with body:", body);
         <ProductSearchPopup
           products={prodList}
           isTamil={sess.Tamil}
-          onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
+          onSelect={item => { applyPopupSelectedProduct(prodPopup.rid, item); }}
           onClose={() => setProdPopup(null)}
           anchorPos={prodPopup.pos}
         />

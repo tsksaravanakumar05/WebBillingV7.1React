@@ -800,7 +800,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   const [branchList,   setBranchList]   = useState([]);
   const [poNoList,     setPoNoList]     = useState([]);
   const [userList,     setUserList]     = useState([]);
-  const [productList,  setProductList]  = useState([]);
+  const [productList,  setProductList]  = useState(() => CC.getCachedProductList(sess.Comid));
 
   // ── Header fields ─────────────────────────────────────────────────────────
   const [stockNo,     setStockNo]     = useState("");
@@ -912,8 +912,15 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
     setPoNoList(pick(poRes));
     setUserList(pick(usrRes));
 
-    const pRes = await CC.api(CC.IM_ProductList, null, {}, { Comid: sess.Comid });
-    setProductList(pick(pRes));
+    const cachedProducts = CC.getCachedProductList(sess.Comid);
+    if (cachedProducts.length > 0) {
+      setProductList(cachedProducts);
+    } else {
+      const pRes = await CC.api(CC.IM_ProductList, null, {}, { Comid: sess.Comid });
+      const productRows = pick(pRes);
+      CC.setCachedProductList(sess.Comid, productRows);
+      setProductList(productRows);
+    }
   }, [sess]);
 
   // ── Load max stock no ─────────────────────────────────────────────────────
@@ -1034,6 +1041,44 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   if (arr.length === 1) fillItemIntoRow(rid, arr[0]);
   else setProdPopup({ rid });
 }, [sess, fillItemIntoRow, fillBatchItemIntoRow, redirectIfDual, toast]);
+
+const applyPopupSelectedProduct = useCallback(async (rid, item) => {
+  const code = String(item?.Prod_Code || item?.ProductCode || "").trim().toUpperCase();
+  if (!code) {
+    fillItemIntoRow(rid, item);
+    return;
+  }
+  const batchwise = modeRef.current === "inward" ? 0 : sess.BatchSizeStock;
+  const res = await CC.api(CC.IM_ByCode, null, {}, {
+    code,
+    Comid: sess.MComid, CComid: sess.Comid,
+    Id: 0, Batchwise: batchwise,
+  });
+  if (redirectIfDual(res)) return;
+  const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+  if (arr.length === 0) {
+    fillItemIntoRow(rid, item);
+    return;
+  }
+  const selectedId = String(item?.Id ?? "");
+  const selectedBatchId = String(item?.Batchid ?? item?.BatchRefid ?? "");
+  const selectedBatchNo = String(item?.BatchNo ?? item?.Bat_No ?? "").trim().toUpperCase();
+  const selectedMrp = f2(vn(item?.MRP));
+  const resolved = arr.find((candidate) => {
+    if (selectedId && String(candidate?.Id ?? "") === selectedId) return true;
+    if (selectedBatchId && String(candidate?.Batchid ?? candidate?.BatchRefid ?? "") === selectedBatchId) return true;
+    if (selectedBatchNo && String(candidate?.BatchNo ?? candidate?.Bat_No ?? "").trim().toUpperCase() === selectedBatchNo) return true;
+    if (vn(selectedMrp) > 0 && f2(vn(candidate?.MRP)) === selectedMrp) return true;
+    return false;
+  }) || arr[0];
+
+  if (modeRef.current !== "inward" && (resolved?.BatchStatus === 1 || resolved?.BatchwiseStock === 1 || resolved?.Batchid)) {
+    const codeStatus = selectedBatchNo && selectedBatchNo === String(resolved?.BatchNo || "").trim().toUpperCase() ? 1 : 0;
+    fillBatchItemIntoRow(rid, resolved, codeStatus);
+    return;
+  }
+  fillItemIntoRow(rid, resolved);
+}, [sess, fillItemIntoRow, fillBatchItemIntoRow, redirectIfDual]);
 
   // ── Cell change ───────────────────────────────────────────────────────────
   const handleCellChange = useCallback((rid, colKey, value) => {
@@ -2009,7 +2054,7 @@ const selectedPartyInfo = useMemo(() => {
 {prodPopup && (
   <ProductSearchPopup
     products={productList}
-    onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
+    onSelect={item => { applyPopupSelectedProduct(prodPopup.rid, item); }}
     onClose={() => setProdPopup(null)}
   />
 )}

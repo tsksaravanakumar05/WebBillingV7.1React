@@ -963,7 +963,7 @@ export default function EstimateBill() {
   const [ldMsg,            setLdMsg]            = useState("Loading...");
   const [pw,               setPw]              = useState(null);
   const [prodPopup,        setProdPopup]        = useState(null);
-  const [prodList,         setProdList]         = useState([]);
+  const [prodList,         setProdList]         = useState(() => CC.getCachedProductList(sess.Comid));
   const [custPopup,        setCustPopup]        = useState(false);
   const [f5Open,           setF5Open]           = useState(false);
   const [f5Rows,           setF5Rows]           = useState([]);
@@ -1422,6 +1422,43 @@ const loadFocusCols = useCallback(async (mcomid) => {
     }
   }, [sess, fillItemIntoRow, fillBatchItemIntoRow]);
 
+  const applyPopupSelectedProduct = useCallback(async (rid, item) => {
+    const code = String(item?.Prod_Code || item?.ProductCode || "").trim().toUpperCase();
+    if (!code) {
+      fillItemIntoRow(rid, item);
+      return;
+    }
+    const payload = {
+      code,
+      Comid: sess.MComid,
+      CComid: sess.Comid,
+      Id: 0,
+      Batchwise: 1,
+    };
+    const res = await CC.api(SelectItemByCodeUrl, null, {}, payload);
+    const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    if (arr.length === 0) {
+      fillItemIntoRow(rid, item);
+      return;
+    }
+    const selectedId = String(item?.Id ?? "");
+    const selectedBatchId = String(item?.Batchid ?? item?.BatchRefid ?? "");
+    const selectedBatchNo = String(item?.BatchNo ?? item?.Bat_No ?? "").trim().toUpperCase();
+    const selectedMrp = f2(vn(item?.MRP));
+    const resolved = arr.find((candidate) => {
+      if (selectedId && String(candidate?.Id ?? "") === selectedId) return true;
+      if (selectedBatchId && String(candidate?.Batchid ?? candidate?.BatchRefid ?? "") === selectedBatchId) return true;
+      if (selectedBatchNo && String(candidate?.BatchNo ?? candidate?.Bat_No ?? "").trim().toUpperCase() === selectedBatchNo) return true;
+      if (vn(selectedMrp) > 0 && f2(vn(candidate?.MRP)) === selectedMrp) return true;
+      return false;
+    }) || arr[0];
+    if (resolved?.BatchStatus === 1 || resolved?.BatchwiseStock === 1 || resolved?.Batchid) {
+      fillBatchItemIntoRow(rid, resolved);
+      return;
+    }
+    fillItemIntoRow(rid, resolved);
+  }, [sess, fillItemIntoRow, fillBatchItemIntoRow]);
+
   // ── Cell change ───────────────────────────────────────────────────────────
   const handleCellChange = useCallback((rid, colKey, value) => {
     setRows(prev => prev.map(r => {
@@ -1468,12 +1505,18 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   // ── Load products ─────────────────────────────────────────────────────────
   const loadProductsForPopup = useCallback(async (rid) => {
-    if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
+    const cached = prodList.length > 0 ? prodList : CC.getCachedProductList(sess.Comid);
+    if (cached.length > 0) {
+      if (prodList.length === 0) setProdList(cached);
+      setProdPopup({ rid, pos: { top: 160, left: 80 } });
+      return;
+    }
     setLoading(true); setLdMsg("Loading products...");
     const res = await CC.api(ProductListUrl, null, {}, { Comid: sess.Comid });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : Array.isArray(res) ? res : [];
+    CC.setCachedProductList(sess.Comid, arr);
     setProdList(arr);
     setProdPopup({ rid, pos: { top: 160, left: 80 } });
   // eslint-disable-next-line
@@ -2347,7 +2390,7 @@ const doSave = useCallback(async (overridePayRows = null) => {
       )}
 
       {prodPopup && (
-        <ProductSearchPopup products={prodList} isTamil={sess.Tamil} onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }} onClose={() => setProdPopup(null)} anchorPos={prodPopup.pos} />
+        <ProductSearchPopup products={prodList} isTamil={sess.Tamil} onSelect={item => { applyPopupSelectedProduct(prodPopup.rid, item); }} onClose={() => setProdPopup(null)} anchorPos={prodPopup.pos} />
       )}
 
       {f5Open && (

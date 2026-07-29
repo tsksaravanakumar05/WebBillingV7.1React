@@ -941,7 +941,7 @@ export default function SaleOrder() {
 
   const [customers,    setCustomers]    = useState([]);
   const [salesmen,     setSalesmen]     = useState([]);
-  const [prodList,     setProdList]     = useState([]);
+  const [prodList,     setProdList]     = useState(() => CC.getCachedProductList(settings.Comid));
 
   const [orderNo,      setOrderNo]      = useState("");
   const [orderDate,    setOrderDate]    = useState(today());
@@ -1337,14 +1337,51 @@ export default function SaleOrder() {
     }
   }, [settings, fillItemIntoRow, redirectIfDualLogin]);
 
+  const applyPopupSelectedProduct = useCallback(async (rid, item) => {
+    const code = String(item?.Prod_Code || item?.ProductCode || "").trim().toUpperCase();
+    if (!code) {
+      fillItemIntoRow(rid, item);
+      return;
+    }
+    const res = await CC.api(SelectItemByCodeUrl, null, {}, {
+      code,
+      Comid: settings.MComid, CComid: settings.Comid,
+      Id: 0, Batchwise: 0,
+    });
+    if (redirectIfDualLogin(res)) return;
+    const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    if (arr.length === 0) {
+      fillItemIntoRow(rid, item);
+      return;
+    }
+    const selectedId = String(item?.Id ?? "");
+    const selectedBatchId = String(item?.Batchid ?? item?.BatchRefid ?? "");
+    const selectedBatchNo = String(item?.BatchNo ?? item?.Bat_No ?? "").trim().toUpperCase();
+    const selectedMrp = f2(vn(item?.MRP));
+    const resolved = arr.find((candidate) => {
+      if (selectedId && String(candidate?.Id ?? "") === selectedId) return true;
+      if (selectedBatchId && String(candidate?.Batchid ?? candidate?.BatchRefid ?? "") === selectedBatchId) return true;
+      if (selectedBatchNo && String(candidate?.BatchNo ?? candidate?.Bat_No ?? "").trim().toUpperCase() === selectedBatchNo) return true;
+      if (vn(selectedMrp) > 0 && f2(vn(candidate?.MRP)) === selectedMrp) return true;
+      return false;
+    }) || arr[0];
+    fillItemIntoRow(rid, resolved);
+  }, [settings, fillItemIntoRow, redirectIfDualLogin]);
+
   // ── Load product list ──────────────────────────────────────────────────────
   const loadProductsForPopup = useCallback(async (rid) => {
-    if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
+    const cached = prodList.length > 0 ? prodList : CC.getCachedProductList(settings.Comid);
+    if (cached.length > 0) {
+      if (prodList.length === 0) setProdList(cached);
+      setProdPopup({ rid, pos: { top: 160, left: 80 } });
+      return;
+    }
     setLoading(true); setLdMsg("Loading products...");
     const res = await CC.api(ProductListUrl, null, {}, { Comid: settings.Comid });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    CC.setCachedProductList(settings.Comid, arr);
     setProdList(arr);
     setProdPopup({ rid, pos: { top: 160, left: 80 } });
   }, [settings, prodList, redirectIfDualLogin]);
@@ -2174,7 +2211,7 @@ export default function SaleOrder() {
         <ProductSearchPopup
           products={prodList}
           isTamil={settings.Tamil}
-          onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
+          onSelect={item => { applyPopupSelectedProduct(prodPopup.rid, item); }}
           onClose={() => setProdPopup(null)}
           anchorPos={prodPopup.pos}
         />
