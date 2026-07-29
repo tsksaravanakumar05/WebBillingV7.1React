@@ -794,7 +794,7 @@ export default function StockAdjustment() {
   const [f5Key,      setF5Key]      = useState(0);
 
   // combo / lookup data
-  const [productList, setProductList] = useState([]);
+  const [productList, setProductList] = useState(() => CC.getCachedProductList(sess.Comid));
 
   // refs
   const gridRef     = useRef([makeNewRow()]);
@@ -837,6 +837,11 @@ export default function StockAdjustment() {
 
   // ── Load product list on mount ───────────────────────────────────────────
   const loadProductList = useCallback(async () => {
+    const cached = CC.getCachedProductList(sess.Comid);
+    if (cached.length > 0) {
+      setProductList(cached);
+      return;
+    }
     const res = await CC.api(
       ItemMasterSelectAll,
       null,
@@ -851,14 +856,14 @@ export default function StockAdjustment() {
     );
   
     if (redirectIfDualLogin(res)) return;
-  
-    setProductList(
-      Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res?.Data1)
-        ? res.Data1
-        : []
-    );
+
+    const list = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res?.Data1)
+      ? res.Data1
+      : [];
+    CC.setCachedProductList(sess.Comid, list);
+    setProductList(list);
   }, [redirectIfDualLogin, sess.Comid]);
 
   useEffect(() => {

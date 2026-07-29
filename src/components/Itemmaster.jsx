@@ -83,6 +83,23 @@ const CALC_KEYS = new Set(["PurchaseRate","GST","CESS","TransPer","MRP","GSTAmt"
 const UPPER_KEYS      = new Set(["ProductCode","SecondCode","ProductName","PrinterName","HSNCode","Brand","Category","Department","Supplier","UOM","LocationMaster","Remarks"]);
 const FILTER_KEYS     = new Set(["ProductCode","SecondCode","ProductName","PrinterName","HSNCode","Brand","Category","Department","Supplier","UOM","LocationMaster","Remarks"]);
 const COMBO_NAV       = { Brand:"/Brand", Category:"/Category", Department:"/Department", Supplier:"/Supplier", UOM:"/UOM", LocationMaster:"/location" };
+const getProductFilterValue = (item, colKey) => {
+  switch (colKey) {
+    case "ProductCode": return item?.ProductCode ?? item?.Prod_Code ?? "";
+    case "SecondCode": return item?.SecondCode ?? "";
+    case "ProductName": return item?.ProductName ?? item?.PName ?? "";
+    case "PrinterName": return item?.PrinterName ?? "";
+    case "HSNCode": return item?.HSNCode ?? "";
+    case "Brand": return item?.Brand ?? "";
+    case "Category": return item?.Category ?? "";
+    case "Department": return item?.Department ?? "";
+    case "Supplier": return item?.Supplier ?? "";
+    case "UOM": return item?.UOM ?? "";
+    case "LocationMaster": return item?.LocationMaster ?? "";
+    case "Remarks": return item?.Remarks ?? "";
+    default: return item?.[colKey] ?? "";
+  }
+};
 // ── State — add these near your other state declarations ──────────────────
 
 let _rid = 1000;
@@ -686,6 +703,7 @@ const saveBarcodes = useCallback(async () => {
   const [selRid,     setSelRid]    = useState(null);
   const [page,       setPage]      = useState(1);
   const [totCnt,     setTotCnt]    = useState(0);
+  const [filterSourceRows, setFilterSourceRows] = useState(null);
   const [entryRow,   setEntryRow]  = useState(() => mkEmpty(sess));
   const [colFilters, setColFilters]= useState({});
   const [vErr,       setVErr]      = useState("");
@@ -714,6 +732,7 @@ const saveBarcodes = useCallback(async () => {
   const productQuickCreatePrefillRef = useRef(false);
   const draftRestoreHandledRef = useRef(false);
   const initLoadHandledRef = useRef(false);
+  const serverTotCntRef = useRef(0);
   const rowsRef      = useRef(rows);
   const entryRowRef  = useRef(entryRow);
   const entryRefs = useRef({});
@@ -941,12 +960,35 @@ const loadColCfg = useCallback(async () => {
     if(res._http404){toast(`❌ 404: ${res.message}`,true);return;}
     if(res._netErr) {toast(`❌ ${res.message}`,true);return;}
     const arr = Array.isArray(res.data)?res.data:Array.isArray(res)?res:[];
-    if(isInit || pageNo >= 1) setTotCnt(Number(res.Count ?? res.Data4 ?? arr.length) || arr.length);
+    const resolvedTot = Number(res.Count ?? res.Data4 ?? arr.length) || arr.length;
+    serverTotCntRef.current = resolvedTot;
+    if(isInit || pageNo >= 1) setTotCnt(resolvedTot);
   // In loadItems — keep it simple, no _editMode change here:
 const fmt = arr.map(item => fmtRow(item, sess));
 setRows(fmt);
 // remove the setSelRid for single row here too
   }, [sess.Comid, toast]);
+
+  const runCachedFilterSearch = useCallback((colKey) => {
+    const raw = String(colFilters[colKey] || "").trim();
+    if (!raw) {
+      setFilterSourceRows(null);
+      setTotCnt(serverTotCntRef.current || rowsRef.current.length);
+      setPage(1);
+      return;
+    }
+
+    const primary = CC1.getCachedProductList(sess.Comid);
+    const cached = primary.length > 0 ? primary : CC1.getCachedProductList(sess.MComid);
+    const needle = raw.toLowerCase();
+    const matched = cached.filter(item =>
+      String(getProductFilterValue(item, colKey) || "").toLowerCase().includes(needle)
+    );
+
+    setFilterSourceRows(matched.map(item => fmtRow(item, sess)));
+    setTotCnt(matched.length);
+    setPage(1);
+  }, [colFilters, sess]);
 
   const comboCfg = {
     Brand:{list:brandL,title:"Brand",idKey:"Id",nameKey:"BrandName",fId:"BrandId",fName:"Brand"},
@@ -1540,10 +1582,18 @@ const handleEntryKeyDown = useCallback((e, colKey) => {
 // eslint-disable-next-line
 }, [editableKeys, focusEntry, doSave, entryRow, sess, handleMultiMRP, rowValidator,redirectIfDualLogin]);
 
-  const filteredRows = rows.filter(r => {
+  const sourceRows = Array.isArray(filterSourceRows) ? filterSourceRows : rows;
+  const filteredRows = sourceRows.filter(r => {
     for(const[k,v]of Object.entries(colFilters)){if(!v?.trim())continue;if(!String(r[k]??"").toLowerCase().includes(v.trim().toLowerCase()))return false;}
     return true;
   });
+  useEffect(() => {
+    const hasActiveFilter = Object.values(colFilters).some(v => String(v || "").trim());
+    if (hasActiveFilter || !Array.isArray(filterSourceRows)) return;
+    setFilterSourceRows(null);
+    setTotCnt(serverTotCntRef.current || rowsRef.current.length);
+    setPage(1);
+  }, [colFilters, filterSourceRows]);
   useEffect(() => {
   if (filteredRows.length !== 1) return;
   const r = filteredRows[0];
@@ -1554,8 +1604,10 @@ const handleEntryKeyDown = useCallback((e, colKey) => {
   ));
   setSelRid(r._rid);
 }, [filteredRows.length, filteredRows[0]?._rid]);
-  const totPages  = Math.max(1,Math.ceil(totCnt/ROWS_PER_PAGE));
-  const pagedRows = filteredRows;
+  const totPages  = Math.max(1,Math.ceil((Array.isArray(filterSourceRows) ? filteredRows.length : totCnt)/ROWS_PER_PAGE));
+  const pagedRows = Array.isArray(filterSourceRows)
+    ? filteredRows.slice((page-1)*ROWS_PER_PAGE,page*ROWS_PER_PAGE)
+    : filteredRows;
   const pageNums  = (() => {
     if(totPages<=10) return Array.from({length:totPages},(_,i)=>i+1);
     const s=new Set([1,totPages]); for(let i=Math.max(1,page-3);i<=Math.min(totPages,page+3);i++)s.add(i); return Array.from(s).sort((a,b)=>a-b);
@@ -1745,8 +1797,9 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
 
   useEffect(() => {
     if (!dataLoaded) return;
+    if (Array.isArray(filterSourceRows)) return;
     loadItems("", "", { pageNo: page });
-  }, [dataLoaded, page, loadItems]);
+  }, [dataLoaded, page, loadItems, filterSourceRows]);
 
   useEffect(() => {
     if (dataLoaded && pendingReturnRef.current) {
@@ -2199,6 +2252,7 @@ if (!isAuthorized) return null;
               className="mp-col-filter"
               value={colFilters[c.key]||""}
               onChange={e=>{setColFilters(p=>({...p,[c.key]:e.target.value}));setPage(1);}}
+              onKeyDown={e=>{ if (e.key === "Enter") { e.preventDefault(); runCachedFilterSearch(c.key); } }}
               placeholder={`🔍`}
               style={{
                 width:"100%", height:18, fontSize:10,

@@ -465,7 +465,7 @@ const skipEnterRef = useRef({}); // ← ADD THIS
   const [selRid,       setSelRid]       = useState(null);
   const [diffValue,    setDiffValue]    = useState("0.00");
   const [prodPopup,    setProdPopup]    = useState(null);
-  const [prodList,     setProdList]     = useState([]);
+  const [prodList,     setProdList]     = useState(() => CC.getCachedProductList(sess.Comid));
   const [expWin,       setExpWin]       = useState(null);
   const [expDateList,  setExpDateList]  = useState([]);
   const [loading,      setLoading]      = useState(false);
@@ -619,13 +619,19 @@ const fillItemsIntoRow = useCallback(async (rid, itemId,Stock) => {
 
   // ── Load product list for popup ───────────────────────────────────────────
   const loadProductsForPopup = useCallback(async (rid) => {
-    if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
+    const cached = prodList.length > 0 ? prodList : CC.getCachedProductList(sess.Comid);
+    if (cached.length > 0) {
+      if (prodList.length === 0) setProdList(cached);
+      setProdPopup({ rid, pos: { top: 160, left: 80 } });
+      return;
+    }
     setLoading(true); setLdMsg("Loading products...");
     const res = await CC.api(ProductListUrl, null, {}, { Comid: sess.Comid });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data)  ? res.data
               : Array.isArray(res.Data1) ? res.Data1 : [];
+    CC.setCachedProductList(sess.Comid, arr);
     setProdList(arr);
     setProdPopup({ rid, pos: { top: 160, left: 80 } });
   }, [sess, prodList, redirectIfDualLogin]);

@@ -2463,6 +2463,43 @@ const loadFocusCols = useCallback(async (mcomid) => {
     }
   }, [tamilMode]);
   // ── Totals recalc ─────────────────────────────────────────────────────────
+  const applyPopupSelectedProduct = useCallback(async (rid, item) => {
+    const code = String(item?.Prod_Code || item?.ProductCode || "").trim().toUpperCase();
+    if (!code) {
+      fillItemIntoRow(rid, item);
+      return;
+    }
+
+    const payload = {
+      code,
+      Comid: sess.MComid,
+      CComid: sess.Comid,
+      Id: 0,
+      Batchwise: sess.CMBTPatty ? 0 : 1,
+    };
+    const res = await CC.api(CC.SO_SelectItemByCodeUrl, null, {}, payload);
+    if (redirectIfDualLogin(res)) return;
+    const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
+    if (arr.length === 0) {
+      fillItemIntoRow(rid, item);
+      return;
+    }
+
+    const selectedId = String(item?.Id ?? "");
+    const selectedBatchId = String(item?.Batchid ?? item?.BatchRefid ?? "");
+    const selectedBatchNo = String(item?.BatchNo ?? item?.Bat_No ?? "").trim().toUpperCase();
+    const selectedMrp = CC.f2(CC.vn(item?.MRP));
+    const resolved = arr.find((candidate) => {
+      if (selectedId && String(candidate?.Id ?? "") === selectedId) return true;
+      if (selectedBatchId && String(candidate?.Batchid ?? candidate?.BatchRefid ?? "") === selectedBatchId) return true;
+      if (selectedBatchNo && String(candidate?.BatchNo ?? candidate?.Bat_No ?? "").trim().toUpperCase() === selectedBatchNo) return true;
+      if (selectedMrp > 0 && CC.f2(CC.vn(candidate?.MRP)) === selectedMrp) return true;
+      return false;
+    }) || arr[0];
+
+    fillItemIntoRow(rid, resolved);
+  }, [sess, fillItemIntoRow, redirectIfDualLogin]);
+
   const recalcTotals = useCallback((rowsArr, oPlus, oMinus) => {
     let grossAmt = 0, gstAmt = 0, cessAmt = 0, discAmt = 0, cdAmt = 0;
     const gstMap = {};
@@ -4546,7 +4583,7 @@ onView={() => {
                   {rows.map((row, idx) => (
                     <tr key={row._rid}
                       className={selRid === row._rid ? "sel" : ""}
-                      onClick={() => setSelRid(row._rid)}>
+                      onClick={() => { setSelRid(row._rid); setStockLbl(CC.vn(row.StockQty).toFixed(0)); }}>
                       <td className="sb-sno">{idx + 1}</td>
                       {visCols.map(col => {
                         const m       = CC.SB_COLUMNS.find(c => c.key === col.key) || {};
@@ -5060,7 +5097,7 @@ onView={() => {
  <ProductSearchPopup
     products={prodList}
     isTamil={tamilMode}
-    onSelect={item => { fillItemIntoRow(prodPopup.rid, item); }}
+    onSelect={item => { applyPopupSelectedProduct(prodPopup.rid, item); }}
     allowQuickCreate={isQuickCreateEnabled(sess.AllowQuickProductCreation)}
     onCreateProduct={(value) => startSaleProductQuickCreate({
       rid: prodPopup.rid,

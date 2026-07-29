@@ -945,6 +945,46 @@ export default function PurchaseReturn() {
     }
   }, [sess.MComid, sess.Comid, redirectIfDualLogin, toast]);
 
+  const applyPopupSelectedProduct = useCallback(async (rowKey, item) => {
+    const code = String(item?.Prod_Code || item?.ProductCode || "").trim().toUpperCase();
+    if (!code) {
+      applyProductToRow(rowKey, item);
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = await CC.api(CC.PR_ItemByCode, null, {}, {
+        code,
+        Comid: sess.MComid,
+        CComid: sess.Comid,
+        Id: 0,
+        Batchwise: 0,
+      });
+      if (redirectIfDualLogin(res)) return;
+      const list = Array.isArray(res) ? res
+                 : Array.isArray(res?.Data1) ? res.Data1
+                 : Array.isArray(res?.data) ? res.data : [];
+      if (list.length === 0) {
+        applyProductToRow(rowKey, item);
+        return;
+      }
+      const selectedId = String(item?.Id ?? "");
+      const selectedBatchId = String(item?.Batchid ?? item?.BatchRefId ?? "");
+      const selectedBatchNo = String(item?.BatchNo ?? item?.Bat_No ?? "").trim().toUpperCase();
+      const selectedMrp = fmt2(item?.MRP ?? 0);
+      const resolved = list.find((candidate) => {
+        if (selectedId && String(candidate?.Id ?? "") === selectedId) return true;
+        if (selectedBatchId && String(candidate?.Batchid ?? candidate?.BatchRefId ?? "") === selectedBatchId) return true;
+        if (selectedBatchNo && String(candidate?.BatchNo ?? candidate?.Bat_No ?? "").trim().toUpperCase() === selectedBatchNo) return true;
+        if (valNum(selectedMrp) > 0 && fmt2(candidate?.MRP ?? 0) === selectedMrp) return true;
+        return false;
+      }) || list[0];
+      applyProductToRow(rowKey, resolved);
+    } finally {
+      setLoading(false);
+    }
+  }, [sess.MComid, sess.Comid, redirectIfDualLogin]);
+
   const applyProductToRow = useCallback((rowKey, p) => {
     setGridRows((prev) => {
       const idx = prev.findIndex((r) => r._key === rowKey);
@@ -2174,6 +2214,12 @@ const res = await CC.insertapi(
     if (!productPopup.open) return;
     // Auto-load all products on open (mirrors jQuery productwindow autoload)
     (async () => {
+      const cached = CC.getCachedProductList(sess.MComid);
+      if (cached.length > 0) {
+        setProductSearchList(cached);
+        setProductSearchIdx(0);
+        return;
+      }
       setLoading(true);
       const res = await CC.api(CC.PR_ProductList, null, {}, {
         Comid:  sess.MComid,
@@ -2184,15 +2230,16 @@ const res = await CC.insertapi(
       if (redirectIfDualLogin(res)) return;
       const list = Array.isArray(res?.data) ? res.data
                  : Array.isArray(res?.Data1) ? res.Data1 : [];
+      CC.setCachedProductList(sess.MComid, list);
       setProductSearchList(list);
       setProductSearchIdx(0);
     })();
-  }, [productPopup.open]);
+  }, [productPopup.open, sess.MComid, sess.Comid, redirectIfDualLogin]);
 
   const searchProducts = useCallback(async (q) => {
     setProductSearchQuery(q);
     if (!q.trim()) {
-      setProductSearchList([]);
+      setProductSearchList(CC.getCachedProductList(sess.MComid));
       setProductSearchIdx(0);
       return;
     }
@@ -2544,6 +2591,10 @@ const res = await CC.insertapi(
           </div>
         </div>
 
+        <div className="pr-center-total" aria-label="Return total amount">
+          <div className="pr-center-total-value">{`Rs.${Math.round(valNum(totals.netAmt))}`}</div>
+        </div>
+
         {/* Totals panel */}
         <div className="totals-panel">
           <div className="panel-title">Bill Summary</div>
@@ -2584,7 +2635,7 @@ const res = await CC.insertapi(
           selIdx={productSearchIdx}
           onQueryChange={searchProducts}
           onSelectIdx={setProductSearchIdx}
-          onSelect={(p) => { applyProductToRow(productPopup.rowKey, p); }}
+          onSelect={(p) => { applyPopupSelectedProduct(productPopup.rowKey, p); }}
           onClose={() => setProductPopup({ open: false, rowKey: null, list: [], query: "" })}
         />
       )}

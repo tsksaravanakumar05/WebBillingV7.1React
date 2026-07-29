@@ -1986,6 +1986,60 @@ if (colKey === "MfgDate") {
   }, [calcRow, serialNoList, setSerialNoPopup]);
   applyProductToRowRef.current = applyProductToRow;
 
+  const applyPopupSelectedProduct = useCallback(async (rowKey, item) => {
+    const code = String(item?.Prod_Code || item?.PCode || item?.ProductCode || "").trim().toUpperCase();
+    if (!code) {
+      applyProductToRow(rowKey, item);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await CC.api(CC.ItemByCode, null, {}, {
+        code,
+        Comid: sess.MComid,
+        CComid: sess.Comid,
+        Id: 0,
+        Batchwise: 0,
+      });
+      if (redirectIfDualLogin(res)) return;
+      if (res?._netErr || res?._http404) {
+        applyProductToRow(rowKey, item);
+        return;
+      }
+
+      const arr =
+        Array.isArray(res)        ? res :
+        Array.isArray(res?.Data1) ? res.Data1 :
+        Array.isArray(res?.data)  ? res.data : [];
+
+      if (arr.length === 0) {
+        applyProductToRow(rowKey, item);
+        return;
+      }
+
+      const selectedId = String(item?.Id ?? item?.ProductRefId ?? "");
+      const selectedBatchId = String(item?.Batchid ?? item?.BatchRefId ?? "");
+      const selectedBatchNo = String(item?.BatchNo ?? item?.Bat_No ?? "").trim().toUpperCase();
+      const selectedMrp = fmt2(item?.MRP ?? 0);
+
+      const resolved = arr.find((candidate) => {
+        if (selectedId && String(candidate?.Id ?? candidate?.ProductRefId ?? "") === selectedId) return true;
+        if (selectedBatchId && String(candidate?.Batchid ?? candidate?.BatchRefId ?? "") === selectedBatchId) return true;
+        if (selectedBatchNo && String(candidate?.BatchNo ?? candidate?.Bat_No ?? "").trim().toUpperCase() === selectedBatchNo) return true;
+        if (valNum(selectedMrp) > 0 && fmt2(candidate?.MRP ?? 0) === selectedMrp) return true;
+        return false;
+      }) || arr[0];
+
+      applyProductToRow(rowKey, resolved);
+    } catch (err) {
+      console.error(err);
+      applyProductToRow(rowKey, item);
+    } finally {
+      setLoading(false);
+    }
+  }, [sess, applyProductToRow, redirectIfDualLogin]);
+
   const handlePurchaseProductNameCommit = useCallback(async (rowKey, rawValue) => {
     const name = String(rawValue || "").trim();
     if (!name) return false;
@@ -3210,7 +3264,7 @@ if (savedArrivalType) {
       {/* ── Product Lookup Popup ── */}
       {productPopup.open && (
         <ProductPopup productPopup={productPopup} setProductPopup={setProductPopup}
-          applyProductToRow={applyProductToRow} sess={sess} setLoading={setLoading}
+          applyProductToRow={applyPopupSelectedProduct} sess={sess} setLoading={setLoading}
           products={purchaseProducts}
           loadProducts={loadPurchaseProducts}
           allowQuickCreate={isQuickCreateEnabled(sess.AllowQuickProductCreation)}
