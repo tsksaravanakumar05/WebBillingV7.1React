@@ -569,6 +569,7 @@ const [pattyFeatureEnabled, setPattyFeatureEnabled] = useState(false);
 
   // ── Popups ─────────────────────────────────────────────────────────────────
   const [productPopup,    setProductPopup   ] = useState({ open: false, rowKey: null, list: [], query: "" });
+  const [purchaseProducts, setPurchaseProducts] = useState(() => CC.getCachedProductList(sess.MComid));
   const [mrpPopup,        setMrpPopup       ] = useState({ open: false, rowKey: null, list: [] });
   const [itemCreatePopup, setItemCreatePopup] = useState({ open: false, rowKey: null, code: "" });
   const [serialNoPopup,   setSerialNoPopup  ] = useState({ open: false, rowKey: null, textRefId: "", list: [], returnColKey: "ItemQty" });
@@ -1257,9 +1258,14 @@ useEffect(() => {
   }, []);
 
   const loadPurchaseProducts = useCallback(async () => {
-    const res = await CC.api(CC.GetProductListV7, null, {}, { Comid: sess.MComid });
-    if (redirectIfDualLogin(res)) return [];
-    return res?.Data1 || res?.data?.Data1 || res?.data || [];
+    const cached = CC.getCachedProductList(sess.MComid);
+    if (cached.length > 0) {
+      setPurchaseProducts(cached);
+      return cached;
+    }
+    const arr = await CC.preloadProductListForComid(sess.MComid, { path: CC.GetProductListV7 });
+    setPurchaseProducts(arr);
+    return arr;
   }, [sess.MComid, redirectIfDualLogin]);
 
   const focusProductField = useCallback((rowKey, colKey = "ProductCode") => {
@@ -1376,7 +1382,8 @@ useEffect(() => {
     loadSuppliers();
     loadBatchWiseMasters();
     loadFocusFormColumns();
-  }, [isAuthorized, loadMaxPurchaseNo, loadSuppliers, loadBatchWiseMasters, loadFocusFormColumns]);
+    loadPurchaseProducts();
+  }, [isAuthorized, loadMaxPurchaseNo, loadSuppliers, loadBatchWiseMasters, loadFocusFormColumns, loadPurchaseProducts]);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  SUPPLIER HANDLERS
@@ -1799,17 +1806,32 @@ if (colKey === "MfgDate") {
   // ─────────────────────────────────────────────────────────────────────────
   const loadColConfig = useCallback(async () => {
     try {
-      const res = await fetch(CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Purchase`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...CC.authHeaders() },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+       const res = await fetch(
+            CC.BASE_URL + `${CC.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Purchase`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...CC.authHeaders(),   // ← same headers your other API calls use
+              },
+            }
+          );
+           const data = await res.json();
+      if (!Array.isArray(data) || !data.length) return;
+      // const res = await CC.api(`/Content/Appdata/Visible/${sess.Comid}/Purchase.json`, null, {}, { v: Date.now() });
+    //  const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : Array.isArray(res?.Data1) ? res.Data1 : [];
       if (!Array.isArray(data) || data.length === 0) return;
+      const alwaysVisibleCols = new Set(["ProductCode", "ProductName", "ItemQty", "PurchaseRate", "Amount"]);
       setColConfig((prev) => prev.map((cfg) => {
         const saved = data.find((d) => d.column === cfg.key);
-        if (!saved) return cfg;
-        return { ...cfg, visible: saved.Visible === false ? true : false, width: saved.Width };
+        if (!saved) {
+          return alwaysVisibleCols.has(cfg.key) ? { ...cfg, visible: true } : cfg;
+        }
+        return {
+          ...cfg,
+          visible: alwaysVisibleCols.has(cfg.key) ? true : saved.Visible !== false,
+          width: saved.Width,
+        };
       }));
     } catch { /* first use */ }
   }, [sess.Comid]);
@@ -1831,7 +1853,7 @@ if (colKey === "MfgDate") {
   const handleF12Save = useCallback(async () => {
     const payload = f12Draft.map((c) => ({
       filename: "Purchase", column: c.key,
-      Visible: !c.visible, Width: Number(c.width), Comid: sess.MComid,
+      Visible: c.visible, Width: Number(c.width), Comid: sess.MComid,
     }));
     try {
       setLoading(true);
@@ -3189,6 +3211,8 @@ if (savedArrivalType) {
       {productPopup.open && (
         <ProductPopup productPopup={productPopup} setProductPopup={setProductPopup}
           applyProductToRow={applyProductToRow} sess={sess} setLoading={setLoading}
+          products={purchaseProducts}
+          loadProducts={loadPurchaseProducts}
           allowQuickCreate={isQuickCreateEnabled(sess.AllowQuickProductCreation)}
           onCreateProduct={(value) => startProductQuickCreate({
             rowKey: productPopup.rowKey,
@@ -3718,13 +3742,14 @@ if (savedArrivalType) {
       {/* ── Grid ── */}
       <div className="mp-grid-wrap" ref={gridRef}>
         <div className="mp-gscroll">
-          <table className="mp-tbl">
+          <table className="mp-tbl pur-grid" style={{ tableLayout: "fixed" }}>
             <thead>
               <tr>
                 <th className="sno-col">S.No</th>
                 {orderedGridColumns.filter(isColVisible).map((c) => {
                   const cfg = colConfig.find((x) => x.key === c.key);
-                  return <th key={c.key} style={{ minWidth: cfg ? cfg.width : c.defaultWidth }} className={c.align === "right" ? "right" : ""}>{c.label}</th>;
+                  const colWidth = cfg ? cfg.width : c.defaultWidth;
+                  return <th key={c.key} style={{ width: colWidth, minWidth: colWidth, maxWidth: colWidth }} className={c.align === "right" ? "right" : ""}>{c.label}</th>;
                 })}
                 <th className="del-col">Del</th>
               </tr>
@@ -3974,11 +3999,12 @@ if (savedArrivalType) {
 }
 
 // ─── ProductPopup ─────────────────────────────────────────────────────────────
-function ProductPopup({ productPopup, setProductPopup, applyProductToRow, sess, setLoading, allowQuickCreate, onCreateProduct }) {
+function ProductPopup({ productPopup, setProductPopup, applyProductToRow, sess, setLoading, allowQuickCreate, onCreateProduct, products, loadProducts }) {
   const [localQuery, setLocalQuery] = useState(productPopup.query || "");
   const [localList,  setLocalList ] = useState(productPopup.list  || []);
   const [selIdx,     setSelIdx    ] = useState(0);
   const inputRef = useRef(null);
+  const visibleList = localList.slice(0, 120);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -3986,30 +4012,35 @@ function ProductPopup({ productPopup, setProductPopup, applyProductToRow, sess, 
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doSearch = useCallback(async (q) => {
-    setLoading(true);
-    try {
-      const res = await CC.api(CC.GetProductListV7, null, {}, { Comid: sess.MComid });
-      const allProducts = res?.Data1 || res?.data?.Data1 || res?.data || [];
-      if (!q?.trim()) { setLocalList(allProducts); return; }
-      const search = q.toLowerCase();
-      const filtered = allProducts.filter((p) =>
-        (p.Prod_Code || p.PCode || "").toLowerCase().includes(search) ||
-        (p.PName || "").toLowerCase().includes(search)
-      );
-      setLocalList(filtered); setSelIdx(0);
-    } finally { setLoading(false); }
-  }, [sess, setLoading]);
+    let allProducts = Array.isArray(products) ? products : [];
+    if (allProducts.length === 0 && loadProducts) {
+      setLoading(true);
+      try {
+        allProducts = await loadProducts();
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (!q?.trim()) { setLocalList(allProducts); return; }
+    const search = q.toLowerCase();
+    const filtered = allProducts.filter((p) =>
+      (p.Prod_Code || p.PCode || p.ProductCode || "").toLowerCase().includes(search) ||
+      (p.PName || p.ProductName || "").toLowerCase().includes(search)
+    );
+    setLocalList(filtered);
+    setSelIdx(0);
+  }, [products, loadProducts, setLoading]);
 
   const handleKey = (e) => {
     const createVisible = allowQuickCreate && !!localQuery.trim() && !localList.some((p) =>
       normalizeProductValue(p.PName || p.ProductName) === normalizeProductValue(localQuery)
     );
-    const maxIdx = createVisible ? localList.length : Math.max(localList.length - 1, 0);
+    const maxIdx = createVisible ? visibleList.length : Math.max(visibleList.length - 1, 0);
     if (e.key === "ArrowDown")  { e.preventDefault(); setSelIdx((i) => Math.min(i + 1, maxIdx)); }
     else if (e.key === "ArrowUp")  { e.preventDefault(); setSelIdx((i) => Math.max(i - 1, 0)); }
     else if (e.key === "Enter")    {
-      if (createVisible && selIdx === localList.length) onCreateProduct?.(localQuery.trim());
-      else if (localList[selIdx]) applyProductToRow(productPopup.rowKey, localList[selIdx]);
+      if (createVisible && selIdx === visibleList.length) onCreateProduct?.(localQuery.trim());
+      else if (visibleList[selIdx]) applyProductToRow(productPopup.rowKey, visibleList[selIdx]);
     }
     else if (e.key === "Escape")   { setProductPopup({ open: false, rowKey: null, list: [], query: "" }); }
   };
@@ -4032,7 +4063,7 @@ function ProductPopup({ productPopup, setProductPopup, applyProductToRow, sess, 
             <table className="popup-table">
               <thead><tr><th>Code</th><th>Description</th><th>UOM</th><th>Pur.Rate</th><th>MRP</th><th>GST</th><th>LandingCost</th><th>SaleRate</th></tr></thead>
               <tbody>
-                {localList.map((p, i) => (
+                {visibleList.map((p, i) => (
                   <tr key={p.Id} className={i === selIdx ? "popup-row selected" : "popup-row"} onClick={() => applyProductToRow(productPopup.rowKey, p)}>
                     <td>{p.Prod_Code}</td><td>{p.PName}</td><td>{p.UOM}</td>
                     <td className="right">{valNum(p.PurRate).toFixed(2)}</td>
@@ -4044,7 +4075,7 @@ function ProductPopup({ productPopup, setProductPopup, applyProductToRow, sess, 
                 ))}
                 {createVisible && (
                   <tr
-                    className={selIdx === localList.length ? "popup-row selected" : "popup-row"}
+                    className={selIdx === visibleList.length ? "popup-row selected" : "popup-row"}
                     onClick={() => onCreateProduct?.(localQuery.trim())}
                   >
                     <td colSpan={8} style={{ fontWeight: 700, color: "var(--clr-primary, #1f65de)" }}>

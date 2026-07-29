@@ -812,7 +812,6 @@ function ProductSearchPopup({ products, onSelect, onClose, anchorPos, isTamil, a
     <div className="sb-prod-search" style={{ top: anchorPos?.top || 160, left: anchorPos?.left+250 || 20 }}>
       <div className="sb-prod-search-hdr">
         <span className="sb-ps-title">Product Search</span>
-        <span className="sb-ps-count">{filtered.length} items</span>
         <button className="sb-ps-close" onClick={onClose} title="Close (Esc)">✕</button>
       </div>
       <div className="sb-ps-input-wrap">
@@ -1530,25 +1529,34 @@ export default function SaleBill() {
 
   const loadColCfg = useCallback(async (comid) => {
     try {
-       const url =  CC.BASE_URL + `${CC.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Sale`;
-      //const url = `/Content/Appdata/Visible/${comid}/Sale.json?v=${Date.now()}`;
-     
-        const res = await fetch(
-           url,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...CC.authHeaders(),   // ← same headers your other API calls use
-              },
-            }
-          );
+         const res = await fetch(
+                  CC.BASE_URL + `${CC.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Sale`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      ...CC.authHeaders(),   // ← same headers your other API calls use
+                    },
+                  }
+                );
+               //  const data = await res.json();
+      // const res = await fetch(`/Content/Appdata/Visible/${comid}/Sale.json?v=${Date.now()}`, {
+      //   headers: CC.authHeaders(),
+      // });
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data)) return;
+      const alwaysVisibleCols = new Set(["ProductCode", "ProductName", "ItemQty", "SaleRate", "Amount"]);
       setColSettings(prev => prev.map(col => {
         const s = data.find(x => x.column === col.key);
-        return s ? { ...col, visible: s.Visible === true, width: Number(s.Width) || col.width } : col;
+        if (!s) {
+          return alwaysVisibleCols.has(col.key) ? { ...col, visible: true } : col;
+        }
+        return {
+          ...col,
+          visible: alwaysVisibleCols.has(col.key) ? true : s.Visible === true,
+          width: Number(s.Width) || col.width,
+        };
       }));
     } catch {}
   }, []);
@@ -1738,7 +1746,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
   const [printDialog, setPrintDialog] = useState(null);
 
   const [prodPopup,  setProdPopup]  = useState(null);
-  const [prodList,   setProdList]   = useState([]);
+  const [prodList,   setProdList]   = useState(() => CC.getCachedProductList(sess.Comid));
   const [custPopup,  setCustPopup]  = useState(false);
   const [f5Open,     setF5Open]     = useState(false);
   const [f5Rows,     setF5Rows]     = useState([]);
@@ -1876,7 +1884,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
     if (!isAuthorized) return;
     (async () => {
       setLoading(true); setLdMsg("Loading...");
-      await Promise.all([loadDropdowns(), loadBillNo(), loadColCfg(sess.Comid), loadFocusCols(sess.MComid)]);
+      await Promise.all([loadDropdowns(), loadBillNo(), loadColCfg(sess.Comid), loadFocusCols(sess.MComid), loadSaleProducts()]);
       setLoading(false);
     })();
   // eslint-disable-next-line
@@ -2934,11 +2942,12 @@ const getRowEnabledCols = useCallback((rid) => {
 
   // ── Load product list ──────────────────────────────────────────────────────
   const loadSaleProducts = useCallback(async () => {
-    setLoading(true); setLdMsg("Loading products...");
-    const res = await CC.api(CC.SO_ProductListUrl, null, {}, { Comid: sess.Comid });
-    setLoading(false);
-    if (redirectIfDualLogin(res)) return [];
-    const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : Array.isArray(res) ? res : [];
+    const cached = CC.getCachedProductList(sess.Comid);
+    if (cached.length > 0) {
+      setProdList(cached);
+      return cached;
+    }
+    const arr = await CC.preloadProductListForComid(sess.Comid, { path: CC.SO_ProductListUrl });
     setProdList(arr);
     return arr;
   // eslint-disable-next-line
