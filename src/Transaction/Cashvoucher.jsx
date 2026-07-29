@@ -949,12 +949,12 @@ setLoading(true);
 
             {/* ── Toolbar ── */}
             <div className="bm-actions">
-              <button className="bm-btn bm-btn-primary" onClick={handleSave} disabled={loading}>
+              <button className="mp-btn sv" onClick={handleSave} disabled={loading}>
                 <Save size={16} />
                 F1 Save
               </button>
               <button
-                className="bm-btn"
+                className="mp-btn rf"
                 onClick={() => { setF5From(today()); setF5To(today()); openF5View(); }}
                 disabled={loading}
               >
@@ -962,7 +962,7 @@ setLoading(true);
                 F5 View
               </button>
               <button
-                className="bm-btn"
+                className="mp-btn sb"
                 onClick={() => confirm("Do You Want To Clear?").then((ok) => { if (ok) handleClear(); })}
                 disabled={loading}
               >
@@ -970,7 +970,7 @@ setLoading(true);
                 F10 Clear
               </button>
               <button
-                className="bm-btn bm-btn-secondary"
+                className="mp-btn cn"
                 onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); })}
                 disabled={loading}
               >

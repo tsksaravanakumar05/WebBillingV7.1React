@@ -1745,11 +1745,11 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
               if (editId === 0) { toast("❌ No Delete Id !!!.", true); return; }
               setPwModal({ purpose:"F9" });
             }} disabled={loading}>🗑 F9 Delete</button>
-          <button className="mp-btn"
-            style={{ background:"var(--color-background-secondary)",color:"var(--color-text-primary)",border:"1px solid #9ca3af" }}
+          <button className="mp-btn sb"
+            
             onClick={() => confirm("Do You Want To Clear?").then(ok => { if (ok) clearGrid(); })}
             disabled={loading}>♻ F10 Clear</button>
-          <button className="mp-btn dl"
+          <button className="mp-btn cn"
             onClick={() => confirm("Do You Want To Quit?").then(ok => { if (ok) navigate("/Home"); })}
             style={{ marginLeft:"auto" }}>✕ Esc Quit</button>
         </div>

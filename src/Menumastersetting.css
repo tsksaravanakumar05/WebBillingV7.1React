@@ -429,6 +429,18 @@
     background: var(--clr-btn-cancel-hover);
     border-color: var(--clr-btn-cancel-hover);
   }
+
+  .mp-btn.sb{
+    background: var(--clr-btn-clear);
+    border-color: var(--clr-btn-clear);
+    color: var(--clr-text-white);
+  }
+  .mp-btn.sb:hover{
+    background: var(--clr-btn-clear-hover);
+    border-color: var(--clr-btn-clear-hover);
+  }
+
+
   /* F9 Barcode — light gray, outlined (not solid) */
 /* .mp-btn.bc{
   background: var(--clr-btn-barcode-bg);

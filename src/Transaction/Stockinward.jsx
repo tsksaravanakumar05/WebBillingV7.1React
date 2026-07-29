@@ -27,6 +27,9 @@ import * as CC from "../components/Common";
 // import "../TransactionStyle/SaleBill.css";
 import Topbar from "../components/Topbar";
 import   DateFieldDDMMYYYY from "../Commondatetime";
+import {
+  Save, FileSearch, Pencil, Eye, Settings, RefreshCw, Trash2, X
+} from "lucide-react";
 
 // ─── GRID COLUMNS DEFINITION ─────────────────────────────────────────────────
 // Mirrors stockinward.js InVisibleColumns + BatchWise combobox columns from loadgrid()
@@ -1927,29 +1930,54 @@ const selectedPartyInfo = useMemo(() => {
 </div>
 
         {/* ── TOOLBAR ── */}
-        <div className="si-toolbar" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", flexShrink: 0, flexWrap: "wrap" }}>
-          <button className="si-btn sv" onClick={doSave} disabled={loading}>💾 F1 - Save</button>
-          {mode === "inward" && sess.Ecotech && (
-            <button className="si-btn" onClick={() => { const v = prompt("Enter PO No", ""); if (v) doPOEdit(0, v); }}>📋 F2 - PO Load</button>
-          )}
-          <button className="si-btn" onClick={openF5}>✏ F3 - Edit</button>
-          <button className="si-btn" onClick={openF5}>📋 F5 - View</button>
-          <button className="si-btn" onClick={() => setF12Open(true)}>⚙ F12 - Cols</button>
-          <button className="si-btn" onClick={() => confirm("Do You Want To Clear?").then(ok => ok && doClear())}>🔄 F10 - Clear</button>
-          {editId > 0 && (
-            <button className="si-btn dl" onClick={() => { pwOkRef.current = doDelete; setPw({ title: "F9 Delete Password" }); }} disabled={loading}>
-              🗑 F9 - Delete
-            </button>
-          )}
-          <button className="si-btn dl" onClick={() => navigate(-1)}>✕ ESC - Exit</button>
-          {loading && <span className="si-cell-muted" style={{ fontSize: 11 }}>⏳ {ldMsg}</span>}
-          <span className="si-cell-muted" style={{ marginLeft: "auto", display: "flex", gap: 10, fontSize: 10.5 }}>
-            <span><kbd className="si-kbd" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F1</kbd> Save</span>
-            <span><kbd className="si-kbd" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F3</kbd> Edit</span>
-            <span><kbd className="si-kbd" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F5</kbd> View</span>
-            <span><kbd className="si-kbd muted" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>Space</kbd> Product List</span>
-          </span>
-        </div>
+
+
+<div className="si-toolbar" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", flexShrink: 0, flexWrap: "wrap" }}>
+  <button className="si-btn sv" onClick={doSave} disabled={loading}>
+    <Save size={16} color="#fff" strokeWidth={2.5} /> F1 - Save
+  </button>
+
+  {mode === "inward" && sess.Ecotech && (
+    <button className="mp-btn nw" onClick={() => { const v = prompt("Enter PO No", ""); if (v) doPOEdit(0, v); }}>
+      <FileSearch size={16} color="#fff" strokeWidth={2.5} /> F2 - PO Load
+    </button>
+  )}
+
+  <button className="mp-btn ob" onClick={openF5}>
+    <Pencil size={16} color="#fff" strokeWidth={2.5} /> F3 - Edit
+  </button>
+
+  <button className="mp-btn rf" onClick={openF5}>
+    <Eye size={16} color="#fff" strokeWidth={2.5} /> F5 - View
+  </button>
+
+  <button className="mp-btn col" onClick={() => setF12Open(true)}>
+    <Settings size={16} color="#fff" strokeWidth={2.5} /> F12 - Cols
+  </button>
+
+  <button className="mp-btn sb" onClick={() => confirm("Do You Want To Clear?").then(ok => ok && doClear())}>
+    <RefreshCw size={16} color="#fff" strokeWidth={2.5} /> F10 - Clear
+  </button>
+
+  {editId > 0 && (
+    <button className="mp-btn dl" onClick={() => { pwOkRef.current = doDelete; setPw({ title: "F9 Delete Password" }); }} disabled={loading}>
+      <Trash2 size={16} color="#fff" strokeWidth={2.5} /> F9 - Delete
+    </button>
+  )}
+
+  <button className="mp-btn cn" onClick={() => navigate(-1)}>
+    <X size={16} color="#fff" strokeWidth={2.5} /> ESC - Exit
+  </button>
+
+  {loading && <span className="si-cell-muted" style={{ fontSize: 11 }}>⏳ {ldMsg}</span>}
+
+  <span className="si-cell-muted" style={{ marginLeft: "auto", display: "flex", gap: 10, fontSize: 10.5 }}>
+    <span><kbd className="si-kbd" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F1</kbd> Save</span>
+    <span><kbd className="si-kbd" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F3</kbd> Edit</span>
+    <span><kbd className="si-kbd" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>F5</kbd> View</span>
+    <span><kbd className="si-kbd muted" style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9 }}>Space</kbd> Product List</span>
+  </span>
+</div>
       </div>
 
       {/* ── LOADING OVERLAY ── */}

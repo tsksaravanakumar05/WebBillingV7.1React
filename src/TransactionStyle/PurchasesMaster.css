@@ -450,7 +450,7 @@
    
    /* Panel title — matches .sb-pay-hdr */
    .panel-title {
-    background: var(--clr-primary-dark) !important;   /* was var(--pm-blue-navy) */      /* #1b3a8f */
+    background: var(--clr-si-purple) !important;    /* was var(--pm-blue-navy) */      /* #1b3a8f */
      color: var(--clr-text-white);
      font-size: 11px;
      font-weight: 700;
@@ -466,8 +466,8 @@
      font-size: 11.5px;
    }
    .gst-table thead th {
-    background: var(--clr-primary) !important;
-     color: var(--clr-text-white);
+    background: var(--clr-primary-light) !important;
+  color: var(--clr-text-primary) !important;
      font-weight: 700;
      padding: 4px 8px;
      border: 1px solid rgba(255,255,255,.15);
@@ -507,13 +507,27 @@
    .charges-qty-row .other-fields-panel { min-width: 200px; flex: 1 1 200px; }
    
    .qty-remarks-panel {
-     background: var(--pm-white);
+     background: var(---clr-btn-refresh);
      border: 1px solid var(--pm-border-mid);
      border-radius: var(--pm-radius-md);
      overflow: hidden;
      min-width: 200px;
      flex: 1 1 200px;
    }
+/* Additional Charges — purple */
+.other-fields-panel .panel-title {
+  background: var(--clr-si-purple) !important;
+}
+
+/* Qty & Remarks — teal */
+.qty-remarks-panel .panel-title {
+  background: var(--clr-btn-refresh) !important;
+}
+
+/* Bill Summary — green */
+.totals-panel .panel-title {
+  background: var(--clr-green) !important;
+}
    
    .qty-display {
      font-family: var(--pm-mono);
@@ -688,7 +702,7 @@
    /* ═══════════════════════════════════════════════════════════════════════════
       SHORTCUT HINT BAR  — matches .sb-hint
       ═══════════════════════════════════════════════════════════════════════════ */
-   .mp-hint,
+   /* .mp-hint,
    .shortcut-bar {
      background: var(--pm-surface);
      border: 1px solid var(--pm-blue-light);
@@ -710,6 +724,29 @@
      padding: 1px 4px;
      border-radius: 2px;
      font-family: var(--pm-mono);
+   } */
+   .mp-hint,
+   .shortcut-bar {
+     background: var(--clr-bg-soft);          /* was --pm-surface — undefined */
+     border: 1px solid var(--clr-primary-light); /* was --pm-blue-light — undefined */
+     border-radius: 4px;                       /* was var(--pm-radius) — undefined, using fixed value */
+     padding: 4px 10px;
+     font-size: 10px;
+     color: var(--clr-text-faint);             /* was --pm-slate-lt — undefined */
+     flex-shrink: 0;
+     display: flex;
+     gap: 8px;
+     flex-wrap: wrap;
+   }
+   .mp-hint kbd,
+   .shortcut-bar kbd {
+     background: var(--clr-primary);           /* was --pm-blue — undefined */
+     color: var(--clr-text-white);
+     font-size: 9px;
+     font-weight: 700;
+     padding: 1px 4px;
+     border-radius: 2px;
+     font-family: 'Consolas', 'Menlo', monospace; /* was var(--pm-mono) — undefined */
    }
    
    /* ═══════════════════════════════════════════════════════════════════════════

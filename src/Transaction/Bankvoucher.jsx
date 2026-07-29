@@ -1261,28 +1261,28 @@ export default function BankVoucher() {
 
         {/* ── BOTTOM TOOLBAR ── */}
         <div className="bm-actions">
-          <button className="bm-btn" onClick={addRow} disabled={loading}>
+          <button className="mp-btn nw" onClick={addRow} disabled={loading}>
             <Plus size={16} />
             Add Row
           </button>
-          <button className="bm-btn bm-btn-primary" onClick={bankSave} disabled={loading}>
+          <button className="mp-btn sv" onClick={bankSave} disabled={loading}>
             <Save size={16} />
             F1 Save
           </button>
-          <button className="bm-btn" onClick={() => fillGridData(1)} disabled={loading}>
+          <button className="mp-btn rf" onClick={() => fillGridData(1)} disabled={loading}>
             <RotateCw size={16} />
             Reload Date
           </button>
-          <button className="bm-btn" onClick={() => setF5Open(true)} disabled={loading}>
+          <button className="mp-btn sb" onClick={() => setF5Open(true)} disabled={loading}>
             <ClipboardList size={16} />
             F5 View
           </button>
-          <button className="bm-btn" onClick={() => setF12Open(true)}>
+          <button className="mp-btn col" onClick={() => setF12Open(true)}>
             <Settings size={16} />
             F12 Columns
           </button>
           <button
-            className="bm-btn bm-btn-secondary"
+            className="mp-btn cn"
             onClick={() => confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/dashboard"); })}
           >
             <XCircle size={16} />

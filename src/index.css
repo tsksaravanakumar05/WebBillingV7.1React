@@ -154,6 +154,7 @@
   --danger-dark:    #dc2626;
   --danger-bg:      #fee2e2;
   --danger-border:  #fca5a5;
+  --danger-border:  #af5656;
   --danger-text:    #991b1b;
   --success-bg:     #d1fae5;
   --success-border: #a7f3d0;
@@ -281,6 +282,10 @@
 
 --clr-btn-cancel:         #ee149ac5;
 --clr-btn-cancel-hover:   #c91f8885;
+
+--clr-btn-clear:         #ff5507;
+--clr-btn-clear-hover:   #ff55078e;
+
 /* ═══════════════════════════════════════
    Barcode button color tokens — outlined style
    ═══════════════════════════════════════ */
@@ -291,7 +296,10 @@
    --clr-btn-barcode-hover-bg:      var(--clr-bg-row-hover);
    --clr-btn-barcode-hover-border:  var(--clr-text-faint);
    --clr-btn-barcode-hover-text:    var(--clr-text-primary);
-  
+
+   
+
+
 }
 
 html {

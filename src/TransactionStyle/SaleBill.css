@@ -37,7 +37,7 @@
 }
 
 /* ── TOP HEADER PANEL ── */
-.sb-header-panel {
+/* .sb-header-panel {
   background: var(--clr-bg-white);
   border: 1px solid var(--clr-border-default);
   border-left: 4px solid var(--clr-primary);
@@ -48,8 +48,84 @@
   gap: 8px;
   flex-shrink: 0;
   flex-wrap: nowrap;
+} */
+ /* ── TOP ICON BUTTON ROW (New / POS / Delete / Print / Save / F12) ── */
+/* .sb-icon-btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.sb-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 58px;
+  height: 58px;
+  background: var(--clr-bg-white);
+  border: 1.5px solid var(--clr-border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.sb-icon-btn span {
+  font-size: 10px;
+  font-weight: 700;
+}
+.sb-icon-btn:hover { background: var(--clr-bg-row-hover); }
+
+.sb-icon-btn.ib-new   { border-color: var(--clr-primary); }
+.sb-icon-btn.ib-new   span, .sb-icon-btn.ib-new   svg { color: var(--clr-primary); }
+
+.sb-icon-btn.ib-pos   { border-color: var(--clr-si-amber); }
+.sb-icon-btn.ib-pos   span, .sb-icon-btn.ib-pos   svg { color: var(--clr-si-amber); }
+
+.sb-icon-btn.ib-del   { border-color: var(--clr-btn-delete); }
+.sb-icon-btn.ib-del   span, .sb-icon-btn.ib-del   svg { color: var(--clr-btn-delete); }
+
+.sb-icon-btn.ib-print { border-color: var(--clr-green); }
+.sb-icon-btn.ib-print span, .sb-icon-btn.ib-print svg { color: var(--clr-green); }
+
+.sb-icon-btn.ib-save  { border-color: var(--clr-primary); }
+.sb-icon-btn.ib-save  span, .sb-icon-btn.ib-save  svg { color: var(--clr-primary); }
+
+.sb-icon-btn.ib-f12   { border-color: var(--clr-si-purple); }
+.sb-icon-btn.ib-f12   span, .sb-icon-btn.ib-f12   svg { color: var(--clr-si-purple); } */
+.sb-icon-btns {
+  display: flex;
+  flex-direction: row;   /* ← idhu add pண்ணுங்க, vertical-ஐ horizontal-a maathum */
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
 }
 
+.sb-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 58px;
+  height: 58px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: filter .15s;
+}
+.sb-icon-btn span {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--clr-text-white);
+}
+.sb-icon-btn:hover { filter: brightness(1.08); }
+
+.sb-icon-btn.ib-new   { background: var(--clr-primary); }
+.sb-icon-btn.ib-pos   { background: var(--clr-si-amber); }
+.sb-icon-btn.ib-del   { background: var(--clr-btn-delete); }
+.sb-icon-btn.ib-print { background: var(--clr-green); }
+.sb-icon-btn.ib-save  { background: var(--clr-primary); }
+.sb-icon-btn.ib-f12   { background: var(--clr-si-purple); }
 /* ── TOP LEFT: Action Buttons ── */
 .sb-action-btns {
   display: flex;
@@ -374,8 +450,8 @@
 }
 
 .sb-pay-hdr {
-  background: var(--clr-primary-dark);
-  color: var(--clr-text-white);
+  background: var(--clr-bg-white);
+  color: var(--clr-text-primary);
   font-size: 11px;
   font-weight: 700;
   padding: 5px 10px;
@@ -383,7 +459,7 @@
 
 .sb-pay-tbl { border-collapse: collapse; width: 100%; }
 .sb-pay-tbl th {
-  background: var(--clr-pay-hdr-secondary);
+  background: var(--green);
   color: var(--clr-text-white);
   font-size: 10.5px;
   font-weight: 600;

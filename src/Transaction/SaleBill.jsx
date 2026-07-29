@@ -13,6 +13,11 @@ import "../Master/MasterPage.css";
 import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";
 import   DateFieldDDMMYYYY from "../Commondatetime";
+import {
+  Save, CreditCard, Receipt, ClipboardList, FileText, Pin,
+  Settings, Zap, RefreshCw, Trash2, Printer, X, Monitor
+} from "lucide-react";
+
 // ─── EXTRACTED GLOBALS FROM Common.jsx ───────────────────────────────────────
 // (Aliases removed - using CC.* directly)
 
@@ -4320,7 +4325,7 @@ onView={() => {
       <div className="sb-body">
         {/* ── Header panel ── */}
         <div className="sb-header-panel">
-          <div className="sb-action-btns">
+          {/* <div className="sb-action-btns">
             <button className="sb-action-btn" onClick={() => doSave(true)}   title="F1 Cash Bill"><span className="btn-icon">🖨</span><span>F1</span></button>
             <button className="sb-action-btn" onClick={() => doSave(false)}  title="F2 Split Bill"><span className="btn-icon">💳</span><span>F2</span></button>
             <button className="sb-action-btn" onClick={doCreditSave} title="F7 Credit Bill"><span className="btn-icon">🧾</span><span>F7</span></button>
@@ -4330,7 +4335,42 @@ onView={() => {
             <button className="sb-action-btn" onClick={doBillHold}          title="F4 Bill Hold"><span className="btn-icon">📌</span><span>F4</span></button>
             <button className="sb-action-btn" onClick={clearForm}           title="F10 Clear"><span className="btn-icon">🔄</span><span>F10</span></button>
             <button className="sb-action-btn" onClick={() => setF12Open(true)} title="F12 Columns"><span className="btn-icon">⚙</span><span>F12</span></button>
-          </div>
+          </div> */}
+          <div className="sb-icon-btns">
+  <button className="sb-icon-btn ib-new" onClick={clearForm} title="New">
+    <FileText size={20} color="#fff" strokeWidth={2} />
+    <span>New</span>
+  </button>
+
+  <button className="sb-icon-btn ib-pos" onClick={() => {/* TODO: wire your POS handler */}} title="POS">
+    <Monitor size={20} color="#fff" strokeWidth={2} />
+    <span>POS</span>
+  </button>
+
+  <button className="sb-icon-btn ib-del"
+    onClick={() => { if (!editId) return; pwOkRef.current = doDeleteBill; setPw({ title: "F9 Delete" }); }}
+    title="Delete">
+    <Trash2 size={20} color="#fff" strokeWidth={2} />
+    <span>Delete</span>
+  </button>
+
+  <button className="sb-icon-btn ib-print" onClick={() => {/* TODO: wire your Print handler */}} title="Print">
+    <Printer size={20} color="#fff" strokeWidth={2} />
+    <span>Print</span>
+  </button>
+
+  <button className="sb-icon-btn ib-save" onClick={() => doSave(true)} title="Save">
+  <Save size={20} color="#fff" strokeWidth={2} />
+  <span>Save</span>
+</button>
+
+  <button className="sb-icon-btn ib-f12" onClick={() => setF12Open(true)} title="F12 Columns">
+    <Settings size={20} color="#fff" strokeWidth={2} />
+    <span>F12</span>
+  </button>
+</div>
+          <div className="sb-action-btns">
+</div>
 
           <div className="sb-divider" />
 
@@ -4551,7 +4591,7 @@ onView={() => {
           {/* ── PAYMENT SIDE PANEL ── */}
           <div className="sb-payment-panel">
             <div className="sb-pay-grid">
-              <div className="sb-pay-hdr">💳 Payment Settlement</div>
+              {/* <div className="sb-pay-hdr">💳 Payment Settlement</div> */}
               <table className="sb-pay-tbl">
                 <thead><tr><th>Payment Type</th><th className="right">Amount</th></tr></thead>
                 <tbody>
@@ -4605,6 +4645,7 @@ onView={() => {
                 />
               </div>
             </div>
+            
 
             <div className="sb-totals">
               <div className="sb-total-row"><label>Gross Amt</label><span>{totals.GrossAmt.toFixed(2)}</span></div>
@@ -4703,18 +4744,18 @@ onView={() => {
         </div>
 
         {/* ── BOTTOM TOOLBAR ── */}
-        <div className="sb-toolbar">
-          <button className="sb-btn sv" onClick={() => doSave(true)}  disabled={loading}>💾 F1 Cash Bill</button>
-          <button className="sb-btn sv" onClick={() => doSave(false)} disabled={loading}>💳 F2 Split Bill</button>
+        {/* <div className="sb-toolbar">
+          <button className="mp-btn sv" onClick={() => doSave(true)}  disabled={loading}>💾 F1 Cash Bill</button>
+          <button className="mp-btn nw" onClick={() => doSave(false)} disabled={loading}>💳 F2 Split Bill</button>
           <button className="sb-btn sv" onClick={doCreditSave} disabled={loading}>🧾 F7 Credit Bill</button>
-          <button className="sb-btn"   onClick={openF5}>📋 F5 View</button>
-          <button className="sb-btn"   onClick={() => navigate("/EstimateBill")}
-            style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#ea580c", fontWeight: 700 }}>
+          <button className="mp-btn rf"   onClick={openF5}>📋 F5 View</button>
+          <button className="mp-btn ob"   onClick={() => navigate("/EstimateBill")}
+            >
             📋 F8 Estimate
           </button>
-          <button className="sb-btn"   onClick={doBillHold}>📌 F4 Bill Hold</button>
+          <button className="mp-btn ex"   onClick={doBillHold}>📌 F4 Bill Hold</button>
         <button
-  className="sb-btn"
+  className="mp-btn exup"
   onClick={() => {
     const per = CC.vn(discPer);
     if (!per) { toast("❌ Enter Discount %", true); return; }
@@ -4749,17 +4790,105 @@ onView={() => {
   />
   <span style={{ marginLeft: 2 }}>Apply</span>
 </button>
-          <button className="sb-btn"   onClick={() => setF12Open(true)}>⚙ F12 Columns</button>
-          <button className="sb-btn"   onClick={() => setCtrlGOpen(true)} title="Ctrl+G Column Focus/Reorder">⚡ Ctrl+G</button>
-          <button className="sb-btn"   onClick={clearForm} disabled={loading}>🔄 F10 Clear</button>
+          <button className="mp-btn col"   onClick={() => setF12Open(true)}>⚙ F12 Columns</button>
+          <button className="mp-btn bc"   onClick={() => setCtrlGOpen(true)} title="Ctrl+G Column Focus/Reorder">⚡ Ctrl+G</button>
+          <button className="mp-btn sb"   onClick={clearForm} disabled={loading}>🔄 F10 Clear</button>
           {editId > 0 && (
             <button className="sb-btn dl"
               onClick={() => { pwOkRef.current = doDeleteBill; setPw({ title: "F9 Delete Password" }); }}
               disabled={loading}>🗑 F9 Delete</button>
           )}
-          <button className="sb-btn dl" onClick={() => navigate(-1)}>✕ Esc Exit</button>
+          <button className="mp-btn cn" onClick={() => navigate(-1)}>✕ Esc Exit</button>
           {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
-        </div>
+        </div> */}
+        <div className="sb-toolbar">
+  <button className="mp-btn sv" onClick={() => doSave(true)} disabled={loading}>
+    <Save size={16} color="#fff" strokeWidth={2.5} /> F1 Cash Bill
+  </button>
+
+  <button className="mp-btn nw" onClick={() => doSave(false)} disabled={loading}>
+    <CreditCard size={16} color="#fff" strokeWidth={2.5} /> F2 Split Bill
+  </button>
+
+  <button className="sb-btn sv" onClick={doCreditSave} disabled={loading}>
+    <Receipt size={16} color="#fff" strokeWidth={2.5} /> F7 Credit Bill
+  </button>
+
+  <button className="mp-btn rf" onClick={openF5}>
+    <ClipboardList size={16} color="#fff" strokeWidth={2.5} /> F5 View
+  </button>
+
+  <button className="mp-btn ob" onClick={() => navigate("/EstimateBill")}>
+    <FileText size={16} color="#fff" strokeWidth={2.5} /> F8 Estimate
+  </button>
+
+  <button className="mp-btn ex" onClick={doBillHold}>
+    <Pin size={16} color="#fff" strokeWidth={2.5} /> F4 Bill Hold
+  </button>
+
+  <button
+    className="mp-btn exup"
+    onClick={() => {
+      const per = CC.vn(discPer);
+      if (!per) { toast("❌ Enter Discount %", true); return; }
+      setRows(prev => prev.map(r => {
+        if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
+        return calcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
+      }));
+      toast(`✅ ${per}% discount applied to all rows`);
+    }}
+    title="Apply bill-level discount to all rows"
+  >
+    Disc%:
+    <input
+      style={{ width: 50, border: "1px solid #c5d8f8", borderRadius: 3, fontSize: 11, padding: "1px 4px", marginLeft: 3 }}
+      type="number"
+      step="0.01"
+      value={discPer}
+      onChange={e => setDiscPer(e.target.value)}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => {
+        if (e.key === "Enter") {
+          e.stopPropagation();
+          const per = CC.vn(discPer);
+          if (!per) { toast("❌ Enter Discount %", true); return; }
+          setRows(prev => prev.map(r => {
+            if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
+            return calcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
+          }));
+          toast(`✅ ${per}% discount applied to all rows`);
+        }
+      }}
+    />
+    <span style={{ marginLeft: 2 }}>Apply</span>
+  </button>
+
+  <button className="mp-btn col" onClick={() => setF12Open(true)}>
+    <Settings size={16} color="#fff" strokeWidth={2.5} /> F12 Columns
+  </button>
+
+  <button className="mp-btn bc" onClick={() => setCtrlGOpen(true)} title="Ctrl+G Column Focus/Reorder">
+    <Zap size={16} color="#fff" strokeWidth={2.5} /> Ctrl+G
+  </button>
+
+  <button className="mp-btn sb" onClick={clearForm} disabled={loading}>
+    <RefreshCw size={16} color="#fff" strokeWidth={2.5} /> F10 Clear
+  </button>
+
+  {editId > 0 && (
+    <button className="sb-btn dl"
+      onClick={() => { pwOkRef.current = doDeleteBill; setPw({ title: "F9 Delete Password" }); }}
+      disabled={loading}>
+      <Trash2 size={16} color="#fff" strokeWidth={2.5} /> F9 Delete
+    </button>
+  )}
+
+  <button className="mp-btn cn" onClick={() => navigate(-1)}>
+    <X size={16} color="#fff" strokeWidth={2.5} /> Esc Exit
+  </button>
+
+  {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
+</div>
       </div>
 
       {/* ── LOADING OVERLAY ── */}

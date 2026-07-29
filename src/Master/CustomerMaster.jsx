@@ -28,7 +28,7 @@ import Topbar from "../components/Topbar";
 import * as CC from "../Master/Common";
 import * as CC1 from "../components/Common";
 import * as MSG from "../components/Messages";
-
+import { Plus, Save, Download, Upload, Settings, Languages, RefreshCw, X } from "lucide-react";
 // ─── Constants for Drafts ─────────────────────────────────────────────────────
 const CUSTOMER_DRAFT_KEY = "customermaster_draft";
 const CUSTOMER_CURSOR_KEY = "customermaster_cursor";
@@ -1825,7 +1825,7 @@ const submitPageInput = useCallback(() => {
   </div>
 </div>
 {/* ── BOTTOM TOOLBAR: Action buttons ── */}
-<div className="mp-toolbar" style={{
+{/* <div className="mp-toolbar" style={{
  
   display: "flex", alignItems: "center",
   gap: 6, padding: "6px 10px", flexWrap: "wrap",
@@ -1861,9 +1861,58 @@ const submitPageInput = useCallback(() => {
     style={{ background: "#059669", color: "#fff", borderColor: "#059669" }}>
     🔄 Refresh
   </button>
-{/* Pagination — bottom toolbar-ல் add பண்ணுங்க */}
+
   <button className="mp-btn dl" onClick={handleEsc} style={{ marginLeft: "auto" }}>
     ✕ Esc Cancel
+  </button>
+</div> */}
+<div className="mp-toolbar" style={{
+  display: "flex", alignItems: "center",
+  gap: 6, padding: "6px 10px", flexWrap: "wrap",
+}}>
+    <button className="mp-btn sv" onClick={handleSave} disabled={loading}>
+    <Save size={16} color="#fff" strokeWidth={2.5} /> F1 Save
+  </button>
+  <button className="mp-btn nw" onClick={addRow} disabled={loading}>
+    <Plus size={16} color="#fff" strokeWidth={2.5} /> Add Row
+  </button>
+  <button className="mp-btn col"   
+    onClick={() => setF12Open(true)}>
+    <Settings size={16} color="#fff" strokeWidth={2.5} /> F12 Columns
+  </button>
+  <button className="mp-btn rf"
+    onClick={() => loadCounter(-1, sess.pagecount, "", "", 1)}
+    disabled={loading}
+   >
+    <RefreshCw size={16} color="#fff" strokeWidth={2.5} /> Refresh
+  </button>
+  <button className="mp-btn ex"
+    onClick={() => { pwOkRef.current = doExcelDownload; setPw({ title:"F4 Password" }); }}>
+    <Download size={16} color="#fff" strokeWidth={2.5} /> F4 Excel↓
+  </button>
+
+  <button className="mp-btn exup"
+    onClick={() => { pwOkRef.current = doExcelUpload; setPw({ title:"F7 Password" }); }}>
+    <Upload size={16} color="#fff" strokeWidth={2.5} /> F7 Excel↑
+  </button>
+
+
+
+  {sess.CustomerNameTamil && (
+    <button className="mp-btn"
+      onClick={() => { const i = selIdx ?? (gridRef.current.length - 1); openTamilPopup(i); }}
+      disabled={loading}
+      >
+      <Languages size={16} color="#fff" strokeWidth={2.5} /> F6 Tamil
+    </button>
+  )}
+
+
+
+  {/* Pagination — bottom toolbar-ல் add பண்ணுங்க */}
+
+  <button className="mp-btn cn" onClick={handleEsc} style={{ marginLeft: "auto" }}>
+    <X size={16} color="#fff" strokeWidth={2.5} /> Esc Cancel
   </button>
 </div>
         {/* ── Pagination ── */}

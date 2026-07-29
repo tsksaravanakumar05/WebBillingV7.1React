@@ -20,6 +20,9 @@ import Topbar from "../components/Topbar";
 import "../TransactionStyle/Quotation.css";
 import "../Master/MasterPage.css";
 import   DateFieldDDMMYYYY from "../Commondatetime";
+import {
+  Save, Pencil, ClipboardList, Settings, RefreshCw, Zap, Trash2, X
+} from "lucide-react";
 
 // ─── QUOTATION API CONSTANTS ──────────────────────────────────────────────────
 const QuotationMaxNo      = "/api/QuotationApp/MaxQuotationNo";
@@ -1883,37 +1886,61 @@ const openF5 = useCallback(async (from = quotationDate, to = quotationDate) => {
         {/* ══════════════════════════════════════════════════════════════════
             BOTTOM TOOLBAR — mirrors SaleReturn toolbar exactly
         ══════════════════════════════════════════════════════════════════ */}
-        <div className="sb-toolbar" style={{ borderLeftColor: "var(--clr-primary)" }}>
-          <button className="sb-btn sv" onClick={doSave} disabled={loading}
-            style={{ background: "var(--clr-primary)", borderColor: "var(--clr-primary)" }}>
-            💾 F1 - Save
-          </button>
-          <button className="sb-btn" onClick={openF5}>✏ F3 - Edit</button>
-          <button className="sb-btn" onClick={openF5}>📋 F5 - View</button>
-          <button className="sb-btn" onClick={() => setF12Open(true)}>⚙ F12</button>
-          <button className="sb-btn" onClick={clearForm} disabled={loading}>🔄 F10 Clear</button>
-          <button className="sb-btn" onClick={() => setCtrlGOpen(true)} title="Ctrl+G Column Focus/Reorder">
-  ⚡ Ctrl+G
-</button>
-          {editId > 0 && (
-            <button className="sb-btn dl"
-              onClick={() => { pwOkRef.current = doDeleteQuotation; setPw({ title: "F9 Delete Password" }); }}
-              disabled={loading}>🗑 F9 - Delete</button>
-          )}
-          <button className="sb-btn dl"
-            onClick={() => { if (!editId) return; pwOkRef.current = doDeleteQuotation; setPw({ title: "DEL Delete" }); }}>
-            🗑 DEL - Delete
-          </button>
-          <button className="sb-btn dl" onClick={() => navigate(-1)}>✕ ESC - Exit</button>
-          {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
-          {/* right-side info */}
-          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
-            <span>Qty: <b style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(2)}</b></span>
-            <span>Items: <b style={{ color: "#1a2e4a" }}>{itemCount}</b></span>
-            <span>Last: <b style={{ color: "#0f9b6e" }}>{lastQuoteNo}</b></span>
-            {lastQuoteAmt > 0 && <span>Amt: <b style={{ color: "#16a34a" }}>₹{lastQuoteAmt.toFixed(2)}</b></span>}
-          </span>
-        </div>
+
+
+<div className="sb-toolbar" style={{ borderLeftColor: "var(--clr-primary)" }}>
+  <button className="mp-btn sv" onClick={doSave} disabled={loading}
+    style={{ background: "var(--clr-primary)", borderColor: "var(--clr-primary)" }}>
+    <Save size={16} color="#fff" strokeWidth={2.5} /> F1 - Save
+  </button>
+
+  <button className="mp-btn ob" onClick={openF5}>
+    <Pencil size={16} color="#fff" strokeWidth={2.5} /> F3 - Edit
+  </button>
+
+  <button className="mp-btn rf" onClick={openF5}>
+    <ClipboardList size={16} color="#fff" strokeWidth={2.5} /> F5 - View
+  </button>
+
+  <button className="mp-btn col" onClick={() => setF12Open(true)}>
+    <Settings size={16} color="#fff" strokeWidth={2.5} /> F12
+  </button>
+
+  <button className="mp-btn sb" onClick={clearForm} disabled={loading}>
+    <RefreshCw size={16} color="#fff" strokeWidth={2.5} /> F10 Clear
+  </button>
+
+  <button className="mp-btn bc" onClick={() => setCtrlGOpen(true)} title="Ctrl+G Column Focus/Reorder">
+    <Zap size={16} color="#fff" strokeWidth={2.5} /> Ctrl+G
+  </button>
+
+  {editId > 0 && (
+    <button className="mp-btn dl"
+      onClick={() => { pwOkRef.current = doDeleteQuotation; setPw({ title: "F9 Delete Password" }); }}
+      disabled={loading}>
+      <Trash2 size={16} color="#fff" strokeWidth={2.5} /> F9 - Delete
+    </button>
+  )}
+
+  <button className="mp-btn dl"
+    onClick={() => { if (!editId) return; pwOkRef.current = doDeleteQuotation; setPw({ title: "DEL Delete" }); }}>
+    <Trash2 size={16} color="#fff" strokeWidth={2.5} /> DEL - Delete
+  </button>
+
+  <button className="mp-btn cn" onClick={() => navigate(-1)}>
+    <X size={16} color="#fff" strokeWidth={2.5} /> ESC - Exit
+  </button>
+
+  {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
+
+  {/* right-side info */}
+  <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
+    <span>Qty: <b style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(2)}</b></span>
+    <span>Items: <b style={{ color: "#1a2e4a" }}>{itemCount}</b></span>
+    <span>Last: <b style={{ color: "#0f9b6e" }}>{lastQuoteNo}</b></span>
+    {lastQuoteAmt > 0 && <span>Amt: <b style={{ color: "#16a34a" }}>₹{lastQuoteAmt.toFixed(2)}</b></span>}
+  </span>
+</div>
       </div>
 
       {/* ── LOADING OVERLAY ── */}

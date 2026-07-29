@@ -37,6 +37,10 @@ import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";
 import   DateFieldDDMMYYYY from "../Commondatetime";
 //import "../TransactionStyle/SaleOrder.css";
+import {
+  Save, Pencil, ClipboardList, Percent, Settings, Zap,
+  RefreshCw, Trash2, X
+} from "lucide-react";
 
 // ─── API ENDPOINTS (SaleOrder specific) ──────────────────────────────────────
 const SaleOrderMaxNo      = "/api/SaleOrderApp/MaxSaleOrderNo";
@@ -2061,14 +2065,14 @@ export default function SaleOrder() {
         {/* ══════════════════════════════════════════════════════════════════
             BOTTOM TOOLBAR — F1-CreditBill | F3-Edit | F5-View | F9-Del | F10-Clear | ESC-Exit
         ══════════════════════════════════════════════════════════════════ */}
-        <div className="sb-toolbar" style={{ borderLeftColor: "#1f65de" }}>
+        {/* <div className="sb-toolbar" style={{ borderLeftColor: "#1f65de" }}>
           <button className="sb-btn sv" onClick={doSave} disabled={loading} style={{ background: "#1f65de", borderColor: "#1f65de" }}>
             💾 F1 - {orderType === "CREDIT" ? "CREDITBill" : "CashBill"}
           </button>
           <button className="sb-btn" onClick={() => { pwOkRef.current = () => openF5(); setPw({ title: "Edit Pwd" }); }}>✏ F3 - Edit</button>
-          <button className="sb-btn" onClick={() => openF5()}>📋 F5 - View</button>
-          <button className="sb-btn" onClick={() => { /* focus discPer */ }}>💲 F8 - Disc%</button>
-          <button className="sb-btn" onClick={() => setF12Open(true)}>⚙ F12</button>
+          <button className="sb-btn" onClick={() => openF5()}>📋 F5 - View</button> */}
+          {/* <button className="sb-btn" onClick={() => {  }}>💲 F8 - Disc%</button> */}
+          {/* <button className="sb-btn" onClick={() => setF12Open(true)}>⚙ F12</button>
           <button className="sb-btn" onClick={() => setCtrlGOpen(true)} title="Ctrl+G Grid Focus/Reorder">⚡ Ctrl+G</button>
           <button className="sb-btn" onClick={() => confirm("Do You Want To Clear?").then(ok => ok && clearForm())} disabled={loading}>🔄 F10 Clear</button>
           {editId > 0 && (
@@ -2079,14 +2083,68 @@ export default function SaleOrder() {
           <button className="sb-btn dl" onClick={() => navigate(-1)}>✕ ESC - Exit</button>
           {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
 
-          {/* Right-side info */}
+          
           <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
             {totalPcs > 0 && <span>Pcs: <b style={{ color: "#1a2e4a" }}>{totalPcs.toFixed(0)}</b></span>}
             <span>Qty: <b style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3)}</b></span>
             <span>Items: <b style={{ color: "#1a2e4a" }}>{itemCount}</b></span>
             <span>Net: <b style={{ color: "#16a34a" }}>₹{totals.NetAmt.toFixed(2)}</b></span>
           </span>
-        </div>
+        </div> */}
+
+
+
+<div className="sb-toolbar" style={{ borderLeftColor: "#1f65de" }}>
+  <button className="mp-btn sv" onClick={doSave} disabled={loading} style={{ background: "#1f65de", borderColor: "#1f65de" }}>
+    <Save size={16} color="#fff" strokeWidth={2.5} /> F1 - {orderType === "CREDIT" ? "CREDITBill" : "CashBill"}
+  </button>
+
+  <button className="mp-btn ob" onClick={() => { pwOkRef.current = () => openF5(); setPw({ title: "Edit Pwd" }); }}>
+    <Pencil size={16} color="#fff" strokeWidth={2.5} /> F3 - Edit
+  </button>
+
+  <button className="mp-btn rf" onClick={() => openF5()}>
+    <ClipboardList size={16} color="#fff" strokeWidth={2.5} /> F5 - View
+  </button>
+
+  <button className="mp-btn ex" onClick={() => { /* focus discPer */ }}>
+    <Percent size={16} color="#fff" strokeWidth={2.5} /> F8 - Disc%
+  </button>
+
+  <button className="mp-btn col" onClick={() => setF12Open(true)}>
+    <Settings size={16} color="#fff" strokeWidth={2.5} /> F12
+  </button>
+
+  <button className="mp-btn bc" onClick={() => setCtrlGOpen(true)} title="Ctrl+G Grid Focus/Reorder">
+    <Zap size={16} color="#fff" strokeWidth={2.5} /> Ctrl+G
+  </button>
+
+  <button className="mp-btn sb" onClick={() => confirm("Do You Want To Clear?").then(ok => ok && clearForm())} disabled={loading}>
+    <RefreshCw size={16} color="#fff" strokeWidth={2.5} /> F10 Clear
+  </button>
+
+  {editId > 0 && (
+    <button className="mp-btn dl"
+      onClick={() => { if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; } pwOkRef.current = doDelete; setPw({ title: "Delete Pwd" }); }}
+      disabled={loading}>
+      <Trash2 size={16} color="#fff" strokeWidth={2.5} /> F9 - Delete
+    </button>
+  )}
+
+  <button className="mp-btn cn" onClick={() => navigate(-1)}>
+    <X size={16} color="#fff" strokeWidth={2.5} /> ESC - Exit
+  </button>
+
+  {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
+
+  {/* Right-side info */}
+  <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
+    {totalPcs > 0 && <span>Pcs: <b style={{ color: "#1a2e4a" }}>{totalPcs.toFixed(0)}</b></span>}
+    <span>Qty: <b style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3)}</b></span>
+    <span>Items: <b style={{ color: "#1a2e4a" }}>{itemCount}</b></span>
+    <span>Net: <b style={{ color: "#16a34a" }}>₹{totals.NetAmt.toFixed(2)}</b></span>
+  </span>
+</div>
       </div>
 
       {/* LOADING OVERLAY */}

@@ -48,6 +48,10 @@ import { useNavigate } from "react-router-dom";
 import * as CC from "../components/Common";
 import Topbar from "../components/Topbar";
 import   DateFieldDDMMYYYY from "../Commondatetime";
+import {
+  Save, Pencil, ClipboardList, Settings, Zap, LayoutGrid,
+  Package, RefreshCw, Trash2, X
+} from "lucide-react";
 // import "./PurchaseOrder.css";
 
 // ─── API ENDPOINTS ────────────────────────────────────────────────────────────
@@ -2204,7 +2208,7 @@ export default function PurchaseOrder() {
         {/* ══════════════════════════════════════════════════════════════════
             BOTTOM TOOLBAR
         ══════════════════════════════════════════════════════════════════ */}
-        <div className="sb-toolbar" style={{ borderLeftColor: "#1a6e3a" }}>
+        {/* <div className="sb-toolbar" style={{ borderLeftColor: "#1a6e3a" }}>
           <button className="sb-btn sv" onClick={doSave} disabled={loading} style={{ background: "#1a6e3a", borderColor: "#1a6e3a" }}>
             💾 F1 - {purchaseType === "CREDIT" ? "CREDITOrder" : "CashOrder"}
           </button>
@@ -2233,13 +2237,77 @@ export default function PurchaseOrder() {
           <button className="sb-btn dl" onClick={() => navigate(-1)}>✕ ESC - Exit</button>
           {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
 
-          {/* Right-side info */}
+         
           <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
             <span>Qty: <b style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3)}</b></span>
             <span>Items: <b style={{ color: "#1a2e4a" }}>{itemCount}</b></span>
             <span>Net: <b style={{ color: "#16a34a" }}>₹{totals.NetAmt.toFixed(2)}</b></span>
           </span>
-        </div>
+        </div> */}
+        <div className="sb-toolbar" style={{ borderLeftColor: "#1a6e3a" }}>
+  <button className="sb-btn sv" onClick={doSave} disabled={loading} >
+    <Save size={16} color="#fff" strokeWidth={2.5} /> F1 - {purchaseType === "CREDIT" ? "CREDITOrder" : "CashOrder"}
+  </button>
+
+  <button className="mp-btn ob" onClick={() => {
+    pwOkRef.current = () => {
+      const value = prompt("Enter the Purchase Order Number", "");
+      if (value && !isNaN(value) && Number(value) !== 0) doEdit(0, Number(value));
+    };
+    setPw({ title: "Edit Pwd" });
+  }}>
+    <Pencil size={16} color="#fff" strokeWidth={2.5} /> F3 - Edit
+  </button>
+
+  <button className="mp-btn rf" onClick={() => openF5()}>
+    <ClipboardList size={16} color="#fff" strokeWidth={2.5} /> F5 - View
+  </button>
+
+  <button className="mp-btn col" onClick={() => setF12Open(true)}>
+    <Settings size={16} color="#fff" strokeWidth={2.5} /> F12
+  </button>
+
+  <button className="mp-btn bc" onClick={() => setCtrlGOpen(true)} title="Ctrl+G Grid Focus/Reorder">
+    <Zap size={16} color="#fff" strokeWidth={2.5} /> Ctrl+G
+  </button>
+
+  <button className="mp-btn ex" onClick={() => setCtrlFOpen(true)} title="Ctrl+F Form Focus/Reorder">
+    <LayoutGrid size={16} color="#fff" strokeWidth={2.5} /> Ctrl+F
+  </button>
+
+  <button className="mp-btn exup" onClick={() => setAddrOpen(true)} title="Ctrl+A Delivery Address">
+    <Package size={16} color="#fff" strokeWidth={2.5} /> Ctrl+A
+  </button>
+
+  <button className="mp-btn sb" onClick={() => confirm("Do You Want To Clear?").then(ok => ok && clearForm())} disabled={loading}>
+    <RefreshCw size={16} color="#fff" strokeWidth={2.5} /> F10 Clear
+  </button>
+
+  {editId > 0 && (
+    <button className="mp-btn dl"
+      onClick={() => {
+        if (!perm.Delete) { toast("❌ Page Delete Permission Denied !!!", true); return; }
+        pwOkRef.current = doDelete;
+        setPw({ title: "Edit Pwd" });
+      }}
+      disabled={loading}>
+      <Trash2 size={16} color="#fff" strokeWidth={2.5} /> F9 - Delete
+    </button>
+  )}
+
+  <button className="mp-btn cn" onClick={() => navigate(-1)}>
+    <X size={16} color="#fff" strokeWidth={2.5} /> ESC - Exit
+  </button>
+
+  {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
+
+  {/* Right-side info */}
+  <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
+    <span>Qty: <b style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3)}</b></span>
+    <span>Items: <b style={{ color: "#1a2e4a" }}>{itemCount}</b></span>
+    <span>Net: <b style={{ color: "#16a34a" }}>₹{totals.NetAmt.toFixed(2)}</b></span>
+  </span>
+</div>
       </div>
 
       {/* LOADING OVERLAY */}

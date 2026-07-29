@@ -18,6 +18,9 @@ import Topbar from "../components/Topbar";
 import "../TransactionStyle/Salereturn.css";
 import "../Master/MasterPage.css";
 import   DateFieldDDMMYYYY from "../Commondatetime";
+import {
+  Save, Pencil, ClipboardList, Settings, RefreshCw, Zap, Trash2, X
+} from "lucide-react";
 
 // ─── SALE RETURN API CONSTANTS ────────────────────────────────────────────────
 const SaleReturnMaxNo        = "/api/SaleReturnApp/MaxSaleReturnNo";
@@ -2709,8 +2712,8 @@ console.log("Deleting return with body:", body);
         {/* ══════════════════════════════════════════════════════════════════
             BOTTOM TOOLBAR — matches image: F1-CashBill | F3-Edit | F5-View | F9-Delete | DEL-Delete | ESC-Exit
         ══════════════════════════════════════════════════════════════════ */}
-        <div className="sb-toolbar" style={{ borderLeftColor: "var(--clr-primary)" }}>
-          <button className="sb-btn sv" onClick={doSave} disabled={loading}
+        {/* <div className="sb-toolbar" style={{ borderLeftColor: "var(--clr-primary)" }}> */}
+          {/* <button className="sb-btn sv" onClick={doSave} disabled={loading}
             style={{ background: "var(--clr-primary)", borderColor: "var(--clr-primary)" }}>
             💾 F1 - CashBill
           </button>
@@ -2730,16 +2733,73 @@ console.log("Deleting return with body:", body);
             onClick={() => { if (!editId) return; pwOkRef.current = doDeleteReturn; setPw({ title: "DEL Delete" }); }}>
             🗑 DEL - Delete
           </button>
-          <button className="sb-btn dl" onClick={() => navigate(-1)}>✕ ESC - Exit</button>
-          {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
+          <button className="sb-btn dl" onClick={() => navigate(-1)}>✕ ESC - Exit</button> */}
+          
+          {/* {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>} */}
           {/* right-side info */}
-          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
+          {/* <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
             <span>Return Qty: <b style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(2)}</b></span>
             <span>Items: <b style={{ color: "#1a2e4a" }}>{itemCount}</b></span>
             <span>Last: <b style={{ color: "#1f65de" }}>{lastReturnNo}</b></span>
             {lastReturnAmt > 0 && <span>Amt: <b style={{ color: "#16a34a" }}>₹{lastReturnAmt.toFixed(2)}</b></span>}
-          </span>
-        </div>
+          </span> */}
+        {/* </div> */}
+
+
+
+<div className="sb-toolbar" style={{ borderLeftColor: "var(--clr-primary)" }}>
+  <button className="mp-btn sv" onClick={doSave} disabled={loading}
+    style={{ background: "var(--clr-primary)", borderColor: "var(--clr-primary)" }}>
+    <Save size={16} color="#fff" strokeWidth={2.5} /> F1 - CashBill
+  </button>
+
+  <button className="mp-btn ob" onClick={openF5}>
+    <Pencil size={16} color="#fff" strokeWidth={2.5} /> F3 - Edit
+  </button>
+
+  <button className="mp-btn rf" onClick={openF5}>
+    <ClipboardList size={16} color="#fff" strokeWidth={2.5} /> F5 - View
+  </button>
+
+  <button className="mp-btn col" onClick={() => setF12Open(true)}>
+    <Settings size={16} color="#fff" strokeWidth={2.5} /> F12
+  </button>
+
+  <button className="mp-btn sb" onClick={clearForm} disabled={loading}>
+    <RefreshCw size={16} color="#fff" strokeWidth={2.5} /> F10 Clear
+  </button>
+
+  <button className="mp-btn bc" onClick={() => setCtrlGOpen(true)} title="Ctrl+G Column Focus/Reorder">
+    <Zap size={16} color="#fff" strokeWidth={2.5} /> Ctrl+G
+  </button>
+
+  {editId > 0 && (
+    <button className="mp-btn dl"
+      onClick={() => { pwOkRef.current = doDeleteReturn; setPw({ title: "F9 Delete Password" }); }}
+      disabled={loading}>
+      <Trash2 size={16} color="#fff" strokeWidth={2.5} /> F9 - Delete
+    </button>
+  )}
+
+  <button className="mp-btn dl"
+    onClick={() => { if (!editId) return; pwOkRef.current = doDeleteReturn; setPw({ title: "DEL Delete" }); }}>
+    <Trash2 size={16} color="#fff" strokeWidth={2.5} /> DEL - Delete
+  </button>
+
+  <button className="mp-btn cn" onClick={() => navigate(-1)}>
+    <X size={16} color="#fff" strokeWidth={2.5} /> ESC - Exit
+  </button>
+
+  {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
+
+  {/* right-side info */}
+  <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "#6b7a99" }}>
+    <span>Return Qty: <b style={{ color: "#1a2e4a" }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(2)}</b></span>
+    <span>Items: <b style={{ color: "#1a2e4a" }}>{itemCount}</b></span>
+    <span>Last: <b style={{ color: "#1f65de" }}>{lastReturnNo}</b></span>
+    {lastReturnAmt > 0 && <span>Amt: <b style={{ color: "#16a34a" }}>₹{lastReturnAmt.toFixed(2)}</b></span>}
+  </span>
+</div>
       </div>
 
       {/* ── LOADING OVERLAY ── */}

@@ -60,6 +60,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../Master/MasterPage.css";
 import "../Master/SupplierMaster.css";
+import { Plus, Save, RefreshCw, ClipboardList, User, Settings, X } from "lucide-react";
+
 
 import Topbar from "../components/Topbar";
 import * as CC from "../Master/Common";
@@ -1543,22 +1545,38 @@ if(type==="toggle") {
 
         {/* ── BOTTOM TOOLBAR ── */}
         <div className="mp-toolbar" style={{ display:"flex",alignItems:"center",gap:6,padding:"6px 10px",flexWrap:"wrap" }}>
-          <button className="mp-btn nw" onClick={addRow} disabled={loading}>➕ Add Row</button>
-          <button className="mp-btn sv" onClick={()=>{ if(!sess.PaymentBillWise) paymentSave([]); }} disabled={loading}>
-            💾 F1 Save
-          </button>
-          <button className="mp-btn" style={{ background:"#0891b2",color:"#fff",borderColor:"#0891b2" }}
-            onClick={fillGridData} disabled={loading}>🔄 Reload Date</button>
-          <button className="mp-btn" style={{ background:"#7c3aed",color:"#fff",borderColor:"#7c3aed" }}
-            onClick={()=>setF5Open(true)} disabled={loading}>📋 F5 View</button>
-          <button className="mp-btn" style={{ background:"#0891b2",color:"#fff",borderColor:"#0891b2" }}
-            onClick={()=>setShowSalesmanFilter(p=>!p)}>👤 F2 SalesMan</button>
-          <button className="mp-btn"
-            style={{ background:"var(--color-background-secondary)",color:"var(--color-text-primary)",border:"1px solid #9ca3af" }}
-            onClick={()=>setF12Open(true)}>⚙ F12 Columns</button>
-          <button className="mp-btn dl" onClick={()=>confirm("Do You Want To Quit Page?").then(ok=>{ if(ok) navigate("/Home"); })}
-            style={{ marginLeft:"auto" }}>✕ Esc Quit</button>
-        </div>
+  <button className="mp-btn nw" onClick={addRow} disabled={loading}>
+    <Plus size={16} color="#fff" strokeWidth={2.5} /> Add Row
+  </button>
+
+  <button className="mp-btn sv" onClick={()=>{ if(!sess.PaymentBillWise) paymentSave([]); }} disabled={loading}>
+    <Save size={16} color="#fff" strokeWidth={2.5} /> F1 Save
+  </button>
+
+  <button className="mp-btn ob"
+    onClick={fillGridData} disabled={loading}>
+    <RefreshCw size={16} color="#fff" strokeWidth={2.5} /> Reload Date
+  </button>
+
+  <button className="mp-btn rf"
+    onClick={()=>setF5Open(true)} disabled={loading}>
+    <ClipboardList size={16} color="#fff" strokeWidth={2.5} /> F5 View
+  </button>
+
+  <button className="mp-btn bc"
+    onClick={()=>setShowSalesmanFilter(p=>!p)}>
+    <User size={16} color="#fff" strokeWidth={2.5} /> F2 SalesMan
+  </button>
+
+  <button className="mp-btn col"
+    onClick={()=>setF12Open(true)}>
+    <Settings size={16} color="#fff" strokeWidth={2.5} /> F12 Columns
+  </button>
+
+  <button className="mp-btn cn" onClick={()=>confirm("Do You Want To Quit Page?").then(ok=>{ if(ok) navigate("/Home"); })}>
+    <X size={16} color="#fff" strokeWidth={2.5} /> Esc Quit
+  </button>
+</div>
       </div>
 
       {/* ── Loading overlay ── */}

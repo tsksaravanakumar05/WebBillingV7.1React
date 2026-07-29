@@ -978,15 +978,15 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
             style={{ background: "var(--clr-primary)", borderColor: "var(--clr-primary)" }}>
             💾 F1 - Save
           </button>
-          <button className="sb-btn" onClick={clearForm} disabled={loading}>🔄 F10 - Clear</button>
-          <button className="sb-btn" onClick={() => setF12Open(true)}>⚙ F12 - Columns</button>
-          <button className="sb-btn dl" onClick={() => confirm("Do You Want To Quit?").then(ok => ok && navigate(-1))}>
+          <button className="mp-btn sb" onClick={clearForm} disabled={loading}>🔄 F10 - Clear</button>
+          <button className="mp-btn col" onClick={() => setF12Open(true)}>⚙ F12 - Columns</button>
+          <button className="mp-btn cn" onClick={() => confirm("Do You Want To Quit?").then(ok => ok && navigate(-1))}>
             ✕ ESC - Exit
           </button>
           {loading && <span style={{ fontSize: 11, color: "#6b7a99" }}>⏳ {ldMsg}</span>}
-          <span style={{ marginLeft: "auto", fontSize: 11, color: "#6b7a99" }}>
+          {/* <span style={{ marginLeft: "auto", fontSize: 11, color: "#6b7a99" }}>
             Secondary Levercare: <b style={{ color: "#1a2e4a" }}>18001232105</b>&nbsp; Mon–Sat 9AM–9PM
-          </span>
+          </span> */}
         </div>
       </div>
 
