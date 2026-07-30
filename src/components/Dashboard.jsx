@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, memo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "../dashboard.css";
 
 import Topbar from "./Topbar";
@@ -674,6 +675,18 @@ const ProductsTable = memo(() => {
 
 const Dashboard = () => {
   const { metrics, weeklyChartRows, weeklyDataSource, loading } = useDashboardData();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Home") {
+        navigate("/Company");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [navigate]);
 
   const saleMetrics = [
     { id: "today", label: "Today's Sales", value: metrics.todaysale, icon: SunIcon, isCurrency: true },

@@ -578,52 +578,106 @@ const lbl = { fontSize:12,fontWeight:600,color:"#475569",whiteSpace:"nowrap" };
 // ─────────────────────────────────────────────────────────────────────────────
 // F12 COLUMN SETTINGS  (mirrors F12Config logic)
 // ─────────────────────────────────────────────────────────────────────────────
+// function F12Popup({ colSettings, onSave, onClose }) {
+//   const [local, setLocal] = useState(colSettings.map(s=>({...s})));
+//   return (
+//     <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,.5)",
+//       zIndex:9100,display:"flex",alignItems:"center",justifyContent:"center" }}>
+//       <div style={{ background:"#fff",borderRadius:8,width:450,maxHeight:"80vh",
+//         display:"flex",flexDirection:"column",boxShadow:"0 16px 48px rgba(0,0,0,.3)",overflow:"hidden" }}>
+//         <div style={{ background:"#1a2e4a",color:"#fff",padding:"10px 16px",fontSize:13,
+//           fontWeight:700,display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+//           <span>⚙ Column Settings (F12)</span>
+//           <button style={{ background:"none",border:"none",color:"#fff",fontSize:17,cursor:"pointer" }} onClick={onClose}>✕</button>
+//         </div>
+//         <div style={{ flex:1,overflowY:"auto",padding:12 }}>
+//           <table style={{ borderCollapse:"collapse",width:"100%" }}>
+//             <thead>
+//               <tr>
+//                 {["Column","Visible","Width (px)"].map(h=>(
+//                   <th key={h} style={{ background:"#1a2e4a",color:"#fff",padding:"6px 10px",fontSize:11,fontWeight:600,textAlign:"left" }}>{h}</th>
+//                 ))}
+//               </tr>
+//             </thead>
+//             <tbody>
+//               {local.map(s=>(
+//                 <tr key={s.field}>
+//                   <td style={{ padding:"5px 10px",fontSize:12,borderBottom:"1px solid #eaecf4" }}>{s.label}</td>
+//                   <td style={{ padding:"5px 10px",textAlign:"center",borderBottom:"1px solid #eaecf4" }}>
+//                     <input type="checkbox" checked={!s.hidden}
+//                       onChange={()=>setLocal(p=>p.map(x=>x.field===s.field?{...x,hidden:!x.hidden}:x))} />
+//                   </td>
+//                   <td style={{ padding:"5px 10px",borderBottom:"1px solid #eaecf4" }}>
+//                     <input type="number" min="40" max="600" value={s.width}
+//                       style={{ width:70,border:"1px solid #d4dbe8",borderRadius:3,padding:"2px 6px",fontSize:12,textAlign:"right" }}
+//                       onChange={e=>setLocal(p=>p.map(x=>x.field===s.field?{...x,width:parseInt(e.target.value)||x.width}:x))} />
+//                   </td>
+//                 </tr>
+//               ))}
+//             </tbody>
+//           </table>
+//         </div>
+//         <div style={{ padding:"10px 14px",display:"flex",gap:8,justifyContent:"flex-end",borderTop:"1px solid #e5e7eb" }}>
+//           <button onClick={()=>onSave(local)}
+//             style={{ background:"#1a2e4a",color:"#fff",border:"none",borderRadius:4,
+//               padding:"6px 18px",fontSize:12,fontWeight:700,cursor:"pointer" }}>💾 Save</button>
+//           <button onClick={onClose}
+//             style={{ background:"#fff",color:"#6b7280",border:"1px solid #d1d5db",
+//               borderRadius:4,padding:"6px 14px",fontSize:12,cursor:"pointer" }}>Cancel</button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 function F12Popup({ colSettings, onSave, onClose }) {
-  const [local, setLocal] = useState(colSettings.map(s=>({...s})));
+  const [local, setLocal] = useState(colSettings.map(s => ({ ...s })));
   return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(10,20,40,.5)",
-      zIndex:9100,display:"flex",alignItems:"center",justifyContent:"center" }}>
-      <div style={{ background:"#fff",borderRadius:8,width:450,maxHeight:"80vh",
-        display:"flex",flexDirection:"column",boxShadow:"0 16px 48px rgba(0,0,0,.3)",overflow:"hidden" }}>
-        <div style={{ background:"#1a2e4a",color:"#fff",padding:"10px 16px",fontSize:13,
-          fontWeight:700,display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+    <div className="popup-overlay">
+      <div className="popup-window f12-popup">
+        <div className="popup-header">
           <span>⚙ Column Settings (F12)</span>
-          <button style={{ background:"none",border:"none",color:"#fff",fontSize:17,cursor:"pointer" }} onClick={onClose}>✕</button>
+          <button className="popup-close" onClick={onClose}>✕</button>
         </div>
-        <div style={{ flex:1,overflowY:"auto",padding:12 }}>
-          <table style={{ borderCollapse:"collapse",width:"100%" }}>
+
+        <div className="popup-body">
+          <table className="popup-table">
             <thead>
               <tr>
-                {["Column","Visible","Width (px)"].map(h=>(
-                  <th key={h} style={{ background:"#1a2e4a",color:"#fff",padding:"6px 10px",fontSize:11,fontWeight:600,textAlign:"left" }}>{h}</th>
-                ))}
+                <th>Column</th>
+                <th>Visible</th>
+                <th>Width (px)</th>
               </tr>
             </thead>
             <tbody>
-              {local.map(s=>(
+              {local.map(s => (
                 <tr key={s.field}>
-                  <td style={{ padding:"5px 10px",fontSize:12,borderBottom:"1px solid #eaecf4" }}>{s.label}</td>
-                  <td style={{ padding:"5px 10px",textAlign:"center",borderBottom:"1px solid #eaecf4" }}>
-                    <input type="checkbox" checked={!s.hidden}
-                      onChange={()=>setLocal(p=>p.map(x=>x.field===s.field?{...x,hidden:!x.hidden}:x))} />
+                  <td className="popup-col-label">{s.label}</td>
+                  <td className="popup-col-visible">
+                    <input
+                      type="checkbox"
+                      checked={!s.hidden}
+                      onChange={() => setLocal(p => p.map(x => x.field === s.field ? { ...x, hidden: !x.hidden } : x))}
+                    />
                   </td>
-                  <td style={{ padding:"5px 10px",borderBottom:"1px solid #eaecf4" }}>
-                    <input type="number" min="40" max="600" value={s.width}
-                      style={{ width:70,border:"1px solid #d4dbe8",borderRadius:3,padding:"2px 6px",fontSize:12,textAlign:"right" }}
-                      onChange={e=>setLocal(p=>p.map(x=>x.field===s.field?{...x,width:parseInt(e.target.value)||x.width}:x))} />
+                  <td className="popup-col-width">
+                    <input
+                      type="number"
+                      min="40"
+                      max="600"
+                      value={s.width}
+                      className="popup-width-input"
+                      onChange={e => setLocal(p => p.map(x => x.field === s.field ? { ...x, width: parseInt(e.target.value) || x.width } : x))}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div style={{ padding:"10px 14px",display:"flex",gap:8,justifyContent:"flex-end",borderTop:"1px solid #e5e7eb" }}>
-          <button onClick={()=>onSave(local)}
-            style={{ background:"#1a2e4a",color:"#fff",border:"none",borderRadius:4,
-              padding:"6px 18px",fontSize:12,fontWeight:700,cursor:"pointer" }}>💾 Save</button>
-          <button onClick={onClose}
-            style={{ background:"#fff",color:"#6b7280",border:"1px solid #d1d5db",
-              borderRadius:4,padding:"6px 14px",fontSize:12,cursor:"pointer" }}>Cancel</button>
+
+        <div className="popup-footer">
+          <button className="btn btn-primary btn-sm" onClick={() => onSave(local)}>💾 Save</button>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>Cancel</button>
         </div>
       </div>
     </div>

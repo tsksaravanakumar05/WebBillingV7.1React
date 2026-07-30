@@ -602,6 +602,78 @@ function F5ViewModal({ rows, mode, onEdit, onDelete, onClose, fromDate, toDate, 
 }
 const bwNull = v => (v === 0 || v === "" || v == null) ? null : v;
 // ─── F12 COLUMN SETTINGS MODAL ────────────────────────────────────────────────
+// function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
+//   const [local, setLocal] = useState(colSettings.map(c => ({ ...c })));
+//   const toggle = key => setLocal(p => p.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
+//   const setWid = (key, w) => setLocal(p => p.map(c => c.key === key ? { ...c, width: parseInt(w) || c.width } : c));
+
+//   const handleSave = async () => {
+//     const payload = local.map(c => ({
+//       Comid: parseInt(comid) || 1,
+//       filename: "StockInward",
+//       column: c.key, Visible: c.visible === true, Width: parseInt(c.width) || 100,
+//     }));
+//     try {
+//       const res = await CC.insertapi(CC.CFG_VisibleCols, payload);
+//       if (res.ok) { toast?.("✅ Column settings saved"); onSave(local); }
+//       else { toast?.("⚠️ " + (res.message || "Saved locally")); onSave(local); }
+//     } catch { onSave(local); }
+//   };
+
+//   // Filter batchOnly columns if BatchWise is off
+//   const displayCols = local.filter(c => {
+//     const base = GRID_COLUMNS.find(g => g.key === c.key);
+//     if (base?.batchOnly && !batchWise) return false;
+//     return true;
+//   });
+
+//   return (
+//     <div className="si-overlay">
+//       <div className="si-modal" style={{ width: 520, maxHeight: "82vh" }}>
+//         <div className="si-modal-hdr"><span>⚙ Grid Column Settings (F12)</span><button onClick={onClose}>✕</button></div>
+//         <div style={{ overflowY: "auto", maxHeight: "60vh" }}>
+//           <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+//             <thead>
+//               <tr>
+//                 {["Column", "Visible", "Width (px)"].map(h => (
+//                   <th key={h} className="si-th-dark" style={{ padding: "6px 10px", textAlign: "left", position: "sticky", top: 0 }}>{h}</th>
+//                 ))}
+//               </tr>
+//             </thead>
+//             <tbody>
+//               {displayCols.map((c, i) => {
+//                 const base = GRID_COLUMNS.find(g => g.key === c.key);
+//                 return (
+//                   <tr key={c.key} className={`si-table-row-f12 ${i % 2 === 0 ? "even" : "odd"}`}>
+//                     <td className="si-td-bordered" style={{ padding: "5px 10px" }}>
+//                       {c.label}
+//                       {base?.batchOnly && (
+//                         <span className="si-badge-warn" style={{ marginLeft: 6, fontSize: 9.5, padding: "1px 5px", borderRadius: 8 }}>BatchWise</span>
+//                       )}
+//                     </td>
+//                     <td className="si-td-bordered" style={{ padding: "5px 10px", textAlign: "center" }}>
+//                       <input type="checkbox" checked={!!c.visible} onChange={() => toggle(c.key)} />
+//                     </td>
+//                     <td className="si-td-bordered" style={{ padding: "5px 10px" }}>
+//                       <input type="number" min={40} max={600} value={c.width}
+//                         className="si-f12-widthinput"
+//                         style={{ width: 70, borderRadius: 3, padding: "2px 6px", fontSize: 12, textAlign: "right" }}
+//                         onChange={e => setWid(c.key, e.target.value)} />
+//                     </td>
+//                   </tr>
+//                 );
+//               })}
+//             </tbody>
+//           </table>
+//         </div>
+//         <div className="si-f5-footer" style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "10px 14px" }}>
+//           <button className="si-btn sv" onClick={handleSave}>💾 Save</button>
+//           <button className="si-btn" onClick={onClose}>Cancel</button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
   const [local, setLocal] = useState(colSettings.map(c => ({ ...c })));
   const toggle = key => setLocal(p => p.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
@@ -628,37 +700,40 @@ function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
   });
 
   return (
-    <div className="si-overlay">
-      <div className="si-modal" style={{ width: 520, maxHeight: "82vh" }}>
-        <div className="si-modal-hdr"><span>⚙ Grid Column Settings (F12)</span><button onClick={onClose}>✕</button></div>
-        <div style={{ overflowY: "auto", maxHeight: "60vh" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
-            <thead>
-              <tr>
-                {["Column", "Visible", "Width (px)"].map(h => (
-                  <th key={h} className="si-th-dark" style={{ padding: "6px 10px", textAlign: "left", position: "sticky", top: 0 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
+    <div className="popup-overlay">
+      <div className="popup-window f12-popup">
+        <div className="popup-header">
+          <span>⚙ Grid Column Settings (F12)</span>
+          <button className="popup-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="popup-body">
+          <table className="popup-table">
+          <thead><tr><th style={{ width: 180 }}>Column</th><th style={{ width: 70, textAlign: "center" }}>Visible</th><th style={{ width: 70, textAlign: "right" }}>Width</th></tr></thead>
+           
             <tbody>
               {displayCols.map((c, i) => {
                 const base = GRID_COLUMNS.find(g => g.key === c.key);
                 return (
-                  <tr key={c.key} className={`si-table-row-f12 ${i % 2 === 0 ? "even" : "odd"}`}>
-                    <td className="si-td-bordered" style={{ padding: "5px 10px" }}>
+                  <tr key={c.key} className={`popup-col-label ${i % 2 === 0 ? "even" : "odd"}`}>
+                    <td className="popup-col-label">
                       {c.label}
                       {base?.batchOnly && (
-                        <span className="si-badge-warn" style={{ marginLeft: 6, fontSize: 9.5, padding: "1px 5px", borderRadius: 8 }}>BatchWise</span>
+                        <span className="si-badge-warn si-f12-batch-badge">BatchWise</span>
                       )}
                     </td>
-                    <td className="si-td-bordered" style={{ padding: "5px 10px", textAlign: "center" }}>
+                    <td className="si-td-bordered si-f12-visible-cell">
                       <input type="checkbox" checked={!!c.visible} onChange={() => toggle(c.key)} />
                     </td>
-                    <td className="si-td-bordered" style={{ padding: "5px 10px" }}>
-                      <input type="number" min={40} max={600} value={c.width}
+                    <td className="si-td-bordered si-f12-width-cell">
+                      <input
+                        type="number"
+                        min={40}
+                        max={600}
+                        value={c.width}
                         className="si-f12-widthinput"
-                        style={{ width: 70, borderRadius: 3, padding: "2px 6px", fontSize: 12, textAlign: "right" }}
-                        onChange={e => setWid(c.key, e.target.value)} />
+                        onChange={e => setWid(c.key, e.target.value)}
+                      />
                     </td>
                   </tr>
                 );
@@ -666,9 +741,10 @@ function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
             </tbody>
           </table>
         </div>
-        <div className="si-f5-footer" style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "10px 14px" }}>
-          <button className="si-btn sv" onClick={handleSave}>💾 Save</button>
-          <button className="si-btn" onClick={onClose}>Cancel</button>
+
+        <div className="popup-footer">
+          <button className="btn btn-primary btn-sm" onClick={handleSave}>💾 Save</button>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>Cancel</button>
         </div>
       </div>
     </div>

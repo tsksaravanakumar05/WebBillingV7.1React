@@ -831,39 +831,79 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
   };
 
   return (
-    <div className="mp-ov">
-      <div className="mp-modal-box" style={{ width: 500, maxHeight: "82vh" }}>
-        <div className="mp-modal-hdr"><span>⚙ Purchase Order Grid Column Settings (F12)</span><button onClick={onClose}>✕</button></div>
-        <div className="mp-modal-body" style={{ overflowY: "auto" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
-            <thead>
-              <tr>{["Column", "Visible", "Width (px)"].map(h =>
-                <th key={h} style={{ color: "#fff", padding: "6px 10px",  background: "var(--pr-blue-navy)", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {local.map((c, i) => (
-                <tr key={c.key} style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}>
-                  <td style={{ padding: "5px 10px", borderBottom: "1px solid #eaecf4", fontSize: 12 }}>{c.label}</td>
-                  <td style={{ padding: "5px 10px", textAlign: "center", borderBottom: "1px solid #eaecf4" }}>
-                    <input type="checkbox" checked={!!c.visible} onChange={() => toggle(c.key)} />
-                  </td>
-                  <td style={{ padding: "5px 10px", borderBottom: "1px solid #eaecf4" }}>
-                    <input type="number" min={40} max={600} value={c.width}
-                      style={{ width: 70, border: "1px solid #d4dbe8", borderRadius: 3, padding: "2px 6px", fontSize: 12, textAlign: "right" }}
-                      onChange={e => setWid(c.key, e.target.value)} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mp-modal-ftr">
-          <button className="mp-btn sv" onClick={handleSave}>💾 Save</button>
-          <button className="mp-btn" onClick={onClose}>Cancel</button>
-        </div>
-      </div>
+    // <div className="mp-ov">
+    //   <div className="mp-modal-box" style={{ width: 500, maxHeight: "82vh" }}>
+    //     <div className="mp-modal-hdr"><span>⚙ Purchase Order Grid Column Settings (F12)</span><button onClick={onClose}>✕</button></div>
+    //     <div className="mp-modal-body" style={{ overflowY: "auto" }}>
+    //       <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+    //         <thead>
+    //           <tr>{["Column", "Visible", "Width (px)"].map(h =>
+    //             <th key={h} style={{ color: "#fff", padding: "6px 10px",  background: "var(--pr-blue-navy)", position: "sticky", top: 0, zIndex: 2 }}>{h}</th>)}
+    //           </tr>
+    //         </thead>
+    //         <tbody>
+    //           {local.map((c, i) => (
+    //             <tr key={c.key} style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}>
+    //               <td style={{ padding: "5px 10px", borderBottom: "1px solid #eaecf4", fontSize: 12 }}>{c.label}</td>
+    //               <td style={{ padding: "5px 10px", textAlign: "center", borderBottom: "1px solid #eaecf4" }}>
+    //                 <input type="checkbox" checked={!!c.visible} onChange={() => toggle(c.key)} />
+    //               </td>
+    //               <td style={{ padding: "5px 10px", borderBottom: "1px solid #eaecf4" }}>
+    //                 <input type="number" min={40} max={600} value={c.width}
+    //                   style={{ width: 70, border: "1px solid #d4dbe8", borderRadius: 3, padding: "2px 6px", fontSize: 12, textAlign: "right" }}
+    //                   onChange={e => setWid(c.key, e.target.value)} />
+    //               </td>
+    //             </tr>
+    //           ))}
+    //         </tbody>
+    //       </table>
+    //     </div>
+    //     <div className="mp-modal-ftr">
+    //       <button className="mp-btn sv" onClick={handleSave}>💾 Save</button>
+    //       <button className="mp-btn" onClick={onClose}>Cancel</button>
+    //     </div>
+    //   </div>
+    // </div>
+    <div className="popup-overlay">
+  <div className="popup-window f12-popup">
+    <div className="popup-header">
+      <span>⚙ Purchase Order Grid Column Settings (F12)</span>
+      <button className="popup-close" onClick={onClose}>✕</button>
     </div>
+
+    <div className="popup-body">
+      <table className="popup-table">
+      <thead><tr><th style={{ width: 180 }}>Column</th><th style={{ width: 70, textAlign: "center" }}>Visible</th><th style={{ width: 70, textAlign: "right" }}>Width</th></tr></thead>
+             
+        <tbody>
+          {local.map((c, i) => (
+            <tr key={c.key} className={i % 2 === 0 ? "mp-f12-row-even" : "mp-f12-row-odd"}>
+              <td className="popup-col-label">{c.label}</td>
+              <td className="popup-col-visible">
+                <input type="checkbox" checked={!!c.visible} onChange={() => toggle(c.key)} />
+              </td>
+              <td className="popup-col-width">
+                <input
+                  type="number"
+                  min={40}
+                  max={600}
+                  value={c.width}
+                  className="mp-f12-width-input"
+                  onChange={e => setWid(c.key, e.target.value)}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="popup-footer">
+      <button className="btn btn-primary btn-sm" onClick={handleSave}>💾 Save</button>
+      <button className="btn btn-secondary btn-sm" onClick={onClose}>Cancel</button>
+    </div>
+  </div>
+</div>
   );
 }
 

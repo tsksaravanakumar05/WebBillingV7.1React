@@ -30,6 +30,15 @@ export const CashierInsert = "/api/CashierApp/InsertCashier";
 export const CashierDelete = "/api/CashierApp/DeleteCashier";
 export const SelectCounter = "/api/CashierApp/SelectCounter_local";
 
+//----------------------Company---------------------
+
+export const Company_Select          = "/api/loginApp/SelectCompany";
+export const Company_Update           = "/api/CompanyApp/UpdateCompany"
+export const Company_SelectedCompany  = "/api/CompanyApp/SelectedCompany";
+export const Company_SendMirrorTable  = "/api/CompanyApp/SendMirrorTable";
+export const Company_SendMirrorTableA  = "/api/CompanyApp/SendMirrorTable";
+export const Company_SendCompanyKey   = "/api/CompanyApp/SendCompanyKey";
+export const Company_Delete           = "/api/CompanyApp/DeleteCompany";
 
 // Add these to section 5 (or the relevant API section) in Common.jsx
 export const ASelectCompanySetting = "/api/loginApp/SelectCompanySetting";
@@ -528,6 +537,63 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
     return { ok: false, _netErr: true, message: err.message };
   }
 };
+
+
+
+
+
+export const insertapicompany = async (path, body = null, extraHeaders = {}) => {
+  try {
+    const res = await fetch(mkUrl(path), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        ...authHeaders(),
+        ...extraHeaders,
+      },
+      body: body != null ? JSON.stringify(body) : null,
+    });
+
+    if (res.status === 406) return { ok: false, _dualLogin: true };
+    if (res.status === 500) {
+      const t = await res.text();
+      try {
+        const j = JSON.parse(t);
+        const msg = j.Message || j.message || "Server error";
+        console.error("500 InsertAPICompany:", msg);
+        j.ok = false;
+        j.IsSuccess = false;
+        j.Message = msg;
+        j.message = msg;
+        return j;
+      } catch {
+        const match = t.match(/<i>(.*?)<\/i>/);
+        const msg = match ? match[1] : (t.slice(0, 300) || "Server error 500");
+        console.error("500 InsertAPICompany:", msg);
+        return { ok: false, IsSuccess: false, Message: msg, message: msg };
+      }
+    }
+
+    const text = await res.text();
+    if (!text.trim()) return { ok: false, IsSuccess: false, Message: "Empty response", message: "Empty response" };
+
+    try {
+      const j = JSON.parse(text);
+      if (j.IsSuccess !== undefined && j.ok      === undefined) j.ok      = j.IsSuccess;
+      if (j.Message   !== undefined && j.message === undefined) j.message = j.Message;
+      return j;
+    } catch {
+      return { ok: false, IsSuccess: false, message: text.slice(0, 300) };
+    }
+  } catch (err) {
+    return { ok: false, _netErr: true, message: err.message };
+  }
+};
+
+
+
+
+
 
 /**
  * insertapi()

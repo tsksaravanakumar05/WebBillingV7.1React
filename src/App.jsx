@@ -46,7 +46,7 @@ import PurchaseReturn from "./Transaction/Purchasereturn";
 import Supplierpayment from "./Transaction/Supplierpayment";
 import StockInward from "./Transaction/Stockinward";
 import PattyPurchaseView from "./Transaction/PattyPurchaseView";
-
+import Company from "./Transaction/Company";
 
 
 
@@ -127,6 +127,7 @@ import StockAdjustmentItemwise from "./CrystalReport/Closingstock/Stockadjustmen
 import Stockadjustment from "./CrystalReport/Closingstock/Stockadjustment";
 import Physicalstockapplyreport from "./CrystalReport/Closingstock/Physicalstockapplyreport";
 import DCBBranchReport from "./CrystalReport/Closingstock/Dcbbranchstockreport";
+
 
 import SalesManStockReport from "./CrystalReport/Closingstock/SalesManStockReport";
 
@@ -232,6 +233,7 @@ function App() {
         <Route path="/PhysicalStock" element={<PhysicalStock />} />
         <Route path="/Purchaseorder" element={<Purchaseorder />} />
         <Route path="/StockAdjustment" element={<StockAdjustment />} />
+        <Route path="/Company" element={<Company />} />
         {/* Reports */}
         <Route path="/Report/SaleOrder" element={<ReportSaleOrder />} />
         <Route path="/Report/SaleReportPart1" element={<SalesReportPart1 />} />
