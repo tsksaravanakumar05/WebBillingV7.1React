@@ -2970,6 +2970,7 @@ if (savedArrivalType) {
       CommonCompanyDiffStock: String(sess.CommoncompanyDiffStock ?? false),
       SupplierMulitipleAllow: String(sess.SupplierMulitipleAllow ?? false),
       MulipleMRP: String(sess.MulipleMRP ?? false),
+       
       ItemMasterRateUpdate: String(sess.PurchaseItemmasterSave === "1" ? "true" :"false"),
       BatchPerfix: String(sess.BatchPerfix ?? ""),
       BatchDigit: String(parseInt(sess.BatchDigit, 10) || 0),

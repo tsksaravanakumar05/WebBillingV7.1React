@@ -154,12 +154,13 @@ export default function OpeningBalance() {
 
   const [sess] = useState(() => {
     try {
+      const main0 = (CC.getLocal("Mainsetting") || [{}])[0] || {};
       const Comid = CC.getStr("Comid") || "1";
       const MComid = CC.getStr("MComid") || Comid;
       const IdComList = CC.getStr("IdComList") || Comid;
-      return { Comid, MComid, IdComList };
+      return { Comid, MComid, IdComList, MirrorTable: parseInt(main0.MirrorTableOnline, 10) || 0 };
     } catch {
-      return { Comid: "1", MComid: "1", IdComList: "1" };
+      return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: 0 };
     }
   });
 
@@ -411,7 +412,11 @@ const stockDetails = latest.map(r => ({
 }));
 console.log(stockDetails);
     setLoading(true); setLdMsg("Saving...");
-    const hdrs = { "Comid": String(sess.MComid), "StockDetails": JSON.stringify(stockDetails) };
+    const hdrs = {
+      "Comid": String(sess.MComid),
+      "MirrorTable": String(sess.MirrorTable ?? 0),
+      "StockDetails": JSON.stringify(stockDetails),
+    };
     try {
       const res = await CC.insertapi(CC.InsertOpeingStock, payload, hdrs);
       setLoading(false);

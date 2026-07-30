@@ -1806,7 +1806,7 @@ const doSave = useCallback(async (overridePayRows = null) => {
     "Herballife": sess.Herbalife ? "1" : "0",
     "Estimate": "1",
     "PrintA4Invoice": "1", "SmallPrint": "0", "BillFormat": "Default",
-    "DayClose": sess.DayClose ? "1" : "0", "MirrorTable": "0",
+    "DayClose": sess.DayClose ? "1" : "0", "MirrorTable": String(sess.MirrorTable ?? CC.getStr("MirrorTableOnline") ?? "0"),
     "LocalDB": "0", "RO": "0",
   };
 

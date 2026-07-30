@@ -811,6 +811,7 @@ function handleSave() {
       const res = await CC.insertapi(InsertcustomerSaleRate, cleanRows, { // ← cleanRows here
         "Content-Type": "application/json",
         Comid: Comid.current,
+        MirrorTable: String(localStorage.getItem("MirrorTableOnline") || "0"),
         Cusid: customerId,
       });
       if (res.ok ?? res.IsSuccess) {
@@ -850,6 +851,7 @@ function handleSave() {
       const res = await CC.insertapi(InsertcustomerSaleRate, cleanRows, { // ← cleanRows here
         "Content-Type": "application/json",
         Comid: Comid.current,
+        MirrorTable: String(localStorage.getItem("MirrorTableOnline") || "0"),
         Cusid: customerId,
       });
       if (res.ok ?? res.IsSuccess) {

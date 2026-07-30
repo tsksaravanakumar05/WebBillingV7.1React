@@ -85,9 +85,10 @@ const FILTER_KEYS     = new Set(["ProductCode","SecondCode","ProductName","Print
 const COMBO_NAV       = { Brand:"/Brand", Category:"/Category", Department:"/Department", Supplier:"/Supplier", UOM:"/UOM", LocationMaster:"/location" };
 const getProductFilterValue = (item, colKey) => {
   switch (colKey) {
-    case "ProductCode": return item?.ProductCode ?? item?.Prod_Code ?? "";
+    case "ProductCode":
+      return item?.ProductCode ?? item?.Prod_Code ?? item?.Prod_code ?? item?.Productcode ?? item?.PCode ?? "";
     case "SecondCode": return item?.SecondCode ?? "";
-    case "ProductName": return item?.ProductName ?? item?.PName ?? "";
+    case "ProductName": return item?.ProductName ?? item?.PName ?? item?.Productname ?? "";
     case "PrinterName": return item?.PrinterName ?? "";
     case "HSNCode": return item?.HSNCode ?? "";
     case "Brand": return item?.Brand ?? "";
@@ -132,7 +133,15 @@ const mkEmpty = (sess) => {
 };
 
 const fmtRow = (obj, sess) => {
-  const r = { ...obj, _rid:obj._rid||genRid(), _isNew:false, _dirty:false, _editMode:0 };
+  const r = {
+    ...obj,
+    ProductCode: obj?.ProductCode ?? obj?.Prod_Code ?? obj?.Prod_code ?? obj?.Productcode ?? obj?.PCode ?? "",
+    ProductName: obj?.ProductName ?? obj?.PName ?? obj?.Productname ?? "",
+    _rid:obj._rid||genRid(),
+    _isNew:false,
+    _dirty:false,
+    _editMode:0,
+  };
   F2K.forEach(k => { if (r[k]!==undefined) r[k]=parseFloat(vn(r[k]).toFixed(2)); });
   F3K.forEach(k => { if (r[k]!==undefined) r[k]=parseFloat(vn(r[k]).toFixed(3)); });
   INK.forEach(k => { if (r[k]!==undefined) r[k]=parseInt(vn(r[k]))||0; });
@@ -479,6 +488,7 @@ const [isAuthorized, setIsAuthorized] = useState(false);
         univercell:!!main0.univercell, MultipleUOMBilling:!!main0.MultipleUOMBilling,
         GroupCommission:!!main0.GroupCommission,
         Ecotech:!!main0.Ecotech,
+        MirrorTable:parseInt(main0.MirrorTableOnline)||0,
         Productcodeautogen:isAG,
         Productcodedigit:com0.PCode_Digits||0,
         Productcodeprefix:com0.PCode_Prefix||"",
@@ -969,26 +979,19 @@ setRows(fmt);
 // remove the setSelRid for single row here too
   }, [sess.Comid, toast]);
 
-  const runCachedFilterSearch = useCallback((colKey) => {
+  const runCachedFilterSearch = useCallback(async (colKey) => {
     const raw = String(colFilters[colKey] || "").trim();
     if (!raw) {
       setFilterSourceRows(null);
       setTotCnt(serverTotCntRef.current || rowsRef.current.length);
       setPage(1);
+      await loadItems("", "", { pageNo: 1 });
       return;
     }
-
-    const primary = CC1.getCachedProductList(sess.Comid);
-    const cached = primary.length > 0 ? primary : CC1.getCachedProductList(sess.MComid);
-    const needle = raw.toLowerCase();
-    const matched = cached.filter(item =>
-      String(getProductFilterValue(item, colKey) || "").toLowerCase().includes(needle)
-    );
-
-    setFilterSourceRows(matched.map(item => fmtRow(item, sess)));
-    setTotCnt(matched.length);
+    setFilterSourceRows(null);
     setPage(1);
-  }, [colFilters, sess]);
+    await loadItems(raw, colKey, { pageNo: 1 });
+  }, [colFilters, loadItems]);
 
   const comboCfg = {
     Brand:{list:brandL,title:"Brand",idKey:"Id",nameKey:"BrandName",fId:"BrandId",fName:"Brand"},
@@ -1159,7 +1162,16 @@ const validateRow = useCallback(async row => {
           productCode: responseRow?.ProductCode || responseRow?.Prod_Code || primarySavedRow?.ProductCode || "",
           productName: responseRow?.ProductName || responseRow?.PName || primarySavedRow?.ProductName || "",
         } : null;
-        await CC.preloadProductListsForSession({ Comid: sess.Comid, MComid: sess.MComid }, { force: true });
+        try {
+          if (typeof CC1.preloadProductListsForSession === "function") {
+            await CC1.preloadProductListsForSession(
+              { Comid: sess.Comid, MComid: sess.MComid },
+              { force: true }
+            );
+          }
+        } catch (preloadErr) {
+          console.warn("ItemMaster product list preload skipped:", preloadErr);
+        }
         dirtyIds.current.clear();
         toast("✅ " + (res.message || "Saved successfully"));
         try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
@@ -1584,7 +1596,10 @@ const handleEntryKeyDown = useCallback((e, colKey) => {
 
   const sourceRows = Array.isArray(filterSourceRows) ? filterSourceRows : rows;
   const filteredRows = sourceRows.filter(r => {
-    for(const[k,v]of Object.entries(colFilters)){if(!v?.trim())continue;if(!String(r[k]??"").toLowerCase().includes(v.trim().toLowerCase()))return false;}
+    for(const[k,v]of Object.entries(colFilters)){
+      if(!v?.trim()) continue;
+      if(!String(getProductFilterValue(r, k) ?? "").toLowerCase().includes(v.trim().toLowerCase())) return false;
+    }
     return true;
   });
   useEffect(() => {

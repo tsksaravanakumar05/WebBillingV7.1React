@@ -1679,6 +1679,7 @@ export default function SaleBill() {
         SaleSubMaster: !!main0.SaleSubMaster,
         Herbalife:    !!main0.Herbalife,
         CMBTPatty:    !!main0.CMBTPatty,
+        MirrorTable:parseInt(main0.MirrorTableOnline)||0,
         BatchWiseStock: !!main0.BatchWiseStock,
         TextilesSerialNowiseBilling: !!main0.TextilesSerialNowiseBilling,
         DayClose:     !!main0.DayClose,
@@ -3078,11 +3079,12 @@ const getRowEnabledCols = useCallback((rid) => {
   loadSaleProductsRef.current = loadSaleProducts;
 
   const loadProductsForPopup = useCallback(async (rid) => {
-    if (prodList.length > 0) { setProdPopup({ rid, pos: { top: 160, left: 80 } }); return; }
-    await loadSaleProducts();
+    const fullList = await loadSaleProducts();
+    if (Array.isArray(fullList) && fullList.length > 0) {
+      setProdList(fullList);
+    }
     setProdPopup({ rid, pos: { top: 160, left: 80 } });
-  // eslint-disable-next-line
-  }, [prodList, loadSaleProducts]);
+  }, [loadSaleProducts]);
 
   // ── Cell keydown ───────────────────────────────────────────────────────────
   const handleCellKeyDown = useCallback((e, rid, colKey) => {
@@ -4067,7 +4069,7 @@ const payload = [{
     "SmallPrint":                sess.PrintSmall ? "1" : "0",
     "BillFormat":                sess.BillFormatName,
     "DayClose":                  sess.DayClose ? "1" : "0",
-    "MirrorTable": "0", "LocalDB": "0", "RO": "0",
+    "MirrorTable": String(sess.MirrorTable ?? CC.getStr("MirrorTableOnline") ?? "0"), "LocalDB": "0", "RO": "0",
   };
   console.log(payload);
   console.log("stockDetails going to payload:", stockDetails);
@@ -4167,7 +4169,7 @@ const payload = [{
     const headers = {
       Comid: String(sess.Comid), Cid: String(sess.CashierId), SRId: "0",
       BillType: sess.BillNoType, SRStockDetails: JSON.stringify(srdetailsRef.current),
-      Reason: "", Estimate: "0", MirrorTable: "0", Updateid: "",
+      Reason: "", Estimate: "0", MirrorTable: String(sess.MirrorTable), Updateid: "",
       LocalDB: "0", DayClose: sess.DayClose ? "1" : "0",
       SaleDate: billDate, Id: String(editId),
     };
@@ -4299,7 +4301,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       const headers   = {
         Comid: String(sess.Comid), Cid: String(sess.CashierId), SRId: "0",
         BillType: sess.BillNoType, SRStockDetails: JSON.stringify(srDetails),
-        Reason: "", Estimate: "0", MirrorTable: "0", Updateid: "",
+        Reason: "", Estimate: "0", MirrorTable: String(sess.MirrorTable), Updateid: "",
         LocalDB: "0", DayClose: sess.DayClose ? "1" : "0",
         SaleDate: saleDate, Id: String(id),
       };

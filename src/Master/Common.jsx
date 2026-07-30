@@ -11,9 +11,10 @@ export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
 export const BASE_URL = "http://localhost:64215";
+//export const BASE_URL = "http://localhost:64215";
 //export const BASE_URL = "https://billing.kassapos.co.in";
-//export const BASE_URL = "https://hobilling.kassapos.in";
 
+//export const BASE_URL = "http://localhost:64215";
 //export const BASE_URL = "http://localhost:64215";
 //<<<<<<< HEAD
 //https://billing.kassapos.co.in
@@ -86,6 +87,7 @@ export const InsertCustomerReceipt     = "/api/CustomerReceiptApp/InsertCustomer
 export const DeleteCustomerReceipt     = "/api/CustomerReceiptApp/DeleteCustomerReceipt";
 export const SelectCustomerReceiptF5   = "/api/CustomerReceiptApp/SelectCustomerReceipt";
  export const GetSupplierAll       = "/api/SupplierApp/SelectSupplierAll";
+export const GetProductListV7      = "/api/ItemMasterApp/GetProductListV7";
 // ─── Pending Bills (Bill-wise payment distribution window) ───────────────────
 export const CustomerPendingReport     = "/api/SalesReportApp/CustomerPendingReport";
  
@@ -139,6 +141,55 @@ const mkUrl = (path) => {
   return BASE_URL + path;
 };
 export const NullToString = (v) => (v == null ? "" : String(v));
+const defaultProductListCache = {};
+
+const parseProductListResponse = (res) =>
+  Array.isArray(res?.Data1) ? res.Data1 :
+  Array.isArray(res?.data?.Data1) ? res.data.Data1 :
+  Array.isArray(res?.data) ? res.data :
+  Array.isArray(res) ? res : [];
+
+export const getCachedProductList = (comid) => {
+  if (!comid) return [];
+  const parsed = defaultProductListCache[String(comid || "").trim()];
+  return Array.isArray(parsed) ? parsed : [];
+};
+
+export const setCachedProductList = (comid, list) => {
+  if (!comid) return [];
+  const safeList = Array.isArray(list) ? list : [];
+  defaultProductListCache[String(comid || "").trim()] = safeList;
+  return safeList;
+};
+
+export const preloadProductListForComid = async (comid, opts = {}) => {
+  const { force = false, path = GetProductListV7 } = opts;
+  if (!comid) return [];
+
+  const cached = getCachedProductList(comid);
+  if (!force && cached.length > 0) return cached;
+
+  const res = await api(path, null, {}, { Comid: comid });
+  if (res?._dualLogin || res?._netErr || res?._http404 || res?.ok === false) {
+    return cached;
+  }
+
+  const parsed = parseProductListResponse(res);
+  return setCachedProductList(comid, parsed);
+};
+
+export const preloadProductListsForSession = async (sessionLike, opts = {}) => {
+  const ids = [...new Set([
+    String(sessionLike?.Comid || "").trim(),
+    String(sessionLike?.MComid || "").trim(),
+  ].filter(Boolean))];
+
+  const results = await Promise.all(ids.map((id) => preloadProductListForComid(id, opts)));
+  return ids.reduce((acc, id, idx) => {
+    acc[id] = results[idx];
+    return acc;
+  }, {});
+};
 // ─── 4. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
 /**
  * Call once per page (inside useState initialiser).

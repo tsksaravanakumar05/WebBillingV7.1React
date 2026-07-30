@@ -2148,7 +2148,7 @@ if (zeroRateRow) {
       "BillPerfix": sess.BillNoPrefix,
       "BillDigit":  String(sess.BillNoDigit),
       "DayClose":   sess.DayClose ? "1" : "0",
-      "MirrorTable": "0", "LocalDB": "0",
+      "MirrorTable": String(sess.MirrorTable ?? CC.getStr("MirrorTableOnline") ?? "0"), "LocalDB": "0",
     };
 
     const res = await CC.insertapi(SaleReturnInsertUrl, payload, headers);
