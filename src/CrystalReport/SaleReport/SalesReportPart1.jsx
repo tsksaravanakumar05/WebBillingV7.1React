@@ -890,7 +890,7 @@ export default function SaleReportPart1() {
         const res = await CC.api(
           EP.SalesAmountReport,
           null,
-          {},
+          {React: 1},
           {
             Daily: daily,
             GroupBy,

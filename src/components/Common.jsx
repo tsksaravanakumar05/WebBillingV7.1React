@@ -21,9 +21,9 @@ export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 //export const BASE_URL = "https://billing.kassapos.co.in";
-export const BASE_URL = "http://localhost:64215";
+//export const BASE_URL = "http://localhost:64215";
 //export const BASE_URL = "https://billing.kassapos.co.in";
-//export const BASE_URL = "https://hobilling.kassapos.in";
+export const BASE_URL = "https://hobilling.kassapos.in";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
@@ -449,6 +449,7 @@ export const buildSession = (pageName) => {
       PurchaseItemmasterSave:        String(main0.PurchaseItemmasterSave        ?? false),
       ItemMasterRateUpdate:        String(main0.ItemMasterRateUpdate        ?? false),
       Commoncompany:                String(main0.CommonCompany              ?? false),
+      MirrorTable:parseInt(main0.MirrorTableOnline)||0,
       CommoncompanyDiffStock:       String(main0.CommonCompanyDiffStock      ?? false),
       AllowQuickMasterCreation:     String(main0.AllowQuickMasterCreation    ?? true),
       AllowQuickProductCreation:    String(main0.AllowQuickProductCreation   ?? true),

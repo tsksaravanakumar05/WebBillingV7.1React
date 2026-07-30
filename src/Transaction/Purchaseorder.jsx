@@ -1148,6 +1148,7 @@ export default function PurchaseOrder() {
         Comid:  main0.CommonCompany ? MComid : Comid,
         MComid,
         BillPrefix:             com0.BillPrefix || "",
+        MirrorTable:            parseInt(main0.MirrorTableOnline, 10) || 0,
         PrintA4Bill:            main0.SaveDislogPurchaseOrder ? 1 : 0,
         univercell:             main0.univercell  || false,
         EcoTech:                main0.Ecotech     || false,
@@ -1167,6 +1168,7 @@ export default function PurchaseOrder() {
     } catch {
       return {
         Comid: "1", MComid: "1", BillPrefix: "",
+        MirrorTable: 0,
         PrintA4Bill: 0, univercell: false, EcoTech: false,
         SaleLandingCostCompare: false, BillFormatName: "PurchaseOrder",
         CompanyName: "", CAddress1: "", CAddress2: "", CCity: "", CPincode: "",
@@ -1749,6 +1751,7 @@ export default function PurchaseOrder() {
 
     const res = await CC.insertapi(PurchaseOrderInsertUrl, purchasemaster, {
       PrintA4Invoice: String(settings.PrintA4Bill),
+      MirrorTable: String(settings.MirrorTable ?? 0),
       Ecotech:        settings.EcoTech ? 1 : 0,
     });
     setLoading(false);
@@ -1835,6 +1838,7 @@ export default function PurchaseOrder() {
 
     const res = await CC.api(PurchaseOrderEditUrl, null, {
       EcoStock: settings.EcoTech ? "2" : "0",
+      MirrorTable: String(settings.MirrorTable ?? 0),
     }, { Id: id, PNo: pno, Comid: settings.Comid, univercell: false });
 
     setLoading(false);

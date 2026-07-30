@@ -931,6 +931,7 @@ export default function SaleOrder() {
         BillNoType:     com0.BillType    || "Daily Reset On Company",
         BillNoPrefix:   com0.BillPrefix  || "",
         BillNoDigit:    com0.NumberDigit || 0,
+        MirrorTable:    parseInt(main0.MirrorTableOnline, 10) || 0,
         // Print
         PrintA4Bill:    main0.A4BillPrint ? 1 : 0,
         BillFormatName: com0.SaleOrderBillFormat || "Default",
@@ -944,6 +945,7 @@ export default function SaleOrder() {
         GSTNO:       com0.GSTNo      || "",
         Email:       com0.Email      || "",
         StateCode:   com0.State      || "",
+        MirrorTable: 0,
         SaleCon1:    com0.POSLine1   || "",
         SaleCon2:    com0.POSLine2   || "",
         SaleCon3:    com0.POSLine3   || "",
@@ -1706,6 +1708,7 @@ export default function SaleOrder() {
 
     const res = await CC.insertapi(SaleOrderInsertUrl, salemaster, {
       PrintA4Invoice: String(settings.PrintA4Bill),
+      MirrorTable: String(settings.MirrorTable ?? 0),
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
@@ -1800,7 +1803,9 @@ export default function SaleOrder() {
     setF5Open(false);
     if (!perm.Edit) { toast("❌ Page Edit Permission Denied !!!", true); return; }
     setLoading(true); setLdMsg("Loading order...");
-    const res = await CC.api(SaleOrderEditUrl, null, {}, {
+    const res = await CC.api(SaleOrderEditUrl, null, {
+      MirrorTable: String(settings.MirrorTable ?? 0),
+    }, {
       Id: id, SaleReturnNo: 0, Comid: settings.Comid, Tamil: settings.Tamil,
     });
     setLoading(false);
