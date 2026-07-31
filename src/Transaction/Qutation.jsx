@@ -1434,7 +1434,7 @@ export default function Quotation() {
       Id:          String(editId),
       Date:        quotationDate,
       DayClose:    sess.DayClose ? "1" : "0",
-      MirrorTable: "0",
+      MirrorTable: String(sess.MirrorTable ?? 0),
       Updateid:    "0",
       LocalDB:     "2",
     };
@@ -1530,7 +1530,7 @@ const openF5 = useCallback(async (from = quotationDate, to = quotationDate) => {
         Id:          String(id),
         Date:        quotationDate,
         DayClose:    sess.DayClose ? "1" : "0",
-        MirrorTable: "0",
+        MirrorTable: String(sess.MirrorTable ?? 0),
         Updateid:    "0",
         LocalDB:     "2",
       };
