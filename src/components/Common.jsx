@@ -453,7 +453,8 @@ export const buildSession = (pageName) => {
 
       // ── Purchase-specific settings from Mainsetting ──
       BatchWiseStock:            String(main0.BatchWiseStock            ?? 0),
-      
+      PurchaseItemmasterSave:        String(main0.PurchaseItemmasterSave        ?? false),
+      PurchaseEditItemmasterSave:    String(main0.PurchaseEditItemmasterSave    ?? false),
       TextilesSerialNowiseBilling: String(main0.TextilesSerialNowiseBilling ?? false),
       PurchaseItemmasterSave:        String(main0.PurchaseItemmasterSave        ?? false),
       ItemMasterRateUpdate:        String(main0.ItemMasterRateUpdate        ?? false),

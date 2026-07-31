@@ -1864,7 +1864,7 @@ const doSave = useCallback(async (overridePayRows = null) => {
       Comid: String(sess.Comid), Cid: String(sess.CashierId), SRId: "0",
       BillType: sess.BillNoType, SRStockDetails: JSON.stringify(srdetailsRef.current),
       Reason: "", Estimate: "1",
-      MirrorTable: "0", Updateid: "", LocalDB: "0",
+      MirrorTable: String(sess.MirrorTable ?? 0), Updateid: "", LocalDB: "0",
       DayClose: sess.DayClose ? "1" : "0", SaleDate: billDate, Id: String(editId),
     };
     const res = await CC.api(SaleDeleteUrl, [], headers, null);

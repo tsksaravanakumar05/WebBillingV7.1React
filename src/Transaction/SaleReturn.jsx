@@ -2221,7 +2221,7 @@ const doDeleteReturn = useCallback(async () => {
       Id:          String(editId),
       Date:        returnDate,
       DayClose:    sess.DayClose ? "1" : "0",
-      MirrorTable: "0",
+      MirrorTable: String(sess.MirrorTable ?? 0),
       Updateid:    "0",
       LocalDB:     "2",
     };
@@ -2364,7 +2364,7 @@ console.log("Deleting return with body:", body);
         Id:          String(id),
         Date:        returnDate,
         DayClose:    sess.DayClose ? "1" : "0",
-        MirrorTable: "0",
+        MirrorTable: String(sess.MirrorTable ?? 0),
         Updateid:    "0",
         LocalDB:     "0",
       };

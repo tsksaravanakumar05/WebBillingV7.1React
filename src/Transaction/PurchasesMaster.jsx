@@ -2966,7 +2966,7 @@ if (savedArrivalType) {
       })(),
       ItemMasterRateEditUpdate: String(sess.ItemMasterRateUpdate ?? false),
       CommonCompany: String(sess.Commoncompany ?? false),
-      
+       ItemMasterRateEditUpdate:  String(sess.PurchaseItemmasterSave ?? false), ItemMasterRateUpdate: String(sess.PurchaseItemmasterSave??false), 
       CommonCompanyDiffStock: String(sess.CommoncompanyDiffStock ?? false),
       SupplierMulitipleAllow: String(sess.SupplierMulitipleAllow ?? false),
       MulipleMRP: String(sess.MulipleMRP ?? false),

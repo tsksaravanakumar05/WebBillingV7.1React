@@ -109,6 +109,23 @@ const vn  = v => parseFloat(v) || 0;
 const ro  = v => Math.round(v * 100) / 100;
 const f2  = v => parseFloat(vn(v).toFixed(2));
 const ns  = v => (v == null ? "" : String(v));
+const normalizeEditableDecimal = (value) => {
+  const raw = String(value ?? "");
+  if (raw === "") return "";
+  let out = "";
+  let dotSeen = false;
+  for (const ch of raw) {
+    if (ch >= "0" && ch <= "9") {
+      out += ch;
+      continue;
+    }
+    if (ch === "." && !dotSeen) {
+      out += ch;
+      dotSeen = true;
+    }
+  }
+  return out;
+};
 const F2K = ["MRP","PurchaseRate","GST","GSTAmt","TransPer","TransAmt","CESS","CESSAmt","SPLCESS","LandingCost","ProfitPer","ProfitAmt","SalesRate","WholeSaleRate","SaleDiscountPer","SaleDiscountAmt","ReorderLevelMin","ReorderLevelMax","CRMPoints","DMPer","DMAmt","CardRate","LessAmt","NomsPCRate"];
 const F3K = ["NetWeight"];
 const INK = ["ExpriyDays","ExpiryBeforeDays","NomsQty"];
@@ -285,9 +302,11 @@ const applyChange = (prev, colKey, value) => {
 
   // ── SalesRate → back-calculate ProfitPer (always allowed) ──
   if (colKey === "SalesRate") {
+    fv = normalizeEditableDecimal(fv);
+    u = { ...u, SalesRate: fv, _dirty: true };
     const LC = vn(u.LandingCost), SR = vn(fv), d = SR - LC;
     u.ProfitPer = LC > 0 && d > 0 ? f2(ro(d / LC * 100)) : 0;
-    u = { ...u, ...calcRow(u, sess, "SalesRate"), SalesRate: fv === "" ? "" : f2(vn(fv)) };
+    u = { ...u, ...calcRow(u, sess, "SalesRate"), SalesRate: fv };
   }
 
   // ── ProfitAmt → update ProfitPer, but protect SalesRate if setting OFF ──
@@ -1051,7 +1070,7 @@ setRows(fmt);
     let fv = value;
     let u = { ...prev, [colKey]:fv, _dirty:true };
     if(CALC_KEYS.has(colKey)) u={...u,...calcRow(u,sess,colKey)};
-    if(colKey==="SalesRate"){const LC=vn(u.LandingCost),SR=vn(fv),d=SR-LC;u.ProfitPer=LC>0&&d>0?f2(ro(d/LC*100)):0;u={...u,...calcRow(u,sess,"SalesRate"),SalesRate:fv===""?"":f2(vn(fv))};}
+    if(colKey==="SalesRate"){fv=normalizeEditableDecimal(fv);u={...u,SalesRate:fv,_dirty:true};const LC=vn(u.LandingCost),SR=vn(fv),d=SR-LC;u.ProfitPer=LC>0&&d>0?f2(ro(d/LC*100)):0;u={...u,...calcRow(u,sess,"SalesRate"),SalesRate:fv};}
     if(colKey==="ProfitAmt"){const LC=vn(u.LandingCost),PA=vn(fv);u.ProfitPer=LC>0?f2(PA/LC*100):0;u={...u,...calcRow(u,sess,"ProfitAmt")};}
     if(colKey==="DMAmt"){const M=vn(u.MRP),DA=vn(fv);u.DMPer=M>0?f2(ro(DA/M*100)):0;}
     if(colKey==="DMPer"){const M=vn(u.MRP),DP=vn(fv);u.DMAmt=f2(ro(M*DP/100));}
