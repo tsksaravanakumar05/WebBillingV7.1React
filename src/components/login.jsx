@@ -108,15 +108,15 @@ localStorage.removeItem("lastBillAmt");
         // ItemMaster reads with getStr("IdComList") = plain localStorage.getItem
         // DeleteItemMaster backend reads: Request.Headers.GetValues("IdComList")
         const rawIdComList = data.objComIdList;
-        if (Array.isArray(rawIdComList)) {
-          localStorage.setItem("IdComList",
-            rawIdComList.map(o => o.Id ?? o.Comid ?? String(o)).join(",")
-          );
-        } else if (typeof rawIdComList === "string") {
-          localStorage.setItem("IdComList", rawIdComList);
-        } else {
-          localStorage.setItem("IdComList", String(user.Comid ?? "1"));
-        }
+        // if (Array.isArray(rawIdComList)) {
+        //   localStorage.setItem("IdComList",
+        //     rawIdComList.map(o => o.Id ?? o.Comid ?? String(o)).join(",")
+        //   );
+        // } else if (typeof rawIdComList === "string") {
+          localStorage.setItem("IdComList", typeof rawIdComList === "string" ? rawIdComList : JSON.stringify(rawIdComList ?? []));
+        // } else {
+        //   localStorage.setItem("IdComList", String(user.Comid ?? "1"));
+        // }
 
         // ── Full settings — only on new/changed user ───────────────────────
         // if (olduserid !== String(user.UserId)) {

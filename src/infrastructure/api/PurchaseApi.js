@@ -5,6 +5,7 @@ const DEFAULT_TOKEN = 'eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctb
 
 const getComid  = () => localStorage.getItem('Comid')  || DEFAULT_COMID;
 const getMComid = () => localStorage.getItem('MComid') || localStorage.getItem('Comid') || DEFAULT_COMID;
+const getIdComList = () => localStorage.getItem('IdComList') || getComid();
 const getFYear  = () => {
   try { return JSON.parse(localStorage.getItem('Companysetting'))?.[0]?.FYear || '2425'; }
   catch { return '2425'; }
@@ -115,7 +116,7 @@ export const PurchaseApi = {
       'CommonCompanyDiffStock':   String(ms.CommonCompanyDiffStock || false),
       'SupplierMulitipleAllow':   String(ms.SupplierMulitipleAllow || false),
       'MulipleMRP':               String(JSON.parse(localStorage.getItem('Companysetting') || '[{}]')[0]?.MultiMRP || false),
-      'IdComList':                localStorage.getItem('IdComList') || '',
+      'IdComList':                getIdComList(),
       'MirrorTable':              localStorage.getItem('MirrorTableOnline') || 'false',
       'PrintA4Invoice':           '0',
     });

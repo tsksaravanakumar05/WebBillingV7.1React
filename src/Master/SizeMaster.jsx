@@ -162,7 +162,7 @@ const redirectIfDualLogin = useCallback((res) => {
       const main0     = (CC.getLocal("Mainsetting") || [{}])[0] || {};
       const Comid     = CC.getStr("Comid") || "1";
       const MComid    = CC.getStr("MComid") || Comid;
-      const IdComList = "";
+      const IdComList = CC.getStr("IdComList") || Comid;
       const isCC      = !!main0.CommonCompany;
   
       return {

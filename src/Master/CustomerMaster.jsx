@@ -303,7 +303,7 @@ export default function CustomerMaster() {
       const comSet    = (CC.getLocal("Companysetting") || [{}])[0] || {};
       const Comid     = CC.getStr("Comid")    || "1";
       const MComid    = CC.getStr("MComid")   || Comid;
-      const IdComList = "";
+      const IdComList = CC.getStr("IdComList") || Comid;
       const MirrorTable = CC.getStr("MirrorTableOnline") || "0";
       const SupplierMulitipleAllow = main0.CustomerMulitipleAllow  ?? false;
       const SupplierCommon         = main0.CustomerCommonCompany   ?? false;
