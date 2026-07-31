@@ -653,7 +653,7 @@ export default function SupplierStatement() {
               <div className="so-actions">
                 <button
                   type="button"
-                  className="so-btn so-btn-primary"
+                  className="mp-btn nw"
                   disabled={loading || pageAccess.pageview === 0}
                   onClick={handleView}
                 >
@@ -662,7 +662,7 @@ export default function SupplierStatement() {
                 </button>
                 <button
                   type="button"
-                  className="so-btn so-btn-secondary"
+                  className="mp-btn dl"
                   onClick={handleRefresh}
                   disabled={loading}
                 >

@@ -620,7 +620,7 @@ function F5ViewWindow({ comid, onClose, onSelectRow, onEditRow, onDeleteRow, loa
   const rowsForMaster = (id) => details.filter(d => d.PurchaseRefId === id || d.AdjustRefId === id);
 
   return (
-    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+<div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="mp-modal-box sb-f5-modal f5-modal-box">
         {/* header */}
         <div className="mp-modal-hdr">
@@ -630,11 +630,43 @@ function F5ViewWindow({ comid, onClose, onSelectRow, onEditRow, onDeleteRow, loa
         {/* filter bar */}
         <div className="f5-filter-bar f5-filter-bar-quote">
           <label className="f5-filter-label">From</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote"
-            value={fromDate} onChange={e => setFromDate(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={fromDate} onChange={e => setFromDate(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("fromdate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="fromdate"
+              value={fromDate}
+              onChange={setFromDate}
+              disabled={false}
+            />
+          </div>
+
           <label className="f5-filter-label">To</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote"
-            value={toDate} onChange={e => setToDate(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={toDate} onChange={e => setToDate(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("todate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="todate"
+              value={toDate}
+              onChange={setToDate}
+              disabled={false}
+            />
+          </div>
+
           <label className="f5-filter-label">Type</label>
           <select value={type} onChange={e => setType(e.target.value)}
             className="f5-filter-select-quote">
@@ -1741,11 +1773,25 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
           {/* Date picker */}
           <div style={{ display:"flex",alignItems:"center",gap:6,marginLeft:12 }}>
             <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>Date</label>
-            <input ref={dateRef} type="date" className="mp-cell-input"
-              style={{ height:28,width:150,border:"1px solid #93c5fd",borderRadius:4 }}
-              value={adjustDate}
-              onChange={e => setAdjustDate(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") { if (!adjustDate) toast("❌ Select Date", true); else typeRef.current?.focus(); } }} />
+            <div
+    onKeyDown={(e) => {
+      if (e.key === "Enter") {
+        if (!adjustDate) {
+          toast("❌ Select Date", true);
+        } else {
+          typeRef.current?.focus();
+        }
+      }
+    }}
+  >
+    <DateFieldDDMMYYYY
+      id="adjustDate"
+      value={adjustDate}
+      onChange={setAdjustDate}
+      disabled={false}
+      ref={dateRef}
+    />
+  </div>
           </div>
 
           {/* Type dropdown */}

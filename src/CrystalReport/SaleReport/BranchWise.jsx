@@ -422,11 +422,11 @@ export default function BranchWise() {
               </div>
 
               <div className="so-actions">
-                <button type="button" className="so-btn so-btn-primary" disabled={loading} onClick={handleView}>
+                <button type="button" className="mp-btn nw" disabled={loading} onClick={handleView}>
                   <Save size={16} className="so-icon-save" />
                   {loading ? "Loading…" : "View"}
                 </button>
-                <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                <button type="button" className="mp-btn dl" onClick={handleRefresh} disabled={loading}>
                   <XCircle size={16} className="so-icon-cancel" />
                   Refresh
                 </button>

@@ -603,7 +603,7 @@ export default function PurchaseConsolidated() {
             <div className="pc-actions">
               <button
                 type="button"
-                className="pc-btn pc-btn-primary"
+                className="mp-btn nw"
                 disabled={loading || pageAccess.pageview === 0}
                 onClick={handleView}
               >
@@ -611,7 +611,7 @@ export default function PurchaseConsolidated() {
               </button>
               <button
                 type="button"
-                className="pc-btn pc-btn-secondary"
+                className="mp-btn dl"
                 onClick={handleRefresh}
                 disabled={loading}
               >

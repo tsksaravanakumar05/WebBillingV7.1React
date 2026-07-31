@@ -175,7 +175,7 @@ export default function DateFieldDDMMYYYY({ id, value, onChange, disabled,}) {
             inputMode="numeric"
             autoComplete="off"
             placeholder="YYYY"
-            maxLength={2}
+            maxLength={4}
             className="so-date-seg so-date-seg-yyyy"
             value={year}
             disabled={disabled}

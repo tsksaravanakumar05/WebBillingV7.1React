@@ -669,7 +669,7 @@ export default function CustomerPendingBillsReport() {
               <div className="cp-actions">
                 <button
                   type="button"
-                  className="cp-btn cp-btn-primary"
+                  className="mp-btn nw"
                   disabled={loading || pageAccess.pageview === 0}
                   onClick={handleView}
                 >
@@ -678,7 +678,7 @@ export default function CustomerPendingBillsReport() {
                 </button>
                 <button
                   type="button"
-                  className="cp-btn cp-btn-secondary"
+                  className="mp-btn dl"
                   onClick={handleRefresh}
                   disabled={loading}
                 >

@@ -527,7 +527,7 @@ export default function SupplierAgingReport() {
               <div className="sa-actions">
                 <button
                   type="button"
-                  className="sa-btn sa-btn-primary"
+                  className="mp-btn nw"
                   disabled={loading || pageAccess.pageview === 0}
                   onClick={handleView}
                 >
@@ -536,7 +536,7 @@ export default function SupplierAgingReport() {
                 </button>
                 <button
                   type="button"
-                  className="sa-btn sa-btn-secondary"
+                  className="mp-btn dl"
                   onClick={handleRefresh}
                   disabled={loading}
                 >

@@ -891,7 +891,7 @@ export default function StockInOutTransferReport() {
             <div className="sio-actions">
               <button
                 type="button"
-                className="sio-btn sio-btn-primary"
+                className="mp-btn nw"
                 disabled={loading || pageAccess.pageview === 0}
                 onClick={handleView}
               >
@@ -900,7 +900,7 @@ export default function StockInOutTransferReport() {
               </button>
               <button
                 type="button"
-                className="sio-btn sio-btn-secondary"
+                className="mp-btn dl"
                 onClick={handleRefresh}
                 disabled={loading}
               >

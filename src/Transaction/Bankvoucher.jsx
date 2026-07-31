@@ -345,11 +345,45 @@ function F5ViewWindow({ comid, onClose, onPrintView, loading, setLoading }) {
         {/* filter bar */}
         <div className="f5-filter-bar f5-filter-bar-quote">
           <label className="f5-filter-label">From</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote"
-            value={fromDate} onChange={e => setFromDate(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={fromDate} onChange={e => setFromDate(e.target.value)} /> */}
+
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("fromdate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="fromdate"
+              value={fromDate}
+              onChange={setFromDate}
+              disabled={false}
+            />
+          </div>
+
           <label className="f5-filter-label">To</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote"
-            value={toDate} onChange={e => setToDate(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={toDate} onChange={e => setToDate(e.target.value)} /> */}
+
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("todate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="todate"
+              value={toDate}
+              onChange={setToDate}
+              disabled={false}
+            />
+          </div>
+
           <button id="btnview" className="mp-btn sv f5-search-btn" onClick={doView} disabled={loading}>🔍 Search</button>
           <span className="f5-total">
             Total: <span className="f5-total-amt">{total}</span>
@@ -396,6 +430,67 @@ function F5ViewWindow({ comid, onClose, onPrintView, loading, setLoading }) {
         </div>
       </div>
     </div>
+    // <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    //   <div className="mp-modal-box sb-f5-modal f5-modal-box">
+    //     {/* header */}
+    //     <div className="mp-modal-hdr">
+    //       <span>📋 Bank Voucher — F5 View</span>
+    //       <button onClick={onClose}>✕</button>
+    //     </div>
+    //     {/* filter bar */}
+    //     <div className="f5-filter-bar f5-filter-bar-quote">
+    //       <label className="f5-filter-label">From</label>
+    //       <input type="date" className="f5-filter-date f5-filter-date-quote"
+    //         value={fromDate} onChange={e => setFromDate(e.target.value)} />
+    //       <label className="f5-filter-label">To</label>
+    //       <input type="date" className="f5-filter-date f5-filter-date-quote"
+    //         value={toDate} onChange={e => setToDate(e.target.value)} />
+    //       <button id="btnview" className="mp-btn sv f5-search-btn" onClick={doView} disabled={loading}>🔍 Search</button>
+    //       <span className="f5-total">
+    //         Total: <span className="f5-total-amt">{total}</span>
+    //       </span>
+    //     </div>
+    //     {/* grid */}
+    //     <div className="mp-modal-body f5-modal-body">
+    //       <table className="f5-table">
+    //         <thead>
+    //           <tr className="f5-header-row">
+    //             <th className="f5-th f5-th-sno">S.No</th>
+    //             <th className="f5-th">Account Name</th>
+    //             <th className="f5-th f5-th-amount">Amount</th>
+    //             <th className="f5-th">Narration</th>
+    //             <th className="f5-th">Date</th>
+    //             <th className="f5-th">Type</th>
+    //           </tr>
+    //         </thead>
+    //         <tbody>
+    //           {rows.length === 0 && !loading && (
+    //             <tr><td colSpan={6} className="f5-empty-row">No records found.</td></tr>
+    //           )}
+    //           {rows.map((r, i) => (
+    //             <tr
+    //               key={i}
+    //               className={selIdx === i ? "f5-row-selected" : (i % 2 === 0 ? "f5-row-even" : "f5-row-odd-quote")}
+    //               onClick={() => setSelIdx(i)}
+    //             >
+    //               <td className="f5-td f5-td-sno">{i + 1}</td>
+    //               <td className="f5-td">{r.AccountName}</td>
+    //               <td className="f5-td-amount f5-td-strong">{fmt2(r.Amount)}</td>
+    //               <td className="f5-td">{r.Narration}</td>
+    //               <td className="f5-td">{r.Refdate ? String(r.Refdate).slice(0, 10) : ""}</td>
+    //               <td className="f5-td">{r.Type}</td>
+    //             </tr>
+    //           ))}
+    //         </tbody>
+    //       </table>
+    //     </div>
+    //     {/* footer */}
+    //     <div className="mp-modal-ftr f5-footer-split">
+    //       <span className="f5-hint">Ctrl+V on selected row → Print/View</span>
+    //       <button className="mp-btn" onClick={onClose}>Close</button>
+    //     </div>
+    //   </div>
+    // </div>
   );
 }
 
@@ -1242,11 +1337,22 @@ export default function BankVoucher() {
           {/* Date picker */}
           <div style={{ display:"flex",alignItems:"center",gap:6 }}>
             <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>Date</label>
-            <input ref={dateRef} type="date" className="bm-cell-input"
-              style={{ height:28,width:150 }}
-              value={selDate}
-              onChange={e => setSelDate(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") fillGridData(1); }} />
+            <div
+    onKeyDown={(e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        fillGridData(1);
+      }
+    }}
+  >
+    <DateFieldDDMMYYYY
+      id="selDate"
+      ref={dateRef} // Remove if DateFieldDDMMYYYY doesn't support forwardRef
+      value={selDate}
+      onChange={setSelDate}
+      disabled={false}
+    />
+  </div>
           </div>
 
           {/* Total */}

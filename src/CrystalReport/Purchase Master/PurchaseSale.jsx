@@ -530,11 +530,11 @@ export default function PurchaseSale() {
             </div>
 
             <div className="so-actions">
-              <button type="button" className="so-btn so-btn-primary" onClick={handleView} disabled={loading}>
+              <button type="button" className="mp-btn nw" onClick={handleView} disabled={loading}>
                 <Save size={16} />
                 {loading ? "Processing..." : "View"}
               </button>
-              <button type="button" className="so-btn so-btn-muted" onClick={handleRefresh} disabled={loading}>
+              <button type="button" className="mp-btn dl" onClick={handleRefresh} disabled={loading}>
                 <XCircle size={16} />
                 Refresh
               </button>

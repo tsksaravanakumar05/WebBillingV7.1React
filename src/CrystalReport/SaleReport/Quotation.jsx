@@ -605,7 +605,7 @@ else if (reportType === REPORT_TYPES.ITEMWISE) {
               <div className="qt-actions">
                 <button
                   type="button"
-                  className="qt-btn qt-btn-primary"
+                  className="mp-btn nw"
                   disabled={loading || pageAccess.pageview === 0}
                   onClick={handleView}
                 >
@@ -614,7 +614,7 @@ else if (reportType === REPORT_TYPES.ITEMWISE) {
                 </button>
                 <button
                   type="button"
-                  className="qt-btn qt-btn-secondary"
+                  className="mp-btn dl"
                   onClick={handleRefresh}
                   disabled={loading}
                 >

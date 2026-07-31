@@ -590,7 +590,7 @@ export default function DCBBranchStockReport() {
               <div className="so-actions">
                 <button
                   type="button"
-                  className="so-btn so-btn-primary"
+                  className="mp-btn nw"
                   disabled={loading}
                   onClick={handleView}
                 >
@@ -599,7 +599,7 @@ export default function DCBBranchStockReport() {
                 </button>
                 <button
                   type="button"
-                  className="so-btn so-btn-secondary"
+                  className="mp-btn dl"
                   onClick={handleRefresh}
                   disabled={loading}
                 >

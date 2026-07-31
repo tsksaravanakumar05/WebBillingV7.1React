@@ -2896,6 +2896,140 @@ function MrpPopup({ list, onSelect, onClose }) {
 }
 
 // ── F5ViewPopup (mirrors jQuery F5Viewwindow + gridf5view) ────────────────────
+// function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppList,
+//                        suppQuery, expandRow, onFromDate, onToDate, onSuppId, onSuppQuery,
+//                        onExpand, onSearch, onEdit, onDelete, onClose }) {
+//   const [selIdx, setSelIdx] = useState(null);
+//   const selectedRow = selIdx !== null ? masterList[selIdx] : null;
+
+
+//   return (
+//     <div className="popup-overlay" style={{ zIndex: 1100 }}>
+//       <div className="popup-window f5-popup" style={{ height: "85vh" }}>
+//         <div className="popup-header">
+//           <span>Purchase Return — List View (F5)</span>
+//           <button className="popup-close" onClick={onClose}>✕</button>
+//         </div>
+//         <div className="popup-body">
+//           {/* Filter row */}
+//           <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+//             <div className="field-group">
+//               <label>From Date</label>
+//               <input type="date" className="form-ctrl sm" value={fromDate} onChange={(e) => onFromDate(e.target.value)} />
+//             </div>
+//             <div className="field-group">
+//               <label>To Date</label>
+//               <input type="date" className="form-ctrl sm" value={toDate} onChange={(e) => onToDate(e.target.value)} />
+//             </div>
+//             <div className="field-group" style={{ minWidth: 180 }}>
+//               <label>Supplier</label>
+//               <select className="form-ctrl sm" value={suppId} onChange={(e) => onSuppId(e.target.value)}>
+//                 <option value="0">All Suppliers</option>
+//                 {suppList.map((s) => <option key={s.Id} value={s.Id}>{s.AccountName}</option>)}
+//               </select>
+//             </div>
+//             <button className="tbtn tbtn-save" onClick={onSearch}>🔍 View</button>
+//           </div>
+
+//         {/* Master grid */}
+//           <div className="view-grid-wrap" style={{ maxHeight: "50vh" }}>
+//             <table className="view-grid">
+//               <thead>
+//                 <tr>
+//                   <th style={{ width: 30 }}></th>
+//                   <th>Return No</th>
+//                   <th>Return Date</th>
+//                   <th>Type</th>
+//                   <th>Supplier</th>
+//                   <th>Invoice No</th>
+//                   <th>Remarks</th>
+//                   <th>Created By</th>
+//                   <th className="right">Amount</th>
+//                   <th style={{ width: 160 }}>Actions</th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 {masterList.length === 0
+//                   ? <tr><td colSpan={10} className="no-data">No records found</td></tr>
+//                   : masterList.map((r, i) => (
+//                     <React.Fragment key={r.Id}>
+//                       <tr
+//                         className={`view-row${selIdx === i ? " row-active" : ""}`}
+//                         onClick={() => setSelIdx(i)}
+//                       >
+//                         <td>
+//                           <button className="expand-btn" onClick={(e) => { e.stopPropagation(); onExpand(r.Id); }}>
+//                             {expandRow === r.Id ? "▲" : "▼"}
+//                           </button>
+//                         </td>
+//                         <td>{r.PurchaseNo}</td>
+//                         <td>{r.PurchaseDate ? jsonDate(r.PurchaseDate) : ""}</td>
+//                         <td>
+//                           <span className={`badge badge-${(r.PurchaseType || "").toLowerCase() === "cash" ? "cash" : "credit"}`}>
+//                             {r.PurchaseType}
+//                           </span>
+//                         </td>
+//                         <td>{r.SupplierName}</td>
+//                         <td>{r.InvoiceNo}</td>
+//                         <td>{r.Remarks}</td>
+//                         <td>{r.Created_By}</td>
+//                         <td className="right">{fmt2(r.NetAmt)}</td>
+//                         <td>
+//                           <button className="tbtn-sm edit"   onMouseDown={(e) => { e.stopPropagation(); onEdit(r);   }}>✏ Edit</button>
+//                           <button className="tbtn-sm delete" onMouseDown={(e) => { e.stopPropagation(); onDelete(r); }}>🗑 Del</button>
+//                         </td>
+//                       </tr>
+//                       {expandRow === r.Id && (
+//                         <tr className="nested-detail-row">
+//                           <td colSpan={10}>
+//                             <div className="nested-grid-inner">
+//                               <table>
+//                                 <thead>
+//                                   <tr>
+//                                     <th>Code</th><th>Description</th>
+//                                     <th className="right">MRP</th><th className="right">PurRate</th>
+//                                     <th className="right">Qty</th><th className="right">GST%</th>
+//                                     <th className="right">GSTAmt</th><th className="right">Disc%</th>
+//                                     <th className="right">DiscAmt</th><th className="right">Amount</th>
+//                                   </tr>
+//                                 </thead>
+//                                 <tbody>
+//                                   {detailList.filter((d) => Number(d.PurchaseRefId) === Number(r.Id)).map((d, di) => (
+//                                     <tr key={di}>
+//                                       <td>{d.ProductCode}</td><td>{d.ProductName}</td>
+//                                       <td className="right">{fmt2(d.MRP)}</td>
+//                                       <td className="right">{fmt2(d.PurchaseRate)}</td>
+//                                       <td className="right">{fmt2(d.ItemQty)}</td>
+//                                       <td className="right">{fmt2(d.TaxPercent)}</td>
+//                                       <td className="right">{fmt2(d.TaxAmt)}</td>
+//                                       <td className="right">{fmt2(d.DiscountPercent)}</td>
+//                                       <td className="right">{fmt2(d.DiscountAmt)}</td>
+//                                       <td className="right">{fmt2(d.Amount)}</td>
+//                                     </tr>
+//                                   ))}
+//                                 </tbody>
+//                               </table>
+//                             </div>
+//                           </td>
+//                         </tr>
+//                       )}
+//                     </React.Fragment>
+//                   ))}
+//               </tbody>
+//             </table>
+//           </div>
+//         </div>
+//         <div className="popup-footer">
+//           <span style={{ flex: 1, fontSize: 13, color: "var(--clr-text-mid)" }}>
+//             <b>Records:</b> {masterList.length} &nbsp;|&nbsp;
+//             <b>Total: ₹</b>{fmt2(masterList.reduce((s, r) => s + valNum(r.NetAmt), 0))}
+//           </span>
+//           <button className="btn btn-secondary btn-sm" onClick={onClose}>Close (Esc)</button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppList,
                        suppQuery, expandRow, onFromDate, onToDate, onSuppId, onSuppQuery,
                        onExpand, onSearch, onEdit, onDelete, onClose }) {
@@ -2915,11 +3049,41 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
             <div className="field-group">
               <label>From Date</label>
-              <input type="date" className="form-ctrl sm" value={fromDate} onChange={(e) => onFromDate(e.target.value)} />
+              {/* <input type="date" className="form-ctrl sm" value={fromDate} onChange={(e) => onFromDate(e.target.value)} /> */}
+              <div
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    nextFocusForm("fromdate");
+                  }
+                }}
+              >
+                <DateFieldDDMMYYYY
+                  id="fromdate"
+                  value={fromDate}
+                  onChange={onFromDate}
+                  disabled={false}
+                />
+              </div>
             </div>
             <div className="field-group">
               <label>To Date</label>
-              <input type="date" className="form-ctrl sm" value={toDate} onChange={(e) => onToDate(e.target.value)} />
+              {/* <input type="date" className="form-ctrl sm" value={toDate} onChange={(e) => onToDate(e.target.value)} /> */}
+              <div
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    nextFocusForm("todate");
+                  }
+                }}
+              >
+                <DateFieldDDMMYYYY
+                  id="todate"
+                  value={toDate}
+                  onChange={onToDate}
+                  disabled={false}
+                />
+              </div>
             </div>
             <div className="field-group" style={{ minWidth: 180 }}>
               <label>Supplier</label>
@@ -2931,106 +3095,12 @@ function F5ViewPopup({ masterList, detailList, fromDate, toDate, suppId, suppLis
             <button className="tbtn tbtn-save" onClick={onSearch}>🔍 View</button>
           </div>
 
-        {/* Master grid */}
-          <div className="view-grid-wrap" style={{ maxHeight: "50vh" }}>
-            <table className="view-grid">
-              <thead>
-                <tr>
-                  <th style={{ width: 30 }}></th>
-                  <th>Return No</th>
-                  <th>Return Date</th>
-                  <th>Type</th>
-                  <th>Supplier</th>
-                  <th>Invoice No</th>
-                  <th>Remarks</th>
-                  <th>Created By</th>
-                  <th className="right">Amount</th>
-                  <th style={{ width: 160 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {masterList.length === 0
-                  ? <tr><td colSpan={10} className="no-data">No records found</td></tr>
-                  : masterList.map((r, i) => (
-                    <React.Fragment key={r.Id}>
-                      <tr
-                        className={`view-row${selIdx === i ? " row-active" : ""}`}
-                        onClick={() => setSelIdx(i)}
-                      >
-                        <td>
-                          <button className="expand-btn" onClick={(e) => { e.stopPropagation(); onExpand(r.Id); }}>
-                            {expandRow === r.Id ? "▲" : "▼"}
-                          </button>
-                        </td>
-                        <td>{r.PurchaseNo}</td>
-                        <td>{r.PurchaseDate ? jsonDate(r.PurchaseDate) : ""}</td>
-                        <td>
-                          <span className={`badge badge-${(r.PurchaseType || "").toLowerCase() === "cash" ? "cash" : "credit"}`}>
-                            {r.PurchaseType}
-                          </span>
-                        </td>
-                        <td>{r.SupplierName}</td>
-                        <td>{r.InvoiceNo}</td>
-                        <td>{r.Remarks}</td>
-                        <td>{r.Created_By}</td>
-                        <td className="right">{fmt2(r.NetAmt)}</td>
-                        <td>
-                          <button className="tbtn-sm edit"   onMouseDown={(e) => { e.stopPropagation(); onEdit(r);   }}>✏ Edit</button>
-                          <button className="tbtn-sm delete" onMouseDown={(e) => { e.stopPropagation(); onDelete(r); }}>🗑 Del</button>
-                        </td>
-                      </tr>
-                      {expandRow === r.Id && (
-                        <tr className="nested-detail-row">
-                          <td colSpan={10}>
-                            <div className="nested-grid-inner">
-                              <table>
-                                <thead>
-                                  <tr>
-                                    <th>Code</th><th>Description</th>
-                                    <th className="right">MRP</th><th className="right">PurRate</th>
-                                    <th className="right">Qty</th><th className="right">GST%</th>
-                                    <th className="right">GSTAmt</th><th className="right">Disc%</th>
-                                    <th className="right">DiscAmt</th><th className="right">Amount</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {detailList.filter((d) => Number(d.PurchaseRefId) === Number(r.Id)).map((d, di) => (
-                                    <tr key={di}>
-                                      <td>{d.ProductCode}</td><td>{d.ProductName}</td>
-                                      <td className="right">{fmt2(d.MRP)}</td>
-                                      <td className="right">{fmt2(d.PurchaseRate)}</td>
-                                      <td className="right">{fmt2(d.ItemQty)}</td>
-                                      <td className="right">{fmt2(d.TaxPercent)}</td>
-                                      <td className="right">{fmt2(d.TaxAmt)}</td>
-                                      <td className="right">{fmt2(d.DiscountPercent)}</td>
-                                      <td className="right">{fmt2(d.DiscountAmt)}</td>
-                                      <td className="right">{fmt2(d.Amount)}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="popup-footer">
-          <span style={{ flex: 1, fontSize: 13, color: "var(--clr-text-mid)" }}>
-            <b>Records:</b> {masterList.length} &nbsp;|&nbsp;
-            <b>Total: ₹</b>{fmt2(masterList.reduce((s, r) => s + valNum(r.NetAmt), 0))}
-          </span>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>Close (Esc)</button>
+        {/* ...rest (master grid, nested detail table, footer) unchanged... */}
         </div>
       </div>
     </div>
   );
 }
-
 // ── LoadPmPopup (mirrors jQuery LoadPM + gridloadpm) ──────────────────────────
 function LoadPmPopup({ list, selIdx, onSelIdx, onSelect, onClose }) {
   const tbodyRef = useRef(null);

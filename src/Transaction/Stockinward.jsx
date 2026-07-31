@@ -550,7 +550,7 @@ function F5ViewModal({ rows, mode, onEdit, onDelete, onClose, fromDate, toDate, 
   const modeLabel = mode === "inward" ? "Inward" : mode === "outward" ? "Outward" : "Transfer";
 
   return (
-    <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+<div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="mp-modal-box sb-f5-modal f5-modal-box">
         <div className="mp-modal-hdr">
           <span>📋 Stock {modeLabel} View (F5)</span>
@@ -558,11 +558,43 @@ function F5ViewModal({ rows, mode, onEdit, onDelete, onClose, fromDate, toDate, 
         </div>
         <div className="f5-filter-bar f5-filter-bar-quote">
           <label className="f5-filter-label">From</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote"
-            value={from} onChange={e => setFrom(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={from} onChange={e => setFrom(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("fromdate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="fromdate"
+              value={from}
+              onChange={setFrom}
+              disabled={false}
+            />
+          </div>
+
           <label className="f5-filter-label">To</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote"
-            value={to} onChange={e => setTo(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={to} onChange={e => setTo(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("todate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="todate"
+              value={to}
+              onChange={setTo}
+              disabled={false}
+            />
+          </div>
+
           <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
           <span className="f5-total">Total : ₹{f2(total).toFixed(2)}</span>
         </div>
@@ -1908,7 +1940,16 @@ const selectedPartyInfo = useMemo(() => {
             </div>
             <div style={fl}>
               <label className="si-lbl" style={lbl}>Stock Date</label>
-              <input type="date" className="si-inp" style={{ ...inp, flex: 1 }} value={stockDate} onChange={e => setStockDate(e.target.value)} />
+              {/* <input type="date" className="si-inp" style={{ ...inp, flex: 1 }} value={stockDate} onChange={e => setStockDate(e.target.value)} /> */}
+           
+              <div onKeyDown={e => { if (e.key === "Enter") fillGridData(); }}>
+  <DateFieldDDMMYYYY
+    id="selDate"
+    value={stockDate}
+    onChange={setStockDate}
+    disabled={false}
+  />
+</div>
             </div>
            
           </div>
@@ -1999,6 +2040,7 @@ const selectedPartyInfo = useMemo(() => {
           <table className="si-grid-table">
             <thead>
               <tr>
+             
                 <th className="si-th-dark si-th-sno">S.No</th>
                 {visCols.map(c => {
                   const base = GRID_COLUMNS.find(g => g.key === c.key);
