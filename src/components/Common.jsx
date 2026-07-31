@@ -31,7 +31,7 @@ const withRawIdComListHeader = (extraHeaders = {}) => {
 //export const BASE_URL = "https://billing.kassapos.co.in";
 //export const BASE_URL = "http://localhost:64215";
 //export const BASE_URL = "https://billing.kassapos.co.in";
-export const BASE_URL = "https://hobilling.kassapos.in";
+ export const BASE_URL = "https://hobilling.kassapos.in";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";

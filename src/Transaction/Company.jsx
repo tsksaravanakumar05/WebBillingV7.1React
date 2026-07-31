@@ -280,22 +280,31 @@ export default function Company() {
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
-
+  
+    // guard: bail out if the expected data isn't there
+    if (!res?.IsSuccess || !res.Data4?.length || !res.Data5?.length) {
+      console.error("Unexpected response shape:", res);
+      return;
+    }
+  
+    const company = res.Data4[0];
+    const settings = res.Data5[0];
+  
     sessionStorage.setItem("home", "1");
     localStorage.setItem("Comid", rowId);
     localStorage.setItem("MComid", sess.MComid);
-    localStorage.setItem("CompanyName", res.Comdata[0].Companyname);
-    localStorage.setItem("Address", res.Comdata[0].Address1 + " " + res.Comdata[0].Address2 + " " + res.Comdata[0].City);
-    localStorage.setItem("Phone", "Phone No :" + res.Comdata[0].Phone);
-    localStorage.setItem("CashierRefid", res.CashierId);
-    localStorage.setItem("parentcashid", res.Cashid);
-    localStorage.setItem("CustomerCashid", res.CustomerCashId);
-    localStorage.setItem("Companysetting", JSON.stringify(res.Comdata));
-    localStorage.setItem("Mainsetting", JSON.stringify(res.Maindata));
-    localStorage.setItem("CommonCompany", res.Maindata[0].CommonCompany);
-    localStorage.setItem("SupplierCommon", res.Maindata[0].SupplierCommonCompany);
-
-    navigate("/Home");
+    localStorage.setItem("CompanyName", company.Companyname);
+    localStorage.setItem("Address", `${company.Address1} ${company.Address2} ${company.City}`);
+    localStorage.setItem("Phone", "Phone No :" + company.Phone);
+    localStorage.setItem("CashierRefid", res.Data6);
+    localStorage.setItem("parentcashid", res.Data7);
+    localStorage.setItem("CustomerCashid", res.Data8);
+    localStorage.setItem("Companysetting", JSON.stringify(res.Data4));
+    localStorage.setItem("Mainsetting", JSON.stringify(res.Data5));
+    localStorage.setItem("CommonCompany", settings.CommonCompany);
+    localStorage.setItem("SupplierCommon", settings.SupplierCommonCompany);
+  
+    navigate("/dashboard");
   }, [sess.MComid, redirectIfDualLogin, navigate]);
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -306,6 +315,9 @@ export default function Company() {
     const res = await CC.api(CC.Company_Select, null, {}, {
       Comid: Number(sess.MComid),
     });
+
+
+
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
 
@@ -352,14 +364,120 @@ export default function Company() {
   // ─────────────────────────────────────────────────────────────────────────────
   //  GRID KEYBOARD NAVIGATION (mirrors jQuery gridCompany keydown — Enter / Delete)
   // ─────────────────────────────────────────────────────────────────────────────
+  // const handleGridKeyDown = useCallback((e, rowKey, colKey) => {
+  //   rowindexRef.current = rowKey;
+
+  //   if (e.key === "Enter") {
+  //     e.preventDefault();
+  //     const row = gridRows.find((r) => r._key === rowKey);
+  //     if (!row) return;
+
+  //     if (colKey === "CCode") {
+  //       const value = nullStr(row.CCode);
+  //       if (value === "") {
+  //         toast("❌ Enter Code!!!.", true);
+  //         return;
+  //       }
+  //       if (checkDuplicate("CCode", "Code")) {
+  //         gridNextCell(rowKey, "CCode");
+  //       }
+  //       return;
+  //     }
+
+  //     if (colKey === "CName") {
+  //       const value = nullStr(row.CName);
+  //       if (value === "") {
+  //         toast("❌ Enter Company Name!!!.", true);
+  //         return;
+  //       }
+  //       if (nullStr(row.Id) !== "") {
+  //         switchToSelectedCompany(row.Id);
+  //       }
+  //       if (checkDuplicate("CName", "Company Name")) {
+  //         gridNextCell(rowKey, "CName");
+  //       }
+  //       if (nullStr(row.AliseName) === "") {
+  //         setGridRows((prev) => prev.map((r) =>
+  //           r._key === rowKey ? { ...r, AliseName: r.CName } : r
+  //         ));
+  //       }
+  //       return;
+  //     }
+
+  //     if (colKey === "CStatus") {
+  //       // mirrors jQuery grdCStatus / grdActive Enter no-op
+  //       return;
+  //     }
+
+  //     // BranchName / ComputerName (or any other editable column) → next cell / new row
+  //     gridNextCell(rowKey, colKey);
+  //     return;
+  //   }
+
+  //   // Delete key (46) — mirrors jQuery key===46 handling
+  //   if (e.key === "Delete") {
+  //     e.preventDefault();
+  //     const row = gridRows.find((r) => r._key === rowKey);
+  //     const value = row?.Id;
+  //     if (value != null && value !== 0 && value !== "") {
+  //       // Existing saved row — Delete key is a no-op (mirrors empty jQuery block);
+  //       // deletion of saved rows is only via Ctrl+D.
+  //       return;
+  //     }
+  //     // Unsaved row — delete directly (mirrors DeleteRow)
+  //     setGridRows((prev) => {
+  //       let next = prev.filter((r) => r._key !== rowKey);
+  //       if (next.length === 0) next = [makeGridRow()];
+  //       return next;
+  //     });
+  //     setTimeout(() => {
+  //       setGridRows((cur) => {
+  //         focusCell(cur[cur.length - 1]._key, "CCode");
+  //         return cur;
+  //       });
+  //     }, 50);
+  //     return;
+  //   }
+  // }, [gridRows, toast, checkDuplicate, gridNextCell, switchToSelectedCompany, focusCell]);
   const handleGridKeyDown = useCallback((e, rowKey, colKey) => {
     rowindexRef.current = rowKey;
-
+  
+    // ── Arrow key navigation (moves actual DOM focus + selectedCell) ──
+    if (
+      e.key === "ArrowUp" ||
+      e.key === "ArrowDown" ||
+      e.key === "ArrowLeft" ||
+      e.key === "ArrowRight"
+    ) {
+      e.preventDefault();
+  
+      const rowIdx = gridRows.findIndex((r) => r._key === rowKey);
+      const colIdx = GRID_COLS.findIndex((c) => c.key === colKey);
+      if (rowIdx === -1 || colIdx === -1) return;
+  
+      let nextRowIdx = rowIdx;
+      let nextColIdx = colIdx;
+  
+      if (e.key === "ArrowRight") nextColIdx = Math.min(colIdx + 1, GRID_COLS.length - 1);
+      if (e.key === "ArrowLeft")  nextColIdx = Math.max(colIdx - 1, 0);
+      if (e.key === "ArrowDown")  nextRowIdx = Math.min(rowIdx + 1, gridRows.length - 1);
+      if (e.key === "ArrowUp")    nextRowIdx = Math.max(rowIdx - 1, 0);
+  
+      const nextRow = gridRows[nextRowIdx];
+      const nextCol = GRID_COLS[nextColIdx];
+      if (nextRow && nextCol) {
+        setSelectedCell({ rowKey: nextRow._key, colKey: nextCol.key });
+        rowindexRef.current = nextRow._key;
+        focusCell(nextRow._key, nextCol.key);   // 👈 actual DOM focus move pannுthu
+      }
+      return;
+    }
+  
     if (e.key === "Enter") {
       e.preventDefault();
       const row = gridRows.find((r) => r._key === rowKey);
       if (!row) return;
-
+  
       if (colKey === "CCode") {
         const value = nullStr(row.CCode);
         if (value === "") {
@@ -371,7 +489,7 @@ export default function Company() {
         }
         return;
       }
-
+  
       if (colKey === "CName") {
         const value = nullStr(row.CName);
         if (value === "") {
@@ -379,7 +497,7 @@ export default function Company() {
           return;
         }
         if (nullStr(row.Id) !== "") {
-          switchToSelectedCompany(row.Id);
+          switchToSelectedCompany(row.Id);   // ✅ already handles page-open logic
         }
         if (checkDuplicate("CName", "Company Name")) {
           gridNextCell(rowKey, "CName");
@@ -391,28 +509,22 @@ export default function Company() {
         }
         return;
       }
-
+  
       if (colKey === "CStatus") {
-        // mirrors jQuery grdCStatus / grdActive Enter no-op
         return;
       }
-
-      // BranchName / ComputerName (or any other editable column) → next cell / new row
+  
       gridNextCell(rowKey, colKey);
       return;
     }
-
-    // Delete key (46) — mirrors jQuery key===46 handling
+  
     if (e.key === "Delete") {
       e.preventDefault();
       const row = gridRows.find((r) => r._key === rowKey);
       const value = row?.Id;
       if (value != null && value !== 0 && value !== "") {
-        // Existing saved row — Delete key is a no-op (mirrors empty jQuery block);
-        // deletion of saved rows is only via Ctrl+D.
         return;
       }
-      // Unsaved row — delete directly (mirrors DeleteRow)
       setGridRows((prev) => {
         let next = prev.filter((r) => r._key !== rowKey);
         if (next.length === 0) next = [makeGridRow()];
@@ -692,6 +804,7 @@ export default function Company() {
     isAuthorized, handleSave, handleF3SendAll, handleF4Download, handleF5SendItems,
     handleF6SendCustomer, handleDeleteCompany, confirm, navigate,
   ]);
+  
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  RENDER
@@ -722,6 +835,7 @@ export default function Company() {
               ✕
             </button>
           </div>
+          
 
           <div className="bm-card-body">
             <div className="bm-report-title">Company</div>
@@ -750,45 +864,58 @@ export default function Company() {
                     // are left completely unchanged so that business logic is untouched.
                     const isRowLocked = nullStr(row.CCode) !== "" && row.EditMode !== 1;
                     return (
+                    // <tr
+                    //   key={row._key}
+                    //   className={`grid-row${selectedCell.rowKey === row._key && !isRowLocked ? " row-active" : ""}`}
+                    //   onClick={() => { setSelectedCell({ rowKey: row._key, colKey: selectedCell.colKey }); rowindexRef.current = row._key; }}
+                    // >
                     <tr
-                      key={row._key}
-                      className={`grid-row${selectedCell.rowKey === row._key && !isRowLocked ? " row-active" : ""}`}
-                      onClick={() => { setSelectedCell({ rowKey: row._key, colKey: selectedCell.colKey }); rowindexRef.current = row._key; }}
-                    >
+  key={row._key}
+  className={`grid-row${selectedCell.rowKey === row._key && !isRowLocked ? " row-active" : ""}`}
+  onClick={() => { setSelectedCell({ rowKey: row._key, colKey: selectedCell.colKey }); rowindexRef.current = row._key; }}
+  onDoubleClick={() => {
+    // mirrors the CName-Enter behaviour: only switch for an already-saved row
+    if (row.Id != null && row.Id !== 0 && row.Id !== "") {
+      switchToSelectedCompany(row.Id);
+    }
+  }}
+>
+  
                       <td className="grid-cell sno-col">{rowIdx + 1}</td>
                       {GRID_COLS.map((col) => {
-                        const isSelected = selectedCell.rowKey === row._key && selectedCell.colKey === col.key && !isRowLocked;
-                        const val = row[col.key] ?? "";
-                        return (
-                          <td
-                            key={col.key}
-                            className={`grid-cell${isSelected ? " selected" : ""}`}
-                            style={{ minWidth: col.width }}
-                          >
-                            <input
-                              id={`cell_${row._key}_${col.key}`}
-                              className="cell-input"
-                              value={val}
-                              maxLength={col.maxLen}
-                              inputMode={col.type === "int" ? "numeric" : "text"}
-                              readOnly={isRowLocked}
-                              tabIndex={isRowLocked ? -1 : 0}
-                              onChange={(e) => handleCellChange(row._key, col.key, e.target.value, col)}
-                              onFocus={(e) => {
-                                if (isRowLocked) {
-                                  // Prevent any focus/selection styling before Edit is clicked;
-                                  // grid should only display data at this point.
-                                  e.target.blur();
-                                  return;
-                                }
+                          const isSelected = selectedCell.rowKey === row._key && selectedCell.colKey === col.key && !isRowLocked;
+                          const val = row[col.key] ?? "";
+                          return (
+                            <td
+                              key={col.key}
+                              className={`grid-cell${isSelected ? " selected" : ""}`}
+                              style={{ minWidth: col.width }}
+                              onClick={() => {                                    // NEW
                                 setSelectedCell({ rowKey: row._key, colKey: col.key });
                                 rowindexRef.current = row._key;
-                                e.target.select?.();
                               }}
-                              onKeyDown={(e) => handleGridKeyDown(e, row._key, col.key)}
-                              autoComplete="off"
-                            />
-                          </td>
+                            >
+
+<input
+  id={`cell_${row._key}_${col.key}`}
+  className="cell-input"
+  value={val}
+  maxLength={col.maxLen}
+  inputMode={col.type === "int" ? "numeric" : "text"}
+  readOnly={isRowLocked}
+  tabIndex={isRowLocked ? -1 : 0}
+  onMouseDown={(e) => { if (isRowLocked) e.preventDefault(); }}
+  onChange={(e) => handleCellChange(row._key, col.key, e.target.value, col)}
+  onDoubleClick={() => {
+    if (col.key === "CName" && row.Id != null && row.Id !== 0 && row.Id !== "") {
+      switchToSelectedCompany(row.Id);
+    }
+  }}
+  onFocus={(e) => { /* unchanged */ }}
+  onKeyDown={(e) => handleGridKeyDown(e, row._key, col.key)}
+  autoComplete="off"
+/>
+      </td>
                         );
                       })}
                       <td className={`grid-cell${selectedCell.rowKey === row._key && selectedCell.colKey === "CStatus" && !isRowLocked ? " selected" : ""}`} style={{ textAlign: "center" }}>
