@@ -19,6 +19,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 
+const withRawIdComListHeader = (extraHeaders = {}) => {
+  const headers = { ...extraHeaders };
+  if (Object.prototype.hasOwnProperty.call(headers, "IdComList")) {
+    headers.IdComList = headers.IdComList || localStorage.getItem("IdComList") || localStorage.getItem("Comid") || "";
+  }
+  return headers;
+};
+
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 //export const BASE_URL = "https://billing.kassapos.co.in";
 //export const BASE_URL = "http://localhost:64215";
@@ -493,6 +501,7 @@ export const buildSession = (pageName) => {
 export const api = async (path, body = null, extraHeaders = {}, queryParams = null) => {
   try {
     let fullUrl = mkUrl(path);
+    const normalizedHeaders = withRawIdComListHeader(extraHeaders);
 
     if (queryParams && typeof queryParams === "object") {
       const qs = new URLSearchParams(
@@ -509,7 +518,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         ...authHeaders(),
-        ...extraHeaders,
+        ...normalizedHeaders,
       },
       body: body !== null ? JSON.stringify(body) : undefined,
     });
@@ -546,12 +555,13 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
 
 export const insertapicompany = async (path, body = null, extraHeaders = {}) => {
   try {
+    const normalizedHeaders = withRawIdComListHeader(extraHeaders);
     const res = await fetch(mkUrl(path), {
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         ...authHeaders(),
-        ...extraHeaders,
+        ...normalizedHeaders,
       },
       body: body != null ? JSON.stringify(body) : null,
     });
@@ -607,13 +617,14 @@ export const insertapicompany = async (path, body = null, extraHeaders = {}) => 
 export const insertapi = async (path, body = null, extraHeaders = {}) => {
   try {
     var b =JSON.stringify(body);
+    const normalizedHeaders = withRawIdComListHeader(extraHeaders);
     const res = await fetch(mkUrl(path), {
    
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         ...authHeaders(),
-        ...extraHeaders,
+        ...normalizedHeaders,
       },
       body: body != null ? JSON.stringify(body) : null,
     });
@@ -653,12 +664,13 @@ export const insertapi = async (path, body = null, extraHeaders = {}) => {
  */
 export const deleteapi = async (path, body = null, extraHeaders = {}) => {
   try {
+    const normalizedHeaders = withRawIdComListHeader(extraHeaders);
     const res = await fetch(mkUrl(path), {
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         ...authHeaders(),
-        ...extraHeaders,
+        ...normalizedHeaders,
       },
       body: body != null ? JSON.stringify(body) : null,
     });

@@ -10,7 +10,6 @@ export const SessionService = {
    */
   persist(response, username) {
     const { user, company } = response;
-
     localStorage.setItem("popupalert", "1");
     sessionStorage.setItem("home", "1");
     localStorage.setItem("LoginCount", "0");
@@ -38,7 +37,7 @@ export const SessionService = {
       localStorage.setItem("CustomerReceiptPrintData", response.customerReceiptPrintData);
       localStorage.setItem("menulist", JSON.stringify(response.menuData));
       localStorage.setItem("Companysetting", JSON.stringify([company]));
-      localStorage.setItem("IdComList", JSON.stringify(response.comIdList));
+      localStorage.setItem("IdComList", JSON.stringify(response.comIdList ?? []));
       localStorage.setItem("Mainsetting", JSON.stringify(response.mainData));
       localStorage.setItem("MirrorTableOnline", company.mirrorTableOnline);
       localStorage.setItem("CommonCompany", company.commonCompany);

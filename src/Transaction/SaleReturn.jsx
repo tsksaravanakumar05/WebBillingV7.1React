@@ -1542,7 +1542,7 @@ const fillItemIntoRow = useCallback((rid, item) => {
         ReturnQty: firstNumeric(item, ["UOMDecimal", "UomDecimal"], 0) === 0 ? "1" : "",
       };
       setStockLbl(vn(item.Stock).toFixed(0));
-      return newRow;
+      return calcReturnRow(newRow);
     }));
     setProdPopup(null);
 
