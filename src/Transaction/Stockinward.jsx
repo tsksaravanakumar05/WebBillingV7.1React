@@ -750,15 +750,26 @@ function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
     </div>
   );
 }
- const sanitizeRowForInsert = row => ({
-  ...row,
-  BrandId:  bwNull(row.BrandId),
-  ModelId:  bwNull(row.ModelId),
-  ColorId:  bwNull(row.ColorId),
-  SizeId:   bwNull(row.SizeId),
-  GengerId: bwNull(row.GengerId),
-  ToSizeId: bwNull(row.ToSizeId),
-});
+const sanitizeRowForInsert = (row, mode) => {
+  const batchRefId = vn(row.BatchRefid);
+  const isBatchRow = vn(row.BatchStatus) === 1;
+
+  return {
+    ...row,
+    // Inward save should not reuse any stale batch master id from item lookup.
+    // Existing ItemsBatchWise.Id is valid only when stock is selected from an
+    // already-created batch record (outward / transfer style flows).
+    BatchRefid: mode === "inward"
+      ? null
+      : (isBatchRow && batchRefId > 0 ? batchRefId : null),
+    BrandId:  bwNull(row.BrandId),
+    ModelId:  bwNull(row.ModelId),
+    ColorId:  bwNull(row.ColorId),
+    SizeId:   bwNull(row.SizeId),
+    GengerId: bwNull(row.GengerId),
+    ToSizeId: bwNull(row.ToSizeId),
+  };
+};
 // ─────────────────────────────────────────────────────────────────────────────
 //  MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -954,7 +965,6 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   const [supplierList, setSupplierList] = useState([]);
   const [customerList, setCustomerList] = useState([]);
   const [branchList,   setBranchList]   = useState([]);
-  const [poNoList,     setPoNoList]     = useState([]);
   const [userList,     setUserList]     = useState([]);
   const [productList,  setProductList]  = useState(() => CC.getCachedProductList(sess.Comid));
 
@@ -1054,18 +1064,16 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
 
   // ── Load combos ───────────────────────────────────────────────────────────
   const loadCombos = useCallback(async () => {
-    const [supRes, cusRes, brRes, poRes, usrRes] = await Promise.all([
+    const [supRes, cusRes, brRes, usrRes] = await Promise.all([
       CC.api(CC.SUP_All, null, {}, { Comid: sess.Comid, AccountType: "SUPPLIER" }),
       CC.api(CC.SUP_All, null, {}, { Comid: sess.Comid, AccountType: "CUSTOMER" }),
       CC.api(CC.BRANCH_List, null, {}, { Comid: sess.MComid }),
-      CC.api(CC.PO_NoCombo, null, {}, { Comid: sess.Comid }),
       CC.api(CC.USR_UserCombo, null, {}, { Comid: sess.Comid }),
     ]);
     const pick = r => Array.isArray(r?.data) ? r.data : Array.isArray(r?.Data1) ? r.Data1 : [];
     setSupplierList(pick(supRes));
     setCustomerList(pick(cusRes));
     setBranchList(pick(brRes).filter(b => String(b.Id) !== String(sess.Comid)));
-    setPoNoList(pick(poRes));
     setUserList(pick(usrRes));
 
     const cachedProducts = CC.getCachedProductList(sess.Comid);
@@ -1461,12 +1469,11 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
     const ok = await confirm("Wish to Save Stock Inward Details?");
     if (!ok) return;
     setLoading(true); setLdMsg("Saving...");
-    const details = rowsRef.current.filter(r => r.ProductCode).map(sanitizeRowForInsert);
+    const details = rowsRef.current.filter(r => r.ProductCode).map(r => sanitizeRowForInsert(r, "inward"));
     let PoCon = 1;
     if (sess.Ecotech) {
       for (const r of details) { if (vn(r.ProfitAmt) > 0) { PoCon = 0; break; } }
     }
-    const poItem  = poNoList.find(p => String(p.Id) === String(poUserId));
     const supItem = supplierList.find(s => String(s.Id) === String(supplierId));
     const payload = [{
       Id: editId, SupplierRefid: supplierId ? parseInt(supplierId) : null,
@@ -1477,7 +1484,7 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
       UpdateId: checkListNo, Ecotech: sess.Ecotech ? 1 : 0,
       Ftax: sess.Ecotech ? ftax : null, NetAmt: f2(totalAmt),
       Eservice: sess.Ecotech ? parseInt(delivery) || null : null,
-      POId: poId, POCon: PoCon, PONo: poItem?.label || "",
+      POId: poId, POCon: PoCon, PONo: "",
       InvoiceNo: invoiceNo, StockNo: stockNo,
       StockInwardDetails: details, StockDetails: realStockList, SerialNoDetails: [],
     }];
@@ -1498,7 +1505,7 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
     } else {
       toast("❌ " + (res.message || "Save Failed"), true);
     }
- }, [perm, editId, gridEmptyCheck, confirm, sess, poNoList, supplierList, supplierId,
+ }, [perm, editId, gridEmptyCheck, confirm, sess, supplierList, supplierId,
     stockDate, invoiceDate, remarks, quality, checkListNo, delivery, ftax, poId, poUserId,
     invoiceNo, stockNo, realStockList, mirrorTable, totalAmt, doClear, toast, redirectIfDual]);
 
@@ -1510,7 +1517,7 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
     if (!ok) return;
     setLoading(true); setLdMsg("Saving...");
     let chkprint = 0;
-    const details = rowsRef.current.filter(r => r.ProductCode).map(sanitizeRowForInsert);
+    const details = rowsRef.current.filter(r => r.ProductCode).map(r => sanitizeRowForInsert(r, "outward"));
     if (sess.Ecotech && fprint) chkprint = 1;
     const userItem  = userList.find(u => String(u.Id) === String(poUserId));
     const userItem1 = userList.find(u => String(u.Id) === String(vUserId));
@@ -1537,7 +1544,7 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
     } else {
       toast("❌ " + (res.message || "Save Failed"), true);
     }
-}, [perm, editId, gridEmptyCheck, confirm, sess, poNoList, supplierList, supplierId,
+}, [perm, editId, gridEmptyCheck, confirm, sess, supplierList, supplierId,
     stockDate, invoiceDate, remarks, quality, checkListNo, delivery, ftax, poId, poUserId,
     invoiceNo, stockNo, realStockList, mirrorTable, totalAmt, doClear, toast, redirectIfDual]);
   // ── SAVE — TRANSFER ───────────────────────────────────────────────────────
@@ -1548,7 +1555,7 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
     const ok = await confirm("Wish to Save Stock Transfer Details?");
     if (!ok) return;
     setLoading(true); setLdMsg("Saving...");
-   const details = rowsRef.current.filter(r => r.ProductCode).map(sanitizeRowForInsert);
+   const details = rowsRef.current.filter(r => r.ProductCode).map(r => sanitizeRowForInsert(r, "transfer"));
     const payload = [{
       Id: editId, SupplierRefid: parseInt(supplierId),
       StockDate: new Date(stockDate).toISOString(), Remarks: remarks,
@@ -1576,7 +1583,7 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
     } else {
       toast("❌ " + (res.message || "Save Failed"), true);
     }
- }, [perm, editId, gridEmptyCheck, confirm, sess, poNoList, supplierList, supplierId,
+ }, [perm, editId, gridEmptyCheck, confirm, sess, supplierList, supplierId,
     stockDate, invoiceDate, remarks, quality, checkListNo, delivery, ftax, poId, poUserId,
     invoiceNo, stockNo, realStockList, mirrorTable, totalAmt, doClear, toast, redirectIfDual]);
 

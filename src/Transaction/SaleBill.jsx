@@ -169,6 +169,8 @@ function ComboBox({ options, value, onChange, onEnterKey, onCreateOption, placeh
 }
 
 // ─── SALE ROW CALCULATION ─────────────────────────────────────────────────────
+let saleBillIgstToCgstOnly = false;
+
 function calcSaleRow(row) {
   const qty      = CC.vn(row.ItemQty);
   const saleRate = CC.vn(row.SaleRate);
@@ -193,8 +195,9 @@ function calcSaleRow(row) {
   const afterCD    = orgRate - cdAmt;
   const discAmt    = CC.roVal(afterCD * (discPer / 100));
   const landingCost = afterCD - discAmt;
-  const ctAmt      = CC.roVal(landingCost * ((gst / 2) / 100));
-  const stAmt      = CC.roVal(landingCost * ((gst / 2) / 100));
+  const splitTaxAmt = CC.roVal(landingCost * ((gst / 2) / 100));
+  const ctAmt      = saleBillIgstToCgstOnly ? CC.roVal(landingCost * (gst / 100)) : splitTaxAmt;
+  const stAmt      = saleBillIgstToCgstOnly ? 0 : splitTaxAmt;
   const cessAmt    = CC.roVal(landingCost * (cess / 100));
   const gstAmt     = ctAmt + stAmt;
   const splcessAmt = splcess * qty;
@@ -1822,6 +1825,11 @@ const loadFocusCols = useCallback(async (mcomid) => {
   const [otherMinus, setOtherMinus] = useState("");
   const [discPer,    setDiscPer]    = useState("");
   const [gstSplit,   setGstSplit]   = useState([]);
+  const isIgstCustomer = React.useMemo(() => {
+    const found = customers.find(c => String(c.Id) === String(custId));
+    return String(found?.IGSTBill || "").toUpperCase() === "IGST";
+  }, [customers, custId]);
+  saleBillIgstToCgstOnly = isIgstCustomer;
 
   const [loading,    setLoading]    = useState(false);
   const [ldMsg,      setLdMsg]      = useState("Loading...");
@@ -1891,6 +1899,14 @@ const loadFocusCols = useCallback(async (mcomid) => {
       custOpCrmValue
     };
   }, [curBal, custCardRefId, crmPointRate, crmValueRate, custOpCrmPoints, custOpCrmValue]);
+
+  useEffect(() => {
+    setRows(prev => prev.map(r => (
+      r.ProductRefId || CC.vn(r.ItemQty) || CC.vn(r.SaleRate) || CC.vn(r.TaxPercent)
+        ? calcSaleRow({ ...r })
+        : r
+    )));
+  }, [isIgstCustomer]);
 
   useEffect(() => {
     setRows(prev => {
