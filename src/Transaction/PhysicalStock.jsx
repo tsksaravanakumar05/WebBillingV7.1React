@@ -945,13 +945,14 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
             <div style={panelTitle}>Physical Stock Details</div>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <label style={{ ...fieldLabel, minWidth: 78 }}>Ref Date</label>
-              <input
-                type="date"
-                style={{ ...fieldInput, flex: 1 }}
-                value={refDate}
-                onChange={e => setRefDate(e.target.value)}
-                onKeyDown={handleDateKeyDown}
-              />
+              <div onKeyDown={handleDateKeyDown} style={{ flex: 1 }}>
+    <DateFieldDDMMYYYY
+      id="refDate"
+      value={refDate}
+      onChange={setRefDate}
+      disabled={false}
+    />
+  </div>
             </div>
           </div>
 

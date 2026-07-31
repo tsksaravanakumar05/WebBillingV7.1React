@@ -433,9 +433,41 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
         </div>
         <div className="f5-filter-bar f5-filter-bar-quote">
           <label className="f5-filter-label">From</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote" value={from} onChange={e => setFrom(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote" value={from} onChange={e => setFrom(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("fromdate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="fromdate"
+              value={from}
+              onChange={setFrom}
+              disabled={false}
+            />
+          </div>
+
           <label className="f5-filter-label">To</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote" value={to} onChange={e => setTo(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote" value={to} onChange={e => setTo(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("todate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="todate"
+              value={to}
+              onChange={setTo}
+              disabled={false}
+            />
+          </div>
+
           <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
           <span className="f5-total">Total : ₹{f2(totalAmt).toFixed(2)}</span>
         </div>
@@ -548,6 +580,129 @@ function F5ViewModal({ rows, details, onEdit, onDelete, onClose, fromDate, toDat
         </div>
       </div>
     </div>
+    // <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    //   <div className="mp-modal-box sb-f5-modal f5-modal-box">
+    //     <div className="mp-modal-hdr">
+    //       <span>📋 Quotation View (F5)</span>
+    //       <button onClick={onClose}>✕</button>
+    //     </div>
+    //     <div className="f5-filter-bar f5-filter-bar-quote">
+    //       <label className="f5-filter-label">From</label>
+    //       <input type="date" className="f5-filter-date f5-filter-date-quote" value={from} onChange={e => setFrom(e.target.value)} />
+    //       <label className="f5-filter-label">To</label>
+    //       <input type="date" className="f5-filter-date f5-filter-date-quote" value={to} onChange={e => setTo(e.target.value)} />
+    //       <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
+    //       <span className="f5-total">Total : ₹{f2(totalAmt).toFixed(2)}</span>
+    //     </div>
+    //     <div className="mp-modal-body f5-modal-body">
+    //       <table className="f5-table">
+    //         <thead>
+    //           <tr className="f5-header-row">
+    //             <th className="f5-th-toggle"></th>
+    //             <th className="f5-th">Quote No</th>
+    //             <th className="f5-th">Date</th>
+    //             <th className="f5-th">Customer</th>
+    //             <th className="f5-th">Type</th>
+    //             <th className="f5-th f5-th-amount">Net Amt</th>
+    //             <th className="f5-th f5-th-center">Actions</th>
+    //           </tr>
+    //         </thead>
+    //         <tbody>
+    //           {rows.length === 0 && (
+    //             <tr><td colSpan={7} className="f5-empty-row">No records found.</td></tr>
+    //           )}
+    //           {rows.map((r, i) => {
+    //             const rowId      = r.Id;
+    //             const isExpanded = expandedId === rowId;
+    //             const rowDetails = getRowDetails(rowId);
+    //             return (
+    //               <React.Fragment key={r.Id || i}>
+    //                 <tr className={i % 2 === 0 ? "f5-row-even" : "f5-row-odd-quote"}>
+    //                   {/* ── expand/collapse arrow (matches jQuery rowdetails arrow) ── */}
+    //                   <td className="f5-td-toggle">
+    //                     <button
+    //                       onClick={() => toggleExpand(rowId)}
+    //                       title={isExpanded ? "Collapse details" : "Expand details"}
+    //                       className={`f5-toggle-btn${isExpanded ? " expanded" : ""}`}
+    //                     >▶</button>
+    //                   </td>
+    //                   <td className="f5-td-strong">{r.QuotationNoDisplay || r.SaleNo || r.BillNo || "—"}</td>
+    //                   <td className="f5-td">{String(r.QuotationDate || r.SaleDate || r.BillDate || "").slice(0, 10)}</td>
+    //                   <td className="f5-td">{r.CustomerName || r.AccountName || ""}</td>
+    //                   <td className="f5-td">
+    //                     <span className="f5-badge-quote">
+    //                       {r.SaleType || r.QuoteType || "QUOTATION"}
+    //                     </span>
+    //                   </td>
+    //                   <td className="f5-td-amount">
+    //                     ₹{f2(vn(r.NetAmt || r.NetAmount || r.Netamt)).toFixed(2)}
+    //                   </td>
+    //                   <td className="f5-td-actions">
+    //                     <button onClick={() => onEdit(r.Id)} className="f5-btn-edit-quote">✏ Edit</button>
+    //                     <button onClick={() => onDelete(r.Id, r.QuotationNoDisplay || r.BillNo)} className="f5-btn-delete-plain">🗑 Del</button>
+    //                   </td>
+    //                 </tr>
+    //                 {/* ── expanded product details sub-row (matches jQuery initrowdetails nested grid) ── */}
+    //                 {isExpanded && (
+    //                   <tr>
+    //                     <td colSpan={7} className="f5-detail-cell-quote">
+    //                       <div className="f5-detail-wrap">
+    //                         {rowDetails.length === 0 ? (
+    //                           <div className="f5-detail-empty">No product details available.</div>
+    //                         ) : (
+    //                           <table className="f5-detail-table">
+    //                             <thead>
+    //                               <tr>
+    //                                 {[
+    //                                   { label: "Code",     align: "left"  },
+    //                                   { label: "Description", align: "left" },
+    //                                   { label: "MRP",      align: "right" },
+    //                                   { label: "Rate",     align: "right" },
+    //                                   { label: "Qty",      align: "right" },
+    //                                   { label: "GST(%)",   align: "right" },
+    //                                   { label: "GST Amt",  align: "right" },
+    //                                   { label: "Disc(%)",  align: "right" },
+    //                                   { label: "Disc Amt", align: "right" },
+    //                                 ].map(h => (
+    //                                   <th
+    //                                     key={h.label}
+    //                                     className={`f5-detail-th-quote${h.align === "right" ? " f5-detail-th-right" : ""}`}
+    //                                   >{h.label}</th>
+    //                                 ))}
+    //                               </tr>
+    //                             </thead>
+    //                             <tbody>
+    //                               {rowDetails.map((d, di) => (
+    //                                 <tr key={di} className={di % 2 === 0 ? "f5-detail-row-even" : "f5-detail-row-odd"}>
+    //                                   <td className="f5-detail-td">{d.ProductCode || ""}</td>
+    //                                   <td className="f5-detail-td">{d.ProductName || ""}</td>
+    //                                   <td className="f5-detail-td-right">{f2(vn(d.MRP)).toFixed(2)}</td>
+    //                                   <td className="f5-detail-td-right">{f2(vn(d.SaleRate)).toFixed(2)}</td>
+    //                                   <td className="f5-detail-td-right">{f2(vn(d.ItemQty || d.Qty)).toFixed(2)}</td>
+    //                                   <td className="f5-detail-td-right">{f2(vn(d.TaxPercent)).toFixed(2)}</td>
+    //                                   <td className="f5-detail-td-right">{f2(vn(d.TaxAmt)).toFixed(2)}</td>
+    //                                   <td className="f5-detail-td-right">{f2(vn(d.DiscountPercent)).toFixed(2)}</td>
+    //                                   <td className="f5-detail-td-right">{f2(vn(d.DiscountAmt)).toFixed(2)}</td>
+    //                                 </tr>
+    //                               ))}
+    //                             </tbody>
+    //                           </table>
+    //                         )}
+    //                       </div>
+    //                     </td>
+    //                   </tr>
+    //                 )}
+    //               </React.Fragment>
+    //             );
+    //           })}
+    //         </tbody>
+    //       </table>
+    //     </div>
+    //     <div className="mp-modal-ftr">
+    //       <button className="mp-btn" onClick={onClose}>Close</button>
+    //     </div>
+    //   </div>
+    // </div>
   );
 }
 // ─── CTRL+G COLUMN REORDER / FOCUS POPUP ─────────────────────────────────────
@@ -1632,12 +1787,20 @@ const openF5 = useCallback(async (from = quotationDate, to = quotationDate) => {
             {/* QuotationDate */}
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <label style={{ ...fieldLabel, minWidth: 82 }}>Date</label>
-              <input
+
+              {/* <input
                 type="date"
                 style={{ ...fieldInput, flex: 1 }}
                 value={quotationDate}
                 onChange={e => setQuotationDate(e.target.value)}
-              />
+              /> */}
+            <DateFieldDDMMYYYY
+    id="Date"
+    value={quotationDate}
+    onChange={setQuotationDate}
+    disabled={false}
+  />
+
             </div>
 
             {/* QuoteType dropdown */}

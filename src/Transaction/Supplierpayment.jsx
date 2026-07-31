@@ -455,11 +455,43 @@ function F5ViewWindow({ suppliers, comid, mcomid, onClose, onPrintView, loading,
         </div>
         <div className="f5-filter-bar f5-filter-bar-quote">
           <label className="f5-filter-label">From</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote"
-            value={fromDate} onChange={e => setFromDate(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={fromDate} onChange={e => setFromDate(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("fromdate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="fromdate"
+              value={fromDate}
+              onChange={setFromDate}
+              disabled={false}
+            />
+          </div>
+
           <label className="f5-filter-label">To</label>
-          <input type="date" className="f5-filter-date f5-filter-date-quote"
-            value={toDate} onChange={e => setToDate(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date f5-filter-date-quote"
+            value={toDate} onChange={e => setToDate(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("todate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="todate"
+              value={toDate}
+              onChange={setToDate}
+              disabled={false}
+            />
+          </div>
+
           <label className="f5-filter-label">Supplier</label>
           <input readOnly className="f5-filter-date f5-filter-date-quote f5-supplier-input"
             value={suppName} placeholder="All Suppliers"
@@ -521,6 +553,80 @@ function F5ViewWindow({ suppliers, comid, mcomid, onClose, onPrintView, loading,
         </PopupWindow>
       )}
     </div>
+    // <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    //   <div className="mp-modal-box sb-f5-modal f5-modal-box">
+    //     <div className="mp-modal-hdr">
+    //       <span>📋 Supplier Payment — F5 View</span>
+    //       <button onClick={onClose}>✕</button>
+    //     </div>
+    //     <div className="f5-filter-bar f5-filter-bar-quote">
+    //       <label className="f5-filter-label">From</label>
+    //       <input type="date" className="f5-filter-date f5-filter-date-quote"
+    //         value={fromDate} onChange={e => setFromDate(e.target.value)} />
+    //       <label className="f5-filter-label">To</label>
+    //       <input type="date" className="f5-filter-date f5-filter-date-quote"
+    //         value={toDate} onChange={e => setToDate(e.target.value)} />
+    //       <label className="f5-filter-label">Supplier</label>
+    //       <input readOnly className="f5-filter-date f5-filter-date-quote f5-supplier-input"
+    //         value={suppName} placeholder="All Suppliers"
+    //         onClick={() => setShowSuppPop(true)} />
+    //       {suppName && (
+    //         <button className="f5-supplier-clear"
+    //           onClick={() => { setSuppId(0); setSuppName(""); }}>✕</button>
+    //       )}
+    //       <button className="mp-btn sv f5-search-btn" onClick={doView} disabled={loading}>🔍 Search</button>
+    //       <span className="f5-total">Total : ₹{total}</span>
+    //     </div>
+    //     <div className="mp-modal-body f5-modal-body">
+    //       <table className="f5-table">
+    //         <thead>
+    //           <tr className="f5-header-row">
+    //             <th className="f5-th f5-th-sno">S.No</th>
+    //             <th className="f5-th">Date</th>
+    //             <th className="f5-th">Supplier Name</th>
+    //             <th className="f5-th f5-th-amount">Cash</th>
+    //             <th className="f5-th f5-th-amount">RTGS</th>
+    //             <th className="f5-th f5-th-amount">Cheque</th>
+    //             <th className="f5-th f5-th-amount">Discount</th>
+    //             <th className="f5-th f5-th-amount">Amount</th>
+    //           </tr>
+    //         </thead>
+    //         <tbody>
+    //           {rows.length === 0 && !loading && (
+    //             <tr><td colSpan={8} className="f5-empty-row">No records found.</td></tr>
+    //           )}
+    //           {rows.map((r, i) => (
+    //             <tr
+    //               key={i}
+    //               className={selIdx === i ? "f5-row-selected" : (i % 2 === 0 ? "f5-row-even" : "f5-row-odd-quote")}
+    //               onClick={() => setSelIdx(i)}
+    //             >
+    //               <td className="f5-td f5-td-sno">{i + 1}</td>
+    //               <td className="f5-td">{r.PaymentDate ? String(r.PaymentDate).slice(0, 10) : ""}</td>
+    //               <td className="f5-td">{r.SupplierName}</td>
+    //               <td className="f5-td-amount">{fmt2(r.CashAmount)}</td>
+    //               <td className="f5-td-amount">{fmt2(r.RTGSAmt)}</td>
+    //               <td className="f5-td-amount">{fmt2(r.ChequeAmount)}</td>
+    //               <td className="f5-td-amount">{fmt2(r.DiscountAmount)}</td>
+    //               <td className="f5-td-amount f5-td-strong">{fmt2(r.Amount)}</td>
+    //             </tr>
+    //           ))}
+    //         </tbody>
+    //       </table>
+    //     </div>
+    //     <div className="mp-modal-ftr">
+    //       <button className="mp-btn" onClick={onClose}>Close</button>
+    //     </div>
+    //   </div>
+    //   {/* Supplier popup inside F5 window */}
+    //   {showSuppPop && (
+    //     <PopupWindow title="Select Supplier" onClose={() => setShowSuppPop(false)} width={340}>
+    //       <SearchableList items={suppliers} labelField="AccountName" placeholder="Search Supplier…"
+    //         onChange={item => { setSuppId(item.Id ?? 0); setSuppName(item.AccountName || ""); setShowSuppPop(false); }}
+    //         onClose={() => setShowSuppPop(false)} />
+    //     </PopupWindow>
+    //   )}
+    // </div>
   );
 }
 
@@ -1404,11 +1510,14 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
           {/* Date picker */}
           <div style={{ display:"flex",alignItems:"center",gap:6,marginLeft:12 }}>
             <label style={{ fontSize:12,fontWeight:600,color:"#475569" }}>Date</label>
-            <input type="date" className="mp-cell-input"
-              style={{ height:28,width:150,border:"1px solid #93c5fd",borderRadius:4 }}
-              value={selDate}
-              onChange={e => setSelDate(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") fillGridData(); }} />
+            <div onKeyDown={e => { if (e.key === "Enter") fillGridData(); }}>
+  <DateFieldDDMMYYYY
+    id="selDate"
+    value={selDate}
+    onChange={setSelDate}
+    disabled={false}
+  />
+          </div>
           </div>
 
           {/* Current balance */}

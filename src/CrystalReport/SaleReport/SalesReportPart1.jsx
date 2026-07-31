@@ -1835,11 +1835,11 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
             )}
 
             <div className="sr-actions">
-              <button type="button" className="sr-btn sr-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
+              <button type="button" className="mp-btn nw" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
                 <Save size={16} className="sr-icon-save" />
                 {loading ? "Loading…" : "View"}
               </button>
-              <button type="button" className="sr-btn sr-btn-secondary" onClick={handleRefresh} disabled={loading}>
+              <button type="button" className="mp-btn dl" onClick={handleRefresh} disabled={loading}>
                 <XCircle size={16} className="sr-icon-cancel" />
                 Refresh
               </button>
@@ -1963,11 +1963,11 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
                 </div>
 
                 <div className="sr-actions">
-                  <button type="button" className="sr-btn sr-btn-primary" onClick={confirmF11Selection}>
+                  <button type="button" className="mp-btn nw" onClick={confirmF11Selection}>
                     <Save size={16} className="sr-icon-save" />
                     View
                   </button>
-                  <button type="button" className="sr-btn sr-btn-secondary" onClick={handleF11Refresh}>
+                  <button type="button" className="mp-btn dl" onClick={handleF11Refresh}>
                     <XCircle size={16} className="sr-icon-cancel" />
                     Refresh
                   </button>

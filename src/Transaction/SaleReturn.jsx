@@ -769,9 +769,41 @@ function F5ViewModal({ rows, onEdit, onDelete, onClose, fromDate, toDate, onSear
         </div>
         <div className="f5-filter-bar">
           <label className="f5-filter-label">From</label>
-          <input type="date" className="f5-filter-date" value={from} onChange={e => setFrom(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date" value={from} onChange={e => setFrom(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("fromdate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="fromdate"
+              value={from}
+              onChange={setFrom}
+              disabled={false}
+            />
+          </div>
+
           <label className="f5-filter-label">To</label>
-          <input type="date" className="f5-filter-date" value={to} onChange={e => setTo(e.target.value)} />
+          {/* <input type="date" className="f5-filter-date" value={to} onChange={e => setTo(e.target.value)} /> */}
+          <div
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                nextFocusForm("todate");
+              }
+            }}
+          >
+            <DateFieldDDMMYYYY
+              id="todate"
+              value={to}
+              onChange={setTo}
+              disabled={false}
+            />
+          </div>
+
           <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
           <span className="f5-total">Total Return : ₹{f2(totalAmt).toFixed(2)}</span>
         </div>
@@ -820,6 +852,65 @@ function F5ViewModal({ rows, onEdit, onDelete, onClose, fromDate, toDate, onSear
         </div>
       </div>
     </div>
+    // <div className="mp-ov" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    //   <div className="mp-modal-box sb-f5-modal f5-modal-box">
+    //     <div className="mp-modal-hdr">
+    //       <span>📋 Sale Return View (F5)</span>
+    //       <button onClick={onClose}>✕</button>
+    //     </div>
+    //     <div className="f5-filter-bar">
+    //       <label className="f5-filter-label">From</label>
+    //       <input type="date" className="f5-filter-date" value={from} onChange={e => setFrom(e.target.value)} />
+    //       <label className="f5-filter-label">To</label>
+    //       <input type="date" className="f5-filter-date" value={to} onChange={e => setTo(e.target.value)} />
+    //       <button className="mp-btn sv f5-search-btn" onClick={() => onSearch(from, to)}>🔍 Search</button>
+    //       <span className="f5-total">Total Return : ₹{f2(totalAmt).toFixed(2)}</span>
+    //     </div>
+    //     <div className="mp-modal-body f5-modal-body">
+    //       <table className="f5-table">
+    //         <thead>
+    //           <tr className="f5-header-row">
+    //             <th className="f5-th">Return No</th>
+    //             <th className="f5-th">Return Date</th>
+    //             <th className="f5-th">Customer</th>
+    //             <th className="f5-th">Type</th>
+    //             <th className="f5-th f5-th-amount">Net Amt</th>
+    //             <th className="f5-th f5-th-center">Actions</th>
+    //           </tr>
+    //         </thead>
+    //         <tbody>
+    //           {rows.length === 0 && (
+    //             <tr><td colSpan={6} className="f5-empty-row">No records found.</td></tr>
+    //           )}
+    //           {rows.map((r, i) => (
+    //             <tr key={r.Id || i} className={i % 2 === 0 ? "f5-row-even" : "f5-row-odd"}>
+    //               <td className="f5-td-strong">
+    //                 {r.SaleReturnNoDisplay || r.SaleReturnNo || r.SaleNo || r.BillNo || "—"}
+    //               </td>
+    //               <td className="f5-td">{String(r.ReturnDate || r.BillDate || r.SaleDate || "").slice(0, 10)}</td>
+    //               <td className="f5-td">{r.CustomerName || r.AccountName || ""}</td>
+    //               <td className="f5-td">
+    //                 <span className={`f5-badge ${(r.LorryNo === "CRN" || r.SaleType === "CRN") ? "f5-badge-credit-note" : "f5-badge-debit-note"}`}>
+    //                   {(r.LorryNo === "CRN" || r.SaleType === "CRN") ? "Credit Note" : "Debit Note"}
+    //                 </span>
+    //               </td>
+    //               <td className="f5-td-amount">
+    //                 ₹{f2(vn(r.NetAmt || r.NetAmount || r.Netamt)).toFixed(2)}
+    //               </td>
+    //               <td className="f5-td-actions">
+    //                 <button onClick={() => onEdit(r.Id)} className="f5-btn-edit">✏ Edit</button>
+    //                 <button onClick={() => onDelete(r.Id, r.SaleReturnNoDisplay || r.BillNo)} className="f5-btn-delete-plain">🗑 Del</button>
+    //               </td>
+    //             </tr>
+    //           ))}
+    //         </tbody>
+    //       </table>
+    //     </div>
+    //     <div className="mp-modal-ftr">
+    //       <button className="mp-btn" onClick={onClose}>Close</button>
+    //     </div>
+    //   </div>
+    // </div>
   );
 }
 // ─── F12 COLUMN SETTINGS ─────────────────────────────────────────────────────
@@ -2475,12 +2566,12 @@ console.log("Deleting return with body:", body);
             {/* ReturnDate */}
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <label style={{ ...fieldLabel, minWidth: 78 }}>ReturnDate</label>
-              <input
-                type="date"
-                style={{ ...fieldInput, flex: 1 }}
-                value={returnDate}
-                onChange={e => setReturnDate(e.target.value)}
-              />
+              <DateFieldDDMMYYYY
+    id="returnDate"
+    value={returnDate}
+    onChange={setReturnDate}
+    disabled={false}
+  />
             </div>
 
             {/* ReturnType — simple dropdown */}

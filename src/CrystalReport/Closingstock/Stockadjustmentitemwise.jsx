@@ -713,7 +713,7 @@ export default function StockAdjustmentItemwise() {
             <div className="si-actions">
               <button
                 type="button"
-                className="si-btn si-btn-primary"
+                className="mp-btn nw"
                 disabled={loading || pageAccess.pageview === 0}
                 onClick={handleView}
               >
@@ -722,7 +722,7 @@ export default function StockAdjustmentItemwise() {
               </button>
               <button
                 type="button"
-                className="si-btn si-btn-secondary"
+                className="mp-btn dl"
                 onClick={handleRefresh}
                 disabled={loading}
               >

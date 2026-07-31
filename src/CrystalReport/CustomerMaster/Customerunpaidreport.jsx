@@ -577,7 +577,7 @@ export default function CustomerUnpaidReport() {
                 <button
                   id="cu-view-btn"
                   type="button"
-                  className="so-btn so-btn-primary"
+                  className="mp-btn nw"
                   disabled={loading || pageAccess.pageview === 0}
                   onClick={handleView}
                 >
@@ -587,7 +587,7 @@ export default function CustomerUnpaidReport() {
                 <button
                   id="cu-refresh-btn"
                   type="button"
-                  className="so-btn so-btn-secondary"
+                  className="mp-btn dl"
                   disabled={loading}
                   onClick={handleRefresh}
                 >

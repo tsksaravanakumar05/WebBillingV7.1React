@@ -841,15 +841,21 @@ setLoading(true);
           {/* Date */}
           <div className="field-group">
             <label>Date<span className="req">*</span></label>
-            <input
-              ref={dateRef}
-              type="date"
-              className="form-ctrl"
-              value={dteCreated}
-              onChange={(e) => setDteCreated(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); loadGridDetails(); } }}
-              style={{ minWidth: 130 }}
-            />
+            <div
+    onKeyDown={(e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        loadGridDetails();
+      }
+    }}
+  >
+    <DateFieldDDMMYYYY
+      id="dteCreated"
+      value={dteCreated}
+      onChange={(value) => setDteCreated(value)}
+      disabled={false}
+    />
+  </div>
           </div>
 
           {/* Total (readonly) */}
@@ -1109,7 +1115,7 @@ function AccountNamePopup({ query, selIdx, list, searchRef, onQueryChange, onKey
 // ── F5ViewPopup (mirrors jQuery F5Viewwindow + gridf5view) ────────────────────
 function F5ViewPopup({ list, fromDate, toDate, selIdx, onFromDate, onToDate, onSelIdx, onSearch, onPrint, onClose }) {
   return (
-    <div className="popup-overlay" style={{ zIndex: 1100 }}>
+<div className="popup-overlay" style={{ zIndex: 1100 }}>
       <div className="popup-window f5-popup" style={{ maxHeight: "85vh" }}>
         <div className="popup-header">
           <span>Cash Voucher — List View (F5)</span>
@@ -1120,11 +1126,41 @@ function F5ViewPopup({ list, fromDate, toDate, selIdx, onFromDate, onToDate, onS
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
             <div className="field-group">
               <label>From Date</label>
-              <input type="date" className="form-ctrl sm" value={fromDate} onChange={(e) => onFromDate(e.target.value)} />
+              {/* <input type="date" className="form-ctrl sm" value={fromDate} onChange={(e) => onFromDate(e.target.value)} /> */}
+              <div
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    nextFocusForm("fromdate");
+                  }
+                }}
+              >
+                <DateFieldDDMMYYYY
+                  id="fromdate"
+                  value={fromDate}
+                  onChange={onFromDate}
+                  disabled={false}
+                />
+              </div>
             </div>
             <div className="field-group">
               <label>To Date</label>
-              <input type="date" className="form-ctrl sm" value={toDate} onChange={(e) => onToDate(e.target.value)} />
+              {/* <input type="date" className="form-ctrl sm" value={toDate} onChange={(e) => onToDate(e.target.value)} /> */}
+              <div
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    nextFocusForm("todate");
+                  }
+                }}
+              >
+                <DateFieldDDMMYYYY
+                  id="todate"
+                  value={toDate}
+                  onChange={onToDate}
+                  disabled={false}
+                />
+              </div>
             </div>
             <button className="tbtn tbtn-save" onClick={onSearch}>🔍 View</button>
             <button className="tbtn" onClick={onPrint} disabled={selIdx == null}>🖶 Print/View (Ctrl+V)</button>

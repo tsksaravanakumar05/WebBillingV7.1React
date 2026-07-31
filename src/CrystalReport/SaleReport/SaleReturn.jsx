@@ -461,14 +461,14 @@ export default function SaleReturn() {
               <div className="sr-actions">
                 <button
                   type="button"
-                  className="sr-btn sr-btn-primary"
+                  className="mp-btn nw"
                   disabled={loading || pageAccess.pageview === 0}
                   onClick={handleView}
                 >
                   <Save size={16} className="sr-icon-save" />
                   {loading ? "Loading…" : "View"}
                 </button>
-                <button type="button" className="sr-btn sr-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                <button type="button" className="mp-btn dl" onClick={handleRefresh} disabled={loading}>
                   <XCircle size={16} className="sr-icon-cancel" />
                   Refresh
                 </button>

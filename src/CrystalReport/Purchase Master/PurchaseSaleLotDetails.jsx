@@ -676,18 +676,18 @@ export default function PurchaseSaleLotDetails() {
               <div className="so-actions">
                 <button
                   type="button"
-                  className="so-btn so-btn-primary"
+                  className="mp-btn nw"
                   onClick={handleView}
                   disabled={loading}
                 >
                   <Save size={16} className="so-icon-save" />
                   {loading ? "Loading..." : "View"}
                 </button>
-                <button type="button" className="so-btn so-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                <button type="button" className="mp-btn nw" onClick={handleRefresh} disabled={loading}>
                   <RotateCcw size={16} className="so-icon-cancel" />
                   Refresh
                 </button>
-                <button type="button" className="so-btn so-btn-secondary" onClick={() => navigate(-1)} disabled={loading}>
+                <button type="button" className="mp-btn cn" onClick={() => navigate(-1)} disabled={loading}>
                   <XCircle size={16} className="so-icon-cancel" />
                   Close
                 </button>

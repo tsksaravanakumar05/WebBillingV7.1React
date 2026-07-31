@@ -514,11 +514,11 @@ export default function DC() {
               </div>
 
               <div className="dc-actions">
-                <button type="button" className="dc-btn dc-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
+                <button type="button" className="mp-btn nw" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
                   <Save size={16} className="dc-icon-save" />
                   {loading ? "Loading…" : "View"}
                 </button>
-                <button type="button" className="dc-btn dc-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                <button type="button" className="mp-btn dl" onClick={handleRefresh} disabled={loading}>
                   <XCircle size={16} className="dc-icon-cancel" />
                   Refresh
                 </button>

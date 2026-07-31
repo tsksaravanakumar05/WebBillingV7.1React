@@ -674,11 +674,11 @@ Salesmanwise: Salesmanwise ? "true" : "false",
               </div>
 
               <div className="cr-actions">
-                <button type="button" className="cr-btn cr-btn-primary" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
+                <button type="button" className="mp-btn nw" disabled={loading || pageAccess.pageview === 0} onClick={handleView}>
                   <Save size={16} className="cr-icon-save" />
                   {loading ? "Loading…" : "View"}
                 </button>
-                <button type="button" className="cr-btn cr-btn-secondary" onClick={handleRefresh} disabled={loading}>
+                <button type="button" className="mp-btn dl" onClick={handleRefresh} disabled={loading}>
                   <XCircle size={16} className="cr-icon-cancel" />
                   Refresh
                 </button>
