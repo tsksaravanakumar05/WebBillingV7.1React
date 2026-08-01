@@ -44,6 +44,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function PhysicalStockApplyReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "PhysicalStockApplyReport-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

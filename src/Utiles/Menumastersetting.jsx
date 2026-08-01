@@ -267,6 +267,9 @@ export default function Menumastersetting() {
   const [gridHeight,  setGridHeight] = useState(420);
 
   useEffect(() => {
+    document.title = "Menumastersetting-Kassapos";
+  }, []);
+  useEffect(() => {
     const recalc = () => setGridHeight(Math.max((window.innerHeight || 600) - 275, 220));
     recalc();
     window.addEventListener("resize", recalc);

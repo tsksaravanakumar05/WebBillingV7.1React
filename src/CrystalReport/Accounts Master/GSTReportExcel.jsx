@@ -73,6 +73,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function GSTReportExcel() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "GSTReportExcel-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

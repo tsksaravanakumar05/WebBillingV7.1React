@@ -370,6 +370,9 @@ function SearchableSelect({ id, options, labelKey = "label", value, onChange, di
 export default function PurchaseReturnDetailed() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "PurchaseReturnDetailed-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

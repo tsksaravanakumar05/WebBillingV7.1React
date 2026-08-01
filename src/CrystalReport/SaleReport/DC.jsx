@@ -57,6 +57,9 @@ const toMMDDYYYYEndOfDay = (isoDate) => {
 export default function DC() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "DC-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

@@ -39,6 +39,9 @@ const CustomerListUrl = "/api/SupplierApp/SelectSupplierAll";
 export default function CustomerAgingReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CustomerAgingReport-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

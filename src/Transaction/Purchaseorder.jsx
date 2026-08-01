@@ -1246,6 +1246,9 @@ const FORM_COLUMNS = [
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PurchaseOrder() {
   const navigate               = useNavigate();
+  useEffect(() => {
+    document.title = "PurchaseOrder-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
 

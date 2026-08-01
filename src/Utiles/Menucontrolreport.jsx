@@ -108,6 +108,9 @@ function TreeNode({ node, expandedMap, onToggleExpand, onContextMenu, depth }) {
 export default function Menucontrolreport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "Menucontrolreport-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts } = CC.useToast();
 

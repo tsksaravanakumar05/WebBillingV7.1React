@@ -69,6 +69,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function CRMCustomer() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CRMCustomer-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

@@ -12,6 +12,9 @@ import * as CC from "./Common";
 
 export default function GroupMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Group-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());
 

@@ -1588,6 +1588,10 @@ export default function SaleBill() {
   const productCreateConfirmRef = useRef(false);
   const location             = useLocation();
   const navigate             = useNavigate();
+  
+  useEffect(() => {
+    document.title = "SaleBill-Kassapos";
+  }, []);
   const quickCreateState     = location.state?.quickCreate;
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }    = CC.useToast();
@@ -1612,6 +1616,8 @@ export default function SaleBill() {
   const quickCreateHandledRef = useRef(false);
   const goToNextFieldRef = useRef(null);
   const loadSaleProductsRef = useRef(null);
+
+
 
   const loadColCfg = useCallback(async (comid) => {
     try {

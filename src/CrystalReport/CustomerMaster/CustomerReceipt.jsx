@@ -78,6 +78,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function CustomerReceipt() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CustomerReceipt-Kassapos";
+  }, []);
   // ── Session / permission state (ported from the active menulist check) ──
   const [pageAccess, setPageAccess] = useState({
     ready: false,

@@ -86,7 +86,9 @@ const makeGridRow = () => ({
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function CashVoucher() {
   const navigate = useNavigate();
-
+  useEffect(() => {
+    document.title = "CashVoucher-Kassapos";
+  }, []);
   // ── MSG hooks ────────────────────────────────────────────────────────────────
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast, toasts }      = MSG.useToast();

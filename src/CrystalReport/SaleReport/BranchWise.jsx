@@ -74,6 +74,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function BranchWise() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "BranchWise-Kassapos";
+  }, []);
   // ── Session state (Comid/MComid/company info) ──────────────────────────
   const [session, setSession] = useState({
     Comid: "",

@@ -89,6 +89,9 @@ const ALL_COLUMNS = [
 // ─── SubCategoryMaster ────────────────────────────────────────────────────────
 export default function SubCategoryMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "SubCategory-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());
 

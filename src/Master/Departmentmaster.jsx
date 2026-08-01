@@ -86,6 +86,9 @@ const ALL_COLUMNS = [
 // ─── DepartmentMaster ─────────────────────────────────────────────────────────
 export default function DepartmentMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Department-Kassapos";
+  }, []);
   const inputRefs = useRef([]);      // inputRefs[rowIdx][colIdx]
   const dirtyIds  = useRef(new Set()); // tracks saved rows where user actually typed
 

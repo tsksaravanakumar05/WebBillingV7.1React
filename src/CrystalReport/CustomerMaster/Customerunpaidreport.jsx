@@ -257,6 +257,9 @@ function ApiSelect({ url, payload, headers = {}, labelKey, valueKey, value, onCh
 export default function CustomerUnpaidReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CustomerUnpaidReport-Kassapos";
+  }, []);
   const [pageAccess, setPageAccess] = useState({ ready: false, allowed: false, pageview: 0 });
   const [session, setSession] = useState({ Comid: "", MComid: "", CName: "", CAddress: "", CPhone: "", lookupComid: "" });
   const [fromDate, setFromDate] = useState(todayStr());

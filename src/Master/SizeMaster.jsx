@@ -84,6 +84,9 @@ const ALL_COLUMNS = [
 // ─── SizeMaster ───────────────────────────────────────────────────────────────
 export default function SizeMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Size-Kassapos";
+  }, []);
   const inputRefs = useRef([]);         // inputRefs[rowIdx][colIdx]
   const dirtyIds  = useRef(new Set());  // tracks saved rows where user actually typed
 

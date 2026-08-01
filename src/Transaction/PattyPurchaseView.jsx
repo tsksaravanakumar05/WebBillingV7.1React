@@ -31,6 +31,9 @@ const pickLabel = (item) => String(
 
 export default function PattyPurchaseView() {
   const navigate = useNavigate();
+  useEffect(() => {
+    document.title = "PattyPurchaseView-Kassapos";
+  }, []);
   const [rows, setRows] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [salesmen, setSalesmen] = useState([]);

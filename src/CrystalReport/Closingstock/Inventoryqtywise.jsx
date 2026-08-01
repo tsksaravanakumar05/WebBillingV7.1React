@@ -83,6 +83,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function InventoryQtyWise() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "InventoryQtyWise-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

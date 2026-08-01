@@ -119,6 +119,9 @@ const TABS = [
 // ─────────────────────────────────────────────────────────────────────────────
 export default function CompanySettings() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Company-Kassapos";
+  }, []);
   const savingRef = useRef(false);
 
   // ── MSG hooks ────────────────────────────────────────────────────────────────

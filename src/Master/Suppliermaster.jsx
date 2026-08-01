@@ -116,6 +116,9 @@ function SalesmanPicker({ salesmanList, initialSearch = "", onSelect, onClose, o
 // ─── SupplierMaster ───────────────────────────────────────────────────────────
 export default function SupplierMaster() {
   const location = useLocation();
+  useEffect(() => {
+    document.title = "Supplier-Kassapos";
+  }, []);
   const navigate = useNavigate();
   const quickCreateState = location.state?.quickCreate;
 const [pageCountTotal, setPageCountTotal] = useState(0); // total record count (data.Count)

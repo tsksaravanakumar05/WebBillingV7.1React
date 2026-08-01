@@ -53,6 +53,10 @@ function PasswordModal({ title, onSubmit, onClose }) {
 // ─── PasswordSetting ─────────────────────────────────────────────────────────
 export default function PasswordSetting() {
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    document.title = "PasswordSetting-Kassapos";
+  }, []);
   const inputRefs = useRef([]);    // refs for UserName inputs
   const pwdRefs   = useRef([]);    // refs for Password inputs
 

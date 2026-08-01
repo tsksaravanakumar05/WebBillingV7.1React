@@ -30,6 +30,9 @@ import * as CC from "./Common";
 // ─── BrandMaster ──────────────────────────────────────────────────────────────
 export default function BrandMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Brand-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());
 

@@ -60,6 +60,9 @@ const SupplierListUrl = "/api/SupplierApp/SelectSupplier";
 export default function SupplierList() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "SupplierList-Kassapos";
+  }, []);
   // ── Session / permission state ──────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

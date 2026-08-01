@@ -122,6 +122,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function StockInOutTransferReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "StockInOutTransferReport-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

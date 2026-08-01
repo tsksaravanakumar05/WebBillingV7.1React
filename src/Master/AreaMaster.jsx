@@ -17,6 +17,9 @@ import * as CC from "../components/Common";
 // ─── AreaMaster ───────────────────────────────────────────────────────────────
 export default function AreaMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Area-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());
 

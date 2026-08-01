@@ -20,6 +20,9 @@ import * as CC from "../components/Common";
 export default function Menucontrol() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "Menucontrol-Kassapos";
+  }, []);
   // ── Shared hooks from Common ─────────────────────────────────────────────
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts } = CC.useToast();

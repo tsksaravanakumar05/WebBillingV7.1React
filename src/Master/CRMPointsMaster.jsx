@@ -35,6 +35,9 @@ const ALL_COLUMNS = [
 
 export default function CRMPointsMaster() {
   const navigate = useNavigate();
+  useEffect(() => {
+    document.title = "CRMPoints-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
   const dirtyIds = useRef(new Set());
 

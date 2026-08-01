@@ -308,6 +308,10 @@ const normalize = (rawList, labelKeys, valueKeys) =>
 
 export default function PurchaseLotWise() {
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    document.title = "PurchaseLotWise-Kassapos";
+  }, []);
   const [pageAccess, setPageAccess] = useState({ ready: false, allowed: false, pageview: 0 });
   const [session, setSession] = useState({
     Comid: "",

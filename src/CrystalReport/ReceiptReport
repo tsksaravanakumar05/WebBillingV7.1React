@@ -74,6 +74,9 @@ const makeDefaultForm = () => ({
 export default function CustomerReceipt() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CustomerReceipt-Kassapos";
+  }, []);
   // ── MSG hooks ──────────────────────────────────────────────────────────────
   const { toast, toasts } = MSG.useToast();
 

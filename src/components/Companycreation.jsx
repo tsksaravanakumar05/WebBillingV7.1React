@@ -28,6 +28,9 @@ const SMS_BASE_URL =
 export default function CompanyCreation() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CompanyCreation-Kassapos";
+  }, []);
   // "form"  -> user is entering shop details
   // "otp"   -> waiting for user to enter the OTP that was sent
   const [step, setStep] = useState("form");

@@ -418,6 +418,9 @@ function SearchableSelect({ id, options, labelKey = "label", value, onChange, di
 export default function PurchaseRetunCons() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "PurchaseRetunCons-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

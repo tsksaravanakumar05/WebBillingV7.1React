@@ -171,6 +171,9 @@ function SearchCombo({ id, list, selected, onSelect, placeholder, disabled }) {
 export default function PurchaseSaleLotDetails() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "PurchaseSaleLotDetails-Kassapos";
+  }, []);
   const [session, setSession] = useState({
     Comid: "",
     MComid: "",

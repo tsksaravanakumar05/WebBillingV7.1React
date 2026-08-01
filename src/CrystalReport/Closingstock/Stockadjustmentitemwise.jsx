@@ -66,6 +66,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function StockAdjustmentItemwise() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "StockAdjustmentItemwise-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

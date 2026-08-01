@@ -273,6 +273,9 @@ function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
 export default function PurchaseDet() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "PurchaseDet-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

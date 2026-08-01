@@ -150,6 +150,9 @@ const normalizeUom = (raw) =>
 export default function Reorder() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "Reorder-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

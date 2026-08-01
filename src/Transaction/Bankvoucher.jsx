@@ -607,6 +607,9 @@ function F12Popup({ colSettings, onSave, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function BankVoucher() {
   const navigate = useNavigate();
+  useEffect(() => {
+    document.title = "BankVoucher-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast,   toasts    } = MSG.useToast();
 

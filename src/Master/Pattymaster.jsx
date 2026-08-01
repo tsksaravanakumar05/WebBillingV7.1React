@@ -47,6 +47,10 @@ const Toggle = ({ value, onChange, onKeyDown, inputRef, idx, editMode, onFocus }
 // ─── PattyMaster ──────────────────────────────────────────────────────────────
 export default function PattyMaster() {
   const navigate  = useNavigate();
+  
+  useEffect(() => {
+    document.title = "Patty-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());
 

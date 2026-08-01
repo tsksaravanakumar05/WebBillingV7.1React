@@ -63,6 +63,9 @@ const Toggle = ({ value, onChange, onKeyDown, inputRef, idx, editMode, onFocus }
 // ─── CategoryMaster ───────────────────────────────────────────────────────────
 export default function CategoryMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Category-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());
 

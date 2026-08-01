@@ -166,6 +166,9 @@ export default function MainSetting() {
   const navigate  = useNavigate();
   const savingRef = useRef(false);
 
+  useEffect(() => {
+    document.title = "MainSetting-Kassapos";
+  }, []);
   // ── MSG hooks ────────────────────────────────────────────────────────────
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast,   toasts    } = MSG.useToast();

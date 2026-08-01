@@ -244,6 +244,9 @@ function SearchableList({ items, labelField, prefill, onChange, onClose, onEnter
 export default function CustomerMaster() {
   const location  = useLocation();
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Customer-Kassapos";
+  }, []);
   const quickCreateState = location.state?.quickCreate;
   const inputRefs = useRef({});    // keyed `${rowIdx}-${colField}`
   const dirtyIds  = useRef(new Set());

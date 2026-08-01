@@ -974,6 +974,9 @@ const fieldLabel = {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Quotation() {
   const navigate               = useNavigate();
+  useEffect(() => {
+    document.title = "Quotation-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
 

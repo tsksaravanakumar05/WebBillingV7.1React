@@ -48,6 +48,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function LedgerStatment() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "LedgerStatment-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

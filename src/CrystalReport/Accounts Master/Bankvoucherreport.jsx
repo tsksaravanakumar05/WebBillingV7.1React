@@ -46,6 +46,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function BankVoucherReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "BankVoucherReport-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

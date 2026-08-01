@@ -455,6 +455,10 @@ function F12Popup({ colSettings, comid, onSave, onClose, toast }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PhysicalStock() {
   const navigate               = useNavigate();
+  
+  useEffect(() => {
+    document.title = "PhysicalStock-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
 
