@@ -260,6 +260,10 @@ const toBool = (value) =>
 
 export default function PurchaseSale() {
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    document.title = "PurchaseSale-Kassapos";
+  }, []);
   const [pageAccess, setPageAccess] = useState({ ready: false, allowed: false, pageview: 0 });
   const [session, setSession] = useState({
     Comid: "",

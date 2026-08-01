@@ -119,6 +119,9 @@ class RequestController {
 // ═════════════════════════════════════════════════════════════════════════════
 export default function CardMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Card-Kassapos";
+  }, []);
   // inputRefs[rowIdx][colIdx] — matches ALL_COLUMNS order
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());

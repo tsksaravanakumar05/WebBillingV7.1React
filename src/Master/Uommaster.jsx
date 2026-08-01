@@ -87,6 +87,9 @@ const ALL_COLUMNS = [
 
 // ─── UomMaster ────────────────────────────────────────────────────────────────
 export default function UomMaster() {
+  useEffect(() => {
+    document.title = "Uom-Kassapos";
+  }, []);
   const navigate  = useNavigate();
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());

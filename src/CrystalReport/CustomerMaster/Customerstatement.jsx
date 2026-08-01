@@ -51,6 +51,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function CustomerStatement() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CustomerStatement-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

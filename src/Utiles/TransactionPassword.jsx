@@ -29,6 +29,9 @@ export default function TransactionMaster() {
   const navigate  = useNavigate();
   const inputRefs = useRef([]);
 
+  useEffect(() => {
+    document.title = "TransactionMaster-Kassapos";
+  }, []);
   // ── Shared hooks ─────────────────────────────────────────────────────────────
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast,   toasts    } = CC.useToast();

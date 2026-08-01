@@ -247,6 +247,10 @@ const normalize = (rawList, labelKeys, valueKeys) =>
 
 export default function PurchaseSaleProfit() {
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    document.title = "PurchaseSaleProfit-Kassapos";
+  }, []);
   const [pageAccess, setPageAccess] = useState({ ready: false, allowed: false, pageview: 0 });
   const [session, setSession] = useState({ Comid: "", MComid: "", CName: "", CAddress: "", CPhone: "" });
   const [fromDate, setFromDate] = useState(todayStr());

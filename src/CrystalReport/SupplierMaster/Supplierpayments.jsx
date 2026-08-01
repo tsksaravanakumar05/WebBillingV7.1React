@@ -75,6 +75,10 @@ const toMMDDYYYY = (isoDate) => {
 
 export default function SupplierPayments() {
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    document.title = "SupplierPayments-Kassapos";
+  }, []);
   const fromDateRef = useRef(null);
 
   // ── Session / permission state ──────────────────────────────────────────

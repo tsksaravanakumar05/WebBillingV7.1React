@@ -44,6 +44,9 @@ const CACHE_KEY_TYPE = "SupplierPendingReport";
 export default function SupplierPendingBillReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "SupplierPendingBillReport-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

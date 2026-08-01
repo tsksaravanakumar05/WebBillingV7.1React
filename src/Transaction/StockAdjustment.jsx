@@ -768,6 +768,9 @@ function F5ViewWindow({ comid, onClose, onSelectRow, onEditRow, onDeleteRow, loa
 // ─────────────────────────────────────────────────────────────────────────────
 export default function StockAdjustment() {
   const navigate = useNavigate();
+  useEffect(() => {
+    document.title = "StockAdjustment-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast,   toasts    } = MSG.useToast();
 

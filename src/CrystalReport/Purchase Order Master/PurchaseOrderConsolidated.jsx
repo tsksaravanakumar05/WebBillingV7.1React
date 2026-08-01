@@ -286,6 +286,9 @@ function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
 export default function PurchaseOrderConsolidated() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "PurchaseOrderConsolidated-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

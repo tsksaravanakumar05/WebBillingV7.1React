@@ -935,6 +935,10 @@ const FREE_COMP_COLOR = "#cce5ff";
 // ─────────────────────────────────────────────────────────────────────────────
 export default function SaleOrder() {
   const navigate               = useNavigate();
+  
+  useEffect(() => {
+    document.title = "SaleOrder-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
 

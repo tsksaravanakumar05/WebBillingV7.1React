@@ -66,6 +66,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function SupplierDuePayment() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "SupplierDuePayment-Kassapos";
+  }, []);
   // ── Session / permission state ──────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

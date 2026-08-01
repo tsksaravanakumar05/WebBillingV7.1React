@@ -48,7 +48,9 @@ const toMMDDYYYY = (isoDate) => {
 
 export default function Quotation() {
   const navigate = useNavigate();
-
+  useEffect(() => {
+    document.title = "Quotation-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

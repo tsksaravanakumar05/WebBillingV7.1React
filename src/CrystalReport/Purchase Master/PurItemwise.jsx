@@ -378,6 +378,9 @@ function ComboField({ id, list, selected, onSelect, disabled, placeholder }) {
 export default function PurItemwise() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "PurItemwise-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

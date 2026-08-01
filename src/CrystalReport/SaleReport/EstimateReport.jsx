@@ -44,6 +44,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function Estimate() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "Estimate-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

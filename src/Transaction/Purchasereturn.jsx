@@ -276,7 +276,9 @@ function TotalRow({ label, value, net }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function PurchaseReturn() {
   const navigate = useNavigate();
-
+  useEffect(() => {
+    document.title = "PurchaseReturn-Kassapos";
+  }, []);
   // ── MSG hooks ────────────────────────────────────────────────────────────────
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast, toasts }     = MSG.useToast();

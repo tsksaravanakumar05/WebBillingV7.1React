@@ -94,6 +94,9 @@ const makeRow = () => ({
 export default function RepackingMaster() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "RepackingMaster-Kassapos";
+  }, []);
   // ── Common hooks ─────────────────────────────────────────────────────────────
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast,   toasts    } = CC.useToast();

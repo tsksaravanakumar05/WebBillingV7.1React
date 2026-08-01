@@ -276,6 +276,9 @@ function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
 export default function PurConsolidated() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "PurConsolidated-Kassapos";
+  }, []);
 
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({

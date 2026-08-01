@@ -82,7 +82,9 @@ const makeGridRow = () => ({
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Company() {
   const navigate = useNavigate();
-
+  useEffect(() => {
+    document.title = "Company-Kassapos";
+  }, []);
   // ── MSG hooks ────────────────────────────────────────────────────────────────
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast, toasts }      = MSG.useToast();

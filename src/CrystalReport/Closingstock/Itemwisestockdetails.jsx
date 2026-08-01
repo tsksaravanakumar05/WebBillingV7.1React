@@ -162,6 +162,9 @@ function SearchableSelect({ options, labelKey, value, onSelect, placeholder, loa
 export default function ItemwiseStockDetails() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "ItemwiseStockDetails-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

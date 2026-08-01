@@ -911,6 +911,9 @@ const handleSave = async () => {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function EstimateBill() {
   const navigate = useNavigate();
+  useEffect(() => {
+    document.title = "EstimateBill-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
   const focusConfiguredRef  = useRef(false);

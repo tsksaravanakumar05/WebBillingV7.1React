@@ -172,7 +172,10 @@ export default function AccountsMaster() {
 
   // CHANGED: useNavigate replaces window.location.href
   const navigate = useNavigate();
-
+  
+  useEffect(() => {
+    document.title = "AccountsGroup Master-Kassapos";
+  }, []);
   // ADDED: MSG hooks — replaces MsgBox / MsgBoxYesNo / window.confirm / window.alert
   const { confirm, ConfirmUI } = MSG.useConfirm();
   const { toast,   toasts    } = MSG.useToast();

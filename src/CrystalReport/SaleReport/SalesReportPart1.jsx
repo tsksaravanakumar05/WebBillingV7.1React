@@ -258,7 +258,9 @@ function getUIConfig(type, univercell) {
 
 export default function SaleReportPart1() {
   const navigate = useNavigate();
-
+  useEffect(() => {
+    document.title = "SaleReportPart1-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({ ready: false, allowed: false, pageview: 0 });
 

@@ -807,6 +807,9 @@ const sanitizeRowForInsert = (row, mode) => {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function StockInward() {
   const navigate               = useNavigate();
+  useEffect(() => {
+    document.title = "StockInward-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
 

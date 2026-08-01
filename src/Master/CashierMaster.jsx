@@ -32,6 +32,9 @@ import * as CC from "./Common";
 // ─── CategoryMaster ───────────────────────────────────────────────────────────
 export default function CashierMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "Cashier-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
 
   // ── Shared hooks from CashierCommon ─────────────────────────────────────────

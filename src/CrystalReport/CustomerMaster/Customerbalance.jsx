@@ -87,6 +87,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function CustomerBalance() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CustomerBalance-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

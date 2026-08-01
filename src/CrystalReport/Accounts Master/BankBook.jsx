@@ -47,6 +47,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function BankBook() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "BankBook-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

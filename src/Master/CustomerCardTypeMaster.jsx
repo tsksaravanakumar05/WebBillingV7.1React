@@ -18,6 +18,9 @@ import * as CC1 from "../components/Common";
 // ─── CustomerCardTypeMaster ───────────────────────────────────────────────────
 export default function CustomerCardTypeMaster() {
   const navigate  = useNavigate();
+  useEffect(() => {
+    document.title = "CustomerCardType-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());
 

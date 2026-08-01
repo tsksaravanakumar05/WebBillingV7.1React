@@ -346,6 +346,9 @@ export default function MenuSettings() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
 
+  useEffect(() => {
+    document.title = "Home-Kassapos";
+  }, []);
   // ── Read & parse from localStorage on every open (stays fresh)
   const [parsed, setParsed] = useState(() => {
     const raw = localStorage.getItem("menulistload") || "";

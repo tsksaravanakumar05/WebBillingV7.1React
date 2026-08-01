@@ -58,6 +58,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function SupplierStatement() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "SupplierStatement-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

@@ -90,6 +90,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function SupplierBalance() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "SupplierBalance-Kassapos";
+  }, []);
   // ── Session / permission state ──────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

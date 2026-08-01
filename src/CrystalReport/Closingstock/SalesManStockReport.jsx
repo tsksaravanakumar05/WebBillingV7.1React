@@ -66,6 +66,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function SalesManStockReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "SalesManStockReport-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

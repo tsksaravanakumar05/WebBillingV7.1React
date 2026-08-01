@@ -262,6 +262,10 @@ const toBool = (value) =>
 
 export default function PattyCommissionReport() {
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    document.title = "PattyCommissionReport-Kassapos";
+  }, []);
   const [pageAccess, setPageAccess] = useState({ ready: false, allowed: false, pageview: 0 });
   const [session, setSession] = useState({
     Comid: "",

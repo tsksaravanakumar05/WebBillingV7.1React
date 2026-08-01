@@ -175,6 +175,9 @@ function SearchableSelect({ id, options, labelKey = "label", value, onChange, di
 export default function ItemList() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "ItemList-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

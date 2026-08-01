@@ -1010,6 +1010,9 @@ const fieldLabel = {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function SaleReturn() {
   const navigate               = useNavigate();
+  useEffect(() => {
+    document.title = "SaleReturn-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts }      = CC.useToast();
 const [focusCols, setFocusCols] = useState([]);

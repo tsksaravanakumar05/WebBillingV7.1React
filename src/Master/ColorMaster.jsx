@@ -84,6 +84,9 @@ const ALL_COLUMNS = [
 
 // ─── ColorMaster ──────────────────────────────────────────────────────────────
 export default function ColorMaster() {
+  useEffect(() => {
+    document.title = "Color-Kassapos";
+  }, []);
   const navigate  = useNavigate();
   const inputRefs = useRef([]);         // inputRefs[rowIdx][colIdx]
   const dirtyIds  = useRef(new Set());  // tracks saved rows where user actually typed

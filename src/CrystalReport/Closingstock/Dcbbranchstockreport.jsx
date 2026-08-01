@@ -75,6 +75,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function DCBBranchStockReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "DCBBranchStockReport-Kassapos";
+  }, []);
   // ── Session / readiness state ───────────────────────────────────────────
   // No page-permission gating in the original (see assumption #1) — just a
   // "did the session bootstrap finish" flag.

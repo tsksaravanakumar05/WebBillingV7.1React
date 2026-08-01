@@ -551,6 +551,9 @@ export default function CustomerWiseSaleRate() {
       document.head.appendChild(s);
     }
   }, []);
+  useEffect(() => {
+    document.title = "CustomerWiseSaleRate-Kassapos";
+  }, []);
 
   /* ── init ── */
   useEffect(() => {

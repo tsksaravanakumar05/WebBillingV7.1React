@@ -39,6 +39,9 @@ const CACHE_KEY_TYPE = "SupplierAgingReport";
 export default function SupplierAgingReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "SupplierAgingReport-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

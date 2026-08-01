@@ -48,6 +48,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function CashVoucherReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CashVoucherReport-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

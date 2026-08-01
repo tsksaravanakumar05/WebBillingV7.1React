@@ -46,7 +46,9 @@ const toMMDDYYYY = (isoDate) => {
 
 export default function SaleOrder() {
   const navigate = useNavigate();
-
+  useEffect(() => {
+    document.title = "SaleOrder-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

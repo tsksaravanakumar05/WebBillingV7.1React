@@ -415,6 +415,9 @@ const exceedsDecimalLimit = (value, decimals) => {
 export default function Purchase() {
   const location = useLocation();
   const navigate = useNavigate();
+  useEffect(() => {
+    document.title = "Purchase-Kassapos";
+  }, []);
   const externalOpenRef = useRef("");
   const fromPattyPurchaseView = !!location.state?.pattyPurchaseOpen;
   const quickCreateState = location.state?.quickCreate;

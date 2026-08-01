@@ -95,7 +95,12 @@ const ALL_COLUMNS = [
 
 // ─── SalesManMaster ───────────────────────────────────────────────────────────
 export default function SalesManMaster() {
+
   const navigate  = useNavigate();
+  
+  useEffect(() => {
+    document.title = "SalesMan-Kassapos";
+  }, []);
   const inputRefs = useRef([]);
   const dirtyIds  = useRef(new Set());
 

@@ -145,6 +145,9 @@ const calcValue = row => f2(vn(row.Qty) * vn(row.LandingCost));
 
 export default function OpeningBalance() {
   const navigate = useNavigate();
+  useEffect(() => {
+    document.title = "OpeningBalance-Kassapos";
+  }, []);
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast, toasts } = CC.useToast();
   const { showAlert, AlertUI } = CC.useAlert();

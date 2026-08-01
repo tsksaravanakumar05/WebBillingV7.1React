@@ -221,7 +221,7 @@ function App() {
         <Route path="/purchase" element={<PurchasesMaster />} />
         <Route path="/SaleReturn" element={<SaleReturn />} />
         <Route path="/CustomerReceipt" element={<CustomerReceipt />} />
-        <Route path="/Purchase" element={<PurchasesMaster />} />
+        
         <Route path="/PurchaseReturn" element={<PurchaseReturn />} />
         <Route path="/Supplierpayment" element={<Supplierpayment />} />
         <Route path="/StockInward" element={<StockInward />} />
@@ -269,7 +269,7 @@ function App() {
 <Route path="/Report/PurchaseSaleProfit" element={<PurchaseSaleProfit />} />
 <Route path="/Report/PattyCommissionReport" element={<PattyCommissionReport />} />
 <Route path="/Report/purchasesale" element={<PurchaseSale />} />
-<Route path="/Report/PurchaseSale" element={<PurchaseSale />} />
+
 <Route path="/Report/PurchaseSaleLotDetails" element={<PurchaseSaleLotDetails />} />
 {/* Itemmaster     */}
 <Route path="/Report/Itemlist" element={<Itemlist />} />

@@ -217,8 +217,12 @@ function ProductPickerModal({ Comid, onSelect, onClose }) {
 
 // ─── RateChange ───────────────────────────────────────────────────────────────
 export default function RateChange() {
+  
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "RateChange-Kassapos";
+  }, []);
   // ── Shared hooks from Common.jsx (identical to SupplierMaster) ────────────
   const { confirm, ConfirmUI } = CC.useConfirm();
   const { toast,   toasts    } = CC.useToast();

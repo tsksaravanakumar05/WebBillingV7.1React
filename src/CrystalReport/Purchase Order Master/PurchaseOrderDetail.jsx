@@ -291,6 +291,9 @@ function DateFieldDDMMYYYY({ id, value, onChange, disabled }) {
 export default function PurchaseOrderDetail() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "PurchaseOrderDetail-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

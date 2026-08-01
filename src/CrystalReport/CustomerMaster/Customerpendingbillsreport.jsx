@@ -46,6 +46,9 @@ const SalesManListUrl = "/api/SalesManApp/SelectSalesMan";
 export default function CustomerPendingBillsReport() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CustomerPendingBillsReport-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

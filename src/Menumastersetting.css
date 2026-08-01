@@ -1133,7 +1133,7 @@
 .panel-title {
   font-size: 12px;
   font-weight: 700;
-  color: #1f65de;
+  color: var(--clr-ps-bg);
   text-transform: uppercase;
   letter-spacing: 0.3px;
   margin-bottom: 2px;

@@ -38,6 +38,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function CashBook() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "CashBook-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,

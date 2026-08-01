@@ -84,6 +84,9 @@ const toMMDDYYYY = (isoDate) => {
 export default function ClosingStock() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "ClosingStock-Kassapos";
+  }, []);
   // ── Session / permission state ─────────────────────────────────────────
   const [pageAccess, setPageAccess] = useState({
     ready: false,
