@@ -5,19 +5,6 @@ import "../dashboard.css";
 import Topbar from "./Topbar";
 import * as CC from "./Common";
 
-const PRODUCTS_DATA = [
-  { id: 1, name: "Basmati Rice 5kg", category: "Grains", qty: 48, amount: 9600, status: "in_stock" },
-  { id: 2, name: "Toor Dal 1kg", category: "Pulses", qty: 120, amount: 8400, status: "in_stock" },
-  { id: 3, name: "Sunflower Oil 1L", category: "Oil", qty: 65, amount: 7150, status: "low_stock" },
-  { id: 4, name: "Wheat Flour 10kg", category: "Grains", qty: 30, amount: 5700, status: "in_stock" },
-  { id: 5, name: "Sugar 1kg", category: "Sweeteners", qty: 200, amount: 5000, status: "in_stock" },
-  { id: 6, name: "Green Tea 100g", category: "Beverages", qty: 18, amount: 2700, status: "low_stock" },
-  { id: 7, name: "Coconut Oil 500ml", category: "Oil", qty: 10, amount: 1800, status: "out_stock" },
-  { id: 8, name: "Chana Dal 1kg", category: "Pulses", qty: 55, amount: 3850, status: "in_stock" },
-  { id: 9, name: "Turmeric Powder", category: "Spices", qty: 90, amount: 2250, status: "in_stock" },
-  { id: 10, name: "Cardamom 50g", category: "Spices", qty: 6, amount: 1200, status: "low_stock" },
-];
-
 const ACTIVITY_FEED = [
   { id: 1, message: "Invoice #INV-2409 created", sub: "Basmati Rice 5kg x 4", time: "2 min ago", dot: "#22c55e" },
   { id: 2, message: "Purchase from Ravi Traders", sub: "Rs 12,400 - 8 items", time: "18 min ago", dot: "#4f7df9" },
@@ -226,6 +213,58 @@ const extractWeeklyRowsFromResponse = (response) => {
   return null;
 };
 
+const extractTopProductsFromResponse = (response) => {
+  if (Array.isArray(response?.Data2)) {
+    return response.Data2;
+  }
+
+  if (Array.isArray(response?.data2)) {
+    return response.data2;
+  }
+
+  if (Array.isArray(response?.topProducts)) {
+    return response.topProducts;
+  }
+
+  if (Array.isArray(response?.TopProducts)) {
+    return response.TopProducts;
+  }
+
+  if (Array.isArray(response?.productRows)) {
+    return response.productRows;
+  }
+
+  if (Array.isArray(response?.ProductRows)) {
+    return response.ProductRows;
+  }
+
+  return [];
+};
+
+const normalizeTopProducts = (rows) => {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  return rows
+    .map((row, index) => ({
+      id: getCaseInsensitiveValue(row, ["id", "Id", "sno", "SNo", "slno", "SlNo"]) ?? index + 1,
+      name: String(
+        getCaseInsensitiveValue(row, ["productname", "ProductName", "pname", "PName", "name", "Name", "description", "Description"]) ?? ""
+      ).trim(),
+      category: String(
+        getCaseInsensitiveValue(row, ["category", "Category", "groupname", "GroupName", "department", "Department"]) ?? ""
+      ).trim(),
+      qty: ValNum(
+        getCaseInsensitiveValue(row, ["qty", "Qty", "saleqty", "SaleQty", "itemqty", "ItemQty", "quantity", "Quantity"])
+      ),
+      amount: ValNum(
+        getCaseInsensitiveValue(row, ["amount", "Amount", "netamount", "NetAmount", "saleamount", "SaleAmount", "total", "Total"])
+      ),
+    }))
+    .filter((row) => row.name);
+};
+
 function useDashboardData() {
   const [metrics, setMetrics] = useState({
     todaysale: 0,
@@ -239,6 +278,7 @@ function useDashboardData() {
   });
   const [weeklyChartRows, setWeeklyChartRows] = useState(() => normalizeWeeklyChartRows([]));
   const [weeklyDataSource, setWeeklyDataSource] = useState("missing");
+  const [topProducts, setTopProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const Comid = CC.getStr("Comid") || "1";
@@ -284,6 +324,9 @@ function useDashboardData() {
           setMetrics(result);
         }
 
+        const rawTopProducts = extractTopProductsFromResponse(res);
+        setTopProducts(normalizeTopProducts(rawTopProducts));
+
         // ---- Weekly chart (Data3) ----
         // IMPORTANT: always trust a fresh API response over any cached copy.
         // Previously this only fetched conditionally and silently fell back
@@ -327,6 +370,8 @@ function useDashboardData() {
         if (cancelled) return;
 
         // Network/API failure - use cache if we have one, otherwise show empty state.
+        setTopProducts([]);
+
         const cachedWeeklyRows = sessionStorage.getItem("dashboardWeeklyRows");
 
         if (cachedWeeklyRows) {
@@ -364,7 +409,7 @@ function useDashboardData() {
     };
   }, [Comid, MComid]);
 
-  return { metrics, weeklyChartRows, weeklyDataSource, loading };
+  return { metrics, weeklyChartRows, weeklyDataSource, topProducts, loading };
 }
 
 const MetricCard = memo(({ label, value, delta, icon: Icon, loading, isCurrency = false }) => {
@@ -522,7 +567,7 @@ const COLS = [
   { key: "amount", label: "Amount", sortable: true },
 ];
 
-const ProductsTable = memo(() => {
+const ProductsTable = memo(({ rows }) => {
   const [sortKey, setSortKey] = useState("amount");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
@@ -544,12 +589,12 @@ const ProductsTable = memo(() => {
 
   const filtered = useMemo(
     () =>
-      PRODUCTS_DATA.filter(
+      rows.filter(
         (row) =>
           row.name.toLowerCase().includes(search.toLowerCase()) ||
           row.category.toLowerCase().includes(search.toLowerCase())
       ),
-    [search]
+    [rows, search]
   );
 
   const sorted = useMemo(() => {
@@ -626,7 +671,7 @@ const ProductsTable = memo(() => {
           </thead>
           <tbody>
             {paginated.length === 0 ? (
-              <tr><td colSpan={COLS.length} className="kd-empty">No products match your search.</td></tr>
+              <tr><td colSpan={COLS.length} className="kd-empty" /></tr>
             ) : (
               paginated.map((row, index) => {
                 return (
@@ -674,7 +719,7 @@ const ProductsTable = memo(() => {
 });
 
 const Dashboard = () => {
-  const { metrics, weeklyChartRows, weeklyDataSource, loading } = useDashboardData();
+  const { metrics, weeklyChartRows, weeklyDataSource, topProducts, loading } = useDashboardData();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -728,7 +773,7 @@ const Dashboard = () => {
 
           <section className="kd-mid-row">
             <WeeklyChart bars={weeklyChartRows} dataSource={weeklyDataSource} />
-            <ProductsTable />
+            <ProductsTable rows={topProducts} />
           </section>
         </main>
       </div>
