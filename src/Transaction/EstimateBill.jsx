@@ -63,6 +63,55 @@ const DEFAULT_COL_SETTINGS = SALE_COLUMNS.map(c => ({
   key: c.key, label: c.label, width: c.width, visible: !c.hidden,
 }));
 
+// ─── PRINT CHOICE DIALOG (copied from SaleBill.jsx — do not modify) ──────────
+function PrintChoiceDialog({ onPrint, onView, onSkip }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "rgba(10,20,40,.5)",
+      display: "flex", alignItems: "center",
+      justifyContent: "center", zIndex: 99999,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 10,
+        width: 320, padding: "20px 24px",
+        boxShadow: "0 16px 48px rgba(31,101,222,.25)",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2e4a", marginBottom: 16 }}>
+          🖨 Estimate Saved Successfully!
+        </div>
+        <div style={{ fontSize: 12, color: "#6b7a99", marginBottom: 20 }}>
+          What would you like to do?
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <button
+            onClick={onPrint}
+            style={{
+              padding: "8px 16px", borderRadius: 5, border: "none",
+              background: "#1f65de", color: "#fff", fontWeight: 700,
+              fontSize: 13, cursor: "pointer",
+            }}>🖨 Print</button>
+          <button
+            onClick={onView}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #c5d8f8", background: "#e8f0fe",
+              color: "#1f65de", fontWeight: 700, fontSize: 13, cursor: "pointer",
+            }}>👁 View</button>
+          <button
+            onClick={onSkip}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #d4dbe8", background: "#f8faff",
+              color: "#4a5568", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            }}>✕ Skip</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const vn    = v => parseFloat(v) || 0;
 const ro    = v => Math.round(v * 100) / 100;
@@ -963,6 +1012,7 @@ export default function EstimateBill() {
   const [discPer,          setDiscPer]          = useState("");
   const [gstSplit,         setGstSplit]         = useState([]);
   const [loading,          setLoading]          = useState(false);
+  const [printDialog,      setPrintDialog]      = useState(null);
   const [ldMsg,            setLdMsg]            = useState("Loading...");
   const [pw,               setPw]              = useState(null);
   const [prodPopup,        setProdPopup]        = useState(null);
@@ -1022,9 +1072,39 @@ export default function EstimateBill() {
         Herbalife:    !!main0.Herbalife,
         DayClose:     !!main0.DayClose,
         TaxName:      com0.POSTax || "Exclusive",
+        // ── Print settings from Companysetting (needed for A4 Print/View) ──
+        BillFormatName: com0.SaleBillFormat || "Default",
+        CompanyName:    com0.Companyname    || "",
+        Address1:       com0.Address1       || "",
+        Address2:       com0.Address2       || "",
+        City:           com0.City           || "",
+        Pincode:        com0.Pincode        || "",
+        Phone:          com0.Phone          || "",
+        GSTNo:          com0.GSTNo          || "",
+        Email:          com0.Email          || "",
+        StateCode:      com0.State          || "",
+        YearName:       com0.YearName       || "",
+        POSLine1:       com0.POSLine1       || "",
+        POSLine2:       com0.POSLine2       || "",
+        POSLine3:       com0.POSLine3       || "",
+        POSLine4:       com0.POSLine4       || "",
+        POSLine5:       com0.POSLine5       || "",
+        No_Of_Bills:    com0.No_Of_Bills    || "1",
+        BankLine1:      com0.BankLine1      || "",
+        BankLine2:      com0.BankLine2      || "",
+        BankLine3:      com0.BankLine3      || "",
+        BankLine4:      com0.BankLine4      || "",
+        BankLine5:      com0.BankLine5      || "",
+        PrintA4:        !!main0.A4BillPrint,
+        PrintSmall:     !!main0.SmallBillPrint,
       };
     } catch {
-      return { Comid: "1", MComid: "1", CashId: "0", CashierId: "0", BillNoType: "Daily Reset On Company", BillNoPrefix: "", BillNoDigit: 0 };
+      return {
+        Comid: "1", MComid: "1", CashId: "0", CashierId: "0",
+        BillNoType: "Daily Reset On Company", BillNoPrefix: "", BillNoDigit: 0,
+        BillFormatName: "Default", CompanyName: "", No_Of_Bills: "1",
+        PrintA4: false, PrintSmall: false,
+      };
     }
   });
 
@@ -1710,6 +1790,71 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   // ── Save ──────────────────────────────────────────────────────────────────
 // ── Save ──────────────────────────────────────────────────────────────────
+  // ── A4 Print/View (copied from SaleBill.jsx — do not change logic) ─────────
+  const buildPrintDetails = useCallback(() => {
+    return new URLSearchParams({
+      BillFormatName: sess.BillFormatName,
+      EBillFormatName: sess.BillFormatName,
+      CompanyName:    sess.CompanyName,
+      Address1:       sess.Address1,
+      Address2:       sess.Address2,
+      City:           sess.City,
+      Pincode:        sess.Pincode,
+      MobileNo:       sess.Phone,
+      GSTNO:          sess.GSTNo,
+      Email:          sess.Email,
+      Year:           sess.YearName,
+      StateCode:      sess.StateCode,
+      StateName:      "",
+      SaleCon1:       sess.POSLine1,
+      SaleCon2:       sess.POSLine2,
+      SaleCon3:       sess.POSLine3,
+      SaleCon4:       sess.POSLine4,
+      SaleCon5:       sess.POSLine5,
+      NoofBills:      sess.No_Of_Bills,
+      Bank1:          sess.BankLine1,
+      Bank2:          sess.BankLine2,
+      Bank3:          sess.BankLine3,
+      Bank4:          sess.BankLine4,
+      Bank5:          sess.BankLine5,
+      FromEmailId:    "keykassapos@gmail.com",
+      FromEmailPwd:   "rlreahjhtwhpkelf",
+    }).toString();
+  }, [sess]);
+
+  const openReportViewer = useCallback((
+    autoPrint = false,
+    copy = "Original",
+    cacheKey = ""
+  ) => {
+    const printDetails = buildPrintDetails();
+    const A4Print = autoPrint ? "1" : "0";
+
+    const url = `${BASE_URL}/Reports/ReportViewer.aspx` +
+                `?ReportName=EstimateInvoice` +
+                `&Copy=${copy}` +
+                `&A4Print=${A4Print}` +
+                `&MailSendStatus=0` +
+                `&CacheKey=${encodeURIComponent(cacheKey)}` +
+                `&${printDetails}`;
+
+    if (autoPrint) {
+      const w = window.open(url, "_blank",
+        `width=25,height=25,toolbar=0,menubar=0,status=0`);
+      if (w) {
+        w.addEventListener("load", () => {
+          setTimeout(() => {
+            w.document.getElementById("btnPrint")?.click();
+            w.close();
+          }, 100);
+        });
+      }
+    } else {
+      window.open(url, "_blank",
+        `width=${screen.width},height=${screen.height - 100},toolbar=0`);
+    }
+  }, [buildPrintDetails]);
+
 const doSave = useCallback(async (overridePayRows = null) => {
   if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
   const validRows = rows.filter(r => r.ProductRefId && vn(r.ItemQty) > 0);
@@ -1808,7 +1953,8 @@ const doSave = useCallback(async (overridePayRows = null) => {
     "MulipleMRP": sess.MulipleMRP ? "true" : "false",
     "Herballife": sess.Herbalife ? "1" : "0",
     "Estimate": "1",
-    "PrintA4Invoice": "1", "SmallPrint": "0", "BillFormat": "Default",
+    "React": 1,
+    "PrintA4Invoice": sess.PrintA4 ? "1" : "0", "SmallPrint": sess.PrintSmall ? "1" : "0", "BillFormat": sess.BillFormatName,
     "DayClose": sess.DayClose ? "1" : "0", "MirrorTable": String(sess.MirrorTable ?? CC.getStr("MirrorTableOnline") ?? "0"),
     "LocalDB": "0", "RO": "0",
   };
@@ -1822,6 +1968,14 @@ const doSave = useCallback(async (overridePayRows = null) => {
     setLastBillNo(billNo);
     setLastBillAmt(totals.NetAmt);
     toast("✅ Estimate Saved Successfully");
+
+    const cacheKey = res.Data15 || "";
+    setPrintDialog({
+      billNo:   billNo,
+      netAmt:   totals.NetAmt,
+      cacheKey: cacheKey,
+    });
+
     await clearForm();
   } else {
     toast("❌ " + (res.Message || res.message || "Save Failed"), true);
@@ -1960,6 +2114,28 @@ const doSave = useCallback(async (overridePayRows = null) => {
   return (
     <div className="sb-wrap">
       {ConfirmUI}
+
+      {/* ── PRINT DIALOG ── */}
+      {printDialog && (
+        <PrintChoiceDialog
+          onPrint={async () => {
+            setPrintDialog(null);
+            const noOfBills = parseInt(sess.No_Of_Bills) || 1;
+            for (let i = 0; i < noOfBills; i++) {
+              const copy = i === 0 ? "Original" :
+                           i === 1 ? "Duplicate Copy" : "Triplicate Copy";
+              openReportViewer(true, copy, printDialog.cacheKey);
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }}
+          onView={() => {
+            setPrintDialog(null);
+            openReportViewer(false, "Original", printDialog.cacheKey);
+          }}
+          onSkip={() => setPrintDialog(null)}
+        />
+      )}
+
       <Topbar />
       <div className="sb-body">
 

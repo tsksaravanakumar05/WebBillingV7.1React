@@ -43,6 +43,8 @@ import {
 } from "lucide-react";
 
 // ─── API ENDPOINTS (SaleOrder specific) ──────────────────────────────────────
+const BASE_URL = "http://localhost:64215";
+
 const SaleOrderMaxNo      = "/api/SaleOrderApp/MaxSaleOrderNo";
 const SaleOrderInsertUrl  = "/api/SaleOrderApp/InsertSaleOrder";
 const SaleOrderEditUrl    = "/api/SaleOrderApp/EditSaleOrder";
@@ -94,6 +96,55 @@ const SO_COLUMNS = [
 const DEFAULT_COL_SETTINGS = SO_COLUMNS.map(c => ({
   key: c.key, label: c.label, width: c.width, visible: !c.hidden,
 }));
+
+// ─── PRINT CHOICE DIALOG (copied from SaleBill.jsx — do not modify) ──────────
+function PrintChoiceDialog({ onPrint, onView, onSkip }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "rgba(10,20,40,.5)",
+      display: "flex", alignItems: "center",
+      justifyContent: "center", zIndex: 99999,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 10,
+        width: 320, padding: "20px 24px",
+        boxShadow: "0 16px 48px rgba(31,101,222,.25)",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2e4a", marginBottom: 16 }}>
+          🖨 Sale Order Saved Successfully!
+        </div>
+        <div style={{ fontSize: 12, color: "#6b7a99", marginBottom: 20 }}>
+          What would you like to do?
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <button
+            onClick={onPrint}
+            style={{
+              padding: "8px 16px", borderRadius: 5, border: "none",
+              background: "#1f65de", color: "#fff", fontWeight: 700,
+              fontSize: 13, cursor: "pointer",
+            }}>🖨 Print</button>
+          <button
+            onClick={onView}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #c5d8f8", background: "#e8f0fe",
+              color: "#1f65de", fontWeight: 700, fontSize: 13, cursor: "pointer",
+            }}>👁 View</button>
+          <button
+            onClick={onSkip}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #d4dbe8", background: "#f8faff",
+              color: "#4a5568", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            }}>✕ Skip</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const vn    = v => parseFloat(v) || 0;
@@ -1131,6 +1182,7 @@ export default function SaleOrder() {
 
   const [loading,      setLoading]      = useState(false);
   const [ldMsg,        setLdMsg]        = useState("Loading...");
+  const [printDialog,  setPrintDialog]  = useState(null);
   const [pw,           setPw]           = useState(null);
   const pwOkRef = useRef(null);
 
@@ -1700,6 +1752,55 @@ export default function SaleOrder() {
   }, [settings, toast]);
 
   // ── Save (mirrors methods.SaleSave) ───────────────────────────────────────
+  // ── A4 Print/View (CacheKey architecture, mirrors SaleBill.jsx) ────────────
+  const buildPrintDetails = useCallback(() => {
+    const { BillFormatName, CompanyName, CAddress1, CAddress2, CCity, CPincode, CMobileNo,
+            GSTNO, Email, StateCode, SaleCon1, SaleCon2, SaleCon3, SaleCon4, SaleCon5,
+            NoofBills, Bank1, Bank2, Bank3, Bank4, Bank5 } = settings;
+    return new URLSearchParams({
+      BillFormatName, EBillFormatName: BillFormatName,
+      CompanyName, Address1: CAddress1, Address2: CAddress2, City: CCity,
+      Pincode: CPincode, MobileNo: CMobileNo, GSTNO, Email, Year: "", StateCode, StateName: "",
+      SaleCon1, SaleCon2, SaleCon3, SaleCon4, SaleCon5, NoofBills,
+      Bank1, Bank2, Bank3, Bank4, Bank5,
+      FromEmailId:  "keykassapos@gmail.com",
+      FromEmailPwd: "rlreahjhtwhpkelf",
+    }).toString();
+  }, [settings]);
+
+  const openReportViewer = useCallback((
+    autoPrint = false,
+    copy = "Original",
+    cacheKey = ""
+  ) => {
+    const printDetails = buildPrintDetails();
+    const A4Print = autoPrint ? "1" : "0";
+
+    const url = `${BASE_URL}/Reports/ReportViewer.aspx` +
+                `?ReportName=SaleOrderInvoice` +
+                `&Copy=${copy}` +
+                `&A4Print=${A4Print}` +
+                `&MailSendStatus=0` +
+                `&CacheKey=${encodeURIComponent(cacheKey)}` +
+                `&${printDetails}`;
+
+    if (autoPrint) {
+      const w = window.open(url, "_blank",
+        `width=25,height=25,toolbar=0,menubar=0,status=0`);
+      if (w) {
+        w.addEventListener("load", () => {
+          setTimeout(() => {
+            w.document.getElementById("btnPrint")?.click();
+            w.close();
+          }, 100);
+        });
+      }
+    } else {
+      window.open(url, "_blank",
+        `width=${screen.width},height=${screen.height - 100},toolbar=0`);
+    }
+  }, [buildPrintDetails]);
+
   const doSave = useCallback(async () => {
     if (!perm.Add && editId === 0) { toast("❌ Page Add Permission Denied !!!", true); return; }
     if (!gridemptycheck()) return;
@@ -1763,7 +1864,9 @@ export default function SaleOrder() {
     }];
 
     const res = await CC.insertapi(SaleOrderInsertUrl, salemaster, {
+      "React":          1,
       PrintA4Invoice: String(settings.PrintA4Bill),
+      BillFormat:     settings.BillFormatName,
       MirrorTable: String(settings.MirrorTable ?? 0),
     });
     setLoading(false);
@@ -1772,13 +1875,13 @@ export default function SaleOrder() {
     if (res.ok ?? res.IsSuccess) {
       toast("✅ Sale Order Saved Successfully");
 
-      // A4 print flow (mirrors SaleOrder.js PrintA4Bill handling)
-      if (settings.PrintA4Bill === 1) {
-        const { BillFormatName, CompanyName, CAddress1, CAddress2, CCity, CPincode, CMobileNo, GSTNO, Email: CEmail, StateCode, SaleCon1, SaleCon2, SaleCon3, SaleCon4, SaleCon5, NoofBills, Bank1, Bank2, Bank3, Bank4, Bank5 } = settings;
-        const PrintDetails = `&BillFormatName=${BillFormatName}&CompanyName=${CompanyName}&Address1=${CAddress1}&Address2=${CAddress2}&City=${CCity}&Pincode=${CPincode}&MobileNo=${CMobileNo}&GSTNO=${GSTNO}&Email=${CEmail}&StateCode=${StateCode}&SaleCon1=${SaleCon1}&SaleCon2=${SaleCon2}&SaleCon3=${SaleCon3}&SaleCon4=${SaleCon4}&SaleCon5=${SaleCon5}&NoofBills=${NoofBills}&Bank1=${Bank1}&Bank2=${Bank2}&Bank3=${Bank3}&Bank4=${Bank4}&Bank5=${Bank5}`;
-        const printUrl = `../Reports/ReportViewer.aspx?ReportName=SaleOrderInvoice&Copy=Original&A4Print=1&MailSendStatus=0${PrintDetails}`;
-        window.open(printUrl, "_blank", `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${screen.width},height=${screen.height - 100}`);
-      }
+      // A4 print flow — CacheKey-based Print/View dialog (mirrors SaleBill.jsx)
+      const cacheKey = res.Data15 || "";
+      setPrintDialog({
+        billNo:   orderNo,
+        netAmt:   totals.NetAmt,
+        cacheKey: cacheKey,
+      });
 
       await clearForm();
     } else {
@@ -1959,6 +2062,27 @@ export default function SaleOrder() {
   return (
     <div className="sb-wrap">
       {ConfirmUI}
+
+      {/* ── PRINT DIALOG ── */}
+      {printDialog && (
+        <PrintChoiceDialog
+          onPrint={async () => {
+            setPrintDialog(null);
+            const noOfBills = parseInt(settings.NoofBills) || 1;
+            for (let i = 0; i < noOfBills; i++) {
+              const copy = i === 0 ? "Original" :
+                           i === 1 ? "Duplicate Copy" : "Triplicate Copy";
+              openReportViewer(true, copy, printDialog.cacheKey);
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }}
+          onView={() => {
+            setPrintDialog(null);
+            openReportViewer(false, "Original", printDialog.cacheKey);
+          }}
+          onSkip={() => setPrintDialog(null)}
+        />
+      )}
 
       {ctrlGOpen && (
         <CtrlGFocusPopup

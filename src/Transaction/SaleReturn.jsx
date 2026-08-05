@@ -293,6 +293,57 @@ function ComboBox({ options, value, onChange, onEnterKey, placeholder, style, in
   );
 }
 
+// ─── PRINT CHOICE DIALOG ──────────────────────────────────────────────────────
+// Copied verbatim from SaleBill.jsx's PrintChoiceDialog so the A4 Print/View
+// flow behaves identically after a successful Sale Return save.
+function PrintChoiceDialog({ onPrint, onView, onSkip }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "rgba(10,20,40,.5)",
+      display: "flex", alignItems: "center",
+      justifyContent: "center", zIndex: 99999,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 10,
+        width: 320, padding: "20px 24px",
+        boxShadow: "0 16px 48px rgba(31,101,222,.25)",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2e4a", marginBottom: 16 }}>
+          🖨 Sale Return Saved Successfully!
+        </div>
+        <div style={{ fontSize: 12, color: "#6b7a99", marginBottom: 20 }}>
+          What would you like to do?
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <button
+            onClick={onPrint}
+            style={{
+              padding: "8px 16px", borderRadius: 5, border: "none",
+              background: "#1f65de", color: "#fff", fontWeight: 700,
+              fontSize: 13, cursor: "pointer",
+            }}>🖨 Print</button>
+          <button
+            onClick={onView}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #c5d8f8", background: "#e8f0fe",
+              color: "#1f65de", fontWeight: 700, fontSize: 13, cursor: "pointer",
+            }}>👁 View</button>
+          <button
+            onClick={onSkip}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #d4dbe8", background: "#f8faff",
+              color: "#4a5568", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            }}>✕ Skip</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── PASSWORD MODAL ───────────────────────────────────────────────────────────
 function PwModal({ title, comid, onOk, onClose }) {
   const [val, setVal] = useState("");
@@ -1056,6 +1107,32 @@ const [ctrlGOpen, setCtrlGOpen] = useState(false);
         DayClose:     !!main0.DayClose,
         ReceiptBill: !!main0.ReceiptBill,
         BillFormatName: com0.SaleBillFormat || "Default",
+        // ── Print settings from Companysetting (mirrors SaleBill.jsx sess) ──
+        // Added only to feed buildPrintDetails()/openReportViewer() for the
+        // A4 Print/View dialog below — not used anywhere else, nothing existing changed.
+        CompanyName:    com0.Companyname    || "",
+        Address1:       com0.Address1       || "",
+        Address2:       com0.Address2       || "",
+        City:           com0.City           || "",
+        Pincode:        com0.Pincode        || "",
+        Phone:          com0.Phone          || "",
+        GSTNo:          com0.GSTNo          || "",
+        Email:          com0.Email          || "",
+        StateCode:      com0.State          || "",
+        YearName:       com0.YearName       || "",
+        POSLine1:       com0.POSLine1       || "",
+        POSLine2:       com0.POSLine2       || "",
+        POSLine3:       com0.POSLine3       || "",
+        POSLine4:       com0.POSLine4       || "",
+        POSLine5:       com0.POSLine5       || "",
+        No_Of_Bills:    com0.No_Of_Bills    || "1",
+        BankLine1:      com0.BankLine1      || "",
+        BankLine2:      com0.BankLine2      || "",
+        BankLine3:      com0.BankLine3      || "",
+        BankLine4:      com0.BankLine4      || "",
+        BankLine5:      com0.BankLine5      || "",
+        CustomerNameTamil: !!main0.CustomerNameTamil,
+        PrintA4:        !!main0.A4BillPrint,
       };
     } catch {
       return {
@@ -1063,6 +1140,7 @@ const [ctrlGOpen, setCtrlGOpen] = useState(false);
         BillNoType: "Daily Reset On Company", BillNoPrefix: "", BillNoDigit: 0,
         CashId: "0", CashierId: "0", CashierName: "",
         CommonCompany: false, DayClose: false, BillFormatName: "Default",
+        CompanyName: "", PrintA4: false, CustomerNameTamil: false, No_Of_Bills: "1",
       };
     }
   });
@@ -1088,6 +1166,8 @@ const loadColCfg = useCallback(async (comid) => {
   // ── State ─────────────────────────────────────────────────────────────────
   const [perm,         setPerm]         = useState({ View: 0, Add: 0, Edit: 0, Delete: 0 });
   const [isAuthorized, setIsAuthorized] = useState(false);
+  // ── A4 Print/View dialog state (mirrors SaleBill.jsx's printDialog) ──────
+  const [printDialog, setPrintDialog] = useState(null);
 
   const [customers,  setCustomers]  = useState([]);
   const [salesmen,   setSalesmen]   = useState([]);
@@ -2113,6 +2193,85 @@ const handleCellKeyDown = useCallback((e, rid, colKey) => {
     return true;
   }, [toast, totals.NetAmt]);
 
+  // ── A4 Print/View workflow (copied from SaleBill.jsx; only ReportName changed) ──
+  // NOTE: report name assumed as "SaleReturnInvoice" following the SaleInvoice
+  // naming convention used by the Sale module. Confirm this matches the actual
+  // Crystal Report name registered for Sale Return in ReportViewer.aspx.cs —
+  // if different, this is the only string that needs to change.
+  const buildPrintDetails = useCallback(() => {
+    return new URLSearchParams({
+      BillFormatName: sess.BillFormatName,
+      EBillFormatName: sess.BillFormatName,
+      CompanyName:    sess.CompanyName,
+      Address1:       sess.Address1,
+      Address2:       sess.Address2,
+      City:           sess.City,
+      Pincode:        sess.Pincode,
+      MobileNo:       sess.Phone,
+      GSTNO:          sess.GSTNo,
+      Email:          sess.Email,
+      Year:           sess.YearName,
+      StateCode:      sess.StateCode,
+      StateName:      "",
+      SaleCon1:       sess.POSLine1,
+      SaleCon2:       sess.POSLine2,
+      SaleCon3:       sess.POSLine3,
+      SaleCon4:       sess.POSLine4,
+      SaleCon5:       sess.POSLine5,
+      NoofBills:      sess.No_Of_Bills,
+      Bank1:          sess.BankLine1,
+      Bank2:          sess.BankLine2,
+      Bank3:          sess.BankLine3,
+      Bank4:          sess.BankLine4,
+      Bank5:          sess.BankLine5,
+      FromEmailId:    "keykassapos@gmail.com",
+      FromEmailPwd:   "rlreahjhtwhpkelf",
+    }).toString();
+  }, [sess]);
+  
+
+  /**
+   * openReportViewer — opens ReportViewer.aspx with correct params.
+   * Identical to SaleBill.jsx's openReportViewer; only ReportName differs
+   * (SaleReturnInvoice instead of SaleInvoice) so the same CacheKey → Cache →
+   * ReportData/ReportSubData/PrintDetails → ReportViewer.aspx → Crystal Report
+   * backend flow is reused unchanged.
+   * autoPrint=true  → small window, triggers btnPrint click (direct print)
+   * autoPrint=false → full window (view mode)
+   */
+  const openReportViewer = useCallback((
+    autoPrint = false,
+    copy = "Original",
+    cacheKey = ""
+  ) => {
+    const printDetails = buildPrintDetails();
+    const A4Print = autoPrint ? "1" : "0";
+
+    const url = `${CC.BASE_URL}/Reports/ReportViewer.aspx` +
+                `?ReportName=SaleReturnInvoice` +
+                `&Copy=${copy}` +
+                `&A4Print=${A4Print}` +
+                `&MailSendStatus=0` +
+                `&CacheKey=${encodeURIComponent(cacheKey)}` +
+                `&${printDetails}`;
+
+    if (autoPrint) {
+      const w = window.open(url, "_blank",
+        `width=25,height=25,toolbar=0,menubar=0,status=0`);
+      if (w) {
+        w.addEventListener("load", () => {
+          setTimeout(() => {
+            w.document.getElementById("btnPrint")?.click();
+            w.close();
+          }, 100);
+        });
+      }
+    } else {
+      window.open(url, "_blank",
+        `width=${screen.width},height=${screen.height - 100},toolbar=0`);
+    }
+  }, [buildPrintDetails]);
+
   const doSave = useCallback(async () => {
     if (!perm.Add && !perm.Edit) { toast("❌ Permission Denied", true); return; }
     if (!custId&&returnType!="CASH") { toast("❌ Select a Customer", true); return; }
@@ -2238,9 +2397,19 @@ if (zeroRateRow) {
     const headers = {
       "Comid":      String(sess.Comid),
       "cashid":     String(sess.CashId),
+      "React":                     1,
       "BillType":   sess.BillNoType,
       "BillPerfix": sess.BillNoPrefix,
       "BillDigit":  String(sess.BillNoDigit),
+      // FIX: the Print/View/Skip dialog is now shown unconditionally after every
+      // successful save (see doSave below), so this header must always be "1" —
+      // gating it on the old sess.PrintA4 (Mainsetting.A4BillPrint) company flag
+      // caused InsertSaleReturn to skip its entire PrintA4==1 block (no
+      // Session["reportdata"], no Data15 CacheKey) whenever that setting was off,
+      // which is exactly what produces Crystal Reports' "Fail to render the page".
+      "PrintA4Invoice":            "1",
+      "SmallPrint":                sess.PrintSmall ? "1" : "0",
+      "BillFormat":                sess.BillFormatName,
       "DayClose":   sess.DayClose ? "1" : "0",
       "MirrorTable": String(sess.MirrorTable ?? CC.getStr("MirrorTableOnline") ?? "0"), "LocalDB": "0",
     };
@@ -2256,6 +2425,19 @@ if (zeroRateRow) {
       setLastReturnNo(savedNo);
       setLastReturnAmt(totals.NetAmt);
       toast("✅ Sale Return Saved");
+
+      // ── A4 Print/View dialog (mirrors SaleBill.jsx's doSave) ──────────────
+      // InsertSaleReturn is expected to generate/cache and return Data15 the
+      // same way InsertSale does. If it doesn't, cacheKey will just be ""
+      // and openReportViewer will still fire but ReportViewer.aspx won't
+      // find anything in Cache — that's a backend fix, not a UI one.
+      const cacheKey = res.Data15 || "";
+      setPrintDialog({
+        billNo: savedNo,
+        netAmt: totals.NetAmt,
+        cacheKey: cacheKey,
+      });
+
       await clearForm();
     } else {
       toast("❌ " + (res.Message || res.message || "Save Failed"), true);
@@ -2525,6 +2707,28 @@ console.log("Deleting return with body:", body);
   return (
     <div className="sb-wrap">
       {ConfirmUI}
+
+      {/* ── A4 PRINT/VIEW DIALOG (mirrors SaleBill.jsx) ── */}
+      {printDialog && (
+        <PrintChoiceDialog
+          onPrint={async () => {
+            setPrintDialog(null);
+            const noOfBills = parseInt(sess.No_Of_Bills) || 1;
+            for (let i = 0; i < noOfBills; i++) {
+              const copy = i === 0 ? "Original" :
+                           i === 1 ? "Duplicate Copy" : "Triplicate Copy";
+              openReportViewer(true, copy, printDialog.cacheKey);
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }}
+          onView={() => {
+            setPrintDialog(null);
+            openReportViewer(false, "Original", printDialog.cacheKey);
+          }}
+          onSkip={() => setPrintDialog(null)}
+        />
+      )}
+
       {ctrlGOpen && (
   <CtrlGFocusPopup
     colSettings={colSettings}

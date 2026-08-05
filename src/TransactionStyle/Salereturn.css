@@ -342,7 +342,7 @@
 
 .sb-pay-tbl { border-collapse: collapse; width: 100%; }
 .sb-pay-tbl th {
-  background: var(--clr-pay-hdr-secondary);
+  background: var(--green);
   color: var(--clr-text-white);
   font-size: 10.5px;
   font-weight: 600;

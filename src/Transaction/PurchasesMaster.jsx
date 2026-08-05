@@ -23,7 +23,7 @@
 //     explicitly switches mode.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../Master/MasterPage.css";
 import "../TransactionStyle/PurchasesMaster.css";
@@ -411,6 +411,55 @@ const exceedsDecimalLimit = (value, decimals) => {
   const fracLen = str.length - dotIdx - 1;
   return fracLen > valNum(decimals);
 };
+// ─── PRINT CHOICE DIALOG (A4 Print/View — mirrors Sale module's PrintChoiceDialog) ──
+function PurchasePrintChoiceDialog({ onPrint, onView, onSkip }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "rgba(10,20,40,.5)",
+      display: "flex", alignItems: "center",
+      justifyContent: "center", zIndex: 99999,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 10,
+        width: 320, padding: "20px 24px",
+        boxShadow: "0 16px 48px rgba(31,101,222,.25)",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2e4a", marginBottom: 16 }}>
+          🖨 Purchase Bill Saved Successfully!
+        </div>
+        <div style={{ fontSize: 12, color: "#6b7a99", marginBottom: 20 }}>
+          What would you like to do?
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <button
+            onClick={onPrint}
+            style={{
+              padding: "8px 16px", borderRadius: 5, border: "none",
+              background: "#1f65de", color: "#fff", fontWeight: 700,
+              fontSize: 13, cursor: "pointer",
+            }}>🖨 Print</button>
+          <button
+            onClick={onView}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #c5d8f8", background: "#e8f0fe",
+              color: "#1f65de", fontWeight: 700, fontSize: 13, cursor: "pointer",
+            }}>👁 View</button>
+          <button
+            onClick={onSkip}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #d4dbe8", background: "#f8faff",
+              color: "#4a5568", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            }}>✕ Skip</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── PurchasesMaster ──────────────────────────────────────────────────────────
 export default function Purchase() {
   const location = useLocation();
@@ -471,6 +520,116 @@ export default function Purchase() {
     try { return CC.buildSession("Purchase"); }
     catch { return { Comid: "1", MComid: "1", IdComList: "1", MirrorTable: "0", menudata: [] }; }
   });
+
+  // ── A4 Print/View — CacheKey based architecture (mirrors SaleBill.jsx) ─────
+  // Reads Companysetting/Mainsetting directly from localStorage (same source
+  // Sale module reads), completely independent of the existing `sess` object
+  // above — nothing about `sess` or any existing state/logic is touched.
+  const printSess = useMemo(() => {
+    try {
+      const main0 = (CC.getLocal("Mainsetting")    || [{}])[0] || {};
+      const com0  = (CC.getLocal("Companysetting") || [{}])[0] || {};
+      return {
+        BillFormatName: com0.PurchaseBillFormat || com0.SaleBillFormat || "Default",
+        CompanyName:    com0.Companyname || "",
+        Address1:       com0.Address1    || "",
+        Address2:       com0.Address2    || "",
+        City:           com0.City        || "",
+        Pincode:        com0.Pincode     || "",
+        Phone:          com0.Phone       || "",
+        GSTNo:          com0.GSTNo       || "",
+        Email:          com0.Email       || "",
+        StateCode:      com0.State       || "",
+        YearName:       com0.YearName    || "",
+        POSLine1:       com0.POSLine1    || "",
+        POSLine2:       com0.POSLine2    || "",
+        POSLine3:       com0.POSLine3    || "",
+        POSLine4:       com0.POSLine4    || "",
+        POSLine5:       com0.POSLine5    || "",
+        No_Of_Bills:    com0.No_Of_Bills || "1",
+        BankLine1:      com0.BankLine1   || "",
+        BankLine2:      com0.BankLine2   || "",
+        BankLine3:      com0.BankLine3   || "",
+        BankLine4:      com0.BankLine4   || "",
+        BankLine5:      com0.BankLine5   || "",
+        PrintA4:        !!main0.A4BillPrint,
+      };
+    } catch {
+      return { BillFormatName: "Default", CompanyName: "", No_Of_Bills: "1", PrintA4: false };
+    }
+  }, []);
+
+  // [printDialog] Print/View/Skip dialog state — set after a successful Save
+  // once the backend returns the CacheKey (Data15). Null = hidden.
+  const [printDialog, setPrintDialog] = useState(null);
+
+  // buildPrintDetails() — identical logic/shape to Sale module's buildPrintDetails(),
+  // just sourced from printSess instead of Sale's sess.
+  const buildPrintDetails = useCallback(() => {
+    return new URLSearchParams({
+      BillFormatName: printSess.BillFormatName,
+      EBillFormatName: printSess.BillFormatName,
+      CompanyName:    printSess.CompanyName,
+      Address1:       printSess.Address1,
+      Address2:       printSess.Address2,
+      City:           printSess.City,
+      Pincode:        printSess.Pincode,
+      MobileNo:       printSess.Phone,
+      GSTNO:          printSess.GSTNo,
+      Email:          printSess.Email,
+      Year:           printSess.YearName,
+      StateCode:      printSess.StateCode,
+      StateName:      "",
+      SaleCon1:       printSess.POSLine1,
+      SaleCon2:       printSess.POSLine2,
+      SaleCon3:       printSess.POSLine3,
+      SaleCon4:       printSess.POSLine4,
+      SaleCon5:       printSess.POSLine5,
+      NoofBills:      printSess.No_Of_Bills,
+      Bank1:          printSess.BankLine1,
+      Bank2:          printSess.BankLine2,
+      Bank3:          printSess.BankLine3,
+      Bank4:          printSess.BankLine4,
+      Bank5:          printSess.BankLine5,
+      FromEmailId:    "keykassapos@gmail.com",
+      FromEmailPwd:   "rlreahjhtwhpkelf",
+    }).toString();
+  }, [printSess]);
+
+  // openReportViewer() — identical logic to Sale module's openReportViewer():
+  // autoPrint=true  → tiny hidden window, auto-clicks btnPrint, closes itself (direct print)
+  // autoPrint=false → full window (view/preview mode)
+  // Only the ReportName is changed (SaleInvoice → PurchaseInvoice) to select the
+  // correct Crystal Report on the server; the CacheKey → Cache → ReportData →
+  // ReportSubData → PrintDetails → Crystal Report flow on the backend is unchanged.
+  const openReportViewer = useCallback((autoPrint = false, copy = "Original", cacheKey = "") => {
+    const printDetails = buildPrintDetails();
+    const A4Print = autoPrint ? "1" : "0";
+
+    const url = `${CC.BASE_URL}/Reports/ReportViewer.aspx` +
+                `?ReportName=PurchaseInvoice` +
+                `&Copy=${copy}` +
+                `&A4Print=${A4Print}` +
+                `&MailSendStatus=0` +
+                `&CacheKey=${encodeURIComponent(cacheKey)}` +
+                `&${printDetails}`;
+
+    if (autoPrint) {
+      const w = window.open(url, "_blank",
+        `width=25,height=25,toolbar=0,menubar=0,status=0`);
+      if (w) {
+        w.addEventListener("load", () => {
+          setTimeout(() => {
+            w.document.getElementById("btnPrint")?.click();
+            w.close();
+          }, 100);
+        });
+      }
+    } else {
+      window.open(url, "_blank",
+        `width=${screen.width},height=${screen.height - 100},toolbar=0`);
+    }
+  }, [buildPrintDetails]);
 
   // ── Master-form state ──────────────────────────────────────────────────────
   const [purchaseNo,    setPurchaseNo   ] = useState("");
@@ -2980,12 +3139,27 @@ if (savedArrivalType) {
       LocalDB: String(parseInt(sess.LocalDB, 10) || 0),
       // ── Patty flag on the insert-api mapping — reflects the current mode ──
       Patty: PattyStatus!=3 ? "1" : "0",
-      DayClose: "0", BillFormatName: "", PrintA4Invoice: "0",
+      DayClose: "0",
+      // ── A4 Print/View (CacheKey) support — enabled additively so the backend
+      // generates the Data15 CacheKey via the existing Print/Cache flow, same
+      // as the Sale module's PrintA4Invoice/BillFormat/React header flags. ──
+      BillFormatName: printSess.BillFormatName, BillFormat: printSess.BillFormatName,
+      PrintA4Invoice: "1", React: "1",
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     if (res.ok || res.IsSuccess) {
       toast("✅ " + (res.message || "Purchase saved successfully!"));
+      // ── A4 Print/View — retrieve CacheKey (Data15) returned by backend and
+      // open the Print/View/Skip dialog, mirroring Sale module's doSave(). ──
+      const cacheKey = res.Data15 || "";
+      if (cacheKey) {
+        setPrintDialog({
+          billNo:  res.BillNo || res.Data2 || purchaseNo,
+          netAmt:  Math.round(valNum(finalNetAmt)),
+          cacheKey,
+        });
+      }
       handleClear();
     } else { toast(`❌ ${res.message || "Save failed !!!."}`, true); }
   }, [
@@ -2995,7 +3169,7 @@ if (savedArrivalType) {
     purchaseDate, invoiceDate, dueDate, igstStatus,
     otherPlus, otherSub, remarks, supplierList, serialNoList,
     confirm, toast, redirectIfDualLogin, handleClear, sanitizeDetailRow,
-    effectiveInvoiceNo, effectiveInvoiceAmt,
+    effectiveInvoiceNo, effectiveInvoiceAmt, printSess,
   ]);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3218,6 +3392,26 @@ if (savedArrivalType) {
   return (
     <div className="pur-root">
       {ConfirmUI}
+
+      {/* ── A4 PRINT/VIEW DIALOG (CacheKey-based, mirrors SaleBill.jsx) ── */}
+      {printDialog && (
+        <PurchasePrintChoiceDialog
+          onPrint={async () => {
+            setPrintDialog(null);
+            const noOfBills = parseInt(printSess.No_Of_Bills, 10) || 1;
+            for (let i = 0; i < noOfBills; i++) {
+              const copy = i === 0 ? "Original" : i === 1 ? "Duplicate Copy" : "Triplicate Copy";
+              openReportViewer(true, copy, printDialog.cacheKey);
+              await new Promise((r) => setTimeout(r, 500));
+            }
+          }}
+          onView={() => {
+            setPrintDialog(null);
+            openReportViewer(false, "Original", printDialog.cacheKey);
+          }}
+          onSkip={() => setPrintDialog(null)}
+        />
+      )}
 
       {/* ── Ctrl+F Form Focus Columns Modal ── */}
       {focusFormColOpen && (

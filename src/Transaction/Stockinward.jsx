@@ -31,6 +31,57 @@ import {
   Save, FileSearch, Pencil, Eye, Settings, RefreshCw, Trash2, X
 } from "lucide-react";
 
+const BASE_URL = "http://localhost:64215";
+
+// ─── PRINT CHOICE DIALOG (copied from SaleBill.jsx — do not modify) ──────────
+function PrintChoiceDialog({ onPrint, onView, onSkip }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "rgba(10,20,40,.5)",
+      display: "flex", alignItems: "center",
+      justifyContent: "center", zIndex: 99999,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 10,
+        width: 320, padding: "20px 24px",
+        boxShadow: "0 16px 48px rgba(31,101,222,.25)",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2e4a", marginBottom: 16 }}>
+          🖨 Stock Transfer Saved Successfully!
+        </div>
+        <div style={{ fontSize: 12, color: "#6b7a99", marginBottom: 20 }}>
+          What would you like to do?
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <button
+            onClick={onPrint}
+            style={{
+              padding: "8px 16px", borderRadius: 5, border: "none",
+              background: "#1f65de", color: "#fff", fontWeight: 700,
+              fontSize: 13, cursor: "pointer",
+            }}>🖨 Print</button>
+          <button
+            onClick={onView}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #c5d8f8", background: "#e8f0fe",
+              color: "#1f65de", fontWeight: 700, fontSize: 13, cursor: "pointer",
+            }}>👁 View</button>
+          <button
+            onClick={onSkip}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #d4dbe8", background: "#f8faff",
+              color: "#4a5568", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            }}>✕ Skip</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── GRID COLUMNS DEFINITION ─────────────────────────────────────────────────
 // Mirrors stockinward.js InVisibleColumns + BatchWise combobox columns from loadgrid()
 const GRID_COLUMNS = [
@@ -785,9 +836,10 @@ function F12Modal({ colSettings, comid, onSave, onClose, toast, batchWise }) {
 const sanitizeRowForInsert = (row, mode) => {
   const batchRefId = vn(row.BatchRefid);
   const isBatchRow = vn(row.BatchStatus) === 1;
+  const { _dirty, _isNew, _rid, ...cleanRow } = row;
 
   return {
-    ...row,
+    ...cleanRow,
     // Inward save should not reuse any stale batch master id from item lookup.
     // Existing ItemsBatchWise.Id is valid only when stock is selected from an
     // already-created batch record (outward / transfer style flows).
@@ -800,6 +852,10 @@ const sanitizeRowForInsert = (row, mode) => {
     SizeId:   bwNull(row.SizeId),
     GengerId: bwNull(row.GengerId),
     ToSizeId: bwNull(row.ToSizeId),
+    // Nullable<DateTime> on the backend — empty string fails to bind and can
+    // surface as a downstream OPENJSON parse error, so send null instead.
+    ExpiryDate: row.ExpiryDate || null,
+    MfgDate:    row.MfgDate    || null,
   };
 };
 // ─────────────────────────────────────────────────────────────────────────────
@@ -829,6 +885,23 @@ export default function StockInward() {
         Address2: com0.Address2 || "",
         City:     com0.City || "",
         Phone:    com0.Phone || "",
+        Pincode:        com0.Pincode        || "",
+        GSTNo:          com0.GSTNo          || "",
+        Email:          com0.Email          || "",
+        StateCode:      com0.State          || "",
+        YearName:       com0.YearName       || "",
+        BillFormatName: com0.SaleBillFormat || "Default",
+        POSLine1:       com0.POSLine1       || "",
+        POSLine2:       com0.POSLine2       || "",
+        POSLine3:       com0.POSLine3       || "",
+        POSLine4:       com0.POSLine4       || "",
+        POSLine5:       com0.POSLine5       || "",
+        No_Of_Bills:    com0.No_Of_Bills    || "1",
+        BankLine1:      com0.BankLine1      || "",
+        BankLine2:      com0.BankLine2      || "",
+        BankLine3:      com0.BankLine3      || "",
+        BankLine4:      com0.BankLine4      || "",
+        BankLine5:      com0.BankLine5      || "",
         Ecotech:              !!main0.Ecotech,
         BatchWiseStock:       !!main0.BatchWiseStock,
         AlwaysBatchAll:       !!main0.AlwaysBatchCreatedAllItem,
@@ -1038,6 +1111,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
+  const [printDialog, setPrintDialog] = useState(null);
   const [ldMsg,   setLdMsg]   = useState("Loading...");
   const [pw,      setPw]      = useState(null);
   const pwOkRef    = useRef(null);
@@ -1497,6 +1571,71 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
   const supplierPlaceholder = mode === "inward" ? "Select Supplier" : mode === "outward" ? "Select Customer" : "Select Branch";
   const supplierLabel       = mode === "inward" ? "Supplier"        : mode === "outward" ? "Customer"        : "Branch";
 
+  // ── A4 Print/View (copied from SaleBill.jsx — do not change logic) ─────────
+  const buildPrintDetails = useCallback(() => {
+    return new URLSearchParams({
+      BillFormatName: sess.BillFormatName,
+      EBillFormatName: sess.BillFormatName,
+      CompanyName:    sess.CompanyName,
+      Address1:       sess.Address1,
+      Address2:       sess.Address2,
+      City:           sess.City,
+      Pincode:        sess.Pincode,
+      MobileNo:       sess.Phone,
+      GSTNO:          sess.GSTNo,
+      Email:          sess.Email,
+      Year:           sess.YearName,
+      StateCode:      sess.StateCode,
+      StateName:      "",
+      SaleCon1:       sess.POSLine1,
+      SaleCon2:       sess.POSLine2,
+      SaleCon3:       sess.POSLine3,
+      SaleCon4:       sess.POSLine4,
+      SaleCon5:       sess.POSLine5,
+      NoofBills:      sess.No_Of_Bills,
+      Bank1:          sess.BankLine1,
+      Bank2:          sess.BankLine2,
+      Bank3:          sess.BankLine3,
+      Bank4:          sess.BankLine4,
+      Bank5:          sess.BankLine5,
+      FromEmailId:    "keykassapos@gmail.com",
+      FromEmailPwd:   "rlreahjhtwhpkelf",
+    }).toString();
+  }, [sess]);
+
+  const openReportViewer = useCallback((
+    autoPrint = false,
+    copy = "Original",
+    cacheKey = ""
+  ) => {
+    const printDetails = buildPrintDetails();
+    const A4Print = autoPrint ? "1" : "0";
+
+    const url = `${BASE_URL}/Reports/ReportViewer.aspx` +
+                `?ReportName=StockTransfer` +
+                `&Copy=${copy}` +
+                `&A4Print=${A4Print}` +
+                `&MailSendStatus=0` +
+                `&CacheKey=${encodeURIComponent(cacheKey)}` +
+                `&${printDetails}`;
+
+    if (autoPrint) {
+      const w = window.open(url, "_blank",
+        `width=25,height=25,toolbar=0,menubar=0,status=0`);
+      if (w) {
+        w.addEventListener("load", () => {
+          setTimeout(() => {
+            w.document.getElementById("btnPrint")?.click();
+            w.close();
+          }, 100);
+        });
+      }
+    } else {
+      window.open(url, "_blank",
+        `width=${screen.width},height=${screen.height - 100},toolbar=0`);
+    }
+  }, [buildPrintDetails]);
+
   // ── SAVE — INWARD ─────────────────────────────────────────────────────────
   const doInwardSave = useCallback(async () => {
     if (!perm.Add && !editId) { toast("❌ Add Permission Denied", true); return; }
@@ -1595,10 +1734,13 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
       Id: editId, SupplierRefid: parseInt(supplierId),
       StockDate: new Date(stockDate).toISOString(), Remarks: remarks,
       CompanyRefId: parseInt(sess.Comid), Modified_By: sess.loginuser,
-      UpdateId: "", Univercell: false, StockNo: 0,
-      StockInwardDetails: details, StockDetails: realStockList, SerialNoDetails: "", SaleorderId: 0,
+      UpdateId: "", Univercell: 0, StockNo: 0,
+      StockInwardDetails: details, StockDetails: realStockList, SerialNoDetails: [], SaleorderId: 0,
     }];
     const res = await CC.insertapi(CC.ST_Insert, payload, {
+      "React": 1,
+      "PrintA4Invoice": sess.StockTransferA4Print ? "1" : "0",
+      "PrintDetails": buildPrintDetails(),
       SaleorderId: "0", MirrorTable: String(mirrorTable),
       StockApprovalStatus: sess.StockApprovalStatus ? "1" : "0",
       MComid: sess.MComid,
@@ -1608,11 +1750,12 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
     if (res.ok ?? res.IsSuccess) {
       toast("✅ " + (res.message || "Stock Transfer Saved"));
       if (sess.StockTransferA4Print) {
-        const prOk = await confirm("Do you want to View Stock Transfer?");
-        if (prOk) {
-          await CC.insertapi(CC.ST_PrintView, { Id: res.data, Type: "StockTransfer", CompanyName: sess.CompanyName });
-          window.open(`../Reports/ReportViewer.aspx?ReportName=StockTransfer&A4Print=0`, "_blank");
-        }
+        const pvRes = await CC.insertapi(CC.ST_PrintView, { Id: res.data, Type: "StockTransfer", CompanyName: sess.CompanyName });
+        const cacheKey = pvRes?.Data15 || res.Data15 || "";
+        setPrintDialog({
+          id:       res.data,
+          cacheKey: cacheKey,
+        });
       }
       await doClear("transfer");
     } else {
@@ -1620,7 +1763,7 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
     }
  }, [perm, editId, gridEmptyCheck, confirm, sess, supplierList, supplierId,
     stockDate, invoiceDate, remarks, quality, checkListNo, delivery, ftax, poId, poUserId,
-    invoiceNo, stockNo, realStockList, mirrorTable, totalAmt, doClear, toast, redirectIfDual]);
+    invoiceNo, stockNo, realStockList, mirrorTable, totalAmt, doClear, toast, redirectIfDual, buildPrintDetails]);
 
   const doSave = () => {
     if (mode === "inward")        doInwardSave();
@@ -1895,6 +2038,28 @@ const selectedPartyInfo = useMemo(() => {
   return (
     <div className="si-page" style={{ height: "100vh", width: "100vw", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "'Inter', sans-serif", fontSize: 12 }}>
       {ConfirmUI}
+
+      {/* ── PRINT DIALOG (Stock Transfer) ── */}
+      {printDialog && (
+        <PrintChoiceDialog
+          onPrint={async () => {
+            setPrintDialog(null);
+            const noOfBills = parseInt(sess.No_Of_Bills) || 1;
+            for (let i = 0; i < noOfBills; i++) {
+              const copy = i === 0 ? "Original" :
+                           i === 1 ? "Duplicate Copy" : "Triplicate Copy";
+              openReportViewer(true, copy, printDialog.cacheKey);
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }}
+          onView={() => {
+            setPrintDialog(null);
+            openReportViewer(false, "Original", printDialog.cacheKey);
+          }}
+          onSkip={() => setPrintDialog(null)}
+        />
+      )}
+
       <Topbar />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>

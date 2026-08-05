@@ -519,6 +519,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
         "Content-Type": "application/json; charset=utf-8",
         ...authHeaders(),
         ...normalizedHeaders,
+        
       },
       body: body !== null ? JSON.stringify(body) : undefined,
     });
@@ -562,6 +563,7 @@ export const insertapicompany = async (path, body = null, extraHeaders = {}) => 
         "Content-Type": "application/json; charset=utf-8",
         ...authHeaders(),
         ...normalizedHeaders,
+        
       },
       body: body != null ? JSON.stringify(body) : null,
     });
@@ -1194,4 +1196,5 @@ export const CFG_VisibleCols= "/api/LoginApp/VisibleColumns";
 export const CFG_FocusCols = "/api/LoginApp/FocusColumns";
 
 // User
-export const USR_UserCombo = "/api/LoginApp/UserComboList";
+// export const USR_UserCombo = "/api/LoginApp/UserComboList";
+export const USR_UserCombo = "/api/LoginApp/SelectUser";

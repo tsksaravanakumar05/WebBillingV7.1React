@@ -274,6 +274,55 @@ function TotalRow({ label, value, net }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 //  PurchaseReturn — main component
 // ═══════════════════════════════════════════════════════════════════════════════
+// ─── PRINT CHOICE DIALOG (A4 Print/View — mirrors Sale module's PrintChoiceDialog) ──
+function PurchaseReturnPrintChoiceDialog({ onPrint, onView, onSkip }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "rgba(10,20,40,.5)",
+      display: "flex", alignItems: "center",
+      justifyContent: "center", zIndex: 99999,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 10,
+        width: 320, padding: "20px 24px",
+        boxShadow: "0 16px 48px rgba(31,101,222,.25)",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2e4a", marginBottom: 16 }}>
+          🖨 Purchase Return Saved Successfully!
+        </div>
+        <div style={{ fontSize: 12, color: "#6b7a99", marginBottom: 20 }}>
+          What would you like to do?
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <button
+            onClick={onPrint}
+            style={{
+              padding: "8px 16px", borderRadius: 5, border: "none",
+              background: "#1f65de", color: "#fff", fontWeight: 700,
+              fontSize: 13, cursor: "pointer",
+            }}>🖨 Print</button>
+          <button
+            onClick={onView}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #c5d8f8", background: "#e8f0fe",
+              color: "#1f65de", fontWeight: 700, fontSize: 13, cursor: "pointer",
+            }}>👁 View</button>
+          <button
+            onClick={onSkip}
+            style={{
+              padding: "8px 16px", borderRadius: 5,
+              border: "1px solid #d4dbe8", background: "#f8faff",
+              color: "#4a5568", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            }}>✕ Skip</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PurchaseReturn() {
   const navigate = useNavigate();
   useEffect(() => {
@@ -353,6 +402,80 @@ export default function PurchaseReturn() {
   const AlwaysBatchCreatedAllItem    = mainSet.AlwaysBatchCreatedAllItem || false;
   const PrintA4Bill                  = SaveDislogPurchasereturn ? 1 : 0;
   const FYear                        = comSet.FYear || "";
+
+  // ── A4 Print/View — CacheKey based architecture (mirrors SaleBill.jsx) ─────
+  // [printDialog] Print/View/Skip dialog state — set after a successful Save
+  // once the backend returns the CacheKey (Data15). Null = hidden.
+  const [printDialog, setPrintDialog] = useState(null);
+
+  // buildPrintDetails() — identical shape/logic to Sale module's buildPrintDetails(),
+  // sourced from the already-existing `comSet` (Companysetting) state above —
+  // no new localStorage reads, nothing about comSet/mainSet touched.
+  const buildPrintDetails = useCallback(() => {
+    return new URLSearchParams({
+      BillFormatName:  comSet.PurchaseReturnBillFormat || comSet.PurchaseBillFormat || comSet.SaleBillFormat || "Default",
+      EBillFormatName: comSet.PurchaseReturnBillFormat || comSet.PurchaseBillFormat || comSet.SaleBillFormat || "Default",
+      CompanyName:     comSet.Companyname || "",
+      Address1:        comSet.Address1    || "",
+      Address2:        comSet.Address2    || "",
+      City:            comSet.City        || "",
+      Pincode:         comSet.Pincode     || "",
+      MobileNo:        comSet.Phone       || "",
+      GSTNO:           comSet.GSTNo       || "",
+      Email:           comSet.Email       || "",
+      Year:            comSet.YearName    || "",
+      StateCode:       comSet.State       || "",
+      StateName:       "",
+      SaleCon1:        comSet.POSLine1    || "",
+      SaleCon2:        comSet.POSLine2    || "",
+      SaleCon3:        comSet.POSLine3    || "",
+      SaleCon4:        comSet.POSLine4    || "",
+      SaleCon5:        comSet.POSLine5    || "",
+      NoofBills:       comSet.No_Of_Bills || "1",
+      Bank1:           comSet.BankLine1   || "",
+      Bank2:           comSet.BankLine2   || "",
+      Bank3:           comSet.BankLine3   || "",
+      Bank4:           comSet.BankLine4   || "",
+      Bank5:           comSet.BankLine5   || "",
+      FromEmailId:     "keykassapos@gmail.com",
+      FromEmailPwd:    "rlreahjhtwhpkelf",
+    }).toString();
+  }, [comSet]);
+
+  // openReportViewer() — identical logic to Sale module's openReportViewer():
+  // autoPrint=true  → tiny hidden window, auto-clicks btnPrint, closes itself (direct print)
+  // autoPrint=false → full window (view/preview mode)
+  // Only the ReportName is set to PurchaseReturnInvoice (same report name the
+  // existing ad-hoc window.open call already used) — backend CacheKey → Cache →
+  // ReportData → ReportSubData → PrintDetails → Crystal Report flow is unchanged.
+  const openReportViewer = useCallback((autoPrint = false, copy = "Original", cacheKey = "") => {
+    const printDetails = buildPrintDetails();
+    const A4Print = autoPrint ? "1" : "0";
+
+    const url = `${CC.BASE_URL}/Reports/ReportViewer.aspx` +
+                `?ReportName=PurchaseReturnInvoice` +
+                `&Copy=${copy}` +
+                `&A4Print=${A4Print}` +
+                `&MailSendStatus=0` +
+                `&CacheKey=${encodeURIComponent(cacheKey)}` +
+                `&${printDetails}`;
+
+    if (autoPrint) {
+      const w = window.open(url, "_blank",
+        `width=25,height=25,toolbar=0,menubar=0,status=0`);
+      if (w) {
+        w.addEventListener("load", () => {
+          setTimeout(() => {
+            w.document.getElementById("btnPrint")?.click();
+            w.close();
+          }, 100);
+        });
+      }
+    } else {
+      window.open(url, "_blank",
+        `width=${screen.width},height=${screen.height - 100},toolbar=0`);
+    }
+  }, [buildPrintDetails]);
 
   // ── Master-form state (mirrors jQuery form fields) ────────────────────────────
   const [purchaseNo,    setPurchaseNo   ] = useState("");
@@ -1429,6 +1552,9 @@ const headers = {
   MirrorTable: sess.MirrorTable,
   LocalDB: 0,
   PrintA4Invoice: String(PrintA4Bill),
+  // ── A4 Print/View (CacheKey) support — additive, mirrors Sale/Purchase headers ──
+  BillFormatName: comSet.PurchaseReturnBillFormat || comSet.PurchaseBillFormat || comSet.SaleBillFormat || "Default",
+  React: "1",
 };
 
 console.log("PurchaseReturn Headers =", headers);
@@ -1442,35 +1568,17 @@ const res = await CC.insertapi(
 
     if (redirectIfDualLogin(res)) return;
     if (res?.ok) {
+      toast(`✔ ${res.message || "Purchase Return Saved Successfully."}`);
       if (PrintA4Bill === 1) {
-        // mirrors jQuery MsgBoxViewPrint("Do you to Print Purchase Return or View Purchase Return ?")
-        const action = window.confirm(
-          `${res.message || "Saved Successfully."}\n\nClick OK to View Purchase Return Invoice, Cancel to skip.`
-        );
-        if (action) {
-          const compSet = comSet || {};
-          const params = [
-            `ReportName=PurchaseReturnInvoice`,
-            `Copy=Original`,
-            `A4Print=0`,
-            `MailSendStatus=0`,
-            `CompanyName=${encodeURIComponent(compSet.Companyname || "")}`,
-            `Address1=${encodeURIComponent(compSet.Address1 || "")}`,
-            `Address2=${encodeURIComponent(compSet.Address2 || "")}`,
-            `City=${encodeURIComponent(compSet.City || "")}`,
-            `Pincode=${encodeURIComponent(compSet.Pincode || "")}`,
-            `MobileNo=${encodeURIComponent(compSet.Phone || "")}`,
-            `GSTNO=${encodeURIComponent(compSet.GSTNo || "")}`,
-            `Email=${encodeURIComponent(compSet.Email || "")}`,
-            `StateCode=${encodeURIComponent(compSet.State || "")}`,
-          ].join("&");
-          window.open(`../Reports/ReportViewer.aspx?${params}`, "_blank",
-            `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${window.screen.width},height=${window.screen.height - 100}`
-          );
-        }
-        toast(`✔ ${res.message || "Purchase Return Saved Successfully."}`);
-      } else {
-        toast(`✔ ${res.message || "Purchase Return Saved Successfully."}`);
+        // ── A4 Print/View — CacheKey (Data15) based dialog, mirrors Sale module's
+        // doSave() success handling. Falls back gracefully (CacheKey="") if the
+        // backend hasn't been updated yet — ReportViewer.aspx.cs's existing
+        // Session-based path still serves the report in that case.
+        const cacheKey = res.Data15 || "";
+        setPrintDialog({
+          billNo:   res.BillNo || res.Data2 || purchaseNo,
+          cacheKey,
+        });
       }
       handleClearRef.current?.();
     } else {
@@ -2273,6 +2381,26 @@ const res = await CC.insertapi(
     <div className="pr-root">
       {/* Topbar */}
       <Topbar />
+
+      {/* ── A4 PRINT/VIEW DIALOG (CacheKey-based, mirrors SaleBill.jsx) ── */}
+      {printDialog && (
+        <PurchaseReturnPrintChoiceDialog
+          onPrint={async () => {
+            setPrintDialog(null);
+            const noOfBills = parseInt(comSet.No_Of_Bills, 10) || 1;
+            for (let i = 0; i < noOfBills; i++) {
+              const copy = i === 0 ? "Original" : i === 1 ? "Duplicate Copy" : "Triplicate Copy";
+              openReportViewer(true, copy, printDialog.cacheKey);
+              await new Promise((r) => setTimeout(r, 500));
+            }
+          }}
+          onView={() => {
+            setPrintDialog(null);
+            openReportViewer(false, "Original", printDialog.cacheKey);
+          }}
+          onSkip={() => setPrintDialog(null)}
+        />
+      )}
 
       {/* ── Form Focus (Ctrl+F) Popup ───────────────────────────────────────── */}
       {focusFormColOpen && (
