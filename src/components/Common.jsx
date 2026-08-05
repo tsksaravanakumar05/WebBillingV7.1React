@@ -29,8 +29,8 @@ const withRawIdComListHeader = (extraHeaders = {}) => {
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 //export const BASE_URL = "https://billing.kassapos.co.in";
-export const BASE_URL = "http://localhost:64215";
-//export const BASE_URL = "https://billing.kassapos.co.in";
+//export const BASE_URL = "http://localhost:64215";
+export const BASE_URL = "https://billing.kassapos.co.in";
  //export const BASE_URL = "https://hobilling.kassapos.in";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
@@ -107,6 +107,9 @@ export const SelectSaleType       = "/api/SaleApp/SelectSaleType";  // alias
 
 // ─── CRM ─────────────────────────────────────────────────────────────────────
 export const CRMBalance           = "/api/SalesReportApp/CRMBalanceReport";
+export const CustomerDuePaymentReport = "/api/SalesReportApp/CustomerDuePaymentReport";
+export const SupplierDuePaymentReport = "/api/PurchaseReportApp/SupplierDuePaymentReport";
+export const ChequePopUp = "/api/SalesReportApp/ChequePopUp";
 
 // ─── LOGIN PASSWORD (for F6 Edit / F9 Delete password) ───────────────────────
 export const LoginPasswordUrl     = "/api/LoginApp/EditPassword";

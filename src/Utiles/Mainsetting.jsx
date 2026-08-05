@@ -46,6 +46,8 @@ const BLANK_FORM = {
   ReceiptBill: true,
   PaymentBill: true,
   // Setting 3
+  CustomerDuePaymentPopUP: true,
+  SupplierDuePaymentPopUP: true,
   ChequePOPUP: true,
   ChequePOPDays: "",
   SaveDialogSale: true,
@@ -301,6 +303,8 @@ export default function MainSetting() {
       WhatsAppURL: item.WhatsAppURL || "",
       ReceiptBill: toBool(item.ReceiptBill),
       PaymentBill: toBool(item.PaymentBill),
+      CustomerDuePaymentPopUP: toBool(item.CustomerDuePaymentPopUP),
+      SupplierDuePaymentPopUP: toBool(item.SupplierDuePaymentPopUP),
       SaveDialogSale: toBool(item.SaveDialogSale),
       MultipleUOMBilling: toBool(item.MultipleUOMBilling),
       ChequePOPUP: toBool(item.ChequePOPUP),
@@ -433,6 +437,8 @@ export default function MainSetting() {
       WhatsAppURL: form.WhatsAppURL,
       ReceiptBill: form.ReceiptBill,
       PaymentBill: form.PaymentBill,
+      CustomerDuePaymentPopUP: form.CustomerDuePaymentPopUP,
+      SupplierDuePaymentPopUP: form.SupplierDuePaymentPopUP,
       SaveDialogSale: form.SaveDialogSale,
       ChequePOPUP: form.ChequePOPUP,
       ChequePOPDays: toInt(form.ChequePOPDays),
@@ -634,6 +640,8 @@ export default function MainSetting() {
             <Section title="Setting 2 & 3">
               <ToggleRow label="Receipt Bill Wise"      value={form.ReceiptBill}      onChange={v => setField("ReceiptBill", v)} />
               <ToggleRow label="Payment Bill Wise"      value={form.PaymentBill}      onChange={v => setField("PaymentBill", v)} />
+              <ToggleRow label="Customer Due Payment Popup" value={form.CustomerDuePaymentPopUP} onChange={v => setField("CustomerDuePaymentPopUP", v)} />
+              <ToggleRow label="Supplier Due Payment Popup" value={form.SupplierDuePaymentPopUP} onChange={v => setField("SupplierDuePaymentPopUP", v)} />
               <ToggleRow label="Cheque Popup"           value={form.ChequePOPUP}      onChange={v => setField("ChequePOPUP", v)} />
               <Row label="Cheque POP Days">
                 <input className={inp} value={form.ChequePOPDays} onChange={e => setField("ChequePOPDays", e.target.value)} />

@@ -2,6 +2,9 @@ import React, { useState, useMemo, useCallback, memo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../dashboard.css";
 
+import AlertChequeStatusPopup from "./AlertChequeStatusPopup";
+import AlertCustomerPaymentStatusPopup from "./AlertCustomerPaymentStatusPopup";
+import AlertSupplierPaymentStatusPopup from "./AlertSupplierPaymentStatusPopup";
 import Topbar from "./Topbar";
 import * as CC from "./Common";
 
@@ -750,6 +753,9 @@ const Dashboard = () => {
   return (
     <div className="kd-root">
       <Topbar />
+      <AlertChequeStatusPopup />
+      <AlertSupplierPaymentStatusPopup />
+      <AlertCustomerPaymentStatusPopup />
 
       <div className="kd-content-wrap">
         <main className="kd-main">
