@@ -4,6 +4,7 @@ import "../dashboard.css";
 
 import Topbar from "./Topbar";
 import * as CC from "./Common";
+import ReorderExpiryPopup from "./ReorderExpiryPopup";
 
 const ACTIVITY_FEED = [
   { id: 1, message: "Invoice #INV-2409 created", sub: "Basmati Rice 5kg x 4", time: "2 min ago", dot: "#22c55e" },
@@ -749,6 +750,7 @@ const Dashboard = () => {
 
   return (
     <div className="kd-root">
+      <ReorderExpiryPopup />
       <Topbar />
 
       <div className="kd-content-wrap">
