@@ -258,6 +258,10 @@ export const CV_SelectDate = "/api/CashApp/SelectCashDate";
 export const CV_Select     = "/api/CashApp/SelectCash";
 export const CV_Delete     = "/api/CashApp/DeleteCash";
 
+  //Location
+       export const  LocationSelect = "/api/LocationApp/SelectLocation";
+        export const LocationInsert = "/api/LocationApp/InsertLocation";
+        export const LocationDelete = "/api/LocationApp/DeleteLocation";
    //CustomerCardType
         export const CustomerCardTypeSelect = "/api/CustomerCardTypeApp/SelectCustomerCardType";
         export const CustomerCardTypeInsert = "/api/CustomerCardTypeApp/InsertCustomerCardType";

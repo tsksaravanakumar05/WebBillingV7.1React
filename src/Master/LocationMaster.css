@@ -1,2 +1,125 @@
-/* LocationMaster.css — imports shared master styles */
 @import './MasterPage.css';
+
+.lm-col-sno {
+  width: 56px;
+}
+
+.lm-col-name {
+  width: 320px;
+}
+
+.lm-col-active {
+  width: 110px;
+}
+
+.lm-col-actions {
+  width: 74px;
+}
+
+.lm-th-center,
+.lm-td-center {
+  text-align: center;
+}
+
+.lm-actions-cell {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.lm-toggle {
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  border: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.lm-toggle.on {
+  background: var(--success-text);
+  box-shadow: inset 0 0 0 1px var(--success-border);
+}
+
+.lm-toggle.off {
+  background: var(--border-default);
+  box-shadow: inset 0 0 0 1px var(--text-soft);
+}
+
+.lm-toggle.is-readonly {
+  cursor: default;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.lm-toggle:focus {
+  box-shadow: 0 0 0 3px var(--blue-glow);
+}
+
+.lm-toggle.on:focus {
+  box-shadow: inset 0 0 0 1px var(--success-border), 0 0 0 3px var(--blue-glow);
+}
+
+.lm-toggle.off:focus {
+  box-shadow: inset 0 0 0 1px var(--text-soft), 0 0 0 3px var(--blue-glow);
+}
+
+.lm-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: left 0.18s ease;
+}
+
+.lm-toggle.on .lm-toggle-thumb {
+  left: 17px;
+}
+
+.lm-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-soft);
+  font-size: var(--font-size-13);
+  padding-top: 4px;
+}
+
+.lm-hint kbd {
+  min-width: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--blue);
+  font-size: var(--font-size-11-5);
+  font-weight: 700;
+  text-align: center;
+}
+
+.lm-hint span {
+  color: var(--text-soft);
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .lm-col-name {
+    width: 240px;
+  }
+
+  .lm-hint {
+    gap: 8px;
+    justify-content: flex-start;
+  }
+}

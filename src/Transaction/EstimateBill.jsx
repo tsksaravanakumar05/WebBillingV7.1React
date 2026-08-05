@@ -1016,7 +1016,16 @@ export default function EstimateBill() {
   const [ldMsg,            setLdMsg]            = useState("Loading...");
   const [pw,               setPw]              = useState(null);
   const [prodPopup,        setProdPopup]        = useState(null);
-  const [prodList,         setProdList]         = useState(() => CC.getCachedProductList(sess.Comid));
+  const [prodList,         setProdList]         = useState(() => {
+    try {
+      const main0 = (CC.getLocal("Mainsetting") || [{}])[0] || {};
+      const comid = CC.getStr("Comid") || "1";
+      const mcomid = CC.getStr("MComid") || comid;
+      return CC.getCachedProductList(main0.CommonCompany ? mcomid : comid);
+    } catch {
+      return [];
+    }
+  });
   const [custPopup,        setCustPopup]        = useState(false);
   const [f5Open,           setF5Open]           = useState(false);
   const [f5Rows,           setF5Rows]           = useState([]);
