@@ -1,0 +1,130 @@
+@import '../Master/MasterPage.css';
+
+.ach-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+.ach-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.ach-card {
+  position: fixed;
+  right: 20px;
+  bottom: 18px;
+  width: min(920px, calc(100vw - 40px));
+  border-radius: 16px;
+  box-shadow: 0 14px 34px rgba(20, 44, 96, 0.18);
+  pointer-events: auto;
+}
+
+.ach-card .bm-card-body {
+  gap: 14px;
+}
+
+.ach-drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.ach-card-dragging .ach-drag-handle {
+  cursor: grabbing;
+}
+
+.ach-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ach-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--bg-row-hover);
+  border: 1px solid var(--border-default);
+  color: var(--text-dark);
+  font-size: var(--font-size-13);
+  font-weight: 700;
+}
+
+.ach-badge strong {
+  color: var(--secondary);
+}
+
+.ach-grid-wrap {
+  overflow: auto;
+  height: 156px;
+  max-height: 156px;
+}
+
+.ach-col-account {
+  width: 220px;
+}
+
+.ach-col-bank {
+  width: 160px;
+}
+
+.ach-col-amount {
+  width: 130px;
+}
+
+.ach-col-date {
+  width: 120px;
+}
+
+.ach-col-status {
+  width: 110px;
+}
+
+.ach-th-center,
+.ach-td-center {
+  text-align: center;
+}
+
+.ach-td-amount {
+  text-align: right;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+}
+
+.ach-empty-state {
+  padding: 32px 18px;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: var(--font-size-13);
+}
+
+.ach-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  color: var(--text-soft);
+  font-size: var(--font-size-13);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .ach-grid-wrap {
+    height: 148px;
+    max-height: 148px;
+  }
+
+  .ach-card {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+}

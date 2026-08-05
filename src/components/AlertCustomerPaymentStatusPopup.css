@@ -1,0 +1,142 @@
+@import '../Master/MasterPage.css';
+
+.acp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+.acp-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.acp-card {
+  position: fixed;
+  left: 20px;
+  bottom: 18px;
+  width: min(920px, calc(100vw - 40px));
+  border-radius: 16px;
+  box-shadow: 0 14px 34px rgba(20, 44, 96, 0.18);
+  pointer-events: auto;
+}
+
+.acp-card .bm-card-body {
+  gap: 14px;
+}
+
+.acp-drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.acp-card-dragging .acp-drag-handle {
+  cursor: grabbing;
+}
+
+.acp-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.acp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--bg-row-hover);
+  border: 1px solid var(--border-default);
+  color: var(--text-dark);
+  font-size: var(--font-size-13);
+  font-weight: 700;
+}
+
+.acp-badge strong {
+  color: var(--danger);
+}
+
+.acp-grid-wrap {
+  overflow: auto;
+  height: 156px;
+  max-height: 156px;
+}
+
+.acp-col-bill {
+  width: 110px;
+}
+
+.acp-col-date {
+  width: 120px;
+}
+
+.acp-col-customer {
+  width: 280px;
+}
+
+.acp-col-amount {
+  width: 140px;
+}
+
+.acp-col-days {
+  width: 90px;
+}
+
+.acp-th-center,
+.acp-td-center {
+  text-align: center;
+}
+
+.acp-td-amount {
+  text-align: right;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+}
+
+.acp-empty-state {
+  padding: 32px 18px;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: var(--font-size-13);
+}
+
+.acp-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  color: var(--text-soft);
+  font-size: var(--font-size-13);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .acp-overlay {
+    pointer-events: none;
+  }
+
+  .acp-shell {
+    max-width: 100%;
+  }
+
+  .acp-grid-wrap {
+    height: 148px;
+    max-height: 148px;
+  }
+
+  .acp-col-customer {
+    width: 220px;
+  }
+
+  .acp-card {
+    left: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+}

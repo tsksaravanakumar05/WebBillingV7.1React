@@ -1,0 +1,148 @@
+@import '../Master/MasterPage.css';
+
+.asp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+.asp-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.asp-card {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(920px, calc(100vw - 40px));
+  border-radius: 16px;
+  box-shadow: 0 14px 34px rgba(20, 44, 96, 0.18);
+  pointer-events: auto;
+}
+
+.asp-card .bm-card-body {
+  gap: 14px;
+}
+
+.asp-drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.asp-card-dragging .asp-drag-handle {
+  cursor: grabbing;
+}
+
+.asp-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.asp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--bg-row-hover);
+  border: 1px solid var(--border-default);
+  color: var(--text-dark);
+  font-size: var(--font-size-13);
+  font-weight: 700;
+}
+
+.asp-badge strong {
+  color: var(--secondary);
+}
+
+.asp-grid-wrap {
+  overflow: auto;
+  height: 156px;
+  max-height: 156px;
+}
+
+.asp-col-purchase {
+  width: 110px;
+}
+
+.asp-col-invoice {
+  width: 120px;
+}
+
+.asp-col-supplier {
+  width: 240px;
+}
+
+.asp-col-date {
+  width: 118px;
+}
+
+.asp-col-amount {
+  width: 140px;
+}
+
+.asp-col-days {
+  width: 88px;
+}
+
+.asp-th-center,
+.asp-td-center {
+  text-align: center;
+}
+
+.asp-td-amount {
+  text-align: right;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+}
+
+.asp-empty-state {
+  padding: 32px 18px;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: var(--font-size-13);
+}
+
+.asp-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  color: var(--text-soft);
+  font-size: var(--font-size-13);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .asp-overlay {
+    pointer-events: none;
+  }
+
+  .asp-shell {
+    max-width: 100%;
+  }
+
+  .asp-grid-wrap {
+    height: 148px;
+    max-height: 148px;
+  }
+
+  .asp-col-supplier {
+    width: 220px;
+  }
+
+  .asp-card {
+    left: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    transform: none;
+  }
+}
