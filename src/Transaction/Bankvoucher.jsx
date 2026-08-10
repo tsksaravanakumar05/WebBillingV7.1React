@@ -131,6 +131,58 @@ const vn   = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 const fmt2 = (v) => vn(v).toFixed(2);
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const isoToMDY = (iso) => { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${m}/${d}/${y}`; };
+const ensureUpdateId = (value) => value || (crypto.randomUUID ? crypto.randomUUID() : CC.uid());
+const toReportDate = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(value.trim())) {
+    const [day, month, year] = value.trim().split("/");
+    return `${month}/${day}/${year}`;
+  }
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return isoToMDY(value.trim());
+  }
+  try {
+    return isoToMDY(new Date(value).toISOString().slice(0, 10));
+  } catch {
+    return "";
+  }
+};
+const toReportChequeText = (value) => {
+  if (value == null) return "";
+  return String(value).trim();
+};
+const toReportChequeNumber = (value) => {
+  const chequeText = toReportChequeText(value);
+  if (!chequeText) return 0;
+
+  const digitsOnly = chequeText.replace(/[^0-9.-]/g, "");
+  const chequeNumber = Number(digitsOnly);
+  return Number.isFinite(chequeNumber) ? chequeNumber : 0;
+};
+const buildBankReportRow = (row, fallbackDate = "", fallbackBankName = "") => {
+  const chequeValue = row?.[grdChequeNo] ?? row?.ChqNo ?? row?.ChequeNo ?? "";
+  return ({
+  RefNo: Number(row?.RefNo ?? row?.[grdId] ?? row?.Id ?? 0),
+  Date: toReportDate(row?.[grdRefdate] ?? row?.Refdate ?? fallbackDate),
+  Refdate: toReportDate(row?.[grdRefdate] ?? row?.Refdate ?? fallbackDate),
+  Type: row?.[grdType] ?? row?.Type ?? "",
+  TypeName: row?.[grdType] ?? row?.Type ?? "",
+  AccountName: row?.[grdAccountName] ?? row?.AccountName ?? "",
+  Amount: vn(row?.[grdAmount] ?? row?.Amount),
+  RTGSAmt: vn(row?.[grdRTGSAmt] ?? row?.RTGSAmt),
+  RTGSAmount: vn(row?.[grdRTGSAmt] ?? row?.RTGSAmount ?? row?.RTGSAmt),
+  RTGSNo: row?.[grdRTGSNo] ?? row?.RTGSNo ?? "",
+  ChequeNo: toReportChequeText(chequeValue),
+  ChqNo: toReportChequeNumber(chequeValue),
+  ChequeDate: toReportDate(row?.[grdChequeDate] ?? row?.ChequeDate),
+  ChequeStataus: Boolean(row?.[grdChequeStataus] ?? row?.ChequeStataus),
+  Narration: row?.[grdNarration] ?? row?.Narration ?? "",
+  Remarks: row?.[grdNarration] ?? row?.Remarks ?? row?.Narration ?? "",
+  BankName: row?.BankName ?? fallbackBankName ?? "",
+  BankRefid: Number(row?.[grdBankId] ?? row?.BankRefid ?? 0),
+  BankId: Number(row?.[grdBankId] ?? row?.BankId ?? row?.BankRefid ?? 0),
+  });
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POPUP WINDOW (reusable — identical to SupplierPayment)
@@ -327,7 +379,7 @@ function F5ViewWindow({ comid, onClose, onPrintView, loading, setLoading }) {
         if (selIdx == null) return;
         const row = rows[selIdx];
         if (!row || row.Id == null || row.Id === 0) return;
-        onPrintView(row.Id);
+        onPrintView(row);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -652,6 +704,7 @@ export default function BankVoucher() {
   const [accountPopup, setAccountPopup] = useState({ open:false, rowIdx:null, prefill:"" });
   const [pwModal,      setPwModal      ] = useState(null);   // {rowIdx}
   const [pvDialog,     setPvDialog     ] = useState(null);   // print/view after save
+  const [reportRows,   setReportRows   ] = useState([]);
   const [f5Open,       setF5Open       ] = useState(false);
   const [f12Open,      setF12Open      ] = useState(false);
 
@@ -945,24 +998,47 @@ export default function BankVoucher() {
   }, [sess, confirm, toast, focusCell, redirectIfDualLogin]);
 
   // ── open VoucherPrints (BankVoucherPrint) ────────────────────────────────
-  const openVoucherPrint = useCallback(async (a4Print = "0") => {
-    const url = `${CC.ReportViewerBase}?ReportName=BankVoucherPrint&A4Print=${a4Print}`;
-    const w = window.open(url, "_blank",
-      `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${screen.width},height=${screen.height - 100}`
-    );
+  const openVoucherPrint = useCallback(async (a4Print = "0", rows = reportRows) => {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      toast("❌ Print data not found.", true);
+      return;
+    }
+
+    const targetName = `BankVoucherReport_${Date.now()}`;
+    const features = `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${screen.width},height=${screen.height - 100}`;
+    const action = `${CC.BASE_URL}/Reports/ReportViewer.aspx?ReportName=Bank&A4Print=${a4Print}`;
+    const w = window.open("", targetName, features);
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = action;
+    form.target = targetName;
+    form.style.display = "none";
+
+    const addHidden = (name, value) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    };
+
+    addHidden("ReportDataJson", JSON.stringify(rows));
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
     if (w) { w.addEventListener("load", () => { w.document.title = "Bank Voucher"; }, false); }
     if (a4Print === "1") setTimeout(() => w?.close(), 10);
-  }, []);
+  }, [reportRows, toast]);
 
   // ── PrintView (Ctrl+V in F5) ─────────────────────────────────────────────
-  const doPrintView = useCallback(async (id) => {
+  const doPrintView = useCallback(async (row) => {
     const ok = window.confirm("Do you to View Bank Voucher ?");
     if (!ok) return;
-    setLoading(true);
-    const res = await CC.api(CC.PrintViewUrl, null, {}, { Id: Number(id), Type: "BankVoucher" });
-    setLoading(false);
-    if (res.ok) openVoucherPrint("0");
-  }, [openVoucherPrint]);
+    openVoucherPrint("0", [buildBankReportRow(row, row?.[grdRefdate] ?? selDate, row?.BankName ?? bankName)]);
+  }, [openVoucherPrint, selDate, bankName]);
 
   // ── BankSave (F1, mirrors InsertBank flow) ───────────────────────────────
   const bankSave = useCallback(async () => {
@@ -999,6 +1075,7 @@ export default function BankVoucher() {
       ...rest,
       [grdAmount]: Number(vn(rest[grdAmount])) || 0,
       [grdRTGSAmt]: Number(vn(rest[grdRTGSAmt])) || 0,
+      [grdUpdateId]: ensureUpdateId(rest[grdUpdateId]),
     }));
 
     
@@ -1027,6 +1104,7 @@ export default function BankVoucher() {
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.ok || res.IsSuccess) {
+      setReportRows(payload.map((row) => buildBankReportRow(row, selDate, bankName)));
       if (sess.BankSaveViewDialog) {
         setPvDialog({ message: res.message || "Saved Successfully" });
       } else {

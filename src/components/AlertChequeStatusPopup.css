@@ -62,6 +62,42 @@
   color: var(--secondary);
 }
 
+.ach-save-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--secondary);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--secondary);
+  font-size: var(--font-size-13);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.ach-save-chip:hover:not(:disabled) {
+  background: var(--secondary);
+  color: #fff;
+}
+
+.ach-save-chip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ach-message {
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-row-hover);
+  color: var(--text-dark);
+  font-size: var(--font-size-13);
+  font-weight: 600;
+}
+
 .ach-grid-wrap {
   overflow: auto;
   height: 156px;
@@ -97,6 +133,33 @@
   text-align: right;
   font-family: var(--font-mono, monospace);
   font-weight: 600;
+}
+
+.ach-row-saving {
+  opacity: 0.75;
+}
+
+.ach-status-select {
+  min-width: 92px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-dark);
+  font-size: var(--font-size-13);
+  font-weight: 700;
+  outline: none;
+}
+
+.ach-status-select:focus {
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.ach-status-select.is-dirty {
+  border-color: var(--secondary);
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .ach-empty-state {

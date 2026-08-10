@@ -3506,7 +3506,7 @@ if (savedArrivalType) {
       {/* ── Serial Number Popup ── */}
       {serialNoPopup.open && (
         <SerialNoPopup serialNoPopup={serialNoPopup} setSerialNoPopup={setSerialNoPopup}
-          serialNoList={serialNoList} setSerialNoList={setSerialNoList} setGridRows={setGridRows} calcRow={calcRow} />
+          serialNoList={serialNoList} setSerialNoList={setSerialNoList} setGridRows={setGridRows} gridRows={gridRows} calcRow={calcRow} />
       )}
 
       {/* ── F12 Column Config ── */}
@@ -4433,12 +4433,13 @@ function ItemCreatePopup({ itemCreatePopup, setItemCreatePopup, applyProductToRo
 }
 
 // ─── SerialNoPopup ────────────────────────────────────────────────────────────
-function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSerialNoList, setGridRows, calcRow }) {
+function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSerialNoList, setGridRows, gridRows, calcRow }) {
   const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
   const { rowKey, textRefId, returnColKey } = serialNoPopup;
   const [rows,  setRows ] = useState(() => serialNoPopup.list.length > 0 ? serialNoPopup.list.map((s) => ({ id: uid(), value: s.BatchNo })) : [{ id: uid(), value: "" }]);
   const [error, setError] = useState("");
   const inputRefs = useRef({});
+  const currentRow = gridRows.find((r) => r._key === rowKey) || null;
 
   useEffect(() => {
     const firstId = rows[0]?.id;
@@ -4467,8 +4468,24 @@ function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSeria
     if (cleaned.length === 0 || (cleaned.length === 1 && cleaned[0].value.trim() === "")) { setError("Enter at least one Serial No !!!."); return; }
     const values = cleaned.map((r) => r.value.trim()).filter(Boolean);
     if (new Set(values).size !== values.length) { setError("Duplicate Serial No found !!!."); return; }
+    if (!currentRow?.ProductRefId) { setError("Invalid product row for Serial No save !!!."); return; }
     const filtered = serialNoList.filter((s) => s.IndexRefId !== textRefId);
-    setSerialNoList([...filtered, ...values.map((val) => ({ BatchNo: val, IndexRefId: textRefId, RItemQty: 0, ItemQty: 1, Batchid: 0, ProductRefid: 0, MRP: 0, PurchaseRate: 0, LandingCost: 0, VAT: 0, SalesRate: 0 }))]);
+    setSerialNoList([
+      ...filtered,
+      ...values.map((val) => ({
+        BatchNo: val,
+        IndexRefId: textRefId,
+        RItemQty: 0,
+        ItemQty: 1,
+        Batchid: parseInt(currentRow.BatchRefId, 10) || 0,
+        ProductRefid: parseInt(currentRow.ProductRefId, 10) || 0,
+        MRP: parseFloat(currentRow.MRP) || 0,
+        PurchaseRate: parseFloat(currentRow.PurchaseRate) || 0,
+        LandingCost: parseFloat(currentRow.LandingCost) || 0,
+        VAT: parseFloat(currentRow.TaxPercent) || 0,
+        SalesRate: parseFloat(currentRow.Salerate || currentRow.SalesRate) || 0,
+      })),
+    ]);
     setGridRows((prev) => {
       const idx = prev.findIndex((r) => r._key === rowKey);
       if (idx === -1) return prev;
@@ -4478,7 +4495,7 @@ function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSeria
     });
     setSerialNoPopup({ open: false, rowKey: null, textRefId: "", list: [], returnColKey: "ItemQty" });
     restoreFocusToGrid();
-  }, [rows, serialNoList, textRefId, rowKey, setSerialNoList, setGridRows, setSerialNoPopup, restoreFocusToGrid, calcRow]);
+  }, [rows, serialNoList, textRefId, rowKey, currentRow, setSerialNoList, setGridRows, setSerialNoPopup, restoreFocusToGrid, calcRow]);
 
   const handleKeyDown = useCallback((e, idx) => {
     if (e.key === "Enter") {

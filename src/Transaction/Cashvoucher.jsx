@@ -51,6 +51,11 @@ const valNum  = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 const nullStr = (v) => (v == null || v === undefined ? "" : String(v));
 const fmt2    = (v) => valNum(v).toFixed(2);
 const today   = () => new Date().toISOString().split("T")[0];
+const isoToMDY = (iso) => {
+  if (!iso) return "";
+  const [y, m, d] = String(iso).slice(0, 10).split("-");
+  return y && m && d ? `${m}/${d}/${y}` : "";
+};
 const jsonDate = (s) => {
   if (!s) return today();
   const m = /\/Date\((\d+)\)\//.exec(s);
@@ -58,6 +63,26 @@ const jsonDate = (s) => {
   if (typeof s === "string") return s.split("T")[0];
   try { return new Date(s).toISOString().split("T")[0]; } catch { return today(); }
 };
+const toReportDate = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(value.trim())) {
+    const [day, month, year] = value.trim().split("/");
+    return `${month}/${day}/${year}`;
+  }
+  const normalized = jsonDate(value);
+  return isoToMDY(normalized);
+};
+const buildCashReportRow = (row, fallbackDate = "") => ({
+  RefNo: Number(row?.RefNo ?? row?.Id ?? 0),
+  Date: toReportDate(row?.Refdate ?? row?.Date ?? fallbackDate),
+  Refdate: toReportDate(row?.Refdate ?? row?.Date ?? fallbackDate),
+  AccountName: row?.AccountName ?? "",
+  Amount: valNum(row?.Amount),
+  Narration: row?.Narration ?? "",
+  Remarks: row?.Remarks ?? row?.Narration ?? "",
+  Type: row?.Type ?? "",
+  TypeName: row?.Type ?? "",
+});
 
 // ─── Grid column meta (mirrors jQuery gridcolumns) ───────────────────────────
 // grdAccountName, grdAmount, grdNarration editable; grdId/grdUpdateId/grdAccountId hidden
@@ -80,6 +105,25 @@ const makeGridRow = () => ({
   Type:           "",
   Refdate:        "",
 });
+
+function CashPrintViewDialog({ message, onPrint, onView, onNo }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(10,20,40,0.55)", zIndex: 9300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 10, padding: "24px 30px 18px", minWidth: 320, textAlign: "center", boxShadow: "0 8px 32px rgba(0,0,0,0.22)" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 18, color: "#1e293b", lineHeight: 1.5 }}>
+          {message || "Saved Successfully."}
+          <br />
+          Do you want to Print Cash Voucher or View?
+        </div>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <button className="mp-btn sv" onClick={onPrint}>🖨 Print</button>
+          <button className="mp-btn" style={{ background: "#0891b2", color: "#fff", borderColor: "#0891b2" }} onClick={onView}>👁 View</button>
+          <button className="mp-btn" style={{ background: "#f1f5f9", color: "#475569" }} onClick={onNo}>✕ No</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  CashVoucher — main component
@@ -180,6 +224,8 @@ export default function CashVoucher() {
   const [passwordType,   setPasswordType  ] = useState(0);   // PasswordType
   const [pressKey,       setPressKey      ] = useState("");  // Presskey
   const [delTarget,      setDelTarget     ] = useState(null); // { rowKey, Id, UpdateId, AccountName }
+  const [pvDialog,       setPvDialog      ] = useState(null);
+  const [reportRows,     setReportRows    ] = useState([]);
 
   // ── DOM refs ──────────────────────────────────────────────────────────────────
   const typeRef       = useRef(null);
@@ -280,6 +326,41 @@ export default function CashVoucher() {
     }
     return true;
   }, [gridRows, toast, focusCell]);
+
+  const openCashVoucherReport = useCallback((a4Print = "0", rows = reportRows) => {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      toast("❌ Print data not found.", true);
+      return;
+    }
+
+    const targetName = `CashVoucherReport_${Date.now()}`;
+    const features = `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${window.screen.width},height=${window.screen.height - 100}`;
+    const action = `${CC.BASE_URL}/Reports/ReportViewer.aspx?ReportName=CashReport&A4Print=${a4Print}`;
+    const w = window.open("", targetName, features);
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = action;
+    form.target = targetName;
+    form.style.display = "none";
+
+    const addHidden = (name, value) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    };
+
+    addHidden("ReportDataJson", JSON.stringify(rows));
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    if (w) w.addEventListener("load", () => { w.document.title = "Cash Voucher"; }, false);
+    if (a4Print === "1") setTimeout(() => w?.close(), 10);
+  }, [reportRows, toast]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  CELL CHANGE
@@ -598,23 +679,13 @@ setLoading(true);
     if (redirectIfDualLogin(res)) return;
 
     if (res?.ok) {
+      setReportRows(getdata.map((row) => buildCashReportRow(row, dteCreated)));
       if (CashSaveViewDialog) {
-        // mirrors jQuery MsgBoxViewPrint("Do you to Print Cash Payment or View?")
-        const wantPrint = window.confirm(
-          `${res.message || "Saved Successfully."}\n\nClick OK to Print/View Cash Voucher, Cancel to skip.`
-        );
-        if (wantPrint) {
-          const A4Print = "0";
-          const w = window.open(
-            `../Reports/ReportViewer.aspx?ReportName=CashVoucherPrint&A4Print=${A4Print}`,
-            "_blank",
-            `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${window.screen.width},height=${window.screen.height - 100}`
-          );
-          if (w) w.addEventListener("load", () => { w.document.title = "Cash Payment"; }, false);
-        }
+        setPvDialog({ message: res.message || "Saved Successfully." });
+      } else {
+        toast(`✔ ${res.message || "Saved Successfully."}`);
+        loadGridDetails();
       }
-      toast(`✔ ${res.message || "Saved Successfully."}`);
-      loadGridDetails();
     } else {
       toast(`❌ ${res?.message || "Save Failed."}`, true);
     }
@@ -646,24 +717,11 @@ setLoading(true);
     if (f5SelIdx == null) return;
     const row = f5List[f5SelIdx];
     if (!row || row.Id === 0 || row.Id == null) return;
-    const ok = window.confirm("Do you to View Cash Voucher ?");
+    const ok = await confirm("Do you want to View Cash Voucher?");
     if (!ok) return;
 
-    const res = await CC.api(CC.PrintViewUrl, null, {}, {
-      Id:   row.Id,
-      Type: "CashVoucher",
-    });
-    if (res?.ok) {
-      const w = window.open(
-        "../Reports/ReportViewer.aspx?ReportName=CashVoucherPrint&A4Print=0",
-        "_blank",
-        `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${window.screen.width},height=${window.screen.height - 100}`
-      );
-      if (w) w.addEventListener("load", () => { w.document.title = "Cash Voucher"; }, false);
-    } else {
-      toast("❌ Technical Fault Contact Software Vendor  !!!.", true);
-    }
-  }, [f5SelIdx, f5List, toast]);
+    openCashVoucherReport("0", [buildCashReportRow(row, row?.Refdate || dteCreated)]);
+  }, [f5SelIdx, f5List, confirm, openCashVoucherReport, dteCreated]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  DELETE (mirrors jQuery Presskey=="Delete" → /Cash/DeleteCash, after pwd check)
@@ -1044,6 +1102,29 @@ setLoading(true);
       )}
 
       {/* ── Loading overlay ───────────────────────────────────────────────────── */}
+      {pvDialog && (
+        <CashPrintViewDialog
+          message={pvDialog.message}
+          onPrint={() => {
+            openCashVoucherReport("1");
+            toast(`✔ ${pvDialog.message || "Saved Successfully."}`);
+            setPvDialog(null);
+            loadGridDetails();
+          }}
+          onView={() => {
+            openCashVoucherReport("0");
+            toast(`✔ ${pvDialog.message || "Saved Successfully."}`);
+            setPvDialog(null);
+            loadGridDetails();
+          }}
+          onNo={() => {
+            toast(`✔ ${pvDialog.message || "Saved Successfully."}`);
+            setPvDialog(null);
+            loadGridDetails();
+          }}
+        />
+      )}
+
       {loading && (
         <div className="mp-loader-ov">
           <div className="mp-ldr-box">

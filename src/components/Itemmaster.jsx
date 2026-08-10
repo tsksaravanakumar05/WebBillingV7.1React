@@ -1071,7 +1071,8 @@ setRows(fmt);
     let u = { ...prev, [colKey]:fv, _dirty:true };
     if(CALC_KEYS.has(colKey)) u={...u,...calcRow(u,sess,colKey)};
     if(colKey==="SalesRate"){fv=normalizeEditableDecimal(fv);u={...u,SalesRate:fv,_dirty:true};const LC=vn(u.LandingCost),SR=vn(fv),d=SR-LC;u.ProfitPer=LC>0&&d>0?f2(ro(d/LC*100)):0;u={...u,...calcRow(u,sess,"SalesRate"),SalesRate:fv};}
-    if(colKey==="ProfitAmt"){const LC=vn(u.LandingCost),PA=vn(fv);u.ProfitPer=LC>0?f2(PA/LC*100):0;u={...u,...calcRow(u,sess,"ProfitAmt")};}
+    if(colKey==="ProfitAmt"){const LC=vn(u.LandingCost),PA=vn(fv);u.ProfitPer=LC>0?f2(PA/LC*100):0;const prevSR=u.SalesRate;u={...u,...calcRow(u,sess,"ProfitAmt")};if(!sess.PurchaseProfitSaleRateChange)u.SalesRate=prevSR;}
+    if(colKey==="ProfitPer"){const prevSR=u.SalesRate;u={...u,...calcRow(u,sess,"ProfitPer")};if(!sess.PurchaseProfitSaleRateChange)u.SalesRate=prevSR;}
     if(colKey==="DMAmt"){const M=vn(u.MRP),DA=vn(fv);u.DMPer=M>0?f2(ro(DA/M*100)):0;}
     if(colKey==="DMPer"){const M=vn(u.MRP),DP=vn(fv);u.DMAmt=f2(ro(M*DP/100));}
     return u;

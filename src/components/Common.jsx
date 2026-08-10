@@ -29,9 +29,9 @@ const withRawIdComListHeader = (extraHeaders = {}) => {
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 //export const BASE_URL = "https://billing.kassapos.co.in";
-//export const BASE_URL = "http://localhost:64215";
-export const BASE_URL = "https://billing.kassapos.co.in";
- //export const BASE_URL = "https://hobilling.kassapos.in";
+ export const BASE_URL = "http://localhost:64215";
+//export const BASE_URL = "https://billing.kassapos.co.in";
+//export const BASE_URL = "https://hobilling.kassapos.in";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
@@ -110,6 +110,8 @@ export const CRMBalance           = "/api/SalesReportApp/CRMBalanceReport";
 export const CustomerDuePaymentReport = "/api/SalesReportApp/CustomerDuePaymentReport";
 export const SupplierDuePaymentReport = "/api/PurchaseReportApp/SupplierDuePaymentReport";
 export const ChequePopUp = "/api/SalesReportApp/ChequePopUp";
+export const SelectCustomerReceiptDate = "/api/CustomerReceiptApp/SelectCustomerReceiptDate";
+export const InsertCustomerReceipt = "/api/CustomerReceiptApp/InsertCustomerReceipt";
 
 // ─── LOGIN PASSWORD (for F6 Edit / F9 Delete password) ───────────────────────
 export const LoginPasswordUrl     = "/api/LoginApp/EditPassword";
@@ -361,7 +363,7 @@ export const ReportViewerBase = "../Reports/ReportViewer.aspx";
  
 // ─── PrintView URL (add once if not already present) ─────────────────────────
 //  Used by doPrintView() in SupplierPayment.jsx and CustomerReceipt.jsx
-export const PrintViewUrl = "/api/PaymentApp/PrintView";
+export const PrintViewUrl = "/api/ReceiptApp/PrintView";
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
