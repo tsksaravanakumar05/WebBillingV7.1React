@@ -5,6 +5,7 @@ import Login from "./components/login";
 import Dashboard from "./components/Dashboard";
 import ItemMaster from "./components/Itemmaster";
 import Companycreation from "./components/Companycreation";
+import ReorderExpiryPopup from "./components/ReorderExpiryPopup";
 // MASTER
 
 
@@ -176,6 +177,8 @@ function App() {
 
         {/* ITEM */}
         <Route path="/Itemmaster" element={<ItemMaster />} />
+
+        <Route path="/ReorderPopup" element={<ReorderExpiryPopup forceOpen />} />
         
         {/* MASTER */}
         <Route path="/Brand" element={<BrandMaster />} />
@@ -234,6 +237,8 @@ function App() {
         <Route path="/Purchaseorder" element={<Purchaseorder />} />
         <Route path="/StockAdjustment" element={<StockAdjustment />} />
         <Route path="/Company" element={<Company />} />
+
+        
         {/* Reports */}
         <Route path="/Report/SaleOrder" element={<ReportSaleOrder />} />
         <Route path="/Report/SaleReportPart1" element={<SalesReportPart1 />} />

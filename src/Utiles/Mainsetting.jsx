@@ -200,7 +200,7 @@ export default function MainSetting() {
     }
 
     const menulist = JSON.parse(menuStr);
-    const menudata = menulist.filter(obj => obj.PageName === "Company");
+    const menudata = menulist.filter(obj => obj.PageName === "MainSetting");
 
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
