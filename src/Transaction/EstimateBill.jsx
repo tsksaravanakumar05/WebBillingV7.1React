@@ -1067,7 +1067,7 @@ export default function EstimateBill() {
       const MComid = CC.getStr("MComid") || Comid;
       const isCC   = !!main0.CommonCompany;
       return {
-        Comid: isCC ? MComid : Comid, MComid,
+        Comid: Comid || MComid || "0", MComid,
         BillNoType:   com0.BillType   || "Daily Reset On Company",
         BillNoPrefix: com0.BillPrefix || "",
         BillNoDigit:  com0.NumberDigit || 0,
@@ -1212,7 +1212,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
   }, [sess, billDate]);
 
   const loadDropdowns = useCallback(async () => {
-    const comidParam = sess.CommonCompany ? sess.MComid : sess.Comid;
+    const comidParam = CC.resolveCustomerComid(sess);
     const [custRes, smRes, cardRes] = await Promise.all([
       CC.api(GetCustomerUrl, null, {}, { Comid: comidParam, AccountType: "CUSTOMER" }),
       CC.api(SalesManSelectUrl, null, {}, { Comid: comidParam }),
@@ -1597,18 +1597,19 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
   // ── Load products ─────────────────────────────────────────────────────────
   const loadProductsForPopup = useCallback(async (rid) => {
-    const cached = prodList.length > 0 ? prodList : CC.getCachedProductList(sess.Comid);
+    const productListComid = sess.CommonCompany ? sess.MComid : sess.Comid;
+    const cached = prodList.length > 0 ? prodList : CC.getCachedProductList(productListComid);
     if (cached.length > 0) {
       if (prodList.length === 0) setProdList(cached);
       setProdPopup({ rid, pos: { top: 160, left: 80 } });
       return;
     }
     setLoading(true); setLdMsg("Loading products...");
-    const res = await CC.api(ProductListUrl, null, {}, { Comid: sess.Comid });
+    const res = await CC.api(ProductListUrl, null, {}, { Comid: productListComid });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : Array.isArray(res) ? res : [];
-    CC.setCachedProductList(sess.Comid, arr);
+    CC.setCachedProductList(productListComid, arr);
     setProdList(arr);
     setProdPopup({ rid, pos: { top: 160, left: 80 } });
   // eslint-disable-next-line

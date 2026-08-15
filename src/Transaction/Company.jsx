@@ -294,6 +294,7 @@ export default function Company() {
   
     sessionStorage.setItem("home", "1");
     localStorage.setItem("Comid", rowId);
+    CC.setCompanyRefId(rowId);
     localStorage.setItem("MComid", sess.MComid);
     localStorage.setItem("CompanyName", company.Companyname);
     localStorage.setItem("Address", `${company.Address1} ${company.Address2} ${company.City}`);

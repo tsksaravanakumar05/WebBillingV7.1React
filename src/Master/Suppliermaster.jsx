@@ -145,7 +145,7 @@ const redirectIfDualLogin = useCallback((res) => {
       const MComid= CC.getStr("MComid") || Comid;
       const IdComList   = CC.getStr("IdComList") || Comid;
       const MirrorTable = CC.getStr("MirrorTableOnline") || "0";
-      const useMain     = !!main0.CommonCompany || !!main0.SupplierCommonCompany || MirrorTable === "1";
+      const useMain     = !!main0.CommonCompany || MirrorTable === "1";
       const SupplierMulitipleAllow = !!main0.SupplierMulitipleAllow;
       const menudata = (CC.getLocal("menulist") || []).filter(o => o.PageName === "Supplier");
       const perm     = menudata[0] || { View:1, Add:1, Edit:1, Delete:1 };

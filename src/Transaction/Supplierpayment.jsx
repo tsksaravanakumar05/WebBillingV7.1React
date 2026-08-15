@@ -819,6 +819,7 @@ export default function SupplierPayment() {
       return { Comid:"1", MComid:"1", MirrorTable:"0", PaymentBillWise:false, SupplierPaymentViewDialog:false };
     }
   });
+  const supplierComid = CC.resolveSupplierComid(sess);
 
   // ── Component state ──────────────────────────────────────────────────────
   const [grid,    setGrid   ] = useState([]);
@@ -905,10 +906,10 @@ export default function SupplierPayment() {
 
   const loadSuppliers = useCallback(async () => {
     const res = await CC.api(CC.GetSupplierAll, null, {},
-      { Comid: Number(sess.Comid), AccountType: "SUPPLIER", Keyword: "", Column: "" });
+      { Comid: Number(supplierComid), AccountType: "SUPPLIER", Keyword: "", Column: "" });
     if (redirectIfDualLogin(res)) return;
     setSuppliers(Array.isArray(res?.data) ? res.data : Array.isArray(res?.Data1) ? res.Data1 : []);
-  }, [sess.Comid, redirectIfDualLogin]);
+  }, [supplierComid, redirectIfDualLogin]);
 
   const loadBanks = useCallback(async () => {
     const res = await CC.api(CC.BankAllSelect, null, {}, { Comid: Number(sess.Comid) });
