@@ -1002,7 +1002,7 @@ export default function SaleOrder() {
       const MComid = CC.getStr("MComid") || Comid;
       const TaxName = com0.POSTax || "Exclusive";
       return {
-        Comid:  main0.CommonCompany ? MComid : Comid,
+        Comid:  Comid || MComid || "0",
         MComid,
         Tamil:  main0.ProductNameTamil || false,
         // Tax
@@ -1142,7 +1142,7 @@ export default function SaleOrder() {
 
   const [customers,    setCustomers]    = useState([]);
   const [salesmen,     setSalesmen]     = useState([]);
-  const [prodList,     setProdList]     = useState(() => CC.getCachedProductList(settings.Comid));
+  const [prodList,     setProdList]     = useState(() => CC.getCachedProductList(settings.CommonCompany ? settings.MComid : settings.Comid));
 
   const [orderNo,      setOrderNo]      = useState("");
   const [orderDate,    setOrderDate]    = useState(today());
@@ -1245,7 +1245,7 @@ export default function SaleOrder() {
 
   // ── Load Dropdowns ────────────────────────────────────────────────────────
   const loadDropdowns = useCallback(async () => {
-    const comid = settings.Comid;
+    const comid = CC.resolveCustomerComid(settings);
     const [custRes, smRes] = await Promise.all([
       CC.api(GetCustomerUrl, null, {}, { Comid: comid, AccountType: "CUSTOMER" }),
       CC.api(SalesManSelectUrl, null, {}, { Comid: comid }),
@@ -1572,18 +1572,19 @@ export default function SaleOrder() {
 
   // ── Load product list ──────────────────────────────────────────────────────
   const loadProductsForPopup = useCallback(async (rid) => {
-    const cached = prodList.length > 0 ? prodList : CC.getCachedProductList(settings.Comid);
+    const productListComid = settings.CommonCompany ? settings.MComid : settings.Comid;
+    const cached = prodList.length > 0 ? prodList : CC.getCachedProductList(productListComid);
     if (cached.length > 0) {
       if (prodList.length === 0) setProdList(cached);
       setProdPopup({ rid, pos: { top: 160, left: 80 } });
       return;
     }
     setLoading(true); setLdMsg("Loading products...");
-    const res = await CC.api(ProductListUrl, null, {}, { Comid: settings.Comid });
+    const res = await CC.api(ProductListUrl, null, {}, { Comid: productListComid });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
-    CC.setCachedProductList(settings.Comid, arr);
+    CC.setCachedProductList(productListComid, arr);
     setProdList(arr);
     setProdPopup({ rid, pos: { top: 160, left: 80 } });
   }, [settings, prodList, redirectIfDualLogin]);

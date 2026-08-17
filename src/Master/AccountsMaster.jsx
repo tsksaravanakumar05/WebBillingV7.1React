@@ -191,7 +191,7 @@ export default function AccountsMaster() {
       const MComid = CC.getStr("MComid") || Comid;
       const isCC   = !!main0.CommonCompany;
       return {
-        Comid:       isCC ? MComid : Comid,
+        Comid:       Comid || MComid || "0",
         MComid,
         MirrorTable: Number(localStorage.getItem("MirrorTableOnline") || "0"),
       };

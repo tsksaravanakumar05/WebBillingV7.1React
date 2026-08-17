@@ -134,6 +134,59 @@ const vn    = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 const fmt2  = (v) => vn(v).toFixed(2);
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const isoToMDY = (iso) => { if (!iso) return ""; const [y,m,d] = iso.split("-"); return `${m}/${d}/${y}`; };
+const ensureUpdateId = (value) => value || (crypto.randomUUID ? crypto.randomUUID() : CC.uid());
+const toReportDate = (value) => {
+  const normalized = normalizeDateInput(value);
+  return normalized ? isoToMDY(normalized) : "";
+};
+const buildPaymentReportRow = (row, fallbackDate = "") => ({
+  RefNo: Number(row?.RefNo ?? 0),
+  Date: toReportDate(row?.[grdPaymentDate] ?? row?.PaymentDate ?? fallbackDate),
+  Type: "PAYMENT",
+  SupplierName: row?.[grdSupplierName] ?? row?.SupplierName ?? "",
+  Amount: vn(row?.[grdAmount] ?? row?.Amount),
+  ChequeNo: row?.[grdChequeNo] ?? row?.ChequeNo ?? row?.ChequeNumber ?? "",
+  RTGSNo: row?.[grdRTGSNo] ?? row?.RTGSNo ?? "",
+  BankName: row?.[grdBankName] ?? row?.BankName ?? "",
+  RTGSAmount: vn(row?.[grdRTGSAmt] ?? row?.RTGSAmount ?? row?.RTGSAmt),
+  ChequeDate: toReportDate(row?.[grdChequeDate] ?? row?.ChequeDate),
+  CashAmount: vn(row?.[grdCashAmount] ?? row?.CashAmount),
+  ChequeAmount: vn(row?.[grdChequeAmount] ?? row?.ChequeAmount),
+  BankRefId: Number(row?.[grdBankId] ?? row?.BankRefId ?? 0),
+  BankId: Number(row?.[grdBankId] ?? row?.BankId ?? row?.BankRefId ?? 0),
+  ChqNo: row?.[grdChequeNo] ?? row?.ChqNo ?? row?.ChequeNo ?? row?.ChequeNumber ?? "",
+  TypeName: "PAYMENT",
+  Remarks: row?.[grdNarration] ?? row?.Remarks ?? row?.Narration ?? "",
+});
+const normalizeDateInput = (value) => {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split("/");
+      return `${year}-${month}-${day}`;
+    }
+
+    if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split("-");
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const year = parsed.getFullYear();
+  return `${year}-${month}-${day}`;
+};
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -766,6 +819,7 @@ export default function SupplierPayment() {
       return { Comid:"1", MComid:"1", MirrorTable:"0", PaymentBillWise:false, SupplierPaymentViewDialog:false };
     }
   });
+  const supplierComid = CC.resolveSupplierComid(sess);
 
   // ── Component state ──────────────────────────────────────────────────────
   const [grid,    setGrid   ] = useState([]);
@@ -783,6 +837,7 @@ export default function SupplierPayment() {
   const [bankPopup,     setBankPopup     ] = useState({ open:false,rowIdx:null,prefill:"" });
   const [pwModal,       setPwModal       ] = useState(null);   // {rowIdx}
   const [pvDialog,      setPvDialog      ] = useState(null);   // print/view after save
+  const [reportRows,    setReportRows    ] = useState([]);
   const [pendingWin,    setPendingWin    ] = useState(null);   // {bills, rowIdx}
   const [f5Open,        setF5Open        ] = useState(false);
   const [f12Open,       setF12Open       ] = useState(false);
@@ -851,10 +906,10 @@ export default function SupplierPayment() {
 
   const loadSuppliers = useCallback(async () => {
     const res = await CC.api(CC.GetSupplierAll, null, {},
-      { Comid: Number(sess.Comid), AccountType: "SUPPLIER", Keyword: "", Column: "" });
+      { Comid: Number(supplierComid), AccountType: "SUPPLIER", Keyword: "", Column: "" });
     if (redirectIfDualLogin(res)) return;
     setSuppliers(Array.isArray(res?.data) ? res.data : Array.isArray(res?.Data1) ? res.Data1 : []);
-  }, [sess.Comid, redirectIfDualLogin]);
+  }, [supplierComid, redirectIfDualLogin]);
 
   const loadBanks = useCallback(async () => {
     const res = await CC.api(CC.BankAllSelect, null, {}, { Comid: Number(sess.Comid) });
@@ -948,6 +1003,7 @@ export default function SupplierPayment() {
       [grdAmount]:         fmt2(o[grdAmount]),
       [grdCashAmount]:     fmt2(o[grdCashAmount]),
       [grdChequeAmount]:   fmt2(o[grdChequeAmount]),
+      [grdChequeDate]:     normalizeDateInput(o[grdChequeDate]),
       [grdRTGSAmt]:        fmt2(o[grdRTGSAmt]),
       [grdDiscountAmount]: fmt2(o[grdDiscountAmount]),
       [grdEditMode]:       0,
@@ -1093,15 +1149,22 @@ export default function SupplierPayment() {
     const ok2 = await confirm("Do you Want to Save the Supplier Payment Details?");
     if (!ok2) { addRow(); return; }
 
-    const payload = dirty.map(({ _uid, ...rest }) => ({
-      ...rest,
-      [grdPaymentDate]:    isoToMDY(selDate),
-      [grdCashAmount]:     vn(rest[grdCashAmount]),
-      [grdRTGSAmt]:        vn(rest[grdRTGSAmt]),
-      [grdChequeAmount]:   vn(rest[grdChequeAmount]),
-      [grdDiscountAmount]: vn(rest[grdDiscountAmount]),
-      [grdAmount]:         vn(rest[grdAmount]),
-    }));
+    const payload = dirty.map(({ _uid, ...rest }) => {
+      const chequeAmount = vn(rest[grdChequeAmount]);
+      const chequeDateIso = normalizeDateInput(rest[grdChequeDate]);
+
+      return {
+        ...rest,
+        [grdPaymentDate]:    isoToMDY(selDate),
+        [grdCashAmount]:     vn(rest[grdCashAmount]),
+        [grdRTGSAmt]:        vn(rest[grdRTGSAmt]),
+        [grdChequeAmount]:   chequeAmount,
+        [grdChequeDate]:     chequeAmount > 0 ? isoToMDY(chequeDateIso) : "",
+        [grdDiscountAmount]: vn(rest[grdDiscountAmount]),
+        [grdAmount]:         vn(rest[grdAmount]),
+        [grdUpdateId]:       ensureUpdateId(rest[grdUpdateId]),
+      };
+    });
 
     setLoading(true);
     const res = await CC.insertapi(
@@ -1119,8 +1182,11 @@ export default function SupplierPayment() {
     if (res._netErr) { toast(`❌ ${res.message}`, true); return; }
 
     if (res.ok || res.IsSuccess) {
+      setReportRows(payload.map((row) => buildPaymentReportRow(row, selDate)));
       if (sess.SupplierPaymentViewDialog) {
-        setPvDialog({ message: res.message || "Saved successfully!" });
+        setPvDialog({
+          message: res.message || "Saved successfully!",
+        });
       } else {
         toast("✅ " + (res.message || "Saved successfully!"));
         fillGridData();
@@ -1132,24 +1198,55 @@ export default function SupplierPayment() {
   }, [gridemptycheck, addRow, selDate, sess, confirm, toast, redirectIfDualLogin, fillGridData]);
 
   // ── open VoucherPrints  ──────────────────────────────────────────────────
-  const openVoucherPrint = useCallback(async (a4Print = "0") => {
-    const url = `${CC.ReportViewerBase}?ReportName=VoucherPrints&A4Print=${a4Print}&VoucherPrint=Supplier`;
-    const w = window.open(url, "_blank",
-      `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${screen.width},height=${screen.height - 100}`
-    );
+  const openVoucherPrint = useCallback(async (a4Print = "0", rows = reportRows) => {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      toast("❌ Print data not found.", true);
+      return;
+    }
+
+    const printDate = isoToMDY(selDate || todayISO());
+    const targetName = `SupplierPaymentReport_${Date.now()}`;
+    const features = `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${screen.width},height=${screen.height - 100}`;
+    const action = `${CC.BASE_URL}/Reports/ReportViewer.aspx?ReportName=Payment&A4Print=${a4Print}`;
+    const w = window.open("", targetName, features);
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = action;
+    form.target = targetName;
+    form.style.display = "none";
+
+    const addHidden = (name, value) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    };
+
+    addHidden("Type", "PAYMENT");
+    addHidden("Fromdate", printDate);
+    addHidden("Todate", printDate);
+    addHidden("ReportDataJson", JSON.stringify(rows));
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
     if (w) { w.addEventListener("load", () => { w.document.title = "Supplier Payment"; }, false); }
     if (a4Print === "1") setTimeout(() => w?.close(), 10);
-  }, []);
+  }, [reportRows, selDate, toast]);
 
   // ── PrintView (Ctrl+V in F5) ─────────────────────────────────────────────
-  const doPrintView = useCallback(async (id) => {
+  const doPrintView = useCallback(async (row) => {
     const ok = window.confirm("Do you want to View Supplier Payment?");
     if (!ok) return;
-    setLoading(true);
-    const res = await CC.api(CC.PrintViewUrl, null, {}, { Id: Number(id), Type: "SupplierPayment" });
-    setLoading(false);
-    if (res.ok) openVoucherPrint("0");
-  }, [openVoucherPrint]);
+    if (row) {
+      openVoucherPrint("0", [buildPaymentReportRow(row, row?.PaymentDate || selDate)]);
+      return;
+    }
+    openVoucherPrint("0");
+  }, [openVoucherPrint, selDate]);
 
   // ── moveNext (mirrors GirdNextCell) ─────────────────────────────────────
   const moveNext = useCallback((rowIdx, colField) => {
@@ -1469,8 +1566,18 @@ const handleCellKeyDown = useCallback((e, idx, field) => {
       {/* ── Print/View Dialog (after save) ── */}
       {pvDialog && (
         <PrintViewDialog
-          onPrint={() => { openVoucherPrint("1"); toast("✅ " + pvDialog.message); setPvDialog(null); fillGridData(); }}
-          onView ={() => { openVoucherPrint("0"); toast("✅ " + pvDialog.message); setPvDialog(null); fillGridData(); }}
+          onPrint={() => {
+            openVoucherPrint("1");
+            toast("✅ " + pvDialog.message);
+            setPvDialog(null);
+            fillGridData();
+          }}
+          onView ={() => {
+            openVoucherPrint("0");
+            toast("✅ " + pvDialog.message);
+            setPvDialog(null);
+            fillGridData();
+          }}
           onNo   ={() => { toast("✅ " + pvDialog.message); setPvDialog(null); fillGridData(); }} />
       )}
 

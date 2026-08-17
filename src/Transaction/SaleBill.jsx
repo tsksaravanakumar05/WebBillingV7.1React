@@ -169,7 +169,12 @@ function ComboBox({ options, value, onChange, onEnterKey, onCreateOption, placeh
 }
 
 // ─── SALE ROW CALCULATION ─────────────────────────────────────────────────────
-function calcSaleRow(row) {
+const isIgstCustomer = (value) => {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  return normalized === "IGST" || normalized === "UGST" || normalized === "1" || normalized === "2";
+};
+
+function calcSaleRow(row, igstBill = false) {
   const qty      = CC.vn(row.ItemQty);
   const saleRate = CC.vn(row.SaleRate);
   const gst      = CC.vn(row.TaxPercent);
@@ -193,10 +198,14 @@ function calcSaleRow(row) {
   const afterCD    = orgRate - cdAmt;
   const discAmt    = CC.roVal(afterCD * (discPer / 100));
   const landingCost = afterCD - discAmt;
-  const ctAmt      = CC.roVal(landingCost * ((gst / 2) / 100));
-  const stAmt      = CC.roVal(landingCost * ((gst / 2) / 100));
+  let ctAmt        = CC.roVal(landingCost * ((gst / 2) / 100));
+  let stAmt        = CC.roVal(landingCost * ((gst / 2) / 100));
   const cessAmt    = CC.roVal(landingCost * (cess / 100));
   const gstAmt     = ctAmt + stAmt;
+  if (igstBill) {
+    ctAmt = gstAmt;
+    stAmt = 0;
+  }
   const splcessAmt = splcess * qty;
   const amount     = CC.f2(landingCost + gstAmt + cessAmt + splcessAmt);
   row.StockQtyNew =qty;
@@ -289,6 +298,7 @@ const mkRow = () => ({
   PrinterName: "", NStock: 0, SRDetailsId: 0, Bat_No: "",
   ExpDate: "", MfgDate: "", PDRefid: null, BatchWiseIdNewRefId: null, OpenItemMasterid: null, RealQty: 0,
   CRMPoints: 0, SalesManCode: 0, SalesManComm: 0,
+  SerialNoStatus: 0, TextRefId: "",
 });
 
 const fmtRow = obj => ({
@@ -311,6 +321,8 @@ const fmtRow = obj => ({
   Amount:          CC.f2(CC.vn(obj.Amount)),
   LandingCost:     CC.f2(CC.vn(obj.Landingcost || obj.LandingCost)),
   SalesManCode:    CC.vn(obj.SalesManCode || obj.SalesmanRefid || 0),
+  SerialNoStatus:  CC.vn(obj.SerialNoStatus || obj.SerialNoType || 0),
+  TextRefId:       obj.TextRefId || "",
 });
 
 // ─── PRINT CHOICE DIALOG ──────────────────────────────────────────────────────
@@ -356,6 +368,139 @@ function PrintChoiceDialog({ onPrint, onView, onSkip }) {
               border: "1px solid #d4dbe8", background: "#f8faff",
               color: "#4a5568", fontWeight: 600, fontSize: 13, cursor: "pointer",
             }}>✕ Skip</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SaleSerialNoPopup({ popup, serialNoList, setSerialNoList, setRows, recalcSaleRow, onClose }) {
+  const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const { rid, textRefId } = popup || {};
+  const [entries, setEntries] = useState(() =>
+    (popup?.list?.length > 0 ? popup.list : [{ BatchNo: "" }]).map((s) => ({ id: uid(), value: s.BatchNo || "" }))
+  );
+  const [error, setError] = useState("");
+  const inputRefs = useRef({});
+
+  useEffect(() => {
+    const firstId = entries[0]?.id;
+    if (firstId) setTimeout(() => inputRefs.current[firstId]?.focus(), 50);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const close = useCallback(() => {
+    onClose?.();
+  }, [onClose]);
+
+  const handleDone = useCallback(() => {
+    const values = entries.map((r) => r.value.trim()).filter(Boolean);
+    if (values.length === 0) { setError("Enter at least one Serial No !!!."); return; }
+    if (new Set(values).size !== values.length) { setError("Duplicate Serial No found !!!."); return; }
+
+    const filtered = serialNoList.filter((s) => s.IndexRefId !== textRefId);
+    setSerialNoList([
+      ...filtered,
+      ...values.map((val) => ({ BatchNo: val, IndexRefId: textRefId })),
+    ]);
+
+    setRows((prev) => prev.map((row) => {
+      if (row._rid !== rid) return row;
+      return recalcSaleRow({
+        ...row,
+        ItemQty: String(values.length),
+        Bat_No: values[0] || "",
+        _dirty: true,
+      });
+    }));
+
+    onClose?.();
+  }, [entries, serialNoList, textRefId, setSerialNoList, setRows, rid, recalcSaleRow, onClose]);
+
+  const handleKeyDown = useCallback((e, idx) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const val = entries[idx]?.value?.trim() || "";
+      if (!val) { setError("Enter the SerialNo !!!."); return; }
+      if (entries.some((r, i) => i !== idx && r.value.trim() === val)) { setError(`Duplicate SerialNo: ${val}`); return; }
+      setError("");
+      if (idx === entries.length - 1) {
+        const id = uid();
+        setEntries((prev) => [...prev, { id, value: "" }]);
+        setTimeout(() => inputRefs.current[id]?.focus(), 20);
+      } else {
+        const nextId = entries[idx + 1]?.id;
+        if (nextId) setTimeout(() => inputRefs.current[nextId]?.focus(), 20);
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const nextId = entries[idx + 1]?.id;
+      if (nextId) setTimeout(() => inputRefs.current[nextId]?.focus(), 20);
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const prevId = entries[idx - 1]?.id;
+      if (prevId) setTimeout(() => inputRefs.current[prevId]?.focus(), 20);
+      return;
+    }
+    if (e.key === "Delete" && entries.length > 1) {
+      e.preventDefault();
+      const currentId = entries[idx]?.id;
+      const nextId = entries[idx + 1]?.id || entries[idx - 1]?.id || null;
+      setEntries((prev) => prev.filter((r) => r.id !== currentId));
+      if (nextId) setTimeout(() => inputRefs.current[nextId]?.focus(), 20);
+    }
+    if (e.key === "F1") {
+      e.preventDefault();
+      handleDone();
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    }
+  }, [entries, handleDone, close]);
+
+  return (
+    <div className="popup-overlay">
+      <div className="popup-window" style={{ width: 520, maxWidth: "92vw" }}>
+        <div className="popup-header">
+          <span>Serial Numbers</span>
+          <button className="popup-close" onClick={close}>✕</button>
+        </div>
+        <div className="popup-body">
+          <table className="popup-table">
+            <thead>
+              <tr><th style={{ width: 50 }}>S.No</th><th>Serial No</th></tr>
+            </thead>
+            <tbody>
+              {entries.map((row, idx) => (
+                <tr key={row.id}>
+                  <td>{idx + 1}</td>
+                  <td>
+                    <input
+                      ref={(el) => { inputRefs.current[row.id] = el; }}
+                      className="popup-search-input"
+                      value={row.value}
+                      onChange={(e) => {
+                        const next = e.target.value.toUpperCase();
+                        setEntries((prev) => prev.map((r) => r.id === row.id ? { ...r, value: next } : r));
+                        setError("");
+                      }}
+                      onKeyDown={(e) => handleKeyDown(e, idx)}
+                      style={{ width: "100%" }}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {error && <div style={{ color: "#dc2626", fontSize: 12, marginTop: 8 }}>{error}</div>}
+        </div>
+        <div className="popup-footer">
+          <span>Enter = next row, Up/Down = move, Delete = remove, F1 = done</span>
+          <button className="mp-btn sb" onClick={handleDone}>F1 Done</button>
         </div>
       </div>
     </div>
@@ -1816,6 +1961,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
   const [custOpCrmPoints, setCustOpCrmPoints] = useState(0);
   const [custOpCrmValue, setCustOpCrmValue] = useState(0);
   const [stockLbl,   setStockLbl]   = useState("0.00");
+  const [igstBill,   setIgstBill]   = useState(false);
 
   const [rows,       setRows]       = useState([mkRow()]);
   const [selRid,     setSelRid]     = useState(null);
@@ -1870,6 +2016,8 @@ const loadFocusCols = useCallback(async (mcomid) => {
   const [holdOpen,   setHoldOpen]   = useState(false);
   const [holdRows,   setHoldRows]   = useState([]);
   const [billHoldName, setBillHoldName] = useState("");
+  const [serialNoPopup, setSerialNoPopup] = useState({ open: false, rid: null, textRefId: "", list: [] });
+  const [serialNoList,  setSerialNoList]  = useState([]);
 
   const [batchPopup, setBatchPopup] = useState(null);
   const [lotPopup,   setLotPopup]   = useState(null);
@@ -1898,6 +2046,23 @@ const loadFocusCols = useCallback(async (mcomid) => {
     };
   }, [curBal, custCardRefId, crmPointRate, crmValueRate, custOpCrmPoints, custOpCrmValue]);
 
+  const recalcSaleRow = useCallback((row) => calcSaleRow(row, igstBill), [igstBill]);
+  const openSerialNoPopup = useCallback((rid, textRefId) => {
+    const existing = serialNoList.filter((s) => s.IndexRefId === textRefId);
+    setSerialNoPopup({ open: true, rid, textRefId, list: existing });
+  }, [serialNoList]);
+  const promptSerialPopupForRow = useCallback((rid) => {
+    if (!sess.TextilesSerialNowiseBilling) return false;
+    const row = rowsRef.current.find((r) => r._rid === rid);
+    if (!row || CC.vn(row.SerialNoStatus) !== 1) return false;
+    const textRefId = row.TextRefId || CC.genRid();
+    if (!row.TextRefId) {
+      setRows((prev) => prev.map((r) => r._rid === rid ? { ...r, TextRefId: textRefId, _dirty: true } : r));
+    }
+    openSerialNoPopup(rid, textRefId);
+    return true;
+  }, [sess.TextilesSerialNowiseBilling, openSerialNoPopup]);
+
   useEffect(() => {
     setRows(prev => {
       let changed = false;
@@ -1916,7 +2081,14 @@ const loadFocusCols = useCallback(async (mcomid) => {
       });
       return changed ? next : prev;
     });
-  }, [tamilMode]);
+  }, [tamilMode, recalcSaleRow]);
+
+  useEffect(() => {
+    setRows(prev => prev.map(row => {
+      if (!row.ProductRefId) return row;
+      return calcSaleRow(row, igstBill);
+    }));
+  }, [igstBill]);
 
   const custRef  = useRef(null);
   const smRef    = useRef(null);
@@ -2448,8 +2620,10 @@ const loadFocusCols = useCallback(async (mcomid) => {
   }, [confirm, navigateCustomerQuickCreate, sess.AllowQuickMasterCreation]);
   const fillItemIntoRow = useCallback((rid, item, options = {}) => {
     const { skipAdvance = false } = options;
+    let nextTextRefId = "";
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
+      nextTextRefId = CC.vn(item.SerialNoType) === 1 ? (r.TextRefId || CC.genRid()) : "";
       const newRow = withRowProductNames({
         ...r,
         ProductRefId:    item.Id,
@@ -2479,13 +2653,15 @@ const loadFocusCols = useCallback(async (mcomid) => {
         NStock:          item.Nstock || 0,
         DiscountPercent: CC.f2(CC.vn(item.SaleDiscountPer)),
         CRMPoints:       item.CRMPoints ? 1 : 0,
+        SerialNoStatus:  CC.vn(item.SerialNoType) || 0,
+        TextRefId:       nextTextRefId,
         RealQty:         CC.vn(item.RealQty || 1),
         StockQtyNew:     "1",
         ItemQty:         "1",
         _dirty: true,
       }, tamilMode);
       setStockLbl(CC.vn(item.Stock).toFixed(0));
-     return calcSaleRow(newRow); 
+     return recalcSaleRow(newRow); 
     }));
     setProdPopup(null);
 
@@ -2552,7 +2728,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
     const gstMap = {};
     rowsArr.forEach(r => {
       if (!r.ProductRefId || !CC.vn(r.ItemQty)) return;
-      const calc = calcSaleRow(r);
+      const calc = calcSaleRow(r, igstBill);
       grossAmt += CC.vn(calc.OrgRate) * CC.vn(r.ItemQty) || CC.vn(calc.LandingCost) * CC.vn(r.ItemQty);
       gstAmt   += CC.vn(calc.TaxAmt);
       cessAmt  += CC.vn(calc.CESSAmount);
@@ -2572,7 +2748,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
       OtherPlus: CC.vn(oPlus), OtherMinus: CC.vn(oMinus), Coinage: 0, NetAmt: netAmt,
     });
     return netAmt;
-  }, []);
+  }, [igstBill]);
 
   useEffect(() => { recalcTotals(rows, otherPlus, otherMinus); }, [rows, otherPlus, otherMinus, recalcTotals]);
 
@@ -2587,6 +2763,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
     setCustId(cid);
     setCustMobile(custObj.MobileNo || "");
     setCustPopup(false);
+    setIgstBill(isIgstCustomer(custObj?.IGSTBill));
 
     setCustCardRefId(String(custObj.customercardtypeRefId || "0"));
     if (sess.ItemwiseCRMPoint) {
@@ -2629,6 +2806,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
     setCustId(cid);
     const found = customers.find(c => String(c.Id) === cid);
     setCustMobile(found?.MobileNo || "");
+    setIgstBill(isIgstCustomer(found?.IGSTBill));
     
     if (found) {
       setCustCardRefId(String(found.customercardtypeRefId || "0"));
@@ -2820,7 +2998,7 @@ const getRowEnabledCols = useCallback((rid) => {
         if (r && CC.vn(r.ItemQty) === 0) {
           setRows(prev => prev.map(row =>
             row._rid === targetRid
-              ? calcSaleRow({ ...row, ItemQty: "1", _dirty: true })
+              ? recalcSaleRow({ ...row, ItemQty: "1", _dirty: true })
               : row
           ));
         }
@@ -2972,8 +3150,10 @@ const getRowEnabledCols = useCallback((rid) => {
   }, [sess, fillItemIntoRow, openLotNoPopup, toast, startSaleProductQuickCreate]);
 
   const fillBatchItemIntoRow = useCallback(async (rid, batchItem) => {
+    let nextTextRefId = "";
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
+      nextTextRefId = CC.vn(batchItem.SerialNoType) === 1 ? (r.TextRefId || CC.genRid()) : "";
       const newRow = withRowProductNames({
         ...r,
         ProductRefId:    batchItem.Id,
@@ -3001,12 +3181,14 @@ const getRowEnabledCols = useCallback((rid) => {
         SalesRateType:   batchItem.SaleRateType,
         DiscountPercent: CC.f2(CC.vn(batchItem.SaleDiscountPer)),
         CRMPoints:       batchItem.CRMPoints ? 1 : 0,
+        SerialNoStatus:  CC.vn(batchItem.SerialNoType) || 0,
+        TextRefId:       nextTextRefId,
         RealQty:         CC.vn(batchItem.RealQty || 1),
         ItemQty:         "1",
         _dirty: true,
       }, tamilMode);
       setStockLbl(CC.vn(batchItem.Stock).toFixed(0));
-       return calcSaleRow(newRow); 
+       return recalcSaleRow(newRow); 
     }));
     setBatchPopup(null);
 
@@ -3020,24 +3202,27 @@ const getRowEnabledCols = useCallback((rid) => {
     }
 
     setTimeout(() => goToNextField(rid, "ProductCode"), 50);
-  }, [sess, tamilMode, goToNextField]);
+  }, [sess, tamilMode, goToNextField, recalcSaleRow]);
 
   // ── Cell change ────────────────────────────────────────────────────────────
   const handleCellChange = useCallback((rid, colKey, value) => {
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
       if (colKey === "ItemQty") {
+        if (sess.TextilesSerialNowiseBilling && CC.vn(r.SerialNoStatus) === 1) {
+          return r;
+        }
         if (exceedsDecimalLimit(value, r.UOMDecimal)) {
           return r;
         }
       }
       const updated = { ...r, [colKey]: value, _dirty: true };
       if (["ItemQty","SaleRate","TaxPercent","CESSPer","SPLCESS","DiscountPercent","CDPercent"].includes(colKey)) {
-        return calcSaleRow(updated);
+        return recalcSaleRow(updated);
       }
       return updated;
     }));
-  }, []);
+  }, [recalcSaleRow, sess.TextilesSerialNowiseBilling]);
 
   const handleSaleRateBlur = useCallback((rid) => {
     const row = rowsRef.current.find(r => r._rid === rid);
@@ -3048,7 +3233,7 @@ const getRowEnabledCols = useCallback((rid) => {
     if (unlockedRidRef.current === rid) {
       setRows(prev => prev.map(r => {
         if (r._rid !== rid) return r;
-        return calcSaleRow({ ...r, SaleRate: newRate, _origSaleRate: newRate, _dirty: true });
+        return recalcSaleRow({ ...r, SaleRate: newRate, _origSaleRate: newRate, _dirty: true });
       }));
       unlockedRidRef.current = null;
       return;
@@ -3058,7 +3243,7 @@ const getRowEnabledCols = useCallback((rid) => {
       const { rid: r, value: v } = pendingRateChangeRef.current;
       setRows(prev => prev.map(row => {
         if (row._rid !== r) return row;
-        return calcSaleRow({ ...row, SaleRate: v, _origSaleRate: v, _dirty: true });
+        return recalcSaleRow({ ...row, SaleRate: v, _origSaleRate: v, _dirty: true });
       }));
       pendingRateChangeRef.current = null;
       unlockedRidRef.current = null;
@@ -3066,9 +3251,9 @@ const getRowEnabledCols = useCallback((rid) => {
     setPw({ title: " Sale Rate Change Password" });
     setRows(prev => prev.map(r => {
       if (r._rid !== rid) return r;
-      return calcSaleRow({ ...r, SaleRate: origRate, _dirty: true });
+      return recalcSaleRow({ ...r, SaleRate: origRate, _dirty: true });
     }));
-  }, []);
+  }, [recalcSaleRow]);
 
   // ── Load product list ──────────────────────────────────────────────────────
   const loadSaleProducts = useCallback(async () => {
@@ -3110,7 +3295,7 @@ const getRowEnabledCols = useCallback((rid) => {
     if (r && CC.vn(r.ItemQty) === 0) {
       setRows(prev => prev.map(row =>
         row._rid === targetRid
-          ? calcSaleRow({ ...row, ItemQty: "1", _dirty: true })
+          ? recalcSaleRow({ ...row, ItemQty: "1", _dirty: true })
           : row
       ));
     }
@@ -3136,7 +3321,7 @@ const getRowEnabledCols = useCallback((rid) => {
             const { rid: r, value: v } = pendingRateChangeRef.current;
             setRows(prev => prev.map(row => {
               if (row._rid !== r) return row;
-              return calcSaleRow({ ...row, SaleRate: v, _origSaleRate: v, _dirty: true });
+              return recalcSaleRow({ ...row, SaleRate: v, _origSaleRate: v, _dirty: true });
             }));
             pendingRateChangeRef.current = null;
             setTimeout(() => {
@@ -3145,7 +3330,7 @@ const getRowEnabledCols = useCallback((rid) => {
           };
           setRows(prev => prev.map(r => {
             if (r._rid !== rid) return r;
-            return calcSaleRow({ ...r, SaleRate: origRate, _dirty: true });
+            return recalcSaleRow({ ...r, SaleRate: origRate, _dirty: true });
           }));
           setPw({ title: " Sale Rate Change Password" });
           return;
@@ -3172,7 +3357,7 @@ const getRowEnabledCols = useCallback((rid) => {
         const { rid: r, value: v } = pendingRateChangeRef.current;
         setRows(prev => prev.map(row => {
           if (row._rid !== r) return row;
-          return calcSaleRow({ ...row, SaleRate: v, _origSaleRate: v, _dirty: true });
+          return recalcSaleRow({ ...row, SaleRate: v, _origSaleRate: v, _dirty: true });
         }));
         pendingRateChangeRef.current = null;
         setTimeout(() => {
@@ -3181,15 +3366,16 @@ const getRowEnabledCols = useCallback((rid) => {
       };
       setRows(prev => prev.map(r => {
         if (r._rid !== rid) return r;
-        return calcSaleRow({ ...r, SaleRate: origRate, _dirty: true });
+        return recalcSaleRow({ ...r, SaleRate: origRate, _dirty: true });
       }));
       setPw({ title: " Sale Rate Change Password" });
       return;
     }
 
     // ItemQty Enter/Tab — same-line merge check
-    if ((e.key === "Enter" || e.key === "Tab") && colKey === "ItemQty") {
+    if ((e.key === "Enter" || e.key === "Tab" || e.key === "ArrowDown" || e.key === "ArrowUp") && colKey === "ItemQty") {
       e.preventDefault();
+      if (promptSerialPopupForRow(rid)) return;
       const curRow = rowsRef.current.find(r => r._rid === rid);
       if (!curRow?.ProductRefId) return;
       const qty = CC.vn(curRow.ItemQty);
@@ -3206,7 +3392,7 @@ const getRowEnabledCols = useCallback((rid) => {
         setRows(prev => {
           const updated = prev.map(r => {
             if (r._rid !== duplicate._rid) return r;
-            return calcSaleRow({ ...r, ItemQty: String(mergedQty), _dirty: true });
+            return recalcSaleRow({ ...r, ItemQty: String(mergedQty), _dirty: true });
           }).filter(r => r._rid !== rid);
           return updated.length === 0 ? [mkRow()] : updated;
         });
@@ -3247,7 +3433,7 @@ const getRowEnabledCols = useCallback((rid) => {
       e.preventDefault(); loadProductsForPopup(rid);
     }
   // eslint-disable-next-line
-  }, [visCols, fetchProductByCode, loadProductsForPopup, goToNextField, getRowEnabledCols]);
+  }, [visCols, fetchProductByCode, loadProductsForPopup, goToNextField, getRowEnabledCols, recalcSaleRow, promptSerialPopupForRow]);
 
   // ── Delete row ────────────────────────────────────────────────────────────
   const doDeleteRow = useCallback(async (rid) => {
@@ -3265,9 +3451,9 @@ const getRowEnabledCols = useCallback((rid) => {
     if (!per) return;
     setRows(prev => prev.map(r => {
       if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
-      return calcSaleRow({ ...r, DiscountPercent: per, _dirty: true });
+      return recalcSaleRow({ ...r, DiscountPercent: per, _dirty: true });
     }));
-  }, [discPer]);
+  }, [discPer, recalcSaleRow]);
 
   // ── Clear form ────────────────────────────────────────────────────────────
   const clearForm = useCallback(async () => {
@@ -3279,6 +3465,9 @@ const getRowEnabledCols = useCallback((rid) => {
     setCrmValue("0.00"); setCurBal("0.00"); setStockLbl("0.00");
     setCustCardRefId("0"); setCrmPointRate(0); setCrmValueRate(0);
     setCustOpCrmPoints(0); setCustOpCrmValue(0);
+    setIgstBill(false);
+    setSerialNoList([]);
+    setSerialNoPopup({ open: false, rid: null, textRefId: "", list: [] });
     setRows([mkRow()]);
     setPayRows(pr => pr.map(r => ({ ...r, Amount: "" })));
     setSelRid(null);
@@ -4235,18 +4424,19 @@ const payload = [{
     setRemarks(CC.ns(data[0].Remarks));
     setOtherPlus(CC.ns(data[0].OthersplusAmt || ""));
     setOtherMinus(CC.ns(data[0].OtherssubAmt || ""));
- const loadedRows = saledetails.map(r => calcSaleRow(withRowProductNames(fmtRow({
-  ...mkRow(),
-  ...r,
-  _rid: CC.genRid(),
-  _origItemQty: CC.vn(r.ItemQty),       // old qty தனியா store
-  _origBatchRefid: r.BatchRefid || 0,
-  _origMfgDate: r.MfgDate || "",
-  _origExpiryDate: r.ExpiryDate || "",
-  _origPDRefid: r.PDRefid || null,
-  _origBags: r.Pcs || 0,
-}), tamilMode)));
-setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
+    const billIgst = isIgstCustomer(data[0]?.IGSTBill || found?.IGSTBill);
+    setIgstBill(billIgst);
+    const loadedRows = saledetails.map(r => calcSaleRow(withRowProductNames(fmtRow({
+      ...mkRow(),
+      ...r,
+      _rid: CC.genRid(),
+      _origItemQty: CC.vn(r.ItemQty),       // old qty தனியா store
+      _origBatchRefid: r.BatchRefid || 0,
+      _origMfgDate: r.MfgDate || "",
+      _origExpiryDate: r.ExpiryDate || "",
+      _origPDRefid: r.PDRefid || null,
+      _origBags: r.Pcs || 0,
+    }), tamilMode), billIgst));
     setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
 
     const sm = data[0].SaleMaster1 || data[0].salemaster1 || data[0].Salemaster1;
@@ -4357,7 +4547,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
     if (arr.length > 0) {
-      const loaded = arr.map(r => calcSaleRow(withRowProductNames(fmtRow({ ...mkRow(), ...r, _rid: CC.genRid() }), tamilMode)));
+      const loaded = arr.map(r => recalcSaleRow(withRowProductNames(fmtRow({ ...mkRow(), ...r, _rid: CC.genRid() }), tamilMode)));
       setRows(loaded); setBillHoldName(name);
       if (arr[0].CustomerRefid) {
         const cid = CC.ns(arr[0].CustomerRefid);
@@ -4368,7 +4558,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       }
     }
   // eslint-disable-next-line
-  }, [sess, customers, tamilMode]);
+  }, [sess, customers, tamilMode, recalcSaleRow, handleCustomerChange]);
 
   const deleteHold = useCallback(async (name) => {
     const ok = await confirm(`Delete hold "${name}"?`);
@@ -4399,7 +4589,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
       }
 
       if (prodPopup || holdOpen || f5Open || pw || f12Open || custPopup || ctrlGOpen
-          || billPrintOpen
+          || billPrintOpen || serialNoPopup.open
           || batchPopup || expiryListPopup) return;
 
       if (e.key === "F1")  { e.preventDefault(); doSave(true); }
@@ -4418,7 +4608,7 @@ setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   // eslint-disable-next-line
-  }, [prodPopup, holdOpen, f5Open, pw, f12Open, custPopup, ctrlGOpen, billPrintOpen,
+  }, [prodPopup, holdOpen, f5Open, pw, f12Open, custPopup, ctrlGOpen, billPrintOpen, serialNoPopup,
       doSave, doCreditSave, doBillHold, openF5, doDeleteBill, clearForm, editId, toggleTamilPrint, openBillPrintPopup]);
 
   if (!isAuthorized) return null;
@@ -4684,6 +4874,9 @@ onView={() => {
                                 onFocus={() => {
                                   setSelRid(row._rid);
                                   if (col.key === "SaleRate") unlockedRidRef.current = null;
+                                  if (col.key === "ItemQty") {
+                                    promptSerialPopupForRow(row._rid);
+                                  }
                                 }}
                                 placeholder={isInt ? "0" : "0.00"}
                                 style={{ width: "100%", boxSizing: "border-box" }}
@@ -4896,7 +5089,7 @@ onView={() => {
     if (!per) { toast("❌ Enter Discount %", true); return; }
     setRows(prev => prev.map(r => {
       if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
-      return calcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
+      return recalcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
     }));
     toast(`✅ ${per}% discount applied to all rows`);
   }}
@@ -4917,7 +5110,7 @@ onView={() => {
         if (!per) { toast("❌ Enter Discount %", true); return; }
         setRows(prev => prev.map(r => {
           if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
-          return calcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
+          return recalcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
         }));
         toast(`✅ ${per}% discount applied to all rows`);
       }
@@ -4968,7 +5161,7 @@ onView={() => {
       if (!per) { toast("❌ Enter Discount %", true); return; }
       setRows(prev => prev.map(r => {
         if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
-        return calcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
+        return recalcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
       }));
       toast(`✅ ${per}% discount applied to all rows`);
     }}
@@ -4989,7 +5182,7 @@ onView={() => {
           if (!per) { toast("❌ Enter Discount %", true); return; }
           setRows(prev => prev.map(r => {
             if (!r.ProductRefId || !CC.vn(r.ItemQty)) return r;
-            return calcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
+            return recalcSaleRow({ ...r, DiscountPercent: String(per), _dirty: true });
           }));
           toast(`✅ ${per}% discount applied to all rows`);
         }
@@ -5041,6 +5234,17 @@ onView={() => {
         <PwModal title={pw.title} comid={sess.Comid}
           onOk={() => { pwOkRef.current?.(); }}
           onClose={() => setPw(null)} />
+      )}
+
+      {serialNoPopup.open && (
+        <SaleSerialNoPopup
+          popup={serialNoPopup}
+          serialNoList={serialNoList}
+          setSerialNoList={setSerialNoList}
+          setRows={setRows}
+          recalcSaleRow={recalcSaleRow}
+          onClose={() => setSerialNoPopup({ open: false, rid: null, textRefId: "", list: [] })}
+        />
       )}
 
       {batchPopup && (
@@ -5184,6 +5388,7 @@ onView={() => {
     </div>
   );
 }
+
 
 
 

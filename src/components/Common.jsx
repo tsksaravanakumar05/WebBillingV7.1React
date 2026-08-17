@@ -18,6 +18,15 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ─── 1. LOCAL-STORAGE HELPERS ─────────────────────────────────────────────────
 export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+export const getCompanyRefId = () => {
+  const raw = localStorage.getItem("CompanyRefId") || localStorage.getItem("Comid") || "0";
+  const num = parseInt(raw, 10);
+  return Number.isFinite(num) ? num : 0;
+};
+export const setCompanyRefId = (value) => {
+  const num = parseInt(value, 10);
+  localStorage.setItem("CompanyRefId", Number.isFinite(num) ? String(num) : "0");
+};
 
 const withRawIdComListHeader = (extraHeaders = {}) => {
   const headers = { ...extraHeaders };
@@ -30,8 +39,8 @@ const withRawIdComListHeader = (extraHeaders = {}) => {
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 //export const BASE_URL = "https://billing.kassapos.co.in";
 //export const BASE_URL = "http://localhost:64215";
-export const BASE_URL = "https://billing.kassapos.co.in";
- //export const BASE_URL = "https://hobilling.kassapos.in";
+//export const BASE_URL = "https://billing.kassapos.co.in";
+ export const BASE_URL = "https://hobilling.kassapos.in";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
 export const CashierSelect = "/api/CashierApp/SelectCashier";
 export const CashierInsert = "/api/CashierApp/InsertCashier";
@@ -110,6 +119,8 @@ export const CRMBalance           = "/api/SalesReportApp/CRMBalanceReport";
 export const CustomerDuePaymentReport = "/api/SalesReportApp/CustomerDuePaymentReport";
 export const SupplierDuePaymentReport = "/api/PurchaseReportApp/SupplierDuePaymentReport";
 export const ChequePopUp = "/api/SalesReportApp/ChequePopUp";
+export const SelectCustomerReceiptDate = "/api/CustomerReceiptApp/SelectCustomerReceiptDate";
+export const InsertCustomerReceipt = "/api/CustomerReceiptApp/InsertCustomerReceipt";
 
 // ─── LOGIN PASSWORD (for F6 Edit / F9 Delete password) ───────────────────────
 export const LoginPasswordUrl     = "/api/LoginApp/EditPassword";
@@ -361,7 +372,7 @@ export const ReportViewerBase = "../Reports/ReportViewer.aspx";
  
 // ─── PrintView URL (add once if not already present) ─────────────────────────
 //  Used by doPrintView() in SupplierPayment.jsx and CustomerReceipt.jsx
-export const PrintViewUrl = "/api/PaymentApp/PrintView";
+export const PrintViewUrl = "/api/ReceiptApp/PrintView";
 // ─── 6. AUTH HEADERS (token + user identity) ──────────────────────────────────
 export const authHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
@@ -444,6 +455,40 @@ export const preloadProductListsForSession = async (sessionLike, opts = {}) => {
   }, {});
 };
 
+const toBoolFlag = (value) => value === true || value === 1 || value === "1" || value === "true";
+const pickSessionComids = (sessionLike = {}) => {
+  const comid = String(sessionLike?.Comid || getStr("Comid") || "").trim();
+  const mcomid = String(sessionLike?.MComid || getStr("MComid") || comid).trim();
+  return { comid, mcomid };
+};
+
+export const resolveItemComid = (sessionLike = {}) => {
+  const { comid, mcomid } = pickSessionComids(sessionLike);
+  const useCommon = toBoolFlag(sessionLike?.CommonCompany ?? sessionLike?.Commoncompany ?? getStr("CommonCompany"));
+  return useCommon ? (mcomid || comid || "0") : (comid || mcomid || "0");
+};
+
+export const resolveSupplierComid = (sessionLike = {}) => {
+  const { comid, mcomid } = pickSessionComids(sessionLike);
+  const useCommon = toBoolFlag(sessionLike?.CommonCompany ?? sessionLike?.Commoncompany ?? getStr("CommonCompany"));
+  return useCommon ? (mcomid || comid || "0") : (comid || mcomid || "0");
+};
+
+export const resolveCustomerComid = (sessionLike = {}) => {
+  const { comid, mcomid } = pickSessionComids(sessionLike);
+  if (!sessionLike || typeof sessionLike !== "object") {
+    return comid || mcomid || "0";
+  }
+  const useCommon = toBoolFlag(
+    sessionLike?.CustomerCommonCompany ??
+    sessionLike?.ComCustomer ??
+    (getStr("CustomerCommonCompany") ||
+    getStr("SupplierCommon")
+    )
+  );
+  return useCommon ? (mcomid || comid || "0") : (comid || mcomid || "0");
+};
+
 // ─── 7. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
 /**
  * Call once per page (inside useState initialiser).
@@ -460,7 +505,7 @@ export const buildSession = (pageName) => {
     const IdComList   = getStr("IdComList") || Comid;
     const MirrorTable = getStr("MirrorTableOnline") || "0";
     return {
-      Comid:    main0.CommonCompany ? MComid : Comid,
+      Comid:    Comid || MComid || "0",
       MComid,
       IdComList,
       MirrorTable,

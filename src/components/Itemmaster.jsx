@@ -541,7 +541,7 @@ const [isAuthorized, setIsAuthorized] = useState(false);
   if (entryRowRef.current?.Id) return false;
 
   const res = await CC.api(CC.ItemSelect, null, { "Download": "0" }, {
-    Comid: sess.Comid, Startindex: 0, PageCount: 20,
+    Comid: itemLoadComid, Startindex: 0, PageCount: 20,
     Keyword: code, Column: "MRP", webtype: 1
   });
   const arr = Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [];
@@ -750,6 +750,7 @@ const saveBarcodes = useCallback(async () => {
   const [adminOpen,setAdminOpen]=useState(false);const adminRef=useRef(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [productQuickCreateContext, setProductQuickCreateContext] = useState(null);
+  const itemLoadComid = sess.CommonCompany ? sess.MComid : sess.Comid;
 
   const gRef      = useRef(null);
   const drag      = useRef({ on:false,x:0,y:0,sl:0,st:0 });
@@ -853,7 +854,7 @@ const redirectIfDualLogin = useCallback((res) => {
   const autoGenCode = useCallback(async r => {
     if (!sess.Productcodeautogen) return r;
     try {
-      const res = await CC.api(CC.ItemMaxCode, null, {}, { Comid:parseInt(sess.Comid)||1 });
+      const res = await CC.api(CC.ItemMaxCode, null, {}, { Comid:parseInt(itemLoadComid)||1 });
       let raw = res?.data?.Data1??res?.Data1??res?.data??res;
       if (Array.isArray(raw)) raw=raw[0];
       if (raw!==null && typeof raw==="object") { const v=Object.values(raw); if(v.length) raw=v[0]; }
@@ -906,7 +907,7 @@ const redirectIfDualLogin = useCallback((res) => {
 const loadColCfg = useCallback(async () => {
   try {
     const res = await fetch(
-      CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Itemmaster`,
+      CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${itemLoadComid}&filename=Itemmaster`,
       {
         method: "POST",
         headers: {
@@ -930,10 +931,10 @@ const loadColCfg = useCallback(async () => {
       })
     );
   } catch {}
-}, [sess.Comid]);
+}, [itemLoadComid]);
   const saveColCfg = useCallback(async newCols => {
     setF12Open(false); setLoading(true);
-    const payload = newCols.map(c => ({ Comid:parseInt(sess.Comid), filename:"Itemmaster", column:c.key, Visible:c.visible===true, Width:parseInt(c.width||120) }));
+    const payload = newCols.map(c => ({ Comid:parseInt(itemLoadComid), filename:"Itemmaster", column:c.key, Visible:c.visible===true, Width:parseInt(c.width||120) }));
     try {
       const res = await fetch(CC.BASE_URL+CC.VisibleColumnsUrl, { method:"POST", headers:{"Content-Type":"application/json; charset=utf-8",...CC.authHeaders()}, body:JSON.stringify(payload) });
       const data = await res.json();
@@ -941,16 +942,16 @@ const loadColCfg = useCallback(async () => {
       else toast(`❌ ${data.message||"Failed"}`, true);
     } catch { toast("❌ Error saving columns", true); }
     finally { setLoading(false); }
-  }, [sess.Comid, toast, loadColCfg]);
+  }, [itemLoadComid, toast, loadColCfg]);
 
   const loadDropdowns = useCallback(async () => {
     const [br,ca,de,su,uo,lo] = await Promise.all([
-      CC.api(CC.BrandSelect,       null,{},{Comid:sess.Comid}),
-      CC.api(CC.CategorySelect,    null,{},{Comid:sess.Comid}),
-      CC.api(CC.DepartmentSelect,  null,{},{Comid:sess.Comid}),
-      CC.api(CC.GetSupplier,       null,{},{Comid:sess.Comid,AccountType:"SUPPLIER"}),
-      CC.api(CC.UOMSelect,         null,{},{Comid:sess.Comid}),
-      CC.api(CC.LocationSelect,    null,{},{Comid:sess.Comid}),
+      CC.api(CC.BrandSelect,       null,{},{Comid:itemLoadComid}),
+      CC.api(CC.CategorySelect,    null,{},{Comid:itemLoadComid}),
+      CC.api(CC.DepartmentSelect,  null,{},{Comid:itemLoadComid}),
+      CC.api(CC.GetSupplier,       null,{},{Comid:itemLoadComid,AccountType:"SUPPLIER"}),
+      CC.api(CC.UOMSelect,         null,{},{Comid:itemLoadComid}),
+      CC.api(CC.LocationSelect,    null,{},{Comid:itemLoadComid}),
     ]);
     if (redirectIfDualLogin(br)) return;
     const pick = r => r.data||r.Data1||[];
@@ -969,7 +970,7 @@ const loadColCfg = useCallback(async () => {
       LocationMaster:{list:nLL,idKey:"Id",nameKey:"LocationName",fId:"LocationMasterId",fName:"LocationMaster"},
     };
   // eslint-disable-next-line
-  },[sess.Comid,redirectIfDualLogin]);
+  },[itemLoadComid,redirectIfDualLogin]);
 // ── Auto edit-mode when filter results in exactly 1 row ──────────────
 
   const loadItems = useCallback(async (kw="", col="", opts = {}) => {
@@ -977,7 +978,7 @@ const loadColCfg = useCallback(async () => {
     const startindex = Math.max(0, (pageNo - 1) * ROWS_PER_PAGE);
     setLoading(true); setLdMsg("Loading Item Master...");
     const res = await CC.api(CC.ItemSelect, null, {"Download":"0"}, {
-      Comid: sess.Comid,
+      Comid: itemLoadComid,
       Startindex: startindex,
       PageCount: ROWS_PER_PAGE,
       Keyword: kw,
@@ -996,7 +997,7 @@ const loadColCfg = useCallback(async () => {
 const fmt = arr.map(item => fmtRow(item, sess));
 setRows(fmt);
 // remove the setSelRid for single row here too
-  }, [sess.Comid, toast]);
+  }, [itemLoadComid, toast]);
 
   const runCachedFilterSearch = useCallback(async (colKey) => {
     const raw = String(colFilters[colKey] || "").trim();
@@ -1071,7 +1072,8 @@ setRows(fmt);
     let u = { ...prev, [colKey]:fv, _dirty:true };
     if(CALC_KEYS.has(colKey)) u={...u,...calcRow(u,sess,colKey)};
     if(colKey==="SalesRate"){fv=normalizeEditableDecimal(fv);u={...u,SalesRate:fv,_dirty:true};const LC=vn(u.LandingCost),SR=vn(fv),d=SR-LC;u.ProfitPer=LC>0&&d>0?f2(ro(d/LC*100)):0;u={...u,...calcRow(u,sess,"SalesRate"),SalesRate:fv};}
-    if(colKey==="ProfitAmt"){const LC=vn(u.LandingCost),PA=vn(fv);u.ProfitPer=LC>0?f2(PA/LC*100):0;u={...u,...calcRow(u,sess,"ProfitAmt")};}
+    if(colKey==="ProfitAmt"){const LC=vn(u.LandingCost),PA=vn(fv);u.ProfitPer=LC>0?f2(PA/LC*100):0;const prevSR=u.SalesRate;u={...u,...calcRow(u,sess,"ProfitAmt")};if(!sess.PurchaseProfitSaleRateChange)u.SalesRate=prevSR;}
+    if(colKey==="ProfitPer"){const prevSR=u.SalesRate;u={...u,...calcRow(u,sess,"ProfitPer")};if(!sess.PurchaseProfitSaleRateChange)u.SalesRate=prevSR;}
     if(colKey==="DMAmt"){const M=vn(u.MRP),DA=vn(fv);u.DMPer=M>0?f2(ro(DA/M*100)):0;}
     if(colKey==="DMPer"){const M=vn(u.MRP),DP=vn(fv);u.DMAmt=f2(ro(M*DP/100));}
     return u;
@@ -1194,13 +1196,8 @@ const validateRow = useCallback(async row => {
         dirtyIds.current.clear();
         toast("✅ " + (res.message || "Saved successfully"));
         try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
-        if (entryComplete && latestEntry?._dirty) {
-          const saved = { ...latestEntry, _dirty:false, _isNew:false, _editMode:0, Id:res.Id||latestEntry.Id||latestEntry._rid };
-          setRows(prev => [...prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r), saved]);
-          resetEntry();
-        } else {
-          setRows(prev => prev.map(r => r._dirty ? { ...r, _dirty:false, _editMode:0 } : r));
-        }
+        await loadItems("", "", { isInit: true, pageNo: page });
+        await resetEntry();
         if (quickProductPayload) {
           exitProductQuickCreate(true, quickProductPayload);
         }
@@ -1209,7 +1206,7 @@ const validateRow = useCallback(async row => {
       setLoading(false);
       await showAlert("Save Failed\n\n" + (err?.message || "Unable to save the item. Please try again."));
     }
-  }, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry, redirectIfDualLogin, showAlert, productQuickCreateContext, exitProductQuickCreate]);
+  }, [perm, validateRow, confirm, buildPayload, toast, sess, resetEntry, redirectIfDualLogin, showAlert, productQuickCreateContext, exitProductQuickCreate, loadItems, page]);
 
   const entryRowIndex = rows.length;
 const doExcelUpload = useCallback(() => {

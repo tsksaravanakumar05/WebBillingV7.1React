@@ -149,6 +149,58 @@ const vn = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 const fmt2 = (v) => vn(v).toFixed(2);
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const isoToMDY = (iso) => { if (!iso) return ""; const [y,m,d]=iso.split("-"); return `${m}/${d}/${y}`; };
+const ensureUpdateId = (value) => value || (crypto.randomUUID ? crypto.randomUUID() : CC.uid());
+const toReportDate = (value) => {
+  const normalized = normalizeDateInput(value);
+  return normalized ? isoToMDY(normalized) : "";
+};
+const buildReceiptReportRow = (row, fallbackDate = "") => ({
+  RefNo: Number(row?.RefNo ?? 0),
+  Date: toReportDate(row?.[grdPaymentDate] ?? row?.PaymentDate ?? fallbackDate),
+  Amount: vn(row?.[grdAmount] ?? row?.Amount),
+  SupplierName: row?.[grdSupplierName] ?? row?.SupplierName ?? "",
+  ChequeNo: row?.[grdChequeNo] ?? row?.ChequeNo ?? row?.ChequeNumber ?? "",
+  RTGSNo: row?.[grdRTGSNo] ?? row?.RTGSNo ?? "",
+  BankName: row?.[grdBankName] ?? row?.BankName ?? "",
+  RTGSAmount: vn(row?.[grdRTGSAmt] ?? row?.RTGSAmount ?? row?.RTGSAmt),
+  ChequeDate: toReportDate(row?.[grdChequeDate] ?? row?.ChequeDate),
+  CashAmount: vn(row?.[grdCashAmount] ?? row?.CashAmount),
+  ChequeAmount: vn(row?.[grdChequeAmount] ?? row?.ChequeAmount),
+  Type: "RECEIPT",
+  BankId: Number(row?.[grdBankId] ?? row?.BankId ?? row?.BankRefid ?? 0),
+  ChqNo: row?.[grdChequeNo] ?? row?.ChqNo ?? row?.ChequeNo ?? row?.ChequeNumber ?? "",
+  TypeName: "RECEIPT",
+  Remarks: row?.[grdNarration] ?? row?.Remarks ?? row?.Narration ?? "",
+});
+const normalizeDateInput = (value) => {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split("/");
+      return `${year}-${month}-${day}`;
+    }
+
+    if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split("-");
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const year = parsed.getFullYear();
+  return `${year}-${month}-${day}`;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POPUP WINDOW (reusable)
@@ -485,8 +537,8 @@ function F5ViewWindow({ customers, comid, mcomid, onClose, onPrintView, loading:
       if (e.ctrlKey && e.keyCode===86) {
         e.preventDefault();
         if (selIdx==null) return;
-        const id = rows[selIdx]?.Id;
-        if (id != null && id !== 0) onPrintView(id);
+        const row = rows[selIdx];
+        if (row) onPrintView(row);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -816,7 +868,9 @@ export default function CustomerReceipt() {
       const Comid       = CC.getStr("Comid")  ||"1";
       const MComid      = CC.getStr("MComid") ||Comid;
       const MirrorTable = CC.getStr("MirrorTableOnline")||"0";
+      const SupplierCommon         = main0.CustomerCommonCompany   ?? false;
       return {
+        CustomerCommonCompany: SupplierCommon,
         Comid, MComid, MirrorTable,
         ReceiptSMS:               comSet.ReceiptSMS              ?? false,
         PaymentBillWise:          main0.ReceiptBill              ?? false,
@@ -824,6 +878,7 @@ export default function CustomerReceipt() {
       };
     } catch { return { Comid:"1",MComid:"1",MirrorTable:"0",ReceiptSMS:false,PaymentBillWise:false,CustomerReceiptViewDialog:false }; }
   });
+  const customerComid = CC.resolveCustomerComid(sess);
 
   // ── Component state ──────────────────────────────────────────────────────
   const [grid,    setGrid   ] = useState([]);
@@ -846,6 +901,7 @@ export default function CustomerReceipt() {
   const [bankPopup,   setBankPopup  ] = useState({ open:false,rowIdx:null,prefill:"" });
   const [pwModal,     setPwModal    ] = useState(null);   // {rowIdx}
   const [pvDialog,    setPvDialog   ] = useState(null);   // print/view after save
+  const [reportRows,  setReportRows ] = useState([]);
   const [pendingWin,  setPendingWin ] = useState(null);   // {bills,rowIdx}
   const [f5Open,      setF5Open     ] = useState(false);
   const [f12Open,     setF12Open    ] = useState(false);
@@ -914,16 +970,16 @@ export default function CustomerReceipt() {
 
   const loadCustomers = useCallback(async()=>{
     const res = await CC.api(CC.GetSupplierAll,null,{},
-      { Comid:Number(sess.Comid),AccountType:"CUSTOMER",Keyword:"",Column:"" });
+      { Comid:Number(customerComid),AccountType:"CUSTOMER",Keyword:"",Column:"" });
     if(redirectIfDualLogin(res)) return;
     setCustomers(Array.isArray(res?.data)?res.data:Array.isArray(res?.Data1)?res.Data1:[]);
-  },[sess.Comid,redirectIfDualLogin]);
+  },[customerComid,redirectIfDualLogin]);
 
   const loadSalesmen = useCallback(async()=>{
-    const res = await CC.api(CC.SalesManSelect,null,{},{ Comid:Number(sess.MComid) });
+    const res = await CC.api(CC.SalesManSelect,null,{},{ Comid:Number(customerComid) });
     if(redirectIfDualLogin(res)) return;
     setSalesmen(Array.isArray(res?.data)?res.data:Array.isArray(res?.Data1)?res.Data1:[]);
-  },[sess.MComid,redirectIfDualLogin]);
+  },[customerComid,redirectIfDualLogin]);
 
   const loadBanks = useCallback(async()=>{
     const res = await CC.api(CC.BankAllSelect,null,{},{ Comid:Number(sess.Comid) });
@@ -1009,6 +1065,7 @@ export default function CustomerReceipt() {
       [grdAmount]:         fmt2(o[grdAmount]),
       [grdCashAmount]:     fmt2(o[grdCashAmount]),
       [grdChequeAmount]:   fmt2(o[grdChequeAmount]),
+      [grdChequeDate]:     normalizeDateInput(o[grdChequeDate]),
       [grdRTGSAmt]:        fmt2(o[grdRTGSAmt]),
       [grdDiscountAmount]: fmt2(o[grdDiscountAmount]),
       [grdEditMode]:       0,
@@ -1149,17 +1206,22 @@ export default function CustomerReceipt() {
     if(!ok2){ addRow(); return; }
 
     // set PaymentDate from selDate for all dirty rows
-    const payload = dirty.map(({ _uid,...rest })=>({
-      ...rest,
-      [grdPaymentDate]: isoToMDY(selDate),
-      [grdCashAmount]:     vn(rest[grdCashAmount]),
-      [grdRTGSAmt]:        vn(rest[grdRTGSAmt]),
-      [grdChequeAmount]:   vn(rest[grdChequeAmount]),
-      [grdDiscountAmount]: vn(rest[grdDiscountAmount]),
-      [grdAmount]:         vn(rest[grdAmount]),
-    }));
-console.log(payload);
-console.log(pendingDetails);
+    const payload = dirty.map(({ _uid,...rest }) => {
+      const chequeAmount = vn(rest[grdChequeAmount]);
+      const chequeDateIso = normalizeDateInput(rest[grdChequeDate]);
+
+      return {
+        ...rest,
+        [grdPaymentDate]: isoToMDY(selDate),
+        [grdCashAmount]:     vn(rest[grdCashAmount]),
+        [grdRTGSAmt]:        vn(rest[grdRTGSAmt]),
+        [grdChequeAmount]:   chequeAmount,
+        [grdChequeDate]:     chequeAmount > 0 ? isoToMDY(chequeDateIso) : "",
+        [grdDiscountAmount]: vn(rest[grdDiscountAmount]),
+        [grdAmount]:         vn(rest[grdAmount]),
+        [grdUpdateId]:       ensureUpdateId(rest[grdUpdateId]),
+      };
+    });
     setLoading(true);
     const res = await CC.insertapi(CC.InsertCustomerReceipt, payload, {
       "Paymentdetails":  JSON.stringify(pendingDetails),
@@ -1173,6 +1235,7 @@ console.log(pendingDetails);
     if(res._netErr){ toast(`❌ ${res.message}`,true); return; }
 
  if(res.ok||res.IsSuccess){
+    setReportRows(payload.map((row) => buildReceiptReportRow(row, selDate)));
     if(sess.CustomerReceiptViewDialog){
         setPvDialog({ message:res.message||"Saved successfully!" });
     } else {
@@ -1189,24 +1252,55 @@ console.log(pendingDetails);
   },[gridemptycheck,addRow,selDate,sess,confirm,toast,redirectIfDualLogin,fillGridData]);
 
   // ── open VoucherPrints  ──────────────────────────────────────────────────
-  const openVoucherPrint = useCallback(async(a4Print="0")=>{
-    const url=`${CC.ReportViewerBase}?ReportName=VoucherPrints&A4Print=${a4Print}&VoucherPrint=Customer`;
-    const w=window.open(url,"_blank",
-      `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${screen.width},height=${screen.height-100}`
-    );
+  const openVoucherPrint = useCallback(async(a4Print="0", rows=reportRows)=>{
+    if(!Array.isArray(rows) || rows.length===0){
+      toast("❌ Print data not found.",true);
+      return;
+    }
+
+    const printDate = isoToMDY(selDate || todayISO());
+    const targetName = `CustomerReceiptReport_${Date.now()}`;
+    const features = `directories=0,titlebar=0,toolbar=0,location=0,status=0,menubar=0,scrollbars=yes,resizable=no,width=${screen.width},height=${screen.height-100}`;
+    const action = `${CC.BASE_URL}/Reports/ReportViewer.aspx?ReportName=Receipt&A4Print=${a4Print}`;
+    const w = window.open("", targetName, features);
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = action;
+    form.target = targetName;
+    form.style.display = "none";
+
+    const addHidden = (name, value) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    };
+
+    addHidden("Type", "RECEIPT");
+    addHidden("Fromdate", printDate);
+    addHidden("Todate", printDate);
+    addHidden("ReportDataJson", JSON.stringify(rows));
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
     if(w){ w.addEventListener("load",()=>{ w.document.title="Customer Receipt"; },false); }
     if(a4Print==="1") setTimeout(()=>w?.close(),10);
-  },[]);
+  },[reportRows,selDate,toast]);
 
   // ── PrintView (Ctrl+V in F5) ─────────────────────────────────────────────
-  const doPrintView = useCallback(async(id)=>{
+  const doPrintView = useCallback(async(row)=>{
     const ok = window.confirm("Do you want to View Customer Receipt?");
     if(!ok) return;
-    setLoading(true);
-    const res = await CC.api(CC.PrintViewUrl, null, {}, { Id:Number(id), Type:"CustomerReceipt" });
-    setLoading(false);
-    if(res.ok) openVoucherPrint("0");
-  },[openVoucherPrint]);
+    if(row){
+      openVoucherPrint("0",[buildReceiptReportRow(row, row?.PaymentDate || selDate)]);
+      return;
+    }
+    openVoucherPrint("0");
+  },[openVoucherPrint,selDate]);
 
   // ── moveNext (mirrors GirdNextCell) ─────────────────────────────────────
   const moveNext = useCallback((rowIdx, colField)=>{

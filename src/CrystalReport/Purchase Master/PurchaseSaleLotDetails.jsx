@@ -265,7 +265,7 @@ export default function PurchaseSaleLotDetails() {
     const MainSet = CC.getLocal("Mainsetting") || [{}];
     const ComSet = CC.getLocal("Companysetting") || [{}];
     const useCommonCompany = !!MainSet[0]?.SupplierCommonCompany;
-    const comboComid = useCommonCompany ? MComid : Comid;
+    const comboComid = Comid || MComid || "0";
 
     setSession({
       Comid,

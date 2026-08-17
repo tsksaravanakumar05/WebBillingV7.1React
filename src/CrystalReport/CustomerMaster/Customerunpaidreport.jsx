@@ -304,7 +304,7 @@ export default function CustomerUnpaidReport() {
     setSession({
       Comid,
       MComid,
-      lookupComid: useCommonCompany ? MComid : Comid,
+      lookupComid: Comid || MComid || "0",
       CName: ComSet[0]?.CName || "",
       CAddress: ComSet[0]?.CAddress || "",
       CPhone: ComSet[0]?.CPhone || "",
