@@ -2494,8 +2494,8 @@ const handleF5View = useCallback(async (objlist = {}) => {
       SerialNoStatus: i(r.SerialNoStatus), FreeQtyStatus: i(r.FreeQtyStatus),
       MrpStatus: i(r.MrpStatus), Narration: r.Narration || "",
       TextRefId: r.TextRefId || "",
-      SizeId: i(r.SizeId) || 0, BrandId: i(r.BrandId) || 0,
-      ModelId: i(r.ModelId) || 0, ColorId: i(r.ColorId) || 0,
+      SizeId: i(r.SizeId) || null, BrandId: i(r.BrandId) || null,
+      ModelId: i(r.ModelId) || null, ColorId: i(r.ColorId) || null,
       GengerId: i(r.GengerId) || 0, ToSizeId: i(r.ToSizeId) || 0,
     };
   }, []);
