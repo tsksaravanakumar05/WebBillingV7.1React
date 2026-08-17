@@ -391,12 +391,100 @@
    }
    
    /* Scoped overrides to enforce bold font specifically for the Purchase Master grid cells */
-   .pur-grid .cell-input,
-   .pur-grid .grid-cell.readonly,
-   .pur-grid select.cell-input {
-     font-family: var(--pm-font) !important;
-     font-weight: 700 !important;
-   }
+.pur-grid .cell-input,
+.pur-grid .grid-cell.readonly,
+.pur-grid select.cell-input {
+  font-family: var(--pm-font) !important;
+  font-weight: 700 !important;
+}
+
+.pur-master-simple {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 220px;
+  gap: 6px;
+  align-items: stretch;
+  margin-bottom: 4px;
+}
+
+.pur-top-card {
+  border: 1px solid var(--clr-border-default);
+  border-radius: 4px;
+  padding: 4px 6px;
+  background: var(--clr-bg-white);
+  display: grid;
+  gap: 4px;
+}
+
+.pur-top-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #c00;
+  line-height: 1.1;
+}
+
+.pur-date-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62px;
+  gap: 6px;
+  align-items: end;
+}
+
+.pur-days-field .form-ctrl {
+  text-align: center;
+}
+
+.pur-top-left .field-group,
+.pur-top-middle .field-group {
+  gap: 1px;
+}
+
+.pur-top-left .field-group label,
+.pur-top-middle .field-group label {
+  font-size: 10px;
+  letter-spacing: 0.35px;
+}
+
+.pur-top-left .form-ctrl,
+.pur-top-middle .form-ctrl {
+  height: 22px;
+  font-size: 12px;
+}
+
+.pur-supplier-fields {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 0.9fr;
+  gap: 6px;
+}
+
+.pur-current-bal-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pm-text);
+  margin-top: 1px;
+}
+
+.pur-current-bal-line strong {
+  font-size: 13px;
+  color: #000;
+}
+
+.pur-title-box {
+  place-items: center;
+}
+
+.pur-title-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: #d30000;
+}
+
+.pur-grid-stretch {
+  min-height: 440px;
+  height: calc(100vh - 315px);
+}
    
    /* Delete row button */
    .del-row-btn {
@@ -418,15 +506,97 @@
    /* ═══════════════════════════════════════════════════════════════════════════
       BOTTOM PANEL  — matches sb-totals / sb-pay-grid panel style
       ═══════════════════════════════════════════════════════════════════════════ */
-   .pur-bottom {
-     display: flex;
-     gap: 6px;
-     padding: 4px 0;
-     background: transparent;
-     flex-shrink: 0;
-     max-height: 148px;
-     overflow: auto;
-   }
+.pur-bottom {
+  display: flex;
+  gap: 6px;
+  padding: 4px 0;
+  background: transparent;
+  flex-shrink: 0;
+  max-height: 148px;
+  overflow: auto;
+}
+
+.pur-bottom-simple {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 220px;
+  gap: 8px;
+  align-items: stretch;
+  padding-top: 6px;
+}
+
+.pur-bottom-card {
+  border: 1px solid var(--clr-border-default);
+  border-radius: 4px;
+  background: var(--clr-bg-white);
+  padding: 8px 10px;
+}
+
+.pur-balance-list {
+  display: grid;
+  gap: 8px;
+}
+
+.pur-balance-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pur-balance-row strong {
+  font-size: 14px;
+  color: #000;
+}
+
+.pur-balance-row strong.info {
+  color: #0d45ff;
+}
+
+.pur-balance-row strong.danger {
+  color: #d30000;
+}
+
+.pur-paid-row {
+  grid-template-columns: 110px 130px;
+}
+
+.pur-small-input {
+  max-width: 130px;
+  height: 28px;
+}
+
+.pur-bill-display-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pur-bill-display {
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--pm-green);
+  text-align: center;
+}
+
+.pur-others-card {
+  display: grid;
+  align-content: center;
+  gap: 18px;
+}
+
+.pur-other-inline {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.pur-remarks-hidden {
+  display: none;
+}
    
    .bottom-left {
      display: flex;
@@ -1017,14 +1187,17 @@
    /* ═══════════════════════════════════════════════════════════════════════════
       RESPONSIVE
       ═══════════════════════════════════════════════════════════════════════════ */
-   @media (max-width: 1024px) {
-     .master-row { gap: 6px 10px; }
-     .field-group.wide { min-width: 160px; }
-     .pur-bottom { flex-direction: column; max-height: unset; }
-     .bottom-left { flex-wrap: wrap; }
-     .totals-panel { min-width: unset; width: 100%; }
-     .product-popup { width: 96vw; }
-   }
+  @media (max-width: 1024px) {
+    .master-row { gap: 6px 10px; }
+    .field-group.wide { min-width: 160px; }
+    .pur-master-simple,
+    .pur-bottom-simple { grid-template-columns: 1fr; }
+    .pur-grid-stretch { height: auto; min-height: 360px; }
+    .pur-bottom { flex-direction: column; max-height: unset; }
+    .bottom-left { flex-wrap: wrap; }
+    .totals-panel { min-width: unset; width: 100%; }
+    .product-popup { width: 96vw; }
+  }
    @media (max-width: 768px) {
      .mp-btn span { display: none; }
      .mp-btn      { padding: 4px 8px; }

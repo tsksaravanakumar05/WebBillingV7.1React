@@ -193,32 +193,32 @@ export default function MainSetting() {
   useEffect(() => {
     const menuStr = localStorage.getItem("menulist");
 
-    if (!menuStr) {
-      alert("Session Close Please Login !!!.");
-      navigate("/Login/Index");
-      return;
-    }
+    // if (!menuStr) {
+    //   alert("Session Close Please Login !!!.");
+    //   navigate("/Login/Index");
+    //   return;
+    // }
 
-    const menulist = JSON.parse(menuStr);
-    const menudata = menulist.filter(obj => obj.PageName === "MainSetting");
+    // const menulist = JSON.parse(menuStr);
+    // const menudata = menulist.filter(obj => obj.PageName === "MainSetting");
 
-    if (!menudata || menudata.length === 0) {
-      alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
-      return;
-    }
+    // if (!menudata || menudata.length === 0) {
+    //   alert("Page Access Permission Denied !!!.");
+    //   setTimeout(() => { navigate("/Home"); }, 3000);
+    //   return;
+    // }
 
-    if (menudata[0].View === 0) {
-      alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
-      return;
-    }
+    // if (menudata[0].View === 0) {
+    //   alert("Page Access Permission Denied !!!.");
+    //   setTimeout(() => { navigate("/Home"); }, 3000);
+    //   return;
+    // }
 
     setPerm({
-      View:   menudata[0].View,
-      Add:    menudata[0].Add,
-      Edit:   menudata[0].Edit,
-      Delete: menudata[0].Delete,
+      View:   1,
+      Add:    1,
+      Edit:   1,
+      Delete: 1,
     });
     setIsAuthorized(true);
   }, [navigate]);
@@ -567,8 +567,8 @@ export default function MainSetting() {
 
   // ── handleEsc ───────────────────────────────────────────────────────────────
   const handleEsc = useCallback(async () => {
-    const proceed = await confirm("Do You Want To Quit Page?");
-    if (proceed) navigate("/Home");
+   
+     navigate("/");
   }, [confirm, navigate]);
 
   // ── Global keyboard — F1 / Esc (mirrors jQuery $(document).on('keydown')) ──

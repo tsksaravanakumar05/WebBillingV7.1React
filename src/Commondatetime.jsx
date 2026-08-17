@@ -1,7 +1,7 @@
 import { Save, XCircle, Calendar as CalendarIcon } from "lucide-react";
 import { useState,useRef,useEffect,useCallback } from "react";
 
-export default function DateFieldDDMMYYYY({ id, value, onChange, disabled,}) {
+export default function DateFieldDDMMYYYY({ id, value, onChange, disabled, onEnter }) {
 
     const pad2 = (n) => String(n).padStart(2, "0");
 

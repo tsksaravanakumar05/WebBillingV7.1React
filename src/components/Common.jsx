@@ -29,7 +29,8 @@ const withRawIdComListHeader = (extraHeaders = {}) => {
 
 // ─── 2. BASE URL ──────────────────────────────────────────────────────────────
 //export const BASE_URL = "https://billing.kassapos.co.in";
- export const BASE_URL = "http://localhost:64215";
+ export const BASE_URL = "http://localhost:44300";
+export const ONLINE_API_URL = "https://billing.kassapos.co.in/api/";
 //export const BASE_URL = "https://billing.kassapos.co.in";
 //export const BASE_URL = "https://hobilling.kassapos.in";
 // ─── 3. CASHIER API ENDPOINT CONSTANTS ───────────────────────────────────────
@@ -307,6 +308,25 @@ export const PR_CurBalance   = "/api/SupplierApp/CurrentBalance";
 export const PR_ItemByCode   = "/api/ItemMasterApp/SelectItemMasterbyCodeId";
 export const PR_ProductList  = "/api/ItemMasterApp/GetProductListV7";
 
+// ─── DayClose API endpoints ─────────────────────────────────────────────────
+export const SelectDayCloseV7 = "/api/DayCloseApp/SelectDayCloseV7";
+export const InsertDayClose = "/api/DayCloseApp/InsertDayClose";
+export const DeleteDayClose = "/api/DayCloseApp/DeleteDayClose";
+
+// ─── Trip Master API endpoints ──────────────────────────────────────────────
+export const TripMaxNo = "/api/tripMasterApp/MaxTripNo";
+export const TripInsert = "/api/tripMasterApp/InsertTripMaster";
+export const TripEdit = "/api/tripMasterApp/EditTripMaster";
+export const TripDelete = "/api/tripMasterApp/DeleteTripMaster";
+export const TripSelect = "/api/tripMasterApp/SelectTripMaster";
+export const TripDetailsSelect = "/api/tripMasterApp/SelectTripDetails";
+export const DriverSelect = "/api/DriverApp/SelectDriver";
+export const DriverInsert = "/api/DriverApp/InsertDriver";
+export const DriverDelete = "/api/DriverApp/DeleteDriver";
+export const VehicleSelect = "/api/VehicleApp/SelectVehicle";
+export const VehicleInsert = "/api/VehicleApp/InsertVehicle";
+export const VehicleDelete = "/api/VehicleApp/DeleteVehicle";
+
 
 // ─── Supplier Payment API endpoints ──────────────────────────────────────────
 export const SelectSupplierPaymentDate = "/api/SupplierPaymentApp/SelectSupplierPaymentDate";
@@ -395,6 +415,7 @@ export const NullToString = (v) => (v == null ? "" : String(v));
 //  All fetch calls must go through mkUrl so BASE_URL is always prepended.
 //  No component should concatenate BASE_URL itself.
 export const mkUrl = (path) => BASE_URL + path;
+export const mkOnlineApiUrl = (path) => ONLINE_API_URL + String(path || "").replace(/^\/+/, "");
 
 const defaultProductListCache = {};
 
@@ -540,7 +561,7 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
     if (res.status === 500) {
       const t = await res.text();
       console.error(`500 on ${fullUrl}:`, t.slice(0, 500));
-      return { ok: false, message: "Server error 500 — see console" };
+      return { ok: false, message: "Server error 500 - see console" };
     }
 
     const text = await res.text();
@@ -558,6 +579,85 @@ export const api = async (path, body = null, extraHeaders = {}, queryParams = nu
     return { ok: false, _netErr: true, message: err.message };
   }
 };
+
+export const toApiMDY = (value) => {
+  if (!value) return "";
+  const raw = String(value).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+    const [d, m, y] = raw.split("/");
+    return `${m}/${d}/${y}`;
+  }
+  if (/^\d{2}-\d{2}-\d{4}$/.test(raw)) {
+    const [d, m, y] = raw.split("-");
+    return `${m}/${d}/${y}`;
+  }
+  const [y, m, d] = raw.slice(0, 10).split("-");
+  return y && m && d ? `${m}/${d}/${y}` : raw;
+};
+
+export const normalizeApiList = (res) => {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.Data1)) return res.Data1;
+  if (Array.isArray(res?.Data)) return res.Data;
+  return [];
+};
+
+export const getDayCloseCashAccountId = async (Comid) => {
+  const res = await api(SelectAccountGroup, null, {}, { Comid });
+  const list = normalizeApiList(res);
+  return list.find((row) => String(row.AccountName || "").trim().toUpperCase() === "CASH")?.Id || 0;
+};
+
+export const selectDayCloseDetails = async ({ Date, Comid, Cashid }) => {
+  const cashId = Cashid || await getDayCloseCashAccountId(Comid);
+  return api(SelectDayCloseV7, null, {}, {
+    Date: toApiMDY(Date),
+    TDate: "",
+    Comid,
+    Cashid: cashId,
+  });
+};
+
+export const insertDayCloseDetails = (payload, Comid) =>
+  api(InsertDayClose, payload, { Comid: String(Comid) }, null);
+
+export const deleteDayCloseDetails = ({ Date, Comid }) =>
+  api(DeleteDayClose, null, {}, { Comid, Date: toApiMDY(Date) });
+
+export const getTripExpenseAccountId = async (Comid) => {
+  const res = await api(SelectAccountGroup, null, {}, { Comid });
+  const list = normalizeApiList(res);
+  return list.find((row) => String(row.AccountName || "").trim().toUpperCase() === "TRIPEXPENSE")?.Id || 0;
+};
+
+export const getSundryDebtorsAccountId = async (Comid) => {
+  const res = await api(SelectAccountGroup, null, {}, { Comid });
+  const list = normalizeApiList(res);
+  return list.find((row) => String(row.AccountName || "").trim().toUpperCase() === "SUNDRY DEBTORS")?.Id || 0;
+};
+
+export const selectTripList = ({ Comid, Fromdate, Todate, Id = 0 }) =>
+  api(TripSelect, null, {}, {
+    Comid,
+    Fromdate: toApiMDY(Fromdate),
+    Todate: toApiMDY(Todate),
+    Id,
+  });
+
+export const editTripMaster = ({ Id, PNo = 0, Comid, TripMasterLWEWDetails = false }) =>
+  api(TripEdit, null, {}, {
+    Id,
+    PNo,
+    Comid,
+    TripMasterLWEWDetails,
+  });
+
+export const insertTripMaster = (payload, headers = {}) =>
+  api(TripInsert, payload, headers, null);
+
+export const deleteTripMaster = (payload, headers = {}) =>
+  api(TripDelete, payload, headers, null);
 
 
 
@@ -1178,7 +1278,7 @@ export const IM_ProductList = "/api/ItemMasterApp/GetProductListV7";
 export const IM_TransferList= "/api/ItemMasterApp/SelectStockTrasferList";
 
 // Area
-export const AreaSelect = "/api/AreaApp/SelectArea_V7";
+export const AreaSelect = "/api/AreaApp/SelectArea";
 export const AreaInsert = "/api/AreaApp/InsertArea";
 export const AreaDelete = "/api/AreaApp/DeleteArea";
 
