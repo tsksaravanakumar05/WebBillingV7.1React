@@ -333,6 +333,7 @@ const BASE_COLUMNS = [
   { key: "LotNo",           label: "Lot No",        defaultWidth: 90,  align: "left",  editable: true,  type: "text",  defaultVisible: true,  modes: ["ARRIVAL", "PATTY", "SALESPATTY"] },
   { key: "Mark",            label: "Mark",          defaultWidth: 90,  align: "left",  editable: true,  type: "text",  defaultVisible: true,  modes: ["ARRIVAL", "PATTY", "SALESPATTY"] },
   { key: "Salerate",        label: "Sale Rate",     defaultWidth: 85,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
+  { key: "WholeSalerate",   label: "Wholesale Rate", defaultWidth: 100, align: "right", editable: true, type: "num",   defaultVisible: false },
   { key: "BrandId",         label: "Brand",         defaultWidth: 100, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
   { key: "ModelId",         label: "Model",         defaultWidth: 100, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
   { key: "ColorId",         label: "Color",         defaultWidth: 100, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
