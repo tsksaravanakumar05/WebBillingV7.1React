@@ -306,11 +306,11 @@ function App() {
       <Route path="/Report/SupplierDuePayment" element={<SupplierDuePayment />} />
       <Route path="/Report/SupplierPending" element={<Supplierpendingbillreport />} />
       <Route path="/Report/SupplierStatement" element={<Supplierstatement />} />
-       <Route path="/Report/SupplierAging" element={<SupplierAging />}  />
-       <Route path="/Report/CustomerList" element={<CustomerList />} />
-        <Route path="/Report/CustomerPendingBill" element={<CustomerPendingBill />} />
-             <Route path="/Report/CustomerBalance" element={<CustomerBalance />} />
-              <Route path="/Report/CustomerDue" element={<CustomerDue />} />
+      <Route path="/Report/SupplierAging" element={<SupplierAging />}  />
+      <Route path="/Report/CustomerList" element={<CustomerList />} />
+      <Route path="/Report/CustomerPendingBill" element={<CustomerPendingBill />} />
+      <Route path="/Report/CustomerBalance" element={<CustomerBalance />} />
+      <Route path="/Report/CustomerDue" element={<CustomerDue />} />
         <Route path="/Report/CustomerStatement" element={<CustomerStatement />} />
         <Route path="/Report/CustomerAging" element={<CustomerAging />}  />
         <Route path="/Report/CrmReport" element={<CRMCustomer />} />
