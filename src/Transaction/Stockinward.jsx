@@ -1188,17 +1188,10 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
     setUserList(pick(usrRes));
   }, [sess]);
 
-    const cachedProducts = CC.getCachedProductList(sess.ItemCOmid);
-    if (cachedProducts.length > 0) {
-      setProductList(cachedProducts);
-    } else {
-      const pRes = await CC.api(CC.IM_ProductList, null, {}, { Comid: sess.ItemCOmid });
-      const productRows = pick(pRes);
-      CC.setCachedProductList(sess.ItemCOmid, productRows);
-      setProductList(productRows);
-    }
-    return String(sess.Comid);
-  }, [sess.Comid, supplierId]);
+  const getActiveProductComid = useCallback(() => {
+    if (mode === "transfer" && supplierId) return String(supplierId);
+    return String(sess.ItemCOmid || sess.Comid);
+  }, [mode, sess.Comid, sess.ItemCOmid, supplierId]);
 
   const loadProductListForContext = useCallback(async (targetComid = null) => {
     const comid = String(targetComid || getActiveProductComid() || sess.Comid);
