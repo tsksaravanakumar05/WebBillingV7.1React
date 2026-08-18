@@ -876,8 +876,10 @@ export default function StockInward() {
       const com0  = (CC.getLocal("Companysetting") || [{}])[0] || {};
       const Comid  = CC.getStr("Comid")  || "1";
       const MComid = CC.getStr("MComid") || Comid;
+       const isCC  = !!main0.CommonCompany;
       return {
-        Comid:    main0.CommonCompany ? MComid : Comid,
+        ItemCOmid: isCC ? MComid : Comid,
+        Comid:    Comid || MComid || "0",
         MComid,
         FYear:    com0.FYear || "2024",
         CompanyName: com0.Companyname || "",
@@ -1074,7 +1076,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
   const [customerList, setCustomerList] = useState([]);
   const [branchList,   setBranchList]   = useState([]);
   const [userList,     setUserList]     = useState([]);
-  const [productList,  setProductList]  = useState(() => CC.getCachedProductList(sess.Comid));
+  const [productList,  setProductList]  = useState(() => CC.getCachedProductList(sess.ItemCOmid));
 
   // ── Header fields ─────────────────────────────────────────────────────────
   const [stockNo,     setStockNo]     = useState("");
@@ -1186,9 +1188,14 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
     setUserList(pick(usrRes));
   }, [sess]);
 
-  const getActiveProductComid = useCallback(() => {
-    if (modeRef.current === "transfer" && supplierId) {
-      return String(supplierId);
+    const cachedProducts = CC.getCachedProductList(sess.ItemCOmid);
+    if (cachedProducts.length > 0) {
+      setProductList(cachedProducts);
+    } else {
+      const pRes = await CC.api(CC.IM_ProductList, null, {}, { Comid: sess.ItemCOmid });
+      const productRows = pick(pRes);
+      CC.setCachedProductList(sess.ItemCOmid, productRows);
+      setProductList(productRows);
     }
     return String(sess.Comid);
   }, [sess.Comid, supplierId]);

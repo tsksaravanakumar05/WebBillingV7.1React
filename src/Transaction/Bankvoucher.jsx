@@ -708,6 +708,12 @@ export default function BankVoucher() {
   const [f5Open,       setF5Open       ] = useState(false);
   const [f12Open,      setF12Open      ] = useState(false);
 
+  const handleQuit = useCallback(() => {
+    confirm("Do You Want To Quit Page?").then(ok => {
+      if (ok) navigate("/dashboard");
+    });
+  }, [confirm, navigate]);
+
   // refs
   const gridRef   = useRef([]);
   const inputRefs = useRef({});
@@ -1303,7 +1309,7 @@ export default function BankVoucher() {
         if (f5Open)  { setF5Open(false); return; }
         if (f12Open) { setF12Open(false); return; }
         if (pwModal) return;
-        confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/dashboard"); });
+        handleQuit();
         return;
       }
       if (anyPopupOpen()) return;
@@ -1316,7 +1322,7 @@ export default function BankVoucher() {
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line
   }, [accountPopup.open, pwModal, pvDialog, f5Open, f12Open,
-      selIdx, bankSave, deleteRow, confirm, navigate]);
+      selIdx, bankSave, deleteRow, handleQuit]);
 
   // ── Block until authorized ───────────────────────────────────────────────
   if (!isAuthorized) return null;
@@ -1375,7 +1381,7 @@ export default function BankVoucher() {
               type="button"
               className="bm-close-x"
               aria-label="Close"
-              onClick={() => confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/dashboard"); })}
+              onClick={handleQuit}
             >
               ✕
             </button>
@@ -1523,7 +1529,7 @@ export default function BankVoucher() {
           </button>
           <button
             className="mp-btn cn"
-            onClick={() => confirm("Do You Want To Quit Page?").then(ok => { if (ok) navigate("/dashboard"); })}
+            onClick={handleQuit}
           >
             <XCircle size={16} />
             Esc Quit

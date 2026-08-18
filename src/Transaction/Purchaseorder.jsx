@@ -1260,7 +1260,7 @@ export default function PurchaseOrder() {
       const Comid  = CC.getStr("Comid")  || "1";
       const MComid = CC.getStr("MComid") || Comid;
       return {
-        Comid:  main0.CommonCompany ? MComid : Comid,
+        Comid:  Comid || MComid || "0",
         MComid,
         BillPrefix:             com0.BillPrefix || "",
         MirrorTable:            parseInt(main0.MirrorTableOnline, 10) || 0,
@@ -1453,7 +1453,7 @@ export default function PurchaseOrder() {
 
   // ── Load Dropdowns ───────────────────────────────────────────────────────
   const loadDropdowns = useCallback(async () => {
-    const comid = settings.Comid;
+    const comid = CC.resolveSupplierComid(settings);
     const [suppRes, poRes] = await Promise.all([
       CC.api(GetSupplierUrl, null, {}, { Comid: comid, AccountType: "SUPPLIER" }),
       CC.api(PoReqUrl, null, {}, { Comid: comid }).catch(() => ({ data: [] })),
@@ -1637,11 +1637,12 @@ export default function PurchaseOrder() {
       return;
     }
     setLoading(true); setLdMsg("Loading products...");
-    const res = await CC.api(ProductListUrl, null, {}, { Comid: settings.Comid });
+    const itemComid = CC.resolveItemComid(settings);
+    const res = await CC.api(ProductListUrl, null, {}, { Comid: itemComid });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
     const arr = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
-    CC.setCachedProductList(settings.Comid, arr);
+    CC.setCachedProductList(itemComid, arr);
     setProdList(arr);
     setProdPopup({ rid, pos: { top: 160, left: 80 } });
   }, [settings, prodList, redirectIfDualLogin]);

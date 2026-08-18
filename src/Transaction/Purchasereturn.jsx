@@ -601,14 +601,14 @@ export default function PurchaseReturn() {
   //  SUPPLIER LIST (mirrors jQuery SupplierDetailsLoad init + objSlist)
   // ─────────────────────────────────────────────────────────────────────────────
   const loadSupplierList = useCallback(async () => {
-    const res = await CC.api(CC.PR_SupplierAll, null, {}, { Comid: sess.MComid, AccountType: "SUPPLIER" });
+    const res = await CC.api(CC.PR_SupplierAll, null, {}, { Comid: CC.resolveSupplierComid(sess), AccountType: "SUPPLIER" });
     if (redirectIfDualLogin(res)) return;
     const list = Array.isArray(res?.data) ? res.data
                : Array.isArray(res?.Data1) ? res.Data1
                : Array.isArray(res) ? res : [];
     setSupplierList(list);
     setF5SuppDD(list);
-  }, [sess.MComid, redirectIfDualLogin]);
+  }, [sess, redirectIfDualLogin]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  FETCH MAX PURCHASE RETURN NUMBER (mirrors jQuery MaxPurchaseReturnNo)

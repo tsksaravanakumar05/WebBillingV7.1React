@@ -119,6 +119,7 @@ select.so-input { appearance: auto; cursor: pointer; }
   margin: -1px;
 }
 
+
 .so-combo { position: relative; width: 100%; }
 .so-combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; max-height: 200px; overflow-y: auto; background: var(--clr-bg-white); border: 1px solid var(--clr-border-default); border-radius: 6px; box-shadow: 0 6px 20px var(--clr-shadow-toast); }
 .so-combo-item { padding: 7px 10px; font-size: 13px; color: var(--clr-text-primary); border-radius: 4px; cursor: pointer; }

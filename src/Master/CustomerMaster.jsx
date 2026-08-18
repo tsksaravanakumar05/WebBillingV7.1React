@@ -677,7 +677,7 @@ const [f12Open, setF12Open] = useState(false);
 useEffect(() => {
   const loadColSettings = async () => {
     try {
-      const url = CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.MComid}&filename=Customer`;
+      const url = CC.BASE_URL + `${CC1.GetFocusColumnsUrl}?comid=${sess.Comid}&filename=Customer`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...CC.authHeaders() },
@@ -702,7 +702,7 @@ useEffect(() => {
     }
   };
   loadColSettings();
-}, [sess.MComid]);
+}, [sess.Comid]);
 const visibleColumns = ALL_COLUMNS.filter(c => {
   if (c.field === grdCustomerNameTamil && !sess.CustomerNameTamil) return false;
   const cs = colSettings.find(s => s.field === c.field);
@@ -722,7 +722,7 @@ const saveColSettings = useCallback(async (localSettings) => {
   setLoading(true);
   const newCols = localSettings ?? colSettings;
   const payload = newCols.map(s => ({
-    Comid:    parseInt(sess.MComid),
+    Comid:    parseInt(sess.Comid),
     filename: "Customer",
     column:   s.field,
     Visible:  s.hidden !== true,
@@ -748,7 +748,7 @@ const saveColSettings = useCallback(async (localSettings) => {
   } finally {
     setLoading(false);
   }
-}, [colSettings, sess.MComid, toast]);
+}, [colSettings, sess.Comid, toast]);
   // ── loadCounter ───────────────────────────────────────────────────────────
   
 
@@ -1122,25 +1122,25 @@ const vn = v => parseFloat(v) || 0;
   }, [navigate]);
 
   const openAreaPopup = useCallback(async (rowIdx) => {
-    const res   = await CC.api(CC1.AreaSelect,null,{}, { Comid: Number(sess.MComid) });
+    const res   = await CC.api(CC1.AreaSelect,null,{}, { Comid: Number(sess.Comid) });
     if (redirectIfDualLogin(res)) return;
     const items = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
     setAreaPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdArea] || "" });
-  }, [sess.MComid, redirectIfDualLogin]);
+  }, [sess.Comid, redirectIfDualLogin]);
 
   const openSalesManPopup = useCallback(async (rowIdx) => {
-    const res   = await CC.api(CC.SalesManSelect,null,{}, { Comid: Number(sess.MComid) });
+    const res   = await CC.api(CC.SalesManSelect,null,{}, { Comid: Number(sess.Comid) });
     if (redirectIfDualLogin(res)) return;
     const items = Array.isArray(res) ? res : Array.isArray(res.Data1) ? res.Data1 : [];
     setSalesmanPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdSalesMan] || "" });
-  }, [sess.MComid, redirectIfDualLogin]);
+  }, [sess.Comid, redirectIfDualLogin]);
 
   const openCardPopup = useCallback(async (rowIdx) => {
-    const res   = await CC.api(CC1.CustomerCardTypeSelect,null,{}, { Comid: Number(sess.MComid) });
+    const res   = await CC.api(CC1.CustomerCardTypeSelect,null,{}, { Comid: Number(sess.Comid) });
     if (redirectIfDualLogin(res)) return;
     const items = Array.isArray(res.data) ? res.data : Array.isArray(res.Data1) ? res.Data1 : [];
     setCardPopup({ open:true, items, rowIdx, prefill: gridRef.current[rowIdx]?.[grdcustomercardtype] || "" });
-  }, [sess.MComid, redirectIfDualLogin]);
+  }, [sess.Comid, redirectIfDualLogin]);
 
   const openBranchPopup = useCallback(async (rowIdx) => {
     const res   = await CC.api(CC.BranchSelect, { Comid: Number(sess.Comid), MComid: Number(sess.MComid) });

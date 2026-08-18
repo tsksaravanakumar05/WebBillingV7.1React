@@ -349,7 +349,7 @@ const BASE_COLUMNS = [
   { key: "cdpercent",       label: "C.D(%)",        defaultWidth: 70,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
   { key: "cdAmount",        label: "C.D Amt",       defaultWidth: 75,  align: "right", editable: false, type: "num",   defaultVisible: true  },
   { key: "DiscountPercent", label: "Disc(%)",       defaultWidth: 65,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
-  { key: "DiscountAmt",     label: "Disc Amt",      defaultWidth: 75,  align: "right", editable: false, type: "num",   defaultVisible: true  },
+  { key: "DiscountAmt",     label: "Disc Amt",      defaultWidth: 75,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
   { key: "TaxPercent",      label: "GST(%)",        defaultWidth: 65,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
   { key: "TaxAmt",          label: "GST Amt",       defaultWidth: 75,  align: "right", editable: false, type: "num",   defaultVisible: true  },
   { key: "CESSPer",         label: "CESS(%)",       defaultWidth: 65,  align: "right", editable: true,  type: "num",   defaultVisible: false },
@@ -361,6 +361,7 @@ const BASE_COLUMNS = [
   { key: "LotNo",           label: "Lot No",        defaultWidth: 90,  align: "left",  editable: true,  type: "text",  defaultVisible: true,  modes: ["ARRIVAL", "PATTY", "SALESPATTY"] },
   { key: "Mark",            label: "Mark",          defaultWidth: 90,  align: "left",  editable: true,  type: "text",  defaultVisible: true,  modes: ["ARRIVAL", "PATTY", "SALESPATTY"] },
   { key: "Salerate",        label: "Sale Rate",     defaultWidth: 85,  align: "right", editable: true,  type: "num",   defaultVisible: true  },
+  { key: "WholeSalerate",   label: "Wholesale Rate", defaultWidth: 100, align: "right", editable: true, type: "num",   defaultVisible: false },
   { key: "BrandId",         label: "Brand",         defaultWidth: 100, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
   { key: "ModelId",         label: "Model",         defaultWidth: 100, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
   { key: "ColorId",         label: "Color",         defaultWidth: 100, align: "left",  editable: true,  type: "text",  defaultVisible: true  },
@@ -373,7 +374,7 @@ const makeDefaultColConfig = () =>
 
 // â”€â”€â”€ CALC_KEYS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CALC_KEYS = new Set([
-  "MRP", "PurchaseRate", "cdpercent", "DiscountPercent", "CESSPer", "SPLCESS",
+  "MRP", "PurchaseRate", "cdpercent", "DiscountPercent", "DiscountAmt", "CESSPer", "SPLCESS",
   "TaxPercent", "FreeQty", "TransPer", "ItemQty", "NomQty", "Salerate",
   "ProfitPer", "SaleDiscPer", "SaleGST", "Meter", "Pcs", "WholeSalerate",
 ]);
@@ -1396,7 +1397,7 @@ useEffect(() => {
   }, [sess.Comid, redirectIfDualLogin]);
 
   const loadSuppliers = useCallback(async () => {
-    const res = await CC.api(CC.SupplierList, null, {}, { Comid: sess.MComid, AccountType: "Supplier" });
+    const res = await CC.api(CC.SupplierList, null, {}, { Comid: CC.resolveSupplierComid(sess), AccountType: "Supplier" });
     if (redirectIfDualLogin(res)) return;
     if (Array.isArray(res)) setSupplierList(res);
     else setSupplierList(res?.data || res?.Data1 || []);
@@ -1838,6 +1839,15 @@ useEffect(() => {
         }
       }
       row[colKey] = value;
+      if (colKey === "DiscountAmt") {
+        const qty = valNum(row.ItemQty);
+        const enteredAmt = roundOff(valNum(row.PurchaseRate) * qty);
+        const cdAmt = roundOff(enteredAmt * (valNum(row.cdpercent) / 100));
+        const discountBase = Math.max(0, roundOff(enteredAmt - cdAmt));
+        const typedDiscAmt = Math.min(discountBase, Math.max(0, valNum(value)));
+        row.DiscountAmt = value;
+        row.DiscountPercent = discountBase > 0 ? fmt2((typedDiscAmt / discountBase) * 100) : "0.00";
+      }
 if (colKey === "MfgDate") {
   const expDays = valNum(row.Expirydays);
   if (value && expDays > 0) {
@@ -1858,7 +1868,7 @@ if (colKey === "MfgDate") {
       updated[idx] = row;
       return updated;
     });
-  }, [purRateInclusive]);
+  }, [purRateInclusive, calcRow]);
 
   const handleGridBlur = useCallback((rowKey, colKey, value) => {
     setGridRows((prev) => {
@@ -1890,6 +1900,16 @@ if (colKey === "MfgDate") {
           r.IncPurRate   = incPr;
           r.PurchaseRate = tax > 0 ? (incPr / (1 + tax / 100)).toFixed(2) : incPr.toFixed(2);
         }
+      }
+
+      if (colKey === "DiscountAmt") {
+        const qty = valNum(r.ItemQty);
+        const enteredAmt = roundOff(valNum(r.PurchaseRate) * qty);
+        const cdAmt = roundOff(enteredAmt * (valNum(r.cdpercent) / 100));
+        const discountBase = Math.max(0, roundOff(enteredAmt - cdAmt));
+        const typedDiscAmt = Math.min(discountBase, Math.max(0, valNum(r.DiscountAmt)));
+        r.DiscountAmt = fmt2(typedDiscAmt);
+        r.DiscountPercent = discountBase > 0 ? fmt2((typedDiscAmt / discountBase) * 100) : "0.00";
       }
 
       if (!BATCH_ID_KEYS.has(colKey) && CALC_KEYS.has(colKey)) {
@@ -2506,8 +2526,8 @@ const handleF5View = useCallback(async (objlist = {}) => {
       SerialNoStatus: i(r.SerialNoStatus), FreeQtyStatus: i(r.FreeQtyStatus),
       MrpStatus: i(r.MrpStatus), Narration: r.Narration || "",
       TextRefId: r.TextRefId || "",
-      SizeId: i(r.SizeId) || 0, BrandId: i(r.BrandId) || 0,
-      ModelId: i(r.ModelId) || 0, ColorId: i(r.ColorId) || 0,
+      SizeId: i(r.SizeId) || null, BrandId: i(r.BrandId) || null,
+      ModelId: i(r.ModelId) || null, ColorId: i(r.ColorId) || null,
       GengerId: i(r.GengerId) || 0, ToSizeId: i(r.ToSizeId) || 0,
     };
   }, [paidAmount]);
@@ -2940,6 +2960,16 @@ setPurchaseMode("PURCHASE");
           }
         }
 
+        if (colKey === "DiscountAmt") {
+          const qty = valNum(r.ItemQty);
+          const enteredAmt = roundOff(valNum(r.PurchaseRate) * qty);
+          const cdAmt = roundOff(enteredAmt * (valNum(r.cdpercent) / 100));
+          const discountBase = Math.max(0, roundOff(enteredAmt - cdAmt));
+          const typedDiscAmt = Math.min(discountBase, Math.max(0, valNum(r.DiscountAmt)));
+          r.DiscountAmt = fmt2(typedDiscAmt);
+          r.DiscountPercent = discountBase > 0 ? fmt2((typedDiscAmt / discountBase) * 100) : "0.00";
+        }
+
         if (!BATCH_ID_KEYS.has(colKey) && CALC_KEYS.has(colKey)) {
            r = calcRow(r);
         }
@@ -3279,6 +3309,10 @@ setPurchaseMode("PURCHASE");
       e.target.select?.();
       setSelectedCell({ rowKey: row._key, colKey: col.key });
     };
+    const onMouseUpSelect = (e) => {
+      e.preventDefault();
+      e.currentTarget.select?.();
+    };
 
     // ItemQty â€” Serial-No-wise billing lock (mirrors jQuery cellbeginedit block on grdItemQty
     // when SerialNoStatus == 1: direct typing is refused, quantity can only be set by entering
@@ -3327,7 +3361,7 @@ setPurchaseMode("PURCHASE");
           style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
           <input id={cellId} type="text" className="cell-input" value={row[col.key] ?? ""}
             onChange={(e) => handleCellChange(row._key, col.key, e.target.value)}
-            onFocus={onFocus} onKeyDown={(e) => handleGridKeyDown(e, row._key, col.key)} tabIndex={0}
+            onFocus={onFocus} onMouseUp={onMouseUpSelect} onKeyDown={(e) => handleGridKeyDown(e, row._key, col.key)} tabIndex={0}
             style={needsBatch ? { borderBottom: "2px solid var(--clr-danger)", background: "var(--clr-danger-bg)" } : (isFreeRow ? { background: "var(--clr-success-bg)" } : {})}
             title={needsBatch ? "Batch No required for this item" : ""}
           />
@@ -3394,6 +3428,7 @@ setPurchaseMode("PURCHASE");
             value={row[col.key] ?? ""}
             onChange={(e) => handleCellChange(row._key, col.key, e.target.value)}
             onFocus={onFocus}
+            onMouseUp={onMouseUpSelect}
             onBlur={(e) => {
               void handlePurchaseProductNameCommit(row._key, e.target.value);
             }}
@@ -3423,7 +3458,8 @@ setPurchaseMode("PURCHASE");
           style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}
           value={row[col.key] ?? ""}
           onChange={(e) => handleCellChange(row._key, col.key, e.target.value)}
-          onFocus={onFocus} onKeyDown={(e) => handleGridKeyDown(e, row._key, col.key)} tabIndex={0}
+          onBlur={(e) => handleGridBlur(row._key, col.key, e.target.value)}
+          onFocus={onFocus} onMouseUp={onMouseUpSelect} onKeyDown={(e) => handleGridKeyDown(e, row._key, col.key)} tabIndex={0}
         />
       </td>
     );
@@ -3551,7 +3587,24 @@ setPurchaseMode("PURCHASE");
       {/* â”€â”€ Serial Number Popup â”€â”€ */}
       {serialNoPopup.open && (
         <SerialNoPopup serialNoPopup={serialNoPopup} setSerialNoPopup={setSerialNoPopup}
-          serialNoList={serialNoList} setSerialNoList={setSerialNoList} setGridRows={setGridRows} gridRows={gridRows} calcRow={calcRow} />
+          serialNoList={serialNoList} setSerialNoList={setSerialNoList} setGridRows={setGridRows} gridRows={gridRows} calcRow={calcRow}
+          moveToNextCell={(rowKey, colKey) => {
+            const visibleEditableCols = orderedGridColumns.filter((c) => isColVisible(c) && c.editable);
+            const colIdx = visibleEditableCols.findIndex((c) => c.key === colKey);
+            if (colIdx === -1) return;
+
+            const nextCol = visibleEditableCols[colIdx + 1];
+            if (nextCol) {
+              focusCell(rowKey, nextCol.key);
+              return;
+            }
+
+            const rowIdx = gridRows.findIndex((r) => r._key === rowKey);
+            const firstCol = visibleEditableCols[0]?.key;
+            if (rowIdx !== -1 && rowIdx < gridRows.length - 1 && firstCol) {
+              focusCell(gridRows[rowIdx + 1]._key, firstCol);
+            }
+          }} />
       )}
 
       {/* â”€â”€ F12 Column Config â”€â”€ */}
@@ -4252,8 +4305,8 @@ function ItemCreatePopup({ itemCreatePopup, setItemCreatePopup, applyProductToRo
   );
 }
 
-// --- SerialNoPopup ------------------------------------------------------------
-function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSerialNoList, setGridRows, gridRows, calcRow }) {
+// ─── SerialNoPopup ────────────────────────────────────────────────────────────
+function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSerialNoList, setGridRows, gridRows, calcRow, moveToNextCell }) {
   const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
   const { rowKey, textRefId, returnColKey } = serialNoPopup;
   const [rows,  setRows ] = useState(() => serialNoPopup.list.length > 0 ? serialNoPopup.list.map((s) => ({ id: uid(), value: s.BatchNo })) : [{ id: uid(), value: "" }]);
@@ -4268,8 +4321,12 @@ function SerialNoPopup({ serialNoPopup, setSerialNoPopup, serialNoList, setSeria
 
   const restoreFocusToGrid = useCallback(() => {
     const col = returnColKey || "ItemQty";
+    if (typeof moveToNextCell === "function") {
+      setTimeout(() => moveToNextCell(rowKey, col), 60);
+      return;
+    }
     setTimeout(() => { const el = document.getElementById(`cell_${rowKey}_${col}`); if (el) { el.focus(); el.select?.(); } }, 60);
-  }, [rowKey, returnColKey]);
+  }, [moveToNextCell, rowKey, returnColKey]);
 
   const close = useCallback(() => {
     setGridRows((prev) => {

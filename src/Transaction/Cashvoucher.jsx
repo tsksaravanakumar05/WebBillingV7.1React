@@ -213,6 +213,12 @@ export default function CashVoucher() {
   const [f5List,     setF5List    ] = useState([]);
   const [f5SelIdx,   setF5SelIdx  ] = useState(null);
 
+  const handleQuit = useCallback(() => {
+    confirm("Do You Want To Quit Page?").then((ok) => {
+      if (ok) navigate("/dashboard");
+    });
+  }, [confirm, navigate]);
+
   // ── Account Name Lookup Popup (mirrors jQuery AccountNameWindow) ─────────────
   const [acctPopup, setAcctPopup] = useState({ open: false, rowKey: null, query: "", selIdx: 0 });
 
@@ -834,7 +840,7 @@ setLoading(true);
         }
         if (editPwdOpen) { setEditPwdOpen(false); return; }
         if (f5Open)      { setF5Open(false);      return; }
-        confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); });
+        handleQuit();
         return;
       }
     };
@@ -843,7 +849,7 @@ setLoading(true);
     return () => document.removeEventListener("keydown", handler);
   }, [
     isAuthorized, f5Open, acctPopup.open, editPwdOpen,
-    handleSave, handleClear, openF5View, printSelectedF5Row, confirm, navigate, focusCell,
+    handleSave, handleClear, openF5View, printSelectedF5Row, handleQuit, focusCell,
   ]);
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -870,7 +876,7 @@ setLoading(true);
               type="button"
               className="bm-close-x"
               aria-label="Close"
-              onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); })}
+              onClick={handleQuit}
             >
               ✕
             </button>
@@ -1037,7 +1043,7 @@ setLoading(true);
               </button>
               <button
                 className="mp-btn cn"
-                onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); })}
+                onClick={handleQuit}
                 disabled={loading}
               >
                 <XCircle size={16} />

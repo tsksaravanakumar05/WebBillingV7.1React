@@ -110,7 +110,7 @@ const Toggle = ({ value, onChange, onKeyDown, inputRef, idx, editMode }) => (
       const isCC  = !!main0.CommonCompany;
       const isAG  = com0.PCode_Auto===true||com0.PCode_Auto===1||com0.PCode_Auto==="1"||String(com0.PCode_Auto).toLowerCase()==="true";
       return {
-        Comid: isCC ? MComid : Comid, MComid, IdComList,
+        Comid: Comid || MComid || "0", MComid, IdComList,
         Tamil:!!main0.ProductNameTamil, CommonCompany:isCC,
         CommonCompanyDiffStock:!!main0.CommonCompanyDiffStock,
         SupplierMulitipleAllow:!!main0.SupplierMulitipleAllow,

@@ -144,7 +144,7 @@ export default function ModelMaster() {
       const IdComList = CC.getStr("IdComList") || Comid;
       const isCC      = !!main0.CommonCompany;
       return {
-        Comid:       isCC ? MComid : Comid,
+        Comid:       Comid || MComid || "0",
         MComid,
         IdComList,
         MirrorTable: Number(localStorage.getItem("MirrorTableOnline") || "0"),

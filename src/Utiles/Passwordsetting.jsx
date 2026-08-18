@@ -84,7 +84,7 @@ export default function PasswordSetting() {
       const MirrorTable = CC.getStr("MirrorTableOnline") || "0";
 
       return {
-        Comid:        main0.CommonCompany ? MComid : Comid,
+        Comid:        Comid || MComid || "0",
         MirrorTable,
         menudata,
       };

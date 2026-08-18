@@ -868,7 +868,9 @@ export default function CustomerReceipt() {
       const Comid       = CC.getStr("Comid")  ||"1";
       const MComid      = CC.getStr("MComid") ||Comid;
       const MirrorTable = CC.getStr("MirrorTableOnline")||"0";
+      const SupplierCommon         = main0.CustomerCommonCompany   ?? false;
       return {
+        CustomerCommonCompany: SupplierCommon,
         Comid, MComid, MirrorTable,
         ReceiptSMS:               comSet.ReceiptSMS              ?? false,
         PaymentBillWise:          main0.ReceiptBill              ?? false,
@@ -876,6 +878,7 @@ export default function CustomerReceipt() {
       };
     } catch { return { Comid:"1",MComid:"1",MirrorTable:"0",ReceiptSMS:false,PaymentBillWise:false,CustomerReceiptViewDialog:false }; }
   });
+  const customerComid = CC.resolveCustomerComid(sess);
 
   // ── Component state ──────────────────────────────────────────────────────
   const [grid,    setGrid   ] = useState([]);
@@ -967,16 +970,16 @@ export default function CustomerReceipt() {
 
   const loadCustomers = useCallback(async()=>{
     const res = await CC.api(CC.GetSupplierAll,null,{},
-      { Comid:Number(sess.Comid),AccountType:"CUSTOMER",Keyword:"",Column:"" });
+      { Comid:Number(customerComid),AccountType:"CUSTOMER",Keyword:"",Column:"" });
     if(redirectIfDualLogin(res)) return;
     setCustomers(Array.isArray(res?.data)?res.data:Array.isArray(res?.Data1)?res.Data1:[]);
-  },[sess.Comid,redirectIfDualLogin]);
+  },[customerComid,redirectIfDualLogin]);
 
   const loadSalesmen = useCallback(async()=>{
-    const res = await CC.api(CC.SalesManSelect,null,{},{ Comid:Number(sess.MComid) });
+    const res = await CC.api(CC.SalesManSelect,null,{},{ Comid:Number(customerComid) });
     if(redirectIfDualLogin(res)) return;
     setSalesmen(Array.isArray(res?.data)?res.data:Array.isArray(res?.Data1)?res.Data1:[]);
-  },[sess.MComid,redirectIfDualLogin]);
+  },[customerComid,redirectIfDualLogin]);
 
   const loadBanks = useCallback(async()=>{
     const res = await CC.api(CC.BankAllSelect,null,{},{ Comid:Number(sess.Comid) });

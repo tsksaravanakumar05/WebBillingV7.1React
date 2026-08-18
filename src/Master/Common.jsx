@@ -9,6 +9,15 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ─── 1. LOCAL-STORAGE HELPERS ─────────────────────────────────────────────────
 export const getStr   = (k) => localStorage.getItem(k) || "";
 export const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+export const getCompanyRefId = () => {
+  const raw = localStorage.getItem("CompanyRefId") || localStorage.getItem("Comid") || "0";
+  const num = parseInt(raw, 10);
+  return Number.isFinite(num) ? num : 0;
+};
+export const setCompanyRefId = (value) => {
+  const num = parseInt(value, 10);
+  localStorage.setItem("CompanyRefId", Number.isFinite(num) ? String(num) : "0");
+};
 
 const withRawIdComListHeader = (extraHeaders = {}) => {
   const headers = { ...extraHeaders };
@@ -18,14 +27,15 @@ const withRawIdComListHeader = (extraHeaders = {}) => {
   return headers;
 };
 
-
 export const BASE_URL = "http://localhost:44300";
 //export const BASE_URL = "https://billing.kassapos.co.in";
 
 
 
-//export const BASE_URL = "https://hobilling.kassapos.in";
 
+ //export const BASE_URL = "https://hobilling.kassapos.in";
+
+//export const BASE_URL = "http://localhost:64215";
 //export const BASE_URL = "http://localhost:64215";
 //<<<<<<< HEAD
 //https://billing.kassapos.co.in
@@ -201,6 +211,40 @@ export const preloadProductListsForSession = async (sessionLike, opts = {}) => {
     return acc;
   }, {});
 };
+
+const toBoolFlag = (value) => value === true || value === 1 || value === "1" || value === "true";
+const pickSessionComids = (sessionLike = {}) => {
+  const comid = String(sessionLike?.Comid || getStr("Comid") || "").trim();
+  const mcomid = String(sessionLike?.MComid || getStr("MComid") || comid).trim();
+  return { comid, mcomid };
+};
+
+export const resolveItemComid = (sessionLike = {}) => {
+  const { comid, mcomid } = pickSessionComids(sessionLike);
+  const useCommon = toBoolFlag(sessionLike?.CommonCompany ?? sessionLike?.Commoncompany ?? getStr("CommonCompany"));
+  return useCommon ? (mcomid || comid || "0") : (comid || mcomid || "0");
+};
+
+export const resolveSupplierComid = (sessionLike = {}) => {
+  const { comid, mcomid } = pickSessionComids(sessionLike);
+  const useCommon = toBoolFlag(sessionLike?.CommonCompany ?? sessionLike?.Commoncompany ?? getStr("CommonCompany"));
+  return useCommon ? (mcomid || comid || "0") : (comid || mcomid || "0");
+};
+
+export const resolveCustomerComid = (sessionLike = {}) => {
+  const { comid, mcomid } = pickSessionComids(sessionLike);
+  if (!sessionLike || typeof sessionLike !== "object") {
+    return comid || mcomid || "0";
+  }
+  const useCommon = toBoolFlag(
+    sessionLike?.CustomerCommonCompany ??
+    sessionLike?.ComCustomer ??
+    (getStr("CustomerCommonCompany") ||
+    getStr("SupplierCommon")
+    )
+  );
+  return useCommon ? (mcomid || comid || "0") : (comid || mcomid || "0");
+};
 // ─── 4. SESSION / COMPANY VARIABLES ──────────────────────────────────────────
 /**
  * Call once per page (inside useState initialiser).
@@ -216,7 +260,7 @@ export const buildSession = (pageName) => {
     const IdComList   = getStr("IdComList") || Comid;
     const MirrorTable = getStr("MirrorTableOnline") || "0";
     return {
-      Comid:    main0.CommonCompany ? MComid : Comid,
+      Comid:    Comid || MComid || "0",
       MComid,
       IdComList,
       MirrorTable,
