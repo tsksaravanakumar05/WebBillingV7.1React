@@ -2130,7 +2130,7 @@ if (colKey === "MfgDate") {
   SPLCESS:         fmt2(p.SPLCESS        || 0),
   SaleDiscPer:     fmt2(p.SaleDiscountPer|| 0),
   Expirydays:      fmt0(p.ExpiryDays     || 0),
-  StockQty:        fmt2(p.Stock          || 0),
+  StockQty:        fmt2(p.Stock ?? p.StockQty ?? prev[idx].StockQty ?? 0),
   Nstock:          fmt2(p.Nstock         || 0),
   SerialNoStatus:  p.SerialNoType    || 0,
   BatchStatus:     p.BatchwiseStock  || 0,
@@ -3430,7 +3430,11 @@ setPurchaseMode("PURCHASE");
             onFocus={onFocus}
             onMouseUp={onMouseUpSelect}
             onBlur={(e) => {
-              void handlePurchaseProductNameCommit(row._key, e.target.value);
+              const typedName = String(e.target.value || "").trim();
+              const currentName = String(row.ProductName || "").trim();
+              if (!row.ProductRefId || typedName !== currentName) {
+                void handlePurchaseProductNameCommit(row._key, typedName);
+              }
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === "Tab") {
