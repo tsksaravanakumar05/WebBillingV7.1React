@@ -107,13 +107,13 @@ export default function DC() {
     const menudata = menulist.filter((obj) => obj.PageName === "Quotation Report"); //Delivery Challan Report
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -153,9 +153,7 @@ export default function DC() {
       }
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -455,7 +453,7 @@ export default function DC() {
           <div className="dc-card">
             <div className="dc-card-header">
               <div className="dc-card-header-title">Delivery Challan Reports</div>
-              <button type="button" className="dc-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="dc-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="dc-card-body">

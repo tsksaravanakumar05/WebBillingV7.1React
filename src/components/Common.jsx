@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { isPageExitPrompt, navigateToDashboard } from "../utils/pageExit";
 
 // ─── 1. LOCAL-STORAGE HELPERS ─────────────────────────────────────────────────
 export const getStr   = (k) => localStorage.getItem(k) || "";
@@ -1094,6 +1095,11 @@ export function ConfirmModal({ title = "", message, onYes, onNo }) {
 export function useConfirm() {
   const [conf, setConf] = useState(null);
   const confirm = useCallback((payload) => new Promise((resolve) => {
+    if (isPageExitPrompt(payload)) {
+      navigateToDashboard();
+      resolve(false);
+      return;
+    }
     if (typeof payload === "string") {
       setConf({ title: "", message: payload, resolve });
       return;

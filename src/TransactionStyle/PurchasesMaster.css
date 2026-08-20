@@ -397,6 +397,11 @@
      font-family: var(--pm-font) !important;
      font-weight: 700 !important;
    }
+
+   .pur-grid .grid-cell.readonly.strong-readonly {
+     color: #000 !important;
+     font-weight: 700 !important;
+   }
    
    /* Delete row button */
    .del-row-btn {

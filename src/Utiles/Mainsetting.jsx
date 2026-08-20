@@ -204,13 +204,13 @@ export default function MainSetting() {
 
     // if (!menudata || menudata.length === 0) {
     //   alert("Page Access Permission Denied !!!.");
-    //   setTimeout(() => { navigate("/Home"); }, 3000);
+    //   setTimeout(() => { navigate("/dashboard"); }, 3000);
     //   return;
     // }
 
     // if (menudata[0].View === 0) {
     //   alert("Page Access Permission Denied !!!.");
-    //   setTimeout(() => { navigate("/Home"); }, 3000);
+    //   setTimeout(() => { navigate("/dashboard"); }, 3000);
     //   return;      
     // }
 
@@ -566,10 +566,9 @@ export default function MainSetting() {
   }, [form, sess, toast, confirm, redirectIfDualLogin]);
 
   // ── handleEsc ───────────────────────────────────────────────────────────────
-  const handleEsc = useCallback(async () => {
-  
-    navigate("/Dashboard");
-  }, [confirm, navigate]);
+  const handleEsc = useCallback(() => {
+    navigate("/dashboard");
+  }, [navigate]);
 
   // ── Global keyboard — F1 / Esc (mirrors jQuery $(document).on('keydown')) ──
   useEffect(() => {

@@ -93,13 +93,13 @@ export default function BankVoucherReport() {
     const menudata = menulist.filter((obj) => obj.PageName === "BankVoucherReport");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -161,9 +161,7 @@ export default function BankVoucherReport() {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -500,7 +498,7 @@ export default function BankVoucherReport() {
               <button
                 type="button"
                 className="so-card-close-btn"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate("/dashboard")}
                 aria-label="Close"
               >
                 <X size={16} />

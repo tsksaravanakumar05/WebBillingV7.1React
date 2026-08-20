@@ -115,12 +115,12 @@ export default function Company() {
     const menudata = menulist.filter((o) => o.PageName === "Company");
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     setPerm({
@@ -796,7 +796,7 @@ export default function Company() {
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/Home"); });
+        confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); });
         return;
       }
     };
@@ -833,7 +833,7 @@ export default function Company() {
               type="button"
               className="bm-close-x"
               aria-label="Close"
-              onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/Home"); })}
+              onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); })}
             >
               ✕
             </button>
@@ -1011,7 +1011,7 @@ export default function Company() {
               </button> */}
               <button
                 className="mp-btn cn"
-                onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/Home"); })}
+                onClick={() => confirm("Do You Want To Quit Page?").then((ok) => { if (ok) navigate("/dashboard"); })}
                 disabled={loading}
               >
                 <XCircle size={16} />

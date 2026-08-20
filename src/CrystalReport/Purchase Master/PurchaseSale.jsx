@@ -294,7 +294,7 @@ export default function PurchaseSale() {
     const menudata = menulist.filter((obj) => obj.PageName === "Purchase Sale Report");
     if (!menudata || menudata.length === 0 || menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Login/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -350,9 +350,7 @@ export default function PurchaseSale() {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);

@@ -508,7 +508,7 @@ export default function Purchase() {
 
     if ((!menudata || menudata.length === 0) || menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -3252,8 +3252,9 @@ if (savedArrivalType) {
     const isFreeRow  = valNum(row.FreeQtyStatus) === 1;
 
     if (!col.editable) {
+      const isStrongReadonly = col.key === "StockQty" || col.key === "LandingCost" || col.key === "Amount";
       return (
-        <td key={col.key} className={`grid-cell readonly ${col.align === "right" ? "right" : ""} ${isFreeRow ? "free-product-row" : ""}`}
+        <td key={col.key} className={`grid-cell readonly ${isStrongReadonly ? "strong-readonly" : ""} ${col.align === "right" ? "right" : ""} ${isFreeRow ? "free-product-row" : ""}`}
           style={isFreeRow ? { background: "var(--clr-success-bg)" } : undefined}>
           {row[col.key] ?? ""}
         </td>
@@ -3385,7 +3386,11 @@ if (savedArrivalType) {
             onFocus={onFocus}
             onMouseUp={onMouseUpSelect}
             onBlur={(e) => {
-              void handlePurchaseProductNameCommit(row._key, e.target.value);
+              // Leaving an already-selected description must not re-apply the
+              // product, because that also resets stock and advances focus.
+              if (!row.ProductRefId) {
+                void handlePurchaseProductNameCommit(row._key, e.target.value);
+              }
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === "Tab") {

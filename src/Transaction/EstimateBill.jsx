@@ -1170,7 +1170,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
     if (!menudata || menudata.length === 0) menudata = menulist.filter(o => o.PageName === "Billing-POS");
     if (!menudata || menudata.length === 0 || menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!");
-      setTimeout(() => navigate("/Home"), 3000); return;
+      setTimeout(() => navigate("/dashboard"), 3000); return;
     }
     setPerm({ View: menudata[0].View, Add: menudata[0].Add, Edit: menudata[0].Edit, Delete: menudata[0].Delete });
     setIsAuthorized(true);

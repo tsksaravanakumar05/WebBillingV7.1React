@@ -8,7 +8,7 @@ import React, {
 import Topbar from "../components/Topbar";
 import { Eye, RefreshCw, XCircle } from "lucide-react";
 import '../Menumastersetting.css';
-import { useToast, useConfirm, ToastList, SelectMenuMaster, UpdateMenuMaster, api, insertapi } from "../components/Common";
+import { useToast, ToastList, SelectMenuMaster, UpdateMenuMaster, api, insertapi } from "../components/Common";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const MENU_TYPES = [
@@ -31,50 +31,6 @@ function AlertModal({ open, message, onClose }) {
         <p>{message}</p>
         <div className="mp-modal-btns">
           <button className="mp-modal-btn yes" onClick={onClose}>OK</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── PasswordModal ──────────────────────────────────────────────────────────
-function PasswordModal({ open, onConfirm, onCancel, busy }) {
-  const inputRef = useRef(null);
-  const [password, setPassword] = useState("");
-
-  useEffect(() => {
-    if (open) {
-      setPassword("");
-      const t = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
-  if (!open) return null;
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") { e.preventDefault(); onConfirm(password); }
-    else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
-  };
-
-  return (
-    <div className="mp-ov" style={{ zIndex: 99999 }}>
-      <div className="mp-modal-box" style={{ width: 280, padding: "20px 24px" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#1f65de" }}>🔐 Password Verification</div>
-        <input
-          ref={inputRef}
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={handleKeyDown}
-          style={{ width: "100%", padding: "6px 10px", border: "1px solid #c5d8f8", borderRadius: 4, fontSize: 13, marginBottom: 14, outline: "none" }}
-          placeholder="Enter password…"
-          disabled={busy}
-          autoComplete="off"
-        />
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button className="mp-btn" onClick={onCancel} disabled={busy}>Cancel</button>
-          <button className="mp-btn sv" onClick={() => onConfirm(password)} disabled={busy}>Verify</button>
         </div>
       </div>
     </div>
@@ -246,19 +202,10 @@ export default function Menumastersetting() {
     [pushToastRaw]
   );
 
-  const { confirm: showConfirmCommon, ConfirmUI } = useConfirm();
-  const showConfirm = useCallback(
-    (message) => showConfirmCommon(message).then((ok) => (ok ? "Yes" : "No")),
-    [showConfirmCommon]
-  );
-
   const [alertState, setAlertState] = useState({ open: false, message: "" });
   const showAlert = useCallback((message) => setAlertState({ open: true, message }), []);
 
   const [contextMenu, setContextMenu] = useState({ open: false, x: 0, y: 0, node: null });
-
-  const [pwdModal, setPwdModal] = useState({ open: false, pendingNode: null, pendingStatus: null });
-  const [pwdBusy,  setPwdBusy]  = useState(false);
 
   const [viewPopup, setViewPopup] = useState({ open: false, item: null });
   const [searchTerm, setSearchTerm] = useState("");
@@ -384,46 +331,20 @@ export default function Menumastersetting() {
   }, []);
 
   // ── Context menu handlers ─────────────────────────────────────────────
-  const handleContextMenuToggle = useCallback(() => {
+  const handleContextMenuToggle = useCallback(async () => {
     const node = contextMenu.node;
     setContextMenu((s) => ({ ...s, open: false }));
     if (!node) return;
-    // pendingStatus: toggle current visibility
     const newStatus = node.checked ? 0 : 1;
-    setPwdModal({ open: true, pendingNode: node, pendingStatus: newStatus });
-  }, [contextMenu.node]);
-
-  // ── Password confirm: pass full node + newStatus to updateMenuSetting ─
-  const handlePasswordConfirm = useCallback(
-    async (password) => {
-      if (!password) { showAlert("Password is required!!!"); return; }
-      setPwdBusy(true);
-      try {
-        const { pendingNode, pendingStatus } = pwdModal;
-
-        // ✅ FIX: pass the full node object and the new status
-        const success = await updateMenuSetting(pendingNode, pendingStatus);
-
-        if (success) {
-          applyVisibilityToggle(pendingNode.id, pendingStatus === 1);
-          setSelectedNode((prev) =>
-            prev?.id === pendingNode.id
-              ? { ...prev, checked: pendingStatus === 1, PageView: pendingStatus }
-              : prev
-          );
-        }
-        setPwdModal({ open: false, pendingNode: null, pendingStatus: null });
-      } finally {
-        setPwdBusy(false);
-      }
-    },
-    [pwdModal, updateMenuSetting, applyVisibilityToggle, showAlert]
-  );
-
-  const handlePasswordCancel = useCallback(
-    () => setPwdModal({ open: false, pendingNode: null, pendingStatus: null }),
-    []
-  );
+    const success = await updateMenuSetting(node, newStatus);
+    if (!success) return;
+    applyVisibilityToggle(node.id, newStatus === 1);
+    setSelectedNode((prev) =>
+      prev?.id === node.id
+        ? { ...prev, checked: newStatus === 1, PageView: newStatus }
+        : prev
+    );
+  }, [contextMenu.node, updateMenuSetting, applyVisibilityToggle]);
 
   // ── Tree interaction handlers ─────────────────────────────────────────
   const handleSelectNode = useCallback((node) => setSelectedNode(node), []);
@@ -453,8 +374,6 @@ export default function Menumastersetting() {
   );
 
   const refreshPage  = useCallback(() => loadTree(selectedType), [loadTree, selectedType]);
-  const navigateHome = useCallback(() => window.open("/Home", "_self"), []);
-
   // ── Suppress browser context menu inside the tree ─────────────────────
   useEffect(() => {
     const handler = (e) => {
@@ -465,10 +384,9 @@ export default function Menumastersetting() {
   }, []);
 
   // ── Quit page — mirrors original Escape-key handler logic ─────────────
-  const handleQuit = useCallback(async () => {
-    const reply = await showConfirm("Do You Want To Quit Page?");
-    if (reply === "Yes") window.location.href = "/Home";
-  }, [showConfirm]);
+  const handleQuit = useCallback(() => {
+    window.location.href = "/#/dashboard";
+  }, []);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────
   useEffect(() => {
@@ -618,7 +536,6 @@ export default function Menumastersetting() {
         message={alertState.message}
         onClose={() => setAlertState({ open: false, message: "" })}
       />
-      {ConfirmUI}
       <ContextMenu
         open={contextMenu.open}
         x={contextMenu.x}
@@ -626,12 +543,6 @@ export default function Menumastersetting() {
         currentlyVisible={!!contextMenu.node?.checked}
         onToggleVisible={handleContextMenuToggle}
         onClose={closeContextMenu}
-      />
-      <PasswordModal
-        open={pwdModal.open}
-        busy={pwdBusy}
-        onConfirm={handlePasswordConfirm}
-        onCancel={handlePasswordCancel}
       />
       <ViewPopup
         open={viewPopup.open}

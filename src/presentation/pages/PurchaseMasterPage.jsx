@@ -1316,10 +1316,7 @@ export  default function PurchaseMasterPage() {
         if (showGridReorder)  { setShowGridReorder(false); return; }
         if (showF5)           { setShowF5(false); return; }
         if (confirmDlg)       { setConfirmDlg(null); return; }
-        setConfirmDlg({
-          msg: 'Do you want to quit?',
-          onYes: () => { window.location.href = '/Home'; },
-        });
+        window.location.href = '/#/dashboard';
         return;
       }
 

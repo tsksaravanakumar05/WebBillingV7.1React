@@ -466,10 +466,9 @@ const payload = dirty.map(r => ({
   }, [grid, sess, perm, loadData, gridemptycheck, hasDuplicateUser, addRow, toast, confirm]);
 
   // ── Keyboard events — mirrors jQuery $(document).on('keydown') ────────────
-  const handleEsc = useCallback(async () => {
-    const ok = await confirm("Do You Want To Quit Page?");
-    if (ok) navigate(-1);
-  }, [confirm, navigate]);
+  const handleEsc = useCallback(() => {
+    navigate("/dashboard");
+  }, [navigate]);
 
   useEffect(() => {
     const onKey = async (e) => {

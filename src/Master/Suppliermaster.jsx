@@ -847,7 +847,7 @@ if (redirectIfDualLogin(res)) return;
       });
       return;
     }
-    navigate("/Home");
+    navigate("/dashboard");
   }, [navigate, quickCreateState]);
 const handleFilterSearch = useCallback((e) => {
   if (e.key === "Enter" && filterSearch.trim()) {

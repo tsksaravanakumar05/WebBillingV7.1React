@@ -951,11 +951,11 @@ export default function CustomerReceipt() {
     const menudata = menulist.filter(o=>o.PageName==="Customer Receipt");
     if(!menudata||menudata.length===0){
       alert("Page Access Permission Denied !!!.");
-      setTimeout(()=>navigate("/Home"),3000); return;
+      setTimeout(()=>navigate("/dashboard"),3000); return;
     }
     if(menudata[0].View===0){
       alert("Page Access Permission Denied !!!.");
-      navigate("/Home"); return;
+      navigate("/dashboard"); return;
     }
     const p={ View:menudata[0].View,Add:menudata[0].Add,Edit:menudata[0].Edit,Delete:menudata[0].Delete };
     setPerm(p); permRef.current=p;
@@ -1607,7 +1607,7 @@ if(type==="toggle") {
         if(bankPopup.open) { setBankPopup({open:false,rowIdx:null,prefill:""}); return; }
         if(f5Open)         { setF5Open(false); return; }
         if(f12Open)        { setF12Open(false); return; }
-        confirm("Do You Want To Quit Page?").then(ok=>{ if(ok) navigate("/Home"); });
+        confirm("Do You Want To Quit Page?").then(ok=>{ if(ok) navigate("/dashboard"); });
         return;
       }
       if(anyPopupOpen()) return;
@@ -1842,7 +1842,7 @@ if(type==="toggle") {
     <Settings size={16} color="#fff" strokeWidth={2.5} /> F12 Columns
   </button>
 
-  <button className="mp-btn cn" onClick={()=>confirm("Do You Want To Quit Page?").then(ok=>{ if(ok) navigate("/Home"); })}>
+  <button className="mp-btn cn" onClick={()=>confirm("Do You Want To Quit Page?").then(ok=>{ if(ok) navigate("/dashboard"); })}>
     <X size={16} color="#fff" strokeWidth={2.5} /> Esc Quit
   </button>
 </div>

@@ -127,13 +127,13 @@ export default function SupplierPayments() {
     const menudata = menulist.filter((obj) => obj.PageName === "Supplier Payments");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -162,9 +162,7 @@ export default function SupplierPayments() {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/dashboard");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -508,7 +506,7 @@ export default function SupplierPayments() {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">Supplier Payments</div>
-              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="so-card-body">

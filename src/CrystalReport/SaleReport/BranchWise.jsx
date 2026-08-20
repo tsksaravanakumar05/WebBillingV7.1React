@@ -360,7 +360,7 @@ export default function BranchWise() {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">Branch Wise Report</div>
-              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="so-card-body">

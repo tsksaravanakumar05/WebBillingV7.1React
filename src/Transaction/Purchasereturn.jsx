@@ -358,12 +358,12 @@ export default function PurchaseReturn() {
     const menudata = menulist.filter((o) => o.PageName === "Purchase Return");
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     setPerm({
@@ -2299,7 +2299,7 @@ const res = await CC.insertapi(
         if (ctrlGOpen)   { setCtrlGOpen(false);    return; }
         if (focusFormColOpen) { setFocusFormColOpen(false); return; }
         if (editPwdOpen) { setEditPwdOpen(false);  return; }
-        confirm("Do You Want To Quit?").then((ok) => { if (ok) navigate("/Home"); });
+        confirm("Do You Want To Quit?").then((ok) => { if (ok) navigate("/dashboard"); });
         return;
       }
     };

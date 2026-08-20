@@ -167,12 +167,12 @@ export default function RepackingMaster() {
     // Permission check (mirrors jQuery menulist check)
     if (!sess.menudata || sess.menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     if (perm.View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -858,8 +858,7 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
         if (pwdOpen) { setPwdOpen(false); return; }
         if (pickerOpen) { setPickerOpen(false); return; }
         if (f5Open) { setF5Open(false); return; }
-        const ok = await confirm("Do You Want To Quit?");
-        if (ok) navigate("/Home");
+        navigate("/dashboard");
         return;
       }
     };
@@ -1239,10 +1238,7 @@ const fillRepackingDetails = useCallback(async (Pid, PNo) => {
               type="button"
               className="bm-close-x"
               aria-label="Close"
-              onClick={async () => {
-                const ok = await confirm("Do You Want To Quit?");
-                if (ok) navigate("/Home");
-              }}
+              onClick={() => navigate("/dashboard")}
             >✕</button>
           </div>
 

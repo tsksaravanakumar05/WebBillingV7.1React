@@ -171,7 +171,7 @@ export default function CardMaster() {
     const menudata = menulist.filter(o => o.PageName === "Card Master");
     if (!menudata.length || menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     setPerm({

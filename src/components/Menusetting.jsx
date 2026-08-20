@@ -345,6 +345,7 @@ function MenuNode({ item, depth = 0, onLinkClick }) {
 export default function MenuSettings() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
+  const CompanyName = localStorage.getItem("CompanyName");
 
   useEffect(() => {
     document.title = "Home-Kassapos";
@@ -417,7 +418,7 @@ export default function MenuSettings() {
             <div className="ms-brand-logo">K</div>
             <div className="ms-brand-text">
               <span className="ms-brand-name">
-                KASSA <strong>BM</strong>
+              <strong>  { CompanyName || "KASSA" }</strong>
               </span>
               <span className="ms-brand-sub">Admin Panel</span>
             </div>

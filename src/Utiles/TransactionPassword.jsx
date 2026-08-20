@@ -185,10 +185,9 @@ export default function TransactionMaster() {
   }, [grid, sess, perm, gridemptycheck, confirm, toast, loadData]);
 
   // ── handleEsc ─────────────────────────────────────────────────────────────────
-  const handleEsc = useCallback(async () => {
-    const ok = await confirm("Do You Want To Quit Page?");
-    if (ok) navigate("/Home");
-  }, [confirm, navigate]);
+  const handleEsc = useCallback(() => {
+    navigate("/dashboard");
+  }, [navigate]);
 
   // ── openPwdModal ──────────────────────────────────────────────────────────────
   // Mirrors jQuery EditPasswordWindow(type)
@@ -245,12 +244,12 @@ export default function TransactionMaster() {
   useEffect(() => {
     if (!sess.menudata.length) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     if (perm.View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     openPwdModal(1);

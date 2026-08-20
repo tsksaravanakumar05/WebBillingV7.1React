@@ -1001,10 +1001,19 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
 
   const loadColCfg = useCallback(async (comid) => {
     try {
-      const res = await fetch(`Content/Appdata/Visible/${comid}/StockInward.json?v=${Date.now()}`, { headers: CC.authHeaders() });
+      const res = await fetch(
+        CC.BASE_URL + `${CC.GetFocusColumnsUrl}?comid=${comid}&filename=StockInward`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...CC.authHeaders(),
+          },
+        }
+      );
       if (!res.ok) return;
       const data = await res.json();
-      if (!Array.isArray(data)) return;
+      if (!Array.isArray(data) || data.length === 0) return;
       setColSettings(prev => prev.map(col => {
         const s = data.find(x => x.column === col.key);
         return s ? { ...col, visible: s.Visible === true, width: Number(s.Width) || col.width } : col;
@@ -1147,7 +1156,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
     const menudata = menulist.filter(o => o.PageName === "Stock Inward/Outward/Transfer");
     if (!menudata.length || menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     setPerm({ View: menudata[0].View, Add: menudata[0].Add, Edit: menudata[0].Edit, Delete: menudata[0].Delete });

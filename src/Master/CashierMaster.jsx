@@ -155,14 +155,14 @@ const COLS = ALL_COLUMNS.map(c => c.field);
     // 2. Check if page exists in user's menu
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
     // 3. Check if View permission is 0
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 

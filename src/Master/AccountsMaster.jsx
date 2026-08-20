@@ -279,12 +279,12 @@ export default function AccountsMaster() {
     const menudata = menulist.filter(obj => obj.PageName === "Accounts Master");
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 

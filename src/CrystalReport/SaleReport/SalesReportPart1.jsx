@@ -182,6 +182,11 @@ const buildLocationOption = (row, i) => {
   const label = row.LocationName ?? row.Name ?? row.name ?? row.label ?? String(value);
   return { value: String(value), label: String(label) };
 };
+const buildSaleTypeOption = (row, i) => {
+  const value = row.Saletype ?? row.SaleType ?? row.CardType ?? row.value ?? row.Id ?? String(i);
+  const label = row.CardType ?? row.Saletype ?? row.SaleType ?? row.label ?? row.Name ?? value;
+  return { value: String(value), label: String(label) };
+};
 
 // ─── Per-report-type UI configuration ────────────────────────────────────────
 // Mirrors every $(...).show()/.hide()/.jqxRadioButton({disabled}) call inside
@@ -373,12 +378,12 @@ export default function SaleReportPart1() {
     const menudata = menulist.filter((obj) => obj.PageName === "Sales Report Part1");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -470,7 +475,7 @@ export default function SaleReportPart1() {
         }
   
         if (saleTypeRes.status === "fulfilled") {
-          setSaleTypeList(dedupeOptions(extractList(saleTypeRes.value).map(toOption)));
+          setSaleTypeList(dedupeOptions(extractList(saleTypeRes.value).map(buildSaleTypeOption)));
         }
       } catch (e) {
         console.error("Combo load error:", e);
@@ -493,9 +498,7 @@ export default function SaleReportPart1() {
       }
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -1602,7 +1605,7 @@ else if (reportType === REPORT_TYPES.HOURLY_PROFIT) {
               <button
                 type="button"
                 className="sr-card-close-btn"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate("/dashboard")}
                 aria-label="Close"
               >
                 <X size={16} />

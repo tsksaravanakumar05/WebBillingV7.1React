@@ -98,13 +98,13 @@ export default function SaleOrder() {
     const menudata = menulist.filter((obj) => obj.PageName === "Sale Order Report");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -144,9 +144,7 @@ export default function SaleOrder() {
       }
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -462,7 +460,7 @@ if (res.ok || res.IsSuccess) {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">Sale Order Reports</div>
-              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="so-card-body">

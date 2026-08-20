@@ -90,13 +90,13 @@ export default function CRMPointsMaster() {
 
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
@@ -403,7 +403,7 @@ export default function CRMPointsMaster() {
   // ── handleEsc ──────────────────────────────────────────────────────────────
   const handleEsc = useCallback(async () => {
     const ok = await confirm("Do You Want To Quit Page?");
-    if (ok) navigate("/Home");
+    if (ok) navigate("/dashboard");
   }, [confirm, navigate]);
 
   // ── Global keyboard shortcuts ──────────────────────────────────────────────

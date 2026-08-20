@@ -101,13 +101,13 @@ export default function Quotation() {
     const menudata = menulist.filter((obj) => obj.PageName === "Quotation Report");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -148,9 +148,7 @@ export default function Quotation() {
       }
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -535,7 +533,7 @@ else if (reportType === REPORT_TYPES.ITEMWISE) {
           <div className="qt-card">
             <div className="qt-card-header">
               <div className="qt-card-header-title">Quotation Reports</div>
-              <button type="button" className="qt-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="qt-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="qt-card-body">

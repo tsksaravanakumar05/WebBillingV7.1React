@@ -132,13 +132,13 @@ export default function LedgerStatment() {
     const menudata = menulist.filter((obj) => obj.PageName === "Ledger Statement");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Login/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
   
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Login/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -243,9 +243,7 @@ export default function LedgerStatment() {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -422,7 +420,7 @@ export default function LedgerStatment() {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">Ledger Statement Report</div>
-              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="so-card-body">

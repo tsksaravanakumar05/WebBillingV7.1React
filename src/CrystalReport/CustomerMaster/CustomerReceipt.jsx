@@ -125,7 +125,7 @@ export default function CustomerReceipt() {
     const menudata = menulist.filter((obj) => obj.PageName === "Customer Receipts");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -156,9 +156,7 @@ export default function CustomerReceipt() {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -600,7 +598,7 @@ Salesmanwise: Salesmanwise ? "true" : "false",
           <div className="cr-card">
             <div className="cr-card-header">
               <div className="cr-card-header-title">Customer Receipts</div>
-              <button type="button" className="cr-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="cr-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="cr-card-body">

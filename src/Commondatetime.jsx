@@ -44,31 +44,47 @@ export default function DateFieldDDMMYYYY({ id, value, onChange, disabled,}) {
     const handleDayChange = (e) => {
       const v = e.target.value.replace(/\D/g, "").slice(0, 2);
       setDay(v);
-      // Auto-advance to Month once 2 digits are entered, or immediately if a
-      // single digit can only be a one-digit day (4-9, since 40-99 is invalid).
-      if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 3)) {
-        const padded = v.padStart(2, "0");
-        setDay(padded);
-        commitIfValid(padded, month, year);
+      if (v.length === 2) {
+        commitIfValid(v, month, year);
         monthRef.current?.focus();
         monthRef.current?.select();
-      } else {
-        commitIfValid(v, month, year);
       }
+    };
+
+    const handleDayBlur = (e) => {
+      const currentDay = e.currentTarget.value.replace(/\D/g, "").slice(0, 2);
+      if (!currentDay) {
+        setDay(parseIsoDate(value).d);
+        return;
+      }
+      const padded = pad2(parseInt(currentDay, 10));
+      setDay(padded);
+      commitIfValid(padded, month, year);
     };
   
     const handleMonthChange = (e) => {
       const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+      if (v.length === 2) {
+        const monthNumber = parseInt(v, 10);
+        if (monthNumber < 1 || monthNumber > 12) return;
+      }
       setMonth(v);
-      if (v.length === 2 || (v.length === 1 && parseInt(v, 10) > 1)) {
-        const padded = v.padStart(2, "0");
-        setMonth(padded);
-        commitIfValid(day, padded, year);
+      if (v.length === 2) {
+        commitIfValid(day, v, year);
         yearRef.current?.focus();
         yearRef.current?.select();
-      } else {
-        commitIfValid(day, v, year);
       }
+    };
+
+    const handleMonthBlur = (e) => {
+      const currentMonth = e.currentTarget.value.replace(/\D/g, "").slice(0, 2);
+      if (!currentMonth) {
+        setMonth(parseIsoDate(value).m);
+        return;
+      }
+      const padded = pad2(parseInt(currentMonth, 10));
+      setMonth(padded);
+      commitIfValid(day, padded, year);
     };
   
     const handleYearChange = (e) => {
@@ -150,6 +166,7 @@ export default function DateFieldDDMMYYYY({ id, value, onChange, disabled,}) {
             value={day}
             disabled={disabled}
             onChange={handleDayChange}
+            onBlur={handleDayBlur}
             onKeyDown={handleSegmentKeyDown("day")}
             onFocus={(e) => e.target.select()}
           />
@@ -165,6 +182,7 @@ export default function DateFieldDDMMYYYY({ id, value, onChange, disabled,}) {
             value={month}
             disabled={disabled}
             onChange={handleMonthChange}
+            onBlur={handleMonthBlur}
             onKeyDown={handleSegmentKeyDown("month")}
             onFocus={(e) => e.target.select()}
           />

@@ -20,6 +20,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { isPageExitPrompt, navigateToDashboard } from "../utils/pageExit";
 
 // ─── Shared pop-in animation (injected once per page load) ────────────────────
 if (typeof document !== "undefined" && !document.getElementById("msgPopInStyle")) {
@@ -121,7 +122,13 @@ export function useConfirm() {
   const [conf, setConf] = useState(null);
 
   const confirm = useCallback(
-    (message) => new Promise((resolve) => setConf({ message, resolve })),
+    (message) => {
+      if (isPageExitPrompt(message)) {
+        navigateToDashboard();
+        return Promise.resolve(false);
+      }
+      return new Promise((resolve) => setConf({ message, resolve }));
+    },
     []
   );
 

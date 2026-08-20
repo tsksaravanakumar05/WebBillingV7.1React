@@ -572,7 +572,7 @@ export default function CustomerWiseSaleRate() {
         e.preventDefault();
         if (showTrip) { setShowTrip(false); return; }
         if (showPicker) { setShowPicker(false); return; }
-        showConfirm("Do You Want To Quit Page?", () => { window.location.href = "/Home"; });
+        window.location.href = "/#/dashboard";
       }
     }
     document.addEventListener("keydown", onKeyDown);
@@ -917,7 +917,7 @@ function handleSave() {
               type="button"
               className="bm-close-x"
               aria-label="Close"
-              onClick={() => showConfirm("Do You Want To Quit Page?", () => { window.location.href = "/Home"; })}
+              onClick={() => { window.location.href = "/#/dashboard"; }}
             >
               ✕
             </button>
