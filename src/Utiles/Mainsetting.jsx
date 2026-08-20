@@ -217,8 +217,8 @@ export default function MainSetting() {
     setPerm({
       View:   1,
       Add:    1,
-      Edit:   1,  
-      Delete: 1 ,
+      Edit:   1,
+      Delete: 1,
     });
     setIsAuthorized(true);
   }, [navigate]);
@@ -566,9 +566,10 @@ export default function MainSetting() {
   }, [form, sess, toast, confirm, redirectIfDualLogin]);
 
   // ── handleEsc ───────────────────────────────────────────────────────────────
-  const handleEsc = useCallback(() => {
-    navigate("/dashboard");
-  }, [navigate]);
+  const handleEsc = useCallback(async () => {
+  
+    navigate("/Dashboard");
+  }, [confirm, navigate]);
 
   // ── Global keyboard — F1 / Esc (mirrors jQuery $(document).on('keydown')) ──
   useEffect(() => {
