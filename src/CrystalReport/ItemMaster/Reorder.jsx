@@ -248,14 +248,14 @@ export default function Reorder() {
     const menudata = menulist.filter((obj) => obj.PageName === "Reorder Level List");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      // Legacy redirects to "/Home" (not "/Login/Home") for this screen.
-      setTimeout(() => navigate("/Home"), 3000);
+      // Legacy redirects to "/dashboard" (not "/dashboard") for this screen.
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -340,15 +340,13 @@ export default function Reorder() {
 
   // Esc-to-quit is not present in Reorder.js itself, but is the same shared
   // app-chrome behavior BankBook.jsx uses (not report-specific business
-  // logic), so it's carried over here — pointed at "/Home" to match this
-  // screen's own permission-denied target rather than BankBook's "/Login/Home".
+  // logic), so it's carried over here — pointed at "/dashboard" to match this
+  // screen's own permission-denied target rather than BankBook's "/dashboard".
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -578,7 +576,7 @@ export default function Reorder() {
           <div className="so-card so-card-wide">
             <div className="so-card-header">
               <div className="so-card-header-title">Stock ▸ Reorder Level List</div>
-              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="so-card-body">

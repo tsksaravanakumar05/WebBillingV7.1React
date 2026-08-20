@@ -65,6 +65,8 @@ import Qutation from "./Transaction/Qutation.jsx";
 import Purchaseorder from "./Transaction/Purchaseorder";
 import Sales from "./Transaction/SaleBill";
 import StockAdjustment from "./Transaction/StockAdjustment";
+import DayClose from "./Transaction/DayClose";
+import TripMaster from "./Transaction/TripMaster";
 // UTILS
 import PasswordSetting from "./Utiles/Passwordsetting";
 import TransactionPassword from "./Utiles/TransactionPassword";
@@ -237,6 +239,8 @@ function App() {
         <Route path="/Purchaseorder" element={<Purchaseorder />} />
         <Route path="/StockAdjustment" element={<StockAdjustment />} />
         <Route path="/Company" element={<Company />} />
+        <Route path="/DayClose" element={<DayClose />} />
+        <Route path="/Trip" element={<TripMaster />} />
 
         
         {/* Reports */}

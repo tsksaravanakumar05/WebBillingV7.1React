@@ -58,13 +58,13 @@ export default function Menucontrol() {
 
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
@@ -261,10 +261,9 @@ export default function Menucontrol() {
   }, [grid, selHeadingId, sess.Comid, confirm, toast, Clear]);
 
   // ── Esc — quit page, mirrors keydown Esc handler ──────────────────────────
-  const handleEsc = useCallback(async () => {
-    const proceed = await confirm("Do You Want To Quit Page?");
-    if (proceed) navigate("/Home");
-  }, [confirm, navigate]);
+  const handleEsc = useCallback(() => {
+    navigate("/dashboard");
+  }, [navigate]);
 
   // ── Global keyboard shortcuts: F1 = Save | Esc = Quit ─────────────────────
   useEffect(() => {

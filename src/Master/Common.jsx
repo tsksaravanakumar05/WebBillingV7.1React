@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { isPageExitPrompt, navigateToDashboard } from "../utils/pageExit";
 
 // ─── 1. LOCAL-STORAGE HELPERS ─────────────────────────────────────────────────
 export const getStr   = (k) => localStorage.getItem(k) || "";
@@ -27,14 +28,15 @@ const withRawIdComListHeader = (extraHeaders = {}) => {
   return headers;
 };
 
-//export const BASE_URL = "http://localhost:64215";
+export const BASE_URL = "http://localhost:44300";
 //export const BASE_URL = "https://billing.kassapos.co.in";
 
 
 
 
- export const BASE_URL = "https://hobilling.kassapos.in";
+ //export const BASE_URL = "https://hobilling.kassapos.in";
 
+//export const BASE_URL = "http://localhost:64215";
 //export const BASE_URL = "http://localhost:64215";
 //<<<<<<< HEAD
 //https://billing.kassapos.co.in
@@ -508,7 +510,13 @@ export function ConfirmModal({ message, onYes, onNo }) {
 
 export function useConfirm() {
   const [conf, setConf] = useState(null);
-  const confirm   = useCallback((message) => new Promise((resolve) => setConf({ message, resolve })), []);
+  const confirm = useCallback((message) => {
+    if (isPageExitPrompt(message)) {
+      navigateToDashboard();
+      return Promise.resolve(false);
+    }
+    return new Promise((resolve) => setConf({ message, resolve }));
+  }, []);
   const handleYes = useCallback(() => { conf?.resolve(true);  setConf(null); }, [conf]);
   const handleNo  = useCallback(() => { conf?.resolve(false); setConf(null); }, [conf]);
   const ConfirmUI = conf

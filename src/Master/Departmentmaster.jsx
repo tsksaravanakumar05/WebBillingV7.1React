@@ -123,13 +123,13 @@ const redirectIfDualLogin = useCallback((res) => {
 
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 

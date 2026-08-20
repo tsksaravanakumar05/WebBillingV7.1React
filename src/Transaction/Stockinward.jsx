@@ -1001,10 +1001,19 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
 
   const loadColCfg = useCallback(async (comid) => {
     try {
-      const res = await fetch(`Content/Appdata/Visible/${comid}/StockInward.json?v=${Date.now()}`, { headers: CC.authHeaders() });
+      const res = await fetch(
+        CC.BASE_URL + `${CC.GetFocusColumnsUrl}?comid=${comid}&filename=StockInward`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...CC.authHeaders(),
+          },
+        }
+      );
       if (!res.ok) return;
       const data = await res.json();
-      if (!Array.isArray(data)) return;
+      if (!Array.isArray(data) || data.length === 0) return;
       setColSettings(prev => prev.map(col => {
         const s = data.find(x => x.column === col.key);
         return s ? { ...col, visible: s.Visible === true, width: Number(s.Width) || col.width } : col;
@@ -1147,7 +1156,7 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
     const menudata = menulist.filter(o => o.PageName === "Stock Inward/Outward/Transfer");
     if (!menudata.length || menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     setPerm({ View: menudata[0].View, Add: menudata[0].Add, Edit: menudata[0].Edit, Delete: menudata[0].Delete });
@@ -1186,17 +1195,30 @@ const fillBatchItemIntoRow = useCallback((rid, item, codeStatus) => {
     setCustomerList(pick(cusRes));
     setBranchList(pick(brRes).filter(b => String(b.Id) !== String(sess.Comid)));
     setUserList(pick(usrRes));
-
-    const cachedProducts = CC.getCachedProductList(sess.ItemCOmid);
-    if (cachedProducts.length > 0) {
-      setProductList(cachedProducts);
-    } else {
-      const pRes = await CC.api(CC.IM_ProductList, null, {}, { Comid: sess.ItemCOmid });
-      const productRows = pick(pRes);
-      CC.setCachedProductList(sess.ItemCOmid, productRows);
-      setProductList(productRows);
-    }
   }, [sess]);
+
+  const getActiveProductComid = useCallback(() => {
+    if (mode === "transfer" && supplierId) return String(supplierId);
+    return String(sess.ItemCOmid || sess.Comid);
+  }, [mode, sess.Comid, sess.ItemCOmid, supplierId]);
+
+  const loadProductListForContext = useCallback(async (targetComid = null) => {
+    const comid = String(targetComid || getActiveProductComid() || sess.Comid);
+    const cached = CC.getCachedProductList(comid);
+    if (cached.length > 0) {
+      setProductList(cached);
+      return cached;
+    }
+
+    const productRows = await CC.preloadProductListForComid(comid, { path: CC.IM_ProductList });
+    setProductList(productRows);
+    return productRows;
+  }, [getActiveProductComid, sess.Comid]);
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    void loadProductListForContext();
+  }, [isAuthorized, loadProductListForContext, mode, supplierId]);
 
   // ── Load max stock no ─────────────────────────────────────────────────────
   const loadMaxNo = useCallback(async (m) => {
@@ -1407,7 +1429,10 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
       if (colKey === "ProductCode") {
         const row = rowsRef.current.find(r => r._rid === rid);
         if (row?.ProductCode?.trim()) fetchByCode(rid, row.ProductCode);
-        else setProdPopup({ rid });
+        else {
+          void loadProductListForContext();
+          setProdPopup({ rid });
+        }
         return;
       }
       if (colIdx >= 0 && colIdx < COLS.length - 1) {
@@ -1433,9 +1458,13 @@ const applyPopupSelectedProduct = useCallback(async (rid, item) => {
     if (e.key === "ArrowRight" && colIdx < COLS.length - 1)             { e.preventDefault(); focusCell(rid, COLS[colIdx + 1]); }
     if (e.key === "ArrowLeft"  && colIdx > 0)                           { e.preventDefault(); focusCell(rid, COLS[colIdx - 1]); }
     if (e.key === "Delete")    { e.preventDefault(); doDeleteRow(rid); }
-    if (e.key === " " && colKey === "ProductCode") { e.preventDefault(); setProdPopup({ rid }); }
+    if (e.key === " " && colKey === "ProductCode") {
+      e.preventDefault();
+      void loadProductListForContext();
+      setProdPopup({ rid });
+    }
   // eslint-disable-next-line
-  }, [visCols, fetchByCode]);
+  }, [visCols, fetchByCode, loadProductListForContext]);
 
   // ── AddSizeRow — mirrors jQuery methods.AddSizeRow ────────────────────────
   // When SizeDiff/Sizeper/SizeAmt is set, auto-generates rows from fromSize → toSize

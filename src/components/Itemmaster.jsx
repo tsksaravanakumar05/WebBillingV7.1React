@@ -82,6 +82,7 @@ const ITEM_CURSOR_KEY = "itemmaster_cursor";
 const CALC_KEYS = new Set(["PurchaseRate","GST","CESS","TransPer","MRP","GSTAmt","CESSAmt","TransAmt"]);
 const UPPER_KEYS      = new Set(["ProductCode","SecondCode","ProductName","PrinterName","HSNCode","Brand","Category","Department","Supplier","UOM","LocationMaster","Remarks"]);
 const FILTER_KEYS     = new Set(["ProductCode","SecondCode","ProductName","PrinterName","HSNCode","Brand","Category","Department","Supplier","UOM","LocationMaster","Remarks"]);
+const FILTER_COL_MIN_WIDTH = 200;
 const COMBO_NAV       = { Brand:"/Brand", Category:"/Category", Department:"/Department", Supplier:"/Supplier", UOM:"/UOM", LocationMaster:"/location" };
 const getProductFilterValue = (item, colKey) => {
   switch (colKey) {
@@ -796,7 +797,10 @@ const redirectIfDualLogin = useCallback((res) => {
 
   const visCols = cols
     .map(col => getPattyColumn(col, sess))
-    .filter(col => col.visible);
+    .filter(col => col.visible)
+    .map(col => FILTER_KEYS.has(col.key)
+      ? { ...col, width: Math.max(Number(col.width) || 0, FILTER_COL_MIN_WIDTH) }
+      : col);
 
   const editableKeys = visCols
     .map(vc => getPattyColumn(COLUMNS.find(c => c.key===vc.key) || vc, sess))
@@ -1163,6 +1167,8 @@ const validateRow = useCallback(async row => {
     setLoading(true); setLdMsg("Saving...");
     const hdrs = { "Comid":String(sess.Comid),"Commoncompany":String(sess.CommonCompany),"CommoncompanyDiffStock":String(sess.CommonCompanyDiffStock),"SupplierMulitipleAllow":String(sess.SupplierMulitipleAllow),"MulipleMRP":String(sess.MulipleMRP),"MirrorTable":String(sess.MirrorTable),"Tamil":String(sess.Tamil),"IdComList":String(sess.IdComList),"ApiType":"0" };
     const payload = toSave.map(buildPayload);
+    const hasNewRows = payload.some(row => !row.Id);
+    const savedEditIds = new Set(payload.filter(row => row.Id > 0).map(row => String(row.Id)));
     const primarySavedRow = entryComplete && latestEntry?._dirty ? latestEntry : toSave[0];
     try {
       const res = await CC.insertapi(CC.ItemInsert, payload, hdrs);
@@ -1183,21 +1189,39 @@ const validateRow = useCallback(async row => {
           productCode: responseRow?.ProductCode || responseRow?.Prod_Code || primarySavedRow?.ProductCode || "",
           productName: responseRow?.ProductName || responseRow?.PName || primarySavedRow?.ProductName || "",
         } : null;
-        try {
-          if (typeof CC1.preloadProductListsForSession === "function") {
-            await CC1.preloadProductListsForSession(
-              { Comid: sess.Comid, MComid: sess.MComid },
-              { force: true }
-            );
+        if (hasNewRows) {
+          try {
+            if (typeof CC1.preloadProductListsForSession === "function") {
+              await CC1.preloadProductListsForSession(
+                { Comid: sess.Comid, MComid: sess.MComid },
+                { force: true }
+              );
+            }
+          } catch (preloadErr) {
+            console.warn("ItemMaster product list preload skipped:", preloadErr);
           }
-        } catch (preloadErr) {
-          console.warn("ItemMaster product list preload skipped:", preloadErr);
+        } else {
+          const editsById = new Map(payload.map(row => [String(row.Id), row]));
+          [...new Set([sess.Comid, sess.MComid].filter(Boolean).map(String))].forEach(comid => {
+            const cached = CC1.getCachedProductList?.(comid) || [];
+            if (!cached.length) return;
+            CC1.setCachedProductList?.(comid, cached.map(item => {
+              const edited = editsById.get(String(item.Id ?? item.ProductRefId ?? ""));
+              return edited ? { ...item, ...edited } : item;
+            }));
+          });
         }
         dirtyIds.current.clear();
         toast("✅ " + (res.message || "Saved successfully"));
         try { sessionStorage.removeItem(ITEM_DRAFT_KEY); } catch {}
-        await loadItems("", "", { isInit: true, pageNo: page });
-        await resetEntry();
+        if (hasNewRows) {
+          await loadItems("", "", { isInit: true, pageNo: page });
+          await resetEntry();
+        } else {
+          setRows(prev => prev.map(row => savedEditIds.has(String(row.Id))
+            ? { ...row, _dirty: false, _editMode: 0 }
+            : row));
+        }
         if (quickProductPayload) {
           exitProductQuickCreate(true, quickProductPayload);
         }
@@ -2286,7 +2310,7 @@ if (!isAuthorized) return null;
               onKeyDown={e=>{ if (e.key === "Enter") { e.preventDefault(); runCachedFilterSearch(c.key); } }}
               placeholder={`🔍`}
               style={{
-                width:"100%", height:18, fontSize:10,
+                width:"100%", height:22, fontSize:11,
                 background:"rgba(255,255,255,0.15)",
                 border:"1px solid rgba(255,255,255,0.3)",
                 borderRadius:3, padding:"1px 4px",

@@ -50,13 +50,13 @@ export default function GroupMaster() {
 
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
@@ -403,7 +403,7 @@ export default function GroupMaster() {
     } else {
       sessionStorage.removeItem("masterReturnField");
       sessionStorage.removeItem("masterPrefill");
-      navigate("/Home");
+      navigate("/dashboard");
     }
   }, [navigate, confirm]);
 

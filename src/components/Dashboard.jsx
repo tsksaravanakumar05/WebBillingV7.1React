@@ -295,7 +295,7 @@ function useDashboardData() {
       setLoading(true);
 
       try {
-        const res = await CC.api("/api/CompanyApp/Dashboard", null, {}, { Comid, MComid });
+        const res = await CC.api("/api/CompanyApp/DashboardV7", null, {}, { Comid});
 
         if (cancelled) return;
 

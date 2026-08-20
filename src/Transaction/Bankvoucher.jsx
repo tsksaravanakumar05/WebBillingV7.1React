@@ -762,11 +762,11 @@ export default function BankVoucher() {
     const menudata = menulist.filter(o => o.PageName === "Bank Voucher");
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000); return;
+      setTimeout(() => navigate("/dashboard"), 3000); return;
     }
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => navigate("/Home"), 3000); return;
+      setTimeout(() => navigate("/dashboard"), 3000); return;
     }
     const p = { View:menudata[0].View, Add:menudata[0].Add, Edit:menudata[0].Edit, Delete:menudata[0].Delete };
     setPerm(p); permRef.current = p;

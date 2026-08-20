@@ -333,9 +333,7 @@ export default function PurchaseSaleLotDetails() {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -555,7 +553,7 @@ export default function PurchaseSaleLotDetails() {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">Purchase / Sale Lot Details</div>
-              <button type="button" className="so-close-x" onClick={() => navigate(-1)} aria-label="Close">x</button>
+              <button type="button" className="so-close-x" onClick={() => navigate("/dashboard")} aria-label="Close">x</button>
             </div>
 
             <div className="so-card-body">
@@ -690,7 +688,7 @@ export default function PurchaseSaleLotDetails() {
                   <RotateCcw size={16} className="so-icon-cancel" />
                   Refresh
                 </button>
-                <button type="button" className="mp-btn cn" onClick={() => navigate(-1)} disabled={loading}>
+                <button type="button" className="mp-btn cn" onClick={() => navigate("/dashboard")} disabled={loading}>
                   <XCircle size={16} className="so-icon-cancel" />
                   Close
                 </button>

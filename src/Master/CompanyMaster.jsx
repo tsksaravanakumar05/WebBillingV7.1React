@@ -159,13 +159,13 @@ export default function CompanySettings() {
 
     if (!menudata || menudata.length === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!.");
-      setTimeout(() => { navigate("/Home"); }, 3000);
+      setTimeout(() => { navigate("/dashboard"); }, 3000);
       return;
     }
 
@@ -476,7 +476,7 @@ export default function CompanySettings() {
   // ── handleEsc — mirrors SalesManMaster.handleEsc pattern ─────────────────────
   const handleEsc = useCallback(async () => {
     const proceed = await confirm("Do You Want To Quit Page?");
-    if (proceed) navigate("/Home");
+    if (proceed) navigate("/dashboard");
   }, [confirm, navigate]);
 
   // ── Global keyboard — F1 / F2 / Esc (mirrors SalesManMaster pattern) ─────────

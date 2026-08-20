@@ -37,18 +37,17 @@
 }
 
 /* ── TOP HEADER PANEL ── */
-/* .sb-header-panel {
+.sb-header-panel {
   background: var(--clr-bg-white);
   border: 1px solid var(--clr-border-default);
-  border-left: 4px solid var(--clr-primary);
   border-radius: 6px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   display: flex;
   align-items: stretch;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
   flex-wrap: nowrap;
-} */
+}
  /* ── TOP ICON BUTTON ROW (New / POS / Delete / Print / Save / F12) ── */
 /* .sb-icon-btns {
   display: flex;
@@ -171,14 +170,23 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
   min-width: 0;
+  justify-content: center;
 }
 
 .sb-field-row {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.sb-field-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .sb-field-lbl {
@@ -283,6 +291,10 @@
   color: var(--clr-green);
   min-width: 55px;
 }
+
+.sb-badge-value {
+  font-size: 14px;
+}
 .sb-badge-red {
   font-size: 12px;
   font-weight: 700;
@@ -292,30 +304,74 @@
 
 /* ── RIGHT: Bill No + Date + Amount ── */
 .sb-bill-info {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(190px, 1fr) minmax(160px, 0.9fr);
+  align-items: stretch;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: 560px;
+}
+
+.sb-bill-meta-card,
+.sb-bill-amount-card {
+  border: 1px solid var(--clr-border-default);
+  border-radius: 4px;
+  background: var(--clr-bg-white);
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   justify-content: center;
-  gap: 4px;
-  flex-shrink: 0;
-  min-width: 150px;
+}
+
+.sb-bill-meta-card {
+  min-width: 0;
+}
+
+.sb-bill-amount-card {
+  min-width: 0;
+  align-items: center;
+  text-align: center;
+}
+
+.sb-bill-col-primary,
+.sb-bill-col-secondary,
+.sb-bill-col-amount {
+  width: 100%;
+}
+
+.sb-bill-amount-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--clr-green);
+  margin-bottom: 10px;
 }
 
 .sb-bill-amount {
   font-size: 20px;
   font-weight: 800;
   color: var(--clr-green);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .sb-bill-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   font-size: 11px;
+  margin-bottom: 6px;
 }
 .sb-bill-row label { color: var(--clr-text-muted); font-weight: 600; }
 .sb-bill-row span  { color: var(--clr-text-primary); font-weight: 700; }
+
+.sb-bill-last-amount {
+  font-size: 11px;
+  font-weight: 700;
+  color: #000;
+  text-align: center;
+  margin-top: auto;
+  padding-top: 6px;
+}
 
 .sb-date-input {
   height: 22px;
@@ -354,6 +410,43 @@
   overflow: auto;
   flex: 1;
   min-height: 0;
+}
+
+.sb-balance-strip {
+  border-top: 1px solid var(--clr-border-default);
+  background: var(--clr-bg-white);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.sb-balance-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sb-balance-row label {
+  min-width: 95px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--clr-text-primary);
+}
+
+.sb-balance-input {
+  width: 100%;
+  height: 26px;
+  border: 1px solid var(--clr-border-default);
+  border-radius: 4px;
+  background: var(--clr-bg-white);
+  color: var(--clr-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .sb-tbl {
@@ -434,7 +527,7 @@
 
 /* ── PAYMENT SIDE PANEL ── */
 .sb-payment-panel {
-  width: 230px;
+  width: 265px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -452,9 +545,10 @@
 .sb-pay-hdr {
   background: var(--clr-bg-white);
   color: var(--clr-text-primary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   padding: 5px 10px;
+  border-bottom: 1px solid var(--clr-border-table);
 }
 
 .sb-pay-tbl { border-collapse: collapse; width: 100%; }
@@ -511,6 +605,10 @@
 .sb-total-row span  { color: var(--clr-text-primary); font-weight: 700; }
 .sb-total-row.net label { color: var(--clr-primary); font-size: 13px; font-weight: 800; }
 .sb-total-row.net span  { color: var(--clr-green); font-size: 14px; font-weight: 800; }
+
+.sb-total-input {
+  width: 80px;
+}
 
 .sb-total-sep { height: 1px; background: var(--clr-border-table); margin: 3px 0; }
 

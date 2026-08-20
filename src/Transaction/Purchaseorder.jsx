@@ -1417,8 +1417,8 @@ export default function PurchaseOrder() {
     if (!menuStr) { alert("Session Close Please Login !!!."); navigate("/"); return; }
     const menulist = JSON.parse(menuStr);
     const menudata = menulist.filter(o => o.PageName === "Purchase Order");
-    if (!menudata || menudata.length === 0) { alert("Page Access Permission Denied !!!."); setTimeout(() => navigate("/Home"), 3000); return; }
-    if (menudata[0].View === 0) { alert("Page Access Permission Denied !!!."); navigate("/Home"); return; }
+    if (!menudata || menudata.length === 0) { alert("Page Access Permission Denied !!!."); setTimeout(() => navigate("/dashboard"), 3000); return; }
+    if (menudata[0].View === 0) { alert("Page Access Permission Denied !!!."); navigate("/dashboard"); return; }
     setPerm({ View: menudata[0].View, Add: menudata[0].Add, Edit: menudata[0].Edit, Delete: menudata[0].Delete });
     setIsAuthorized(true);
   }, [navigate]);

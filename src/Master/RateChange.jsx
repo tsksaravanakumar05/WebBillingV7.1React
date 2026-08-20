@@ -302,7 +302,7 @@ export default function RateChange() {
     const menudata = menulist.filter(o => o.PageName === "Billing-POS");
     if (!menudata.length || menudata[0].View === 0) {
       setPermDenied("Page Access Permission Denied !!!");
-      setTimeout(() => { window.location.href = "/Home"; }, 3000);
+      setTimeout(() => { window.location.href = "/#/dashboard"; }, 3000);
       return;
     }
     setTimeout(() => focusCell(0, "ProductCode"), 200);
@@ -723,7 +723,7 @@ export default function RateChange() {
   // ── handleEsc — mirrors SupplierMaster handleEsc ──────────────────────────
   const handleEsc = useCallback(async () => {
     const ok = await confirm("Do You Want To Quit Page?");
-    if (ok) navigate("/Home");
+    if (ok) navigate("/dashboard");
   }, [confirm, navigate]);
 
   // ── Global keyboard shortcuts (mirrors SupplierMaster pattern) ────────────

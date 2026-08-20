@@ -397,6 +397,11 @@
      font-family: var(--pm-font) !important;
      font-weight: 700 !important;
    }
+
+   .pur-grid .grid-cell.readonly.strong-readonly {
+     color: #000 !important;
+     font-weight: 700 !important;
+   }
    
    /* Delete row button */
    .del-row-btn {
@@ -418,15 +423,97 @@
    /* ═══════════════════════════════════════════════════════════════════════════
       BOTTOM PANEL  — matches sb-totals / sb-pay-grid panel style
       ═══════════════════════════════════════════════════════════════════════════ */
-   .pur-bottom {
-     display: flex;
-     gap: 6px;
-     padding: 4px 0;
-     background: transparent;
-     flex-shrink: 0;
-     max-height: 148px;
-     overflow: auto;
-   }
+.pur-bottom {
+  display: flex;
+  gap: 6px;
+  padding: 4px 0;
+  background: transparent;
+  flex-shrink: 0;
+  max-height: 148px;
+  overflow: auto;
+}
+
+.pur-bottom-simple {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 220px;
+  gap: 8px;
+  align-items: stretch;
+  padding-top: 6px;
+}
+
+.pur-bottom-card {
+  border: 1px solid var(--clr-border-default);
+  border-radius: 4px;
+  background: var(--clr-bg-white);
+  padding: 8px 10px;
+}
+
+.pur-balance-list {
+  display: grid;
+  gap: 8px;
+}
+
+.pur-balance-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pur-balance-row strong {
+  font-size: 14px;
+  color: #000;
+}
+
+.pur-balance-row strong.info {
+  color: #0d45ff;
+}
+
+.pur-balance-row strong.danger {
+  color: #d30000;
+}
+
+.pur-paid-row {
+  grid-template-columns: 110px 130px;
+}
+
+.pur-small-input {
+  max-width: 130px;
+  height: 28px;
+}
+
+.pur-bill-display-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pur-bill-display {
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--pm-green);
+  text-align: center;
+}
+
+.pur-others-card {
+  display: grid;
+  align-content: center;
+  gap: 18px;
+}
+
+.pur-other-inline {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.pur-remarks-hidden {
+  display: none;
+}
    
    .bottom-left {
      display: flex;
@@ -1017,14 +1104,17 @@
    /* ═══════════════════════════════════════════════════════════════════════════
       RESPONSIVE
       ═══════════════════════════════════════════════════════════════════════════ */
-   @media (max-width: 1024px) {
-     .master-row { gap: 6px 10px; }
-     .field-group.wide { min-width: 160px; }
-     .pur-bottom { flex-direction: column; max-height: unset; }
-     .bottom-left { flex-wrap: wrap; }
-     .totals-panel { min-width: unset; width: 100%; }
-     .product-popup { width: 96vw; }
-   }
+  @media (max-width: 1024px) {
+    .master-row { gap: 6px 10px; }
+    .field-group.wide { min-width: 160px; }
+    .pur-master-simple,
+    .pur-bottom-simple { grid-template-columns: 1fr; }
+    .pur-grid-stretch { height: auto; min-height: 360px; }
+    .pur-bottom { flex-direction: column; max-height: unset; }
+    .bottom-left { flex-wrap: wrap; }
+    .totals-panel { min-width: unset; width: 100%; }
+    .product-popup { width: 96vw; }
+  }
    @media (max-width: 768px) {
      .mp-btn span { display: none; }
      .mp-btn      { padding: 4px 8px; }

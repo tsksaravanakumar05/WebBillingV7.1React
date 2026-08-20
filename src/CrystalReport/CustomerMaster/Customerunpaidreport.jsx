@@ -285,7 +285,7 @@ export default function CustomerUnpaidReport() {
     );
     if (!menudata || menudata.length === 0 || menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -324,7 +324,7 @@ export default function CustomerUnpaidReport() {
     const handleKeyDown = (e) => {
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) navigate("/dashboard");
+        navigate("/dashboard");
       }
       if (e.ctrlKey && (e.key === "v" || e.key === "V")) {
         e.preventDefault();

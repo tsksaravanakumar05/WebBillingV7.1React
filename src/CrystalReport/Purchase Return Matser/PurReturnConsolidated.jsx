@@ -474,7 +474,7 @@ export default function PurchaseRetunCons() {
     const menudata = menulist.filter((obj) => obj.PageName === "Purchase Return Consolidated");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -650,7 +650,7 @@ export default function PurchaseRetunCons() {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">Purchase Return Consolidated</div>
-              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="so-card-body">

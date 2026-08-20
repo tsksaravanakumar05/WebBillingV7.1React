@@ -104,13 +104,13 @@ export default function SaleReturn() {
     const menudata = menulist.filter((obj) => obj.PageName === "Sale Return-Report");
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -147,9 +147,7 @@ export default function SaleReturn() {
       // Esc Press
       if (e.keyCode === 27) {
         e.preventDefault();
-        if (window.confirm("Do You Want To Quit Page?")) {
-          navigate("/Login/Home");
-        }
+        navigate("/dashboard");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -417,7 +415,7 @@ export default function SaleReturn() {
           <div className="sr-card">
             <div className="sr-card-header">
               <div className="sr-card-header-title">Sale Return Reports</div>
-              <button type="button" className="sr-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="sr-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="sr-card-body">

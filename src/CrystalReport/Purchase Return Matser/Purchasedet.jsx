@@ -428,14 +428,14 @@ export default function PurchaseReturnDetailed() {
     if (!menudata || menudata.length === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
       // Source redirects to /Login/Home here (not /Home) — kept literal.
-      setTimeout(() => navigate("/Login/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
     if (menudata[0].View === 0) {
       setMsg({ text: "Page Access Permission Denied !!!.", isErr: true });
       // Source redirects to /Login/Home here too — kept literal.
-      setTimeout(() => navigate("/Login/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
 
@@ -626,7 +626,7 @@ export default function PurchaseReturnDetailed() {
           <div className="so-card">
             <div className="so-card-header">
               <div className="so-card-header-title">Purchase Detailed</div>
-              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate(-1)}>✕</button>
+              <button type="button" className="so-close-x" aria-label="Close" onClick={() => navigate("/dashboard")}>✕</button>
             </div>
 
             <div className="so-card-body">

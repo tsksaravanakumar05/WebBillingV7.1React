@@ -20,6 +20,22 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { isPageExitPrompt, navigateToDashboard } from "../utils/pageExit";
+
+export const TRIP_MESSAGES = {
+  saveConfirm: "Wish to Save Trip Details ?",
+  deleteConfirm: "Wish to Delete the Trip Record ?",
+  saveSuccess: "Update Successfully !!!.",
+  deleteSuccess: "Delete Successfully !!!.",
+  loadFailed: "Failed to load trip details !!!.",
+  technicalFault: "Technical Fault Contact Software Vendor !!!.",
+  supplierRequired: "Please Enter Valid Supplier Name!!!.",
+  purchaseQtyRequired: "Enter Purchase Qty!!!",
+  purchaseRateRequired: "Enter Purchase Rate!!!",
+  purchaseAmountRequired: "Enter Purchase Amount!!!",
+  refNoRequired: "Enter Ref.No!!!",
+  salesRequired: "Enter Sales Details in the Grid !!!.",
+};
 
 // ─── Shared pop-in animation (injected once per page load) ────────────────────
 if (typeof document !== "undefined" && !document.getElementById("msgPopInStyle")) {
@@ -121,7 +137,13 @@ export function useConfirm() {
   const [conf, setConf] = useState(null);
 
   const confirm = useCallback(
-    (message) => new Promise((resolve) => setConf({ message, resolve })),
+    (message) => {
+      if (isPageExitPrompt(message)) {
+        navigateToDashboard();
+        return Promise.resolve(false);
+      }
+      return new Promise((resolve) => setConf({ message, resolve }));
+    },
     []
   );
 

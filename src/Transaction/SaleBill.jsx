@@ -1812,6 +1812,7 @@ export default function SaleBill() {
       const Comid  = CC.getStr("Comid")  || "1";
       const MComid = CC.getStr("MComid") || Comid;
       const IdComList = CC.getStr("IdComList") || Comid;
+      const CashierId=CC.getStr("CashierRefid") || "0";
       const isCC   = !!main0.CommonCompany;
       return {
         Comid:        isCC ? MComid : Comid,
@@ -1821,6 +1822,7 @@ export default function SaleBill() {
         BillNoDigit:  com0.NumberDigit || 0,
         CashId:       CC.getStr("CustomerCashid") || "0",
         CashierId:    CC.getStr("CashierRefid")   || "0",
+        CounterId:    CC.getStr("CounterRefid")   || "0",
         Tamil:        !!main0.ProductNameTamil,
         CommonCompany: isCC,
         AllowQuickMasterCreation: !!(main0.AllowQuickMasterCreation ?? true),
@@ -1869,7 +1871,7 @@ export default function SaleBill() {
     } catch {
       return {
         Comid: "1", MComid: "1", IdComList: "1",
-        CashId: "0", CashierId: "0",
+        CashId: "0", CashierId: "0", CounterId: "0",
         BillNoType: "Daily Reset On Company", BillNoPrefix: "", BillNoDigit: 0,
         SaleSubMaster: false, Herbalife: false, CMBTPatty: false, BatchWiseStock: false, TextilesSerialNowiseBilling: false, DayClose: false, TaxName: "Exclusive",
         AllowQuickMasterCreation: true,
@@ -1952,6 +1954,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
   const [smId,       setSmId]       = useState("");
   const [remarks,    setRemarks]    = useState("");
   const [editId,     setEditId]     = useState(0);
+  const [editBillBalances, setEditBillBalances] = useState(null);
 
   const [crmValue,   setCrmValue]   = useState("0.00");
   const [curBal,     setCurBal]     = useState("0.00");
@@ -1980,8 +1983,9 @@ const loadFocusCols = useCallback(async (mcomid) => {
   const [pw,         setPw]         = useState(null);
   const pwOkRef = useRef(null);
 
-  const [lastBillNo,  setLastBillNo]  = useState(() => localStorage.getItem("lastBillNo")  || "—");
-  const [lastBillAmt, setLastBillAmt] = useState(() => parseFloat(localStorage.getItem("lastBillAmt")) || 0);
+  const [lastBillNo,   setLastBillNo]   = useState(() => localStorage.getItem("lastBillNo") || "—");
+  const [lastBillDate, setLastBillDate] = useState(() => localStorage.getItem("lastBillDate") || "—");
+  const [lastBillAmt,  setLastBillAmt]  = useState(() => parseFloat(localStorage.getItem("lastBillAmt")) || 0);
   const [printDialog, setPrintDialog] = useState(null);
 
   const [prodPopup,  setProdPopup]  = useState(null);
@@ -2026,6 +2030,10 @@ const loadFocusCols = useCallback(async (mcomid) => {
   const rowsRef  = useRef(rows);
   const cellRefs = useRef({});
   const origCrmRef = useRef({ OpeningPoint: 0, OpeningValue: 0 });
+  const deleteSaleDetailsRef = useRef([]);
+  const deleteStockDetailsRef = useRef([]);
+  const deleteSrDetailsRef = useRef([]);
+  const deleteSaleDateRef = useRef("");
   const custMetaRef = useRef({
     curBal: 0,
     custCardRefId: "0",
@@ -2062,6 +2070,115 @@ const loadFocusCols = useCallback(async (mcomid) => {
     openSerialNoPopup(rid, textRefId);
     return true;
   }, [sess.TextilesSerialNowiseBilling, openSerialNoPopup]);
+
+  const readBalanceValue = useCallback((res) => {
+    const source = Array.isArray(res) ? res[0]
+      : Array.isArray(res?.Data) ? res.Data[0]
+      : Array.isArray(res?.data) ? res.data[0]
+      : res;
+
+    const raw = source?.Data1
+      ?? source?.data
+      ?? source?.CurrentBalance
+      ?? source?.Balance
+      ?? source?.OpeningBalance
+      ?? source?.ClosingBalance
+      ?? res?.Data1
+      ?? res?.data
+      ?? 0;
+
+    const bal = parseFloat(raw);
+    return isNaN(bal) ? 0 : bal;
+  }, []);
+
+  const readCustomerBalanceValue = useCallback((custObj) => {
+    if (!custObj || typeof custObj !== "object") return 0;
+    const raw = custObj.CurrentBalance
+      ?? custObj.currentBalance
+      ?? custObj.Balance
+      ?? custObj.balance
+      ?? custObj.OpeningBalance
+      ?? custObj.openingBalance
+      ?? custObj.OpeningBalance1
+      ?? custObj.openingBalance1
+      ?? custObj.Opening_Bal
+      ?? custObj.opening_Bal
+      ?? custObj.OpeningBal
+      ?? custObj.openingBal
+      ?? custObj.OpenBal
+      ?? custObj.openBal
+      ?? custObj.Open_Bal
+      ?? custObj.open_Bal
+      ?? custObj.CreditBalance
+      ?? custObj.creditBalance
+      ?? 0;
+    const bal = parseFloat(raw);
+    return isNaN(bal) ? 0 : bal;
+  }, []);
+
+  const toMonthDateYear = useCallback((value) => {
+    const safe = value || CC.today();
+    const dt = new Date(safe);
+    if (Number.isNaN(dt.getTime())) return safe;
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const yyyy = dt.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  }, []);
+
+  function toMMDDYYYY(value) {
+    if (!value) return "";
+    const safe = String(value).slice(0, 10);
+    if (safe.includes("-")) {
+      const [yyyy, mm, dd] = safe.split("-");
+      if (yyyy && mm && dd) return `${mm}/${dd}/${yyyy}`;
+    }
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return "";
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const yyyy = dt.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  }
+
+  const fetchCustomerBalance = useCallback(async (custId, oldNetAmt = 0, paidAmt = 0, dateValue = billDate) => {
+    if (!custId) {
+      setCurBal("0.00");
+      custMetaRef.current = {
+        ...custMetaRef.current,
+        curBal: "0.00",
+      };
+      return 0;
+    }
+
+    const found = customers.find(c => String(c.Id) === String(custId));
+    let bal = readCustomerBalanceValue(found);
+
+    try {
+      const res = await CC.api(CC.SO_CurrentBalanceUrl, null, {}, {
+        Id: custId,
+        MComid: sess.MComid,
+        TillDate: toMonthDateYear(dateValue),
+        Comid: sess.Comid,
+        AccountType: "CUSTOMER",
+      });
+
+      if (!redirectIfDualLogin(res) && !res?._netErr && (res?.ok ?? res?.IsSuccess)) {
+        bal = readBalanceValue(res);
+      }
+    } catch {
+      // Keep customer-list balance as fallback when current-balance API is unavailable.
+    }
+
+    bal = CC.vn(bal) - CC.vn(oldNetAmt) + CC.vn(paidAmt);
+    const nextBal = CC.f2(bal).toFixed(2);
+    setCurBal(nextBal);
+    custMetaRef.current = {
+      ...custMetaRef.current,
+      curBal: nextBal,
+    };
+    return bal;
+  }, [billDate, customers, readBalanceValue, readCustomerBalanceValue, redirectIfDualLogin, sess.Comid, sess.MComid, toMonthDateYear]);
 
   useEffect(() => {
     setRows(prev => {
@@ -2121,7 +2238,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
     const menudata = menulist.filter(o => o.PageName === "Billing-POS");
     if (!menudata || menudata.length === 0 || menudata[0].View === 0) {
       alert("Page Access Permission Denied !!!");
-      setTimeout(() => navigate("/Home"), 3000);
+      setTimeout(() => navigate("/dashboard"), 3000);
       return;
     }
     setLoading(false);
@@ -2133,7 +2250,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
     setIsAuthorized(true);
   }, [navigate]);
 
-  const redirectIfDualLogin = useCallback((res) => {
+  function redirectIfDualLogin(res) {
     if (res?._dualLogin || res?.redis === false) {
       alert("Already Login Another User Please Login Again!!!");
       localStorage.removeItem("lastBillNo");
@@ -2142,7 +2259,7 @@ const loadFocusCols = useCallback(async (mcomid) => {
       return true;
     }
     return false;
-  }, [navigate]);
+  }
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2753,9 +2870,30 @@ const loadFocusCols = useCallback(async (mcomid) => {
   useEffect(() => { recalcTotals(rows, otherPlus, otherMinus); }, [rows, otherPlus, otherMinus, recalcTotals]);
 
   const payTotals = (() => {
-    const recvd = payRows.reduce((s, r) => s + CC.vn(r.Amount), 0);
+    const nonCreditReceived = payRows
+      .filter(r => String(r.CardType || "").toUpperCase() !== "CREDIT")
+      .reduce((s, r) => s + CC.vn(r.Amount), 0);
+    const recvd = nonCreditReceived > 0
+      ? nonCreditReceived
+      : (editId > 0 ? CC.vn(editBillBalances?.PaidAmount) : 0);
     return { recvd: CC.f2(recvd), toPay: CC.f2(totals.NetAmt - recvd) };
   })();
+
+  const handlePaidAmountChange = useCallback((value) => {
+    const normalized = value === "" ? "" : String(value);
+    setPayRows(prev => {
+      const cashIndex = prev.findIndex(r => String(r.CardType || "").toUpperCase() === "CASH");
+      const firstNonCreditIndex = prev.findIndex(r => String(r.CardType || "").toUpperCase() !== "CREDIT");
+      const targetIndex = cashIndex >= 0 ? cashIndex : firstNonCreditIndex;
+
+      return prev.map((row, idx) => {
+        const cardType = String(row.CardType || "").toUpperCase();
+        if (cardType === "CREDIT") return { ...row, Amount: row.Amount ?? "" };
+        if (idx === targetIndex) return { ...row, Amount: normalized };
+        return { ...row, Amount: "" };
+      });
+    });
+  }, []);
 
   // ── Customer select ────────────────────────────────────────────────────────
   const handleCustomerSelect = useCallback(async (custObj) => {
@@ -2776,31 +2914,11 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
     setCustOpCrmPoints(0);
     setCustOpCrmValue(0);
-
-    const [crmRes, balRes] = await Promise.all([
-      CC.api(CC.SO_CRMBalanceUrl, null, {}, { Id: cid, Fromdate: billDate, Comid: sess.Comid, MComid: sess.MComid }),
-      CC.api(CC.SO_CurrentBalanceUrl, null, {}, { Id: cid, MComid: sess.MComid, TillDate: billDate, Comid: sess.Comid, AccountType: "CUSTOMER" }),
-    ]);
-
-    if (!crmRes._netErr && (crmRes.ok ?? crmRes.IsSuccess)) {
-      const arr = Array.isArray(crmRes.data) ? crmRes.data : [];
-      setCrmValue(arr.length > 0 ? CC.f2(CC.vn(arr[0].Value)).toFixed(2) : "0.00");
-      if (arr.length > 0) {
-        const data = arr[0];
-        setCustOpCrmPoints(CC.vn(data.Points));
-        setCustOpCrmValue(CC.vn(data.Value));
-      } else {
-        setCustOpCrmPoints(0);
-        setCustOpCrmValue(0);
-      }
-    }
-    if (balRes && !balRes._netErr) {
-      const bal = parseFloat(balRes.Data1 ?? balRes.data ?? 0);
-      setCurBal(isNaN(bal) ? "0.00" : CC.f2(bal).toFixed(2));
-    } else {
-      setCurBal("0.00");
-    }
-  }, [sess, billDate]);
+    setCrmValue(CC.f2(CC.vn(custObj.CRMValue)).toFixed(2));
+    setCustOpCrmPoints(CC.vn(custObj.CRMPoint));
+    setCustOpCrmValue(CC.vn(custObj.CRMValue));
+    await fetchCustomerBalance(cid, 0, 0, billDate);
+  }, [billDate, fetchCustomerBalance, sess]);
 
   const handleCustomerChange = useCallback(async (cid) => {
     setCustId(cid);
@@ -2827,31 +2945,15 @@ const loadFocusCols = useCallback(async (mcomid) => {
 
     setCustOpCrmPoints(0);
     setCustOpCrmValue(0);
+    setCrmValue(CC.f2(CC.vn(found?.CRMValue)).toFixed(2));
+    setCustOpCrmPoints(CC.vn(found?.CRMPoint));
+    setCustOpCrmValue(CC.vn(found?.CRMValue));
+    await fetchCustomerBalance(cid, 0, 0, billDate);
+  }, [billDate, customers, fetchCustomerBalance, sess]);
 
-    const [crmRes, balRes] = await Promise.all([
-      CC.api(CC.SO_CRMBalanceUrl, null, {}, { Id: cid, Fromdate: billDate, Comid: sess.Comid, MComid: sess.MComid }),
-      CC.api(CC.SO_CurrentBalanceUrl, null, {}, { Id: cid, MComid: sess.MComid, TillDate: billDate, Comid: sess.Comid, AccountType: "CUSTOMER" }),
-    ]);
-
-    if (!crmRes._netErr && (crmRes.ok ?? crmRes.IsSuccess)) {
-      const arr = Array.isArray(crmRes.data) ? crmRes.data : [];
-      setCrmValue(arr.length > 0 ? CC.f2(CC.vn(arr[0].Value)).toFixed(2) : "0.00");
-      if (arr.length > 0) {
-        const data = arr[0];
-        setCustOpCrmPoints(CC.vn(data.Points));
-        setCustOpCrmValue(CC.vn(data.Value));
-      } else {
-        setCustOpCrmPoints(0);
-        setCustOpCrmValue(0);
-      }
-    }
-    if (balRes && !balRes._netErr) {
-      const bal = parseFloat(balRes.Data1 ?? balRes.data ?? 0);
-      setCurBal(isNaN(bal) ? "0.00" : CC.f2(bal).toFixed(2));
-    } else {
-      setCurBal("0.00");
-    }
-  }, [sess, billDate, customers]);
+  const handleMobileChange = useCallback((cid) => {
+    void handleCustomerChange(cid);
+  }, [handleCustomerChange]);
 
   useEffect(() => {
     if (!quickCreateState || quickCreateHandledRef.current) return;
@@ -3460,6 +3562,7 @@ const getRowEnabledCols = useCallback((rid) => {
     origCrmRef.current = { OpeningPoint: 0, OpeningValue: 0 };
     unlockedRidRef.current = null;
     setEditId(0);
+    setEditBillBalances(null);
     setCustId(""); setCustMobile(""); setSmId(""); setRemarks(""); setBillHoldName("");
     setOtherPlus(""); setOtherMinus(""); setDiscPer("");
     setCrmValue("0.00"); setCurBal("0.00"); setStockLbl("0.00");
@@ -4016,18 +4119,35 @@ const doSave = useCallback(async (isCashBill = false, overridePayRows = null) =>
   const totalPay   = basePayRows.reduce((s, r) => s + CC.vn(r.Amount), 0);
   const nonCashPay = basePayRows.filter(r => r.CardType !== "CASH").reduce((s, r) => s + CC.vn(r.Amount), 0);
   const cashOnly   = nonCashPay === 0;
+  const isCreditCustomerBill = !!custId && String(custId) !== "0" && String(custId) !== String(sess.CashId);
 
   let effectivePayRows = basePayRows;
 
   // ✅ FIX: overridePayRows explicit-ஆ கொடுக்கப்பட்டா (F7 credit போன்ற cases),
   // auto-cash-fill logic-ஐ SKIP பண்ணு — caller already deliberate-ஆ set பண்ணிட்டாங்க
-  if (!overridePayRows && (totalPay === 0 || isCashBill || cashOnly)) {
-    const cashIdx = basePayRows.findIndex(r => r.CardType === "CASH");
-    const idx     = cashIdx >= 0 ? cashIdx : 0;
-    effectivePayRows = basePayRows.map((r, i) =>
-      i === idx ? { ...r, Amount: roundedNetAmount.toFixed(2) } : { ...r, Amount: "" }
-    );
-    setPayRows(effectivePayRows);
+  if (!overridePayRows) {
+    if (isCreditCustomerBill) {
+      const nonCreditEntered = basePayRows
+        .filter(r => String(r.CardType || "").toUpperCase() !== "CREDIT")
+        .reduce((s, r) => s + CC.vn(r.Amount), 0);
+      const creditDue = Math.max(0, CC.f2(roundedNetAmount - nonCreditEntered));
+
+      effectivePayRows = basePayRows.map((r) => {
+        const cardType = String(r.CardType || "").toUpperCase();
+        if (cardType === "CREDIT") {
+          return { ...r, Amount: creditDue > 0 ? creditDue.toFixed(2) : "" };
+        }
+        return r;
+      });
+      setPayRows(effectivePayRows);
+    } else if (totalPay === 0 && (isCashBill || cashOnly)) {
+      const cashIdx = basePayRows.findIndex(r => r.CardType === "CASH");
+      const idx     = cashIdx >= 0 ? cashIdx : 0;
+      effectivePayRows = basePayRows.map((r, i) =>
+        i === idx ? { ...r, Amount: roundedNetAmount.toFixed(2) } : { ...r, Amount: "" }
+      );
+      setPayRows(effectivePayRows);
+    }
   }
 
   const ok = await confirm("Do you want to Save Sale Bill Details?");
@@ -4063,9 +4183,20 @@ const doSave = useCallback(async (isCashBill = false, overridePayRows = null) =>
     BatchWiseIdNewRefId: getRowBatchWiseId(r),
   }));
 
+  const normalizeAmountSaleType = (cardType) => {
+    const type = String(cardType || "").toUpperCase();
+    if (type === "CASH") return "CASH";
+    if (type === "CREDIT") return "CREDIT";
+    if (type === "CRMPOINTS" || type === "COUPON" || type === "OUR COUPON") return "COUPON";
+    if (type === "CARD" || type === "UPI" || type === "OUR CARD") return "CARD";
+    return type || "CASH";
+  };
+
   const rawPayFiltered = effectivePayRows.filter(p => CC.vn(p.Amount) > 0).map(p => ({
-    CardAccountRefId: p.CardAccountRefId, Saletype: p.Saletype,
-    CardType: p.CardType, Amount: CC.f2(CC.vn(p.Amount)), SchargeAmt: CC.f2(CC.vn(p.SchargeAmt)),
+    CardAccountRefId: p.CardAccountRefId,
+    Saletype: normalizeAmountSaleType(p.CardType),
+    CardType: String(p.CardType || "").toUpperCase(),
+    Amount: CC.f2(CC.vn(p.Amount)),
     CustomerRefid: custId ? parseInt(custId) : parseInt(sess.CashId),
     BankRefid: p.BankRefid || null,
   }));
@@ -4120,6 +4251,15 @@ const crmBillAmount = validRows.reduce(
   const paidAmount = payFiltered
     .filter(p => p.CardType !== "CREDIT")
     .reduce((sum, p) => sum + CC.vn(p.Amount), 0);
+  const splcessTotal = validRows.reduce((sum, r) => sum + CC.vn(r.SPLCESSAmount), 0);
+  const openingBalanceValue = editId > 0 && editBillBalances
+    ? CC.vn(editBillBalances.OpeningBalance)
+    : CC.vn(curBal);
+  const billAmount = roundedNetAmount;
+  const closingBalance = CC.f2(openingBalanceValue + billAmount - paidAmount);
+  const masterCreditAmount = hasCredit
+    ? (isCreditCustomerBill ? billAmount : computedCreditAmount)
+    : 0;
 
   const subSalemasterFlag = (
     refCrmPointRate !== 0 ||
@@ -4129,10 +4269,10 @@ const crmBillAmount = validRows.reduce(
   ) ? "1" : "0";
 
 const saleMaster1 = subSalemasterFlag === "1" ? {
-    OpeningBalance: CC.vn(refCurBal),
-    ClosingBalance: CC.vn(refCurBal) + roundedNetAmount - paidAmount,
-    PaidAmount: 0,
-    BillAmount: 0,
+    OpeningBalance: openingBalanceValue,
+    ClosingBalance: closingBalance,
+    PaidAmount: paidAmount,
+    BillAmount: billAmount,
     DriverName: "",
     CourierName: "",
     CourierNo: "",
@@ -4190,13 +4330,19 @@ const payload = [{
     CustomerRefId: custId ? parseInt(custId) : parseInt(sess.CashId),
     SaleNo: 0, CompanyRefId: parseInt(sess.Comid),
     SaleNoDisplay: billNo, SaleDate: billDate, SaleType: saleType,
+    OnlineOrderNo: 0,
     OthersplusAmt: CC.vn(otherPlus), OtherssubAmt: CC.vn(otherMinus),
     Grossamt: totals.GrossAmt, taxamount: totals.GSTAmt,
-    CESSAmount: totals.CESSAmt, SPLCESSAmount: 0,
+    CESSAmount: totals.CESSAmt, SPLCESSAmount: splcessTotal,
     SalesReturnAmt: 0,
-    DeleteStatus: 1,
+    DeleteStatus: true,
     ShiftCode: 0,
-    OpeningBalCmbt: CC.vn(refCurBal),
+    OpeningBalCmbt: openingBalanceValue,
+    OpeningBalance: openingBalanceValue,
+    PaidAmtCmbt: paidAmount,
+    PaidAmount: paidAmount,
+    BillAmount: billAmount,
+    ClosingBalance: closingBalance,
     Duedate: billDate,
     disper: CC.vn(discPer), discamount: totals.DiscAmt,
     cdamount: CC.f2(cdAmountTotal),
@@ -4207,6 +4353,7 @@ const payload = [{
     TodaySaving: 0,
     NetAmount: roundedNetAmount, coinage: 0, Remarks: remarks,
     CashierRefId: parseInt(sess.CashierId) || 0,
+    CounterRefId: parseInt(sess.CounterId) || null,
     salesmanRefId: smId ? parseInt(smId) : null,
     BillFormatName: sess.BillFormatName,
     BillHoldName: billHoldName,
@@ -4217,9 +4364,9 @@ const payload = [{
     StateCode: custObj?.StateCode || "", StateName: custObj?.StateName || "",
     MobileNo: sess.Phone || "",
     TinNo: custObj?.GSTINNo || "", IGSTBill: custObj?.IGSTBill || "GST",
-    Credit: hasCredit ? computedCreditAmount : 0,
+    Credit: masterCreditAmount,
     Modified_By: username,
-    ModifiedStatus: editId > 0 ? 1 : 0, Modified_Date: billDate,
+    ModifiedStatus: editId > 0, Modified_Date: billDate,
     SaleDetails: saledetails, SaleAmountDetails: payFiltered,
     StockDetails: stockDetails, srstockdetails: [],
 }];
@@ -4250,12 +4397,11 @@ const payload = [{
   // }];
 
   const headers = {
-    "Comid":      String(sess.Comid), "ApiType": "1", "LocalV7": "0",
+    "Comid":      String(sess.Comid), "ApiType": "1", "LocalV7": "2",
     "cashid":     String(sess.CashId), "BillType": sess.BillNoType,
     "BillPerfix": sess.BillNoPrefix, "BillHoldName": billHoldName,
-    "BillDigit":  String(sess.BillNoDigit), "EncashAmt": "0", "EncashPoint": "0",
+    "BillDigit":  String(sess.BillNoDigit), "EncashAmt": String(usedValue), "EncashPoint": "0",
     "SubSalemaster":             subSalemasterFlag,
-    "React":                     1,
     "Commoncompany":             sess.CommonCompany ? "true" : "false",
     "CommoncompanyDiffStock":    sess.CommonCompanyDiffStock ? "true" : "false",
     "MulipleMRP":                sess.MulipleMRP ? "true" : "false",
@@ -4274,9 +4420,11 @@ const payload = [{
 
   if (res.ok ?? res.IsSuccess) {
     localStorage.setItem("lastBillNo",  billNo);
-    const roundedNet = Math.round(CC.vn(totals.NetAmt));
+    localStorage.setItem("lastBillDate", billDate || "");
+    const roundedNet = CC.f2(CC.vn(totals.NetAmt));
     localStorage.setItem("lastBillAmt", roundedNet.toString());
     setLastBillNo(billNo);
+    setLastBillDate(billDate || "—");
     setLastBillAmt(roundedNet);
     toast("✅ Bill Saved");
 
@@ -4323,8 +4471,8 @@ const payload = [{
   }, [totals.NetAmt, payRows, custId, sess.CashId, toast, doSave]);
 
   // ── Delete bill ───────────────────────────────────────────────────────────
-  // ── Date formatter: yyyy-MM-dd (or ISO date) -> MM/dd/yyyy ────────────────
-  const toMMDDYYYY = (dateStr) => {
+  // ── Date formatter: yyyy-MM-dd (or ISO date) -> dd/MM/yyyy ────────────────
+  const toShortApiDate = (dateStr) => {
     if (!dateStr) return "";
 
     const parts = String(dateStr).slice(0, 10).split("-");
@@ -4333,7 +4481,7 @@ const payload = [{
 
     const [yyyy, mm, dd] = parts;
 
-    return `${mm}/${dd}/${yyyy}`;
+    return `${dd}/${mm}/${yyyy}`;
   };
 
   const buildStockRestoreDetails = useCallback((sourceRows) => {
@@ -4354,19 +4502,34 @@ const payload = [{
       }));
   }, []);
 
+  const normalizeSaleEditData = useCallback((res) => {
+    const data = Array.isArray(res) ? res
+      : Array.isArray(res?.Data) ? res.Data
+      : Array.isArray(res?.data) ? res.data
+      : Array.isArray(res?.Data1) ? res.Data1
+      : Array.isArray(res?.data?.Data1) ? res.data.Data1
+      : [];
+    if (!data) return null;
+    return Array.isArray(data) ? data[0] : data;
+  }, []);
+
   const doDeleteBill = useCallback(async () => {
     if (!editId) { toast("No bill to delete", true); return; }
     if (!perm.Delete) { toast("❌ Delete Permission Denied", true); return; }
     const ok = await confirm("Do you want to Cancel this Bill?");
     if (!ok) return;
     setLoading(true);
-    const stockDetails = buildStockRestoreDetails(rows);
+    const sourceSaleDetails = deleteSaleDetailsRef.current?.length > 0 ? deleteSaleDetailsRef.current : rows;
+    const sourceSrDetails = deleteSrDetailsRef.current?.length > 0 ? deleteSrDetailsRef.current : srdetailsRef.current;
+    const stockDetails = deleteStockDetailsRef.current?.length > 0
+      ? deleteStockDetailsRef.current
+      : buildStockRestoreDetails(sourceSaleDetails);
     const headers = {
       Comid: String(sess.Comid), Cid: String(sess.CashierId), SRId: "0",
-      BillType: sess.BillNoType, SRStockDetails: JSON.stringify(srdetailsRef.current),
-      Reason: "", Estimate: "0", MirrorTable: String(sess.MirrorTable), Updateid: "",
+      BillType: sess.BillNoType, SRStockDetails: JSON.stringify(sourceSrDetails),
+      Reason: "", Estimate: "0", MirrorTable: "0", Updateid: "",
       LocalDB: "0", DayClose: sess.DayClose ? "1" : "0",
-      SaleDate: billDate, Id: String(editId),
+      SaleDate: deleteSaleDateRef.current || billDate, Id: String(editId),
     };
     const res = await CC.api(CC.SaleDeleteUrl, stockDetails, headers, null);
     setLoading(false);
@@ -4386,7 +4549,10 @@ const payload = [{
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
 
-    const dataNode    = Array.isArray(res?.Data) ? res.Data[0]
+    const dataNode    = Array.isArray(res) ? res[0]
+                      : Array.isArray(res?.Data1) ? res.Data1[0]
+                      : Array.isArray(res?.Data) ? res.Data[0]
+                      : Array.isArray(res?.data?.Data1) ? res.data.Data1[0]
                       : Array.isArray(res?.data) ? res.data[0] : {};
     const master      = dataNode?.salemaster        || [];
     const details     = dataNode?.saledetails       || [];
@@ -4397,34 +4563,87 @@ const payload = [{
     setF5AmtDetails(amtDetails);
     setF5Open(true);
   }, [sess, billDate, perm, redirectIfDualLogin]);
+
+  const getSaleEditHeaders = useCallback(() => {
+    const categoryVisible = colSettings.some(
+      c => c.visible && String(c.key || "").toUpperCase() === "CATEGORY"
+    );
+
+    return {
+      Patty: sess.CMBTPatty ? "1" : "0",
+      SupId: categoryVisible ? "1" : "0",
+    };
+  }, [colSettings, sess.CMBTPatty]);
+
   const doEditBill = useCallback(async (id) => {
     setF5Open(false);
     if (!perm.Edit) { toast("❌ Edit Permission Denied", true); return; }
     setLoading(true); setLdMsg("Loading bill...");
-    const res = await CC.api(CC.SaleEditUrl, null, {}, {
+    const res = await CC.api(CC.SaleEditUrl, null, getSaleEditHeaders(), {
       Id: id, SaleNo: 0, Date: billDate, Comid: sess.Comid,
       Cid: 0, Estimate: 0, CustId: 0, Tamil: tamilMode ? true : false,
     });
     setLoading(false);
     if (redirectIfDualLogin(res)) return;
-    if (!(res.ok ?? res.IsSuccess)) { toast("❌ " + (res.message || "Load Failed"), true); return; }
-    const data = Array.isArray(res.Data) ? res.Data[0] : res.data;
+    if (!Array.isArray(res) && !(res?.ok ?? res?.IsSuccess)) { toast("❌ " + (res?.message || res?.Message || "Load Failed"), true); return; }
+    const data = Array.isArray(res) ? res
+               : Array.isArray(res?.Data) ? res.Data
+               : Array.isArray(res?.data) ? res.data
+               : Array.isArray(res?.Data1) ? res.Data1
+               : Array.isArray(res?.data?.Data1) ? res.data.Data1
+               : [];
     if (!data) { toast("❌ No data found", true); return; }
-    const saledetails = data[0].SaleDetails || [];
+    const billData = Array.isArray(data) ? data[0] : data;
+    const saledetails = billData?.SaleDetails || [];
     console.log("Raw saledetails from API:", saledetails[0]);
-    setEditId(data[0].Id || id);
-    srdetailsRef.current = data[0].srdetails || [];
-    setBillNo(CC.ns(data[0].SaleNoDisplay || data[0].SaleNo));
-    setBillDate(String(data[0].SaleDate || "").slice(0, 10) || CC.today());
-    const cid = CC.ns(data[0].CustomerRefId);
+    setEditId(billData?.Id || id);
+    srdetailsRef.current = billData?.srdetails || [];
+    deleteSaleDetailsRef.current = saledetails;
+    deleteStockDetailsRef.current = billData?.StockDetails || [];
+    deleteSrDetailsRef.current = billData?.srdetails || [];
+    deleteSaleDateRef.current = String(billData?.SaleDate || "").slice(0, 10) || billDate;
+    setBillNo(CC.ns(billData?.SaleNoDisplay || billData?.SaleNo));
+    setBillDate(String(billData?.SaleDate || "").slice(0, 10) || CC.today());
+    const cid = CC.ns(billData?.CustomerRefId);
     setCustId(cid);
     const found = customers.find(c => String(c.Id) === cid);
     setCustMobile(found?.MobileNo || "");
-    setSmId(CC.ns(data[0].salesmanRefId || ""));
-    setRemarks(CC.ns(data[0].Remarks));
-    setOtherPlus(CC.ns(data[0].OthersplusAmt || ""));
-    setOtherMinus(CC.ns(data[0].OtherssubAmt || ""));
-    const billIgst = isIgstCustomer(data[0]?.IGSTBill || found?.IGSTBill);
+    setSmId(CC.ns(billData?.salesmanRefId || ""));
+    setRemarks(CC.ns(billData?.Remarks));
+    setOtherPlus(CC.ns(billData?.OthersplusAmt || ""));
+    setOtherMinus(CC.ns(billData?.OtherssubAmt || ""));
+    const sm = billData?.SaleMaster1 || billData?.salemaster1 || billData?.Salemaster1;
+    const smObj = Array.isArray(sm) ? sm[0] : sm;
+    const editOpeningBalance = CC.vn(
+      billData?.OpeningBalance
+      ?? billData?.OpeningBalCmbt
+      ?? smObj?.OpeningBalance
+      ?? smObj?.OpeningBalCmbt
+      ?? 0
+    );
+    const editPaidAmount = CC.vn(
+      billData?.PaidAmount
+      ?? billData?.PaidAmtCmbt
+      ?? smObj?.PaidAmount
+      ?? smObj?.PaidAmtCmbt
+      ?? 0
+    );
+    const editClosingBalance = CC.vn(
+      billData?.ClosingBalance
+      ?? smObj?.ClosingBalance
+      ?? (editOpeningBalance + CC.vn(billData?.NetAmount) - editPaidAmount)
+    );
+    setEditBillBalances({
+      OpeningBalance: editOpeningBalance,
+      PaidAmount: editPaidAmount,
+      ClosingBalance: editClosingBalance,
+    });
+    setCurBal(CC.f2(editOpeningBalance).toFixed(2));
+    custMetaRef.current = {
+      ...custMetaRef.current,
+      curBal: CC.f2(editOpeningBalance).toFixed(2),
+    };
+    const billIgst = isIgstCustomer(billData?.IGSTBill || found?.IGSTBill);
     setIgstBill(billIgst);
     const loadedRows = saledetails.map(r => calcSaleRow(withRowProductNames(fmtRow({
       ...mkRow(),
@@ -4439,8 +4658,6 @@ const payload = [{
     }), tamilMode), billIgst));
     setRows(loadedRows.length > 0 ? loadedRows : [mkRow()]);
 
-    const sm = data[0].SaleMaster1 || data[0].salemaster1 || data[0].Salemaster1;
-    const smObj = Array.isArray(sm) ? sm[0] : sm;
     if (smObj) {
       const p = CC.vn(smObj.BillPoint !== undefined ? smObj.BillPoint : smObj.OpeningPoint);
       const uP = CC.vn(smObj.UsedPoint);
@@ -4454,8 +4671,8 @@ const payload = [{
       origCrmRef.current = { OpeningPoint: 0, OpeningValue: 0 };
     }
 
-    const saleAmts = (data[0].SaleAmountDetails || []).length > 0
-      ? data[0].SaleAmountDetails
+    const saleAmts = (billData?.SaleAmountDetails || []).length > 0
+      ? billData?.SaleAmountDetails
       : f5AmtDetails.filter(a => a != null && String(a.SaleRefId) === String(id));
     setPayRows(pr => pr.map(p => {
       const found = saleAmts.find(a => a.CardAccountRefId === p.CardAccountRefId);
@@ -4471,7 +4688,7 @@ const payload = [{
           };
     }));
   // eslint-disable-next-line
-  }, [sess, billDate, perm, customers, tamilMode]);
+  }, [sess, billDate, perm, customers, tamilMode, getSaleEditHeaders]);
   const handleF5EditRequest = useCallback((id) => {
     setF5Open(false);
     pwOkRef.current = () => doEditBill(id);
@@ -4486,22 +4703,30 @@ const payload = [{
       const ok = await confirm(`Do you want to Cancel Bill "${billNo}"?`);
       if (!ok) return;
       setLoading(true); setLdMsg("Deleting...");
-      const editRes = await CC.api(CC.SaleEditUrl, null, {}, {
+      const editRes = await CC.api(CC.SaleEditUrl, null, getSaleEditHeaders(), {
         Id: id, SaleNo: 0, Date: billDate, Comid: sess.Comid,
         Cid: 0, Estimate: 0, CustId: 0, Tamil: false,
       });
       if (redirectIfDualLogin(editRes)) return;
-      const data      = Array.isArray(editRes.Data) ? editRes.Data[0] : editRes.data;
-      const srDetails = data?.[0]?.srdetails || [];
-      const saleDate  = String(data?.[0]?.SaleDate || billDate).slice(0, 10);
+      const data      = Array.isArray(editRes) ? editRes
+                       : Array.isArray(editRes?.Data) ? editRes.Data
+                       : Array.isArray(editRes?.data) ? editRes.data
+                       : Array.isArray(editRes?.Data1) ? editRes.Data1
+                       : Array.isArray(editRes?.data?.Data1) ? editRes.data.Data1
+                       : [];
+      const billData  = Array.isArray(data) ? data[0] : data;
+      const srDetails = billData?.srdetails || [];
+      const saleDate  = String(billData?.SaleDate || billDate).slice(0, 10);
       const headers   = {
         Comid: String(sess.Comid), Cid: String(sess.CashierId), SRId: "0",
         BillType: sess.BillNoType, SRStockDetails: JSON.stringify(srDetails),
-        Reason: "", Estimate: "0", MirrorTable: String(sess.MirrorTable), Updateid: "",
+        Reason: "", Estimate: "0", MirrorTable: "0", Updateid: "",
         LocalDB: "0", DayClose: sess.DayClose ? "1" : "0",
         SaleDate: saleDate, Id: String(id),
       };
-      const stockDetails = buildStockRestoreDetails(data?.[0]?.SaleDetails || []);
+      const stockDetails = Array.isArray(billData?.StockDetails) && billData.StockDetails.length > 0
+        ? billData.StockDetails
+        : buildStockRestoreDetails(billData?.SaleDetails || []);
       const res = await CC.api(CC.SaleDeleteUrl, stockDetails, headers, null);
       setLoading(false);
       if (redirectIfDualLogin(res)) return;
@@ -4515,7 +4740,7 @@ const payload = [{
       }
     };
     setPw({ title: "Delete Password" });
-  }, [sess, billDate, confirm, toast, redirectIfDualLogin, f5Rows, openF5, buildStockRestoreDetails]);
+  }, [sess, billDate, confirm, toast, redirectIfDualLogin, f5Rows, openF5, buildStockRestoreDetails, getSaleEditHeaders]);
 
   // ── Bill hold ─────────────────────────────────────────────────────────────
   const doBillHold = useCallback(async () => {
@@ -4619,6 +4844,25 @@ const payload = [{
     "SPLCESS","SPLCESSAmount","FreeQty","CDPercent","CESSPer",
   ]);
 
+  const customerNameOptions = [{ value: "", label: "" }, ...customers.map(c => ({
+    value: String(c.Id),
+    label: c.AccountName || "",
+  }))];
+
+  const customerMobileOptions = [{ value: "", label: "" }, ...customers
+    .filter(c => String(c.MobileNo || "").trim() !== "")
+    .map(c => ({
+      value: String(c.Id),
+      label: String(c.MobileNo || ""),
+    }))];
+
+  const openingBalance = editId > 0 && editBillBalances
+    ? CC.f2(CC.vn(editBillBalances.OpeningBalance))
+    : CC.f2(CC.vn(curBal));
+  const billAmountValue = CC.f2(CC.vn(totals.NetAmt));
+  const paidAmountValue = CC.f2(CC.vn(payTotals.recvd));
+  const closingBalanceValue = CC.f2(CC.vn(openingBalance) + CC.vn(billAmountValue) - CC.vn(paidAmountValue));
+
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div className="sb-wrap">
@@ -4702,16 +4946,12 @@ onView={() => {
           <div className="sb-fields-center">
             {billHoldName && <div style={{ fontSize: 11, fontWeight: 700, color: "#16a34a" }}>📌 Bill Hold: {billHoldName}</div>}
 
-            {/* Customer row */}
             <div className="sb-field-row">
-              <span className="sb-field-lbl">Customer</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
+              <span className="sb-field-lbl">Customer Name</span>
+              <div className="sb-field-input-wrap">
                 <ComboBox
                   inputRef={custRef}
-                  options={[
-                    { value: "", label: "" },
-                    ...customers.map(c => ({ value: String(c.Id), label: c.AccountName }))
-                  ]}
+                  options={customerNameOptions}
                   value={custId}
                   onChange={handleCustomerChange}
                   onCreateOption={startCustomerQuickCreate}
@@ -4731,76 +4971,59 @@ onView={() => {
                     fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                 >🔍</button>
-                <button
-                  type="button"
-                  className={`language-mode-badge ${tamilMode ? "tamil" : "english"}`}
-                  onClick={toggleTamilPrint}
-                  title="Click to switch Tamil / English"
-                  aria-label={`Current language: ${tamilMode ? "Tamil" : "English"}. Click to switch language.`}
-                >
-                  {tamilMode ? "Tamil" : "English"}
-                </button>
               </div>
-              <span className="sb-field-lbl-sm" style={{ marginLeft: 8 }}>SalesMan</span>
+            </div>
+
+            <div className="sb-field-row">
+              <span className="sb-field-lbl">MobileNo</span>
               <ComboBox
-                inputRef={smRef}
-                options={[
-                  { value: "", label: "" },
-                  ...salesmen.map(s => ({ value: String(s.Id), label: s.SalesManName }))
-                ]}
-                value={smId}
-                onChange={setSmId}
+                options={customerMobileOptions}
+                value={custId}
+                onChange={handleMobileChange}
                 onEnterKey={() => {
                   const firstRow = rowsRef.current[0];
                   if (firstRow) cellRefs.current[firstRow._rid]?.["ProductCode"]?.focus();
                 }}
-                placeholder="-- Select --"
-                style={{ maxWidth: 160 }}
+                placeholder="-- Select MobileNo --"
               />
             </div>
 
-            {/* Info row */}
             <div className="sb-field-row">
-              <span className="sb-field-lbl">CRM Value</span>
-              <span className="sb-badge-green">{crmValue}</span>
-              <span className="sb-field-lbl-sm" style={{ marginLeft: 12 }}>Current Bal</span>
-              <span className="sb-badge-green">{curBal}</span>
-              {custMobile && (
-                <>
-                  <span className="sb-field-lbl-sm" style={{ marginLeft: 12 }}>Mobile</span>
-                  <span style={{
-                    fontSize: 12, fontWeight: 700, color: "#1f65de",
-                    background: "#e8f0fe", borderRadius: 4, padding: "1px 8px",
-                    border: "1px solid #c5d8f8",
-                  }}>{custMobile}</span>
-                </>
-              )}
-              <span className="sb-field-lbl-sm" style={{ marginLeft: 12 }}>Stock</span>
-              <span className="sb-badge-red">{stockLbl}</span>
+              <span className="sb-field-lbl">Current Balance</span>
+              <span className="sb-badge-green sb-badge-value">{curBal}</span>
             </div>
           </div>
 
           <div className="sb-divider" />
 
           <div className="sb-bill-info">
-            <div className="sb-bill-amount">₹{Math.round(CC.vn(totals.NetAmt))}</div>
-            <div className="sb-bill-row"><label>Bill No</label><span>{billNo || "—"}</span></div>
-            <div className="sb-bill-row">
-              <label>Bill Date</label>
-              <DateFieldDDMMYYYY
-    id="billDate"
-    value={billDate}
-    onChange={setBillDate}
-    disabled={false}
-  />
+            <div className="sb-bill-meta-card sb-bill-col-primary">
+              <div className="sb-bill-row"><label>Bill No</label><span>{billNo || "—"}</span></div>
+              <div className="sb-bill-row">
+                <label>Bill Date</label>
+                <DateFieldDDMMYYYY
+                  id="billDate"
+                  value={billDate}
+                  onChange={setBillDate}
+                  disabled={false}
+                />
+              </div>
             </div>
-            {editId > 0 && <div style={{ fontSize: 10, color: "#16a34a", fontWeight: 700 }}>✏️ EDIT MODE</div>}
+            <div className="sb-bill-meta-card sb-bill-col-secondary">
+              <div className="sb-bill-row"><label>Last BillNo</label><span>{lastBillNo || "—"}</span></div>
+              <div className="sb-bill-row"><label>Last BillDate</label><span>{lastBillDate || "—"}</span></div>
+              <div className="sb-bill-last-amount">Last Bill Amount : {lastBillAmt > 0 ? lastBillAmt.toFixed(2) : "None"}</div>
+            </div>
+            <div className="sb-bill-amount-card sb-bill-col-amount">
+              <div className="sb-bill-amount-label">Bill Amount</div>
+              <div className="sb-bill-amount">Rs.{CC.f2(CC.vn(totals.NetAmt)).toFixed(2)}</div>
+            </div>
           </div>
         </div>
-
+        
         {/* ── Main content ── */}
         <div className="sb-content">
-
+        
           {/* ── SALE GRID ── */}
           <div className="sb-grid-wrap">
             <div className="sb-grid-scroll">
@@ -4914,12 +5137,37 @@ onView={() => {
                 </tbody>
               </table>
             </div>
+            <div className="sb-balance-strip">
+              <div className="sb-balance-row">
+                <label>Opening Balance</label>
+                <input className="sb-balance-input" value={openingBalance.toFixed(2)} readOnly />
+              </div>
+              <div className="sb-balance-row">
+                <label>Bill Amount</label>
+                <input className="sb-balance-input" value={billAmountValue.toFixed(2)} readOnly />
+              </div>
+              <div className="sb-balance-row">
+                <label>Paid Amount</label>
+                <input
+                  className="sb-balance-input"
+                  type="number"
+                  step="0.01"
+                  value={payRows.find(r => String(r.CardType || "").toUpperCase() === "CASH")?.Amount ?? (paidAmountValue ? paidAmountValue.toFixed(2) : "")}
+                  onChange={e => handlePaidAmountChange(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="sb-balance-row">
+                <label>Closing Balance</label>
+                <input className="sb-balance-input" value={closingBalanceValue.toFixed(2)} readOnly />
+              </div>
+            </div>
           </div>
 
           {/* ── PAYMENT SIDE PANEL ── */}
           <div className="sb-payment-panel">
             <div className="sb-pay-grid">
-              {/* <div className="sb-pay-hdr">💳 Payment Settlement</div> */}
+              <div className="sb-pay-hdr">Payment Settlement</div>
               <table className="sb-pay-tbl">
                 <thead><tr><th>Payment Type</th><th className="right">Amount</th></tr></thead>
                 <tbody>
@@ -4958,9 +5206,9 @@ onView={() => {
                   ))}
                 </tbody>
               </table>
-              <div style={{ padding: "4px 8px" }}>
-                <div className="sb-recv-amt">Received: ₹{payTotals.recvd.toFixed(2)}</div>
-                <div className="sb-topay-amt">{payTotals.toPay >= 0 ? "Balance" : "Return"}: ₹{Math.abs(payTotals.toPay).toFixed(2)}</div>
+              <div style={{ padding: "8px 8px 4px" }}>
+                <div className="sb-recv-amt">Received Amt : {payTotals.recvd.toFixed(2)}</div>
+                <div className="sb-topay-amt">ToPay Amt : {Math.abs(payTotals.toPay).toFixed(2)}</div>
               </div>
               <div className="sb-remarks-wrap">
                 <input
@@ -4973,100 +5221,21 @@ onView={() => {
                 />
               </div>
             </div>
-            
 
             <div className="sb-totals">
-              <div className="sb-total-row"><label>Gross Amt</label><span>{totals.GrossAmt.toFixed(2)}</span></div>
-              <div className="sb-total-row"><label>Disc Amt</label><span>{totals.DiscAmt.toFixed(2)}</span></div>
-              <div className="sb-total-row"><label>GST Amt</label><span>{totals.GSTAmt.toFixed(2)}</span></div>
-              <div className="sb-total-row"><label>CESS Amt</label><span>{totals.CESSAmt.toFixed(2)}</span></div>
+              <div className="sb-total-row"><label>Gross Amt</label><span>{CC.f2(CC.vn(totals.GrossAmt)).toFixed(2)}</span></div>
               <div className="sb-total-row">
                 <label>Others(+)</label>
-                <input className="sb-pay-input" style={{ width: 70 }} type="number" step="0.01"
+                <input className="sb-pay-input sb-total-input" type="number" step="0.01"
                   value={otherPlus} onChange={e => setOtherPlus(e.target.value)} placeholder="0.00" />
               </div>
               <div className="sb-total-row">
                 <label>Others(-)</label>
-                <input className="sb-pay-input" style={{ width: 70 }} type="number" step="0.01"
+                <input className="sb-pay-input sb-total-input" type="number" step="0.01"
                   value={otherMinus} onChange={e => setOtherMinus(e.target.value)} placeholder="0.00" />
               </div>
               <div className="sb-total-sep" />
-              <div className="sb-total-row net"><label>Net Total</label><span>₹{Math.round(CC.vn(totals.NetAmt))}</span></div>
-            </div>
-
-            {/* ── GST SPLIT ── */}
-            {gstSplit.length > 0 && (
-              <div style={{
-                background: "#fff", border: "1px solid #c5d8f8",
-                borderRadius: 6, overflow: "hidden", flexShrink: 0,
-                maxHeight: 72, display: "flex", flexDirection: "column",
-              }}>
-                <div style={{
-                  background: "#1b3a8f", color: "#fff",
-                  fontSize: 10.5, fontWeight: 700, padding: "3px 10px", flexShrink: 0,
-                }}>GST Split</div>
-                <div style={{ overflowY: "auto", flex: 1 }}>
-                  <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11 }}>
-                    <thead>
-                      <tr>
-                        {["GST%", "GST Amt", "CGST", "SGST"].map(h => (
-                          <th key={h} style={{
-                            background: "#2d4a9f", color: "#fff",
-                            fontSize: 9.5, padding: "2px 6px",
-                            border: "1px solid rgba(255,255,255,.15)",
-                            textAlign: "right", position: "sticky", top: 0,
-                          }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {gstSplit.map((g, i) => (
-                        <tr key={i} style={{ background: i % 2 === 0 ? "#f8faff" : "#fff" }}>
-                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "center", fontSize: 10.5 }}>{g.TaxPercent}%</td>
-                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "right", fontSize: 10.5 }}>{CC.f2(g.TaxAmt).toFixed(2)}</td>
-                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "right", fontSize: 10.5 }}>{CC.f2(g.CTAmount).toFixed(2)}</td>
-                          <td style={{ padding: "2px 6px", border: "1px solid #eaecf4", textAlign: "right", fontSize: 10.5 }}>{CC.f2(g.STAmount).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* ── BOTTOM INFO BAR ── */}
-            <div style={{
-              background: "#fff", border: "1px solid #c5d8f8",
-              borderRadius: 6, padding: "6px 10px", flexShrink: 0, fontSize: 12,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontWeight: 600, color: "#4a5568" }}>Item Qty</span>
-                  <span style={{
-                    background: "#e8f0fe", color: "#1f65de",
-                    fontWeight: 800, fontSize: 13, borderRadius: 4, padding: "1px 10px",
-                    border: "1px solid #c5d8f8",
-                  }}>{totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(2)}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontWeight: 600, color: "#4a5568" }}>Count</span>
-                  <span style={{
-                    background: "#e8f0fe", color: "#1f65de",
-                    fontWeight: 800, fontSize: 13, borderRadius: 4, padding: "1px 10px",
-                    border: "1px solid #c5d8f8",
-                  }}>{itemCount}</span>
-                </div>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 600, color: "#4a5568", fontSize: 11 }}>Last Bill No</span>
-                <span style={{ fontWeight: 700, color: "#1a2e4a", fontSize: 11 }}>{lastBillNo}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 600, color: "#4a5568", fontSize: 11 }}>Last Bill Amount</span>
-                <span style={{ fontWeight: 700, color: "#16a34a", fontSize: 11 }}>
-                  {lastBillAmt > 0 ? `₹${Math.round(CC.vn(lastBillAmt))}` : "None"}
-                </span>
-              </div>
+              <div className="sb-total-row net"><label>Net Total</label><span>{CC.f2(CC.vn(totals.NetAmt)).toFixed(2)}</span></div>
             </div>
           </div>
         </div>
